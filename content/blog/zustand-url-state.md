@@ -1,10 +1,10 @@
 ---
 external: false
 title: "Store Zustand State into URL, Sharing State Across the Web"
-description: "You can author content using the familiar markdown syntax you already know. All basic markdown syntax is supported."
+description: "In this tutorial, we'll explore how to Store Zustand state into the URL as a hash. Zustand is a lightweight state management framework that simplifies managing the state of your application. With URL hash storage, we can maintain the application's state even when the user navigates away from the current page. And let user copy the URL and share it with others, so that they can see the same state as the user."
 date: 2023-12-29T00:00:00.000Z
-ogImagePath: /images/blogster.png
-ogImageAltText: Blogster
+ogImagePath: /images/zustand-og.png
+ogImageAltText: zustand-og
 ogImageWidth: 1200
 ogImageHeight: 630
 draft: false
@@ -15,7 +15,7 @@ tags:
   - tips
 ---
 
-![Blogster](/images/blogster.png)
+![Zustand](/images/zustand-og.png)
 
 ## Introduction
 
