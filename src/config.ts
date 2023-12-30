@@ -4,7 +4,7 @@
 export const SITE_TITLE = "Say Backend";
 export const SITE_DESCRIPTION = "Welcome to my Say Backend";
 export const TWITTER_HANDLE = "@saybackend";
-export const MY_NAME = "Say Backend";
+export const MY_NAME = "SkyWonder";
 
 // setup in astro.config.mjs
 const BASE_URL = new URL(import.meta.env.SITE);
