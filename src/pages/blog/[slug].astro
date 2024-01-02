@@ -6,6 +6,8 @@ import ContentLayout from "../../layouts/ContentLayout.astro";
 import { blog } from "../../lib/markdoc/frontmatter.schema";
 import { readAll, readOne } from "../../lib/markdoc/read";
 
+export const prerender = true;
+
 export async function getStaticPaths() {
   const posts = await readAll({
     directory: "blog",
@@ -32,13 +34,11 @@ const { content, frontmatter } = await readOne({
   slug,
   frontmatterSchema: blog,
 });
-console.log({ content, frontmatter });
 
 const ogImageAbsoluteUrl =
   frontmatter.external !== true && frontmatter.ogImagePath
     ? new URL(frontmatter.ogImagePath, SITE_URL).toString()
     : undefined;
-console.log(ogImageAbsoluteUrl);
 ---
 
 <ContentLayout title={frontmatter.title} date={frontmatter.date}>
