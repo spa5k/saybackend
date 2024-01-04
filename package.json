@@ -23,6 +23,7 @@
     "@tailwindcss/typography": "^0.5.10",
     "@vercel/analytics": "^1.1.1",
     "astro": "^4.0.8",
+    "astro-compress": "^2.2.5",
     "astro-google-fonts-optimizer": "^0.2.2",
     "astro-markdoc-renderer": "0.0.1-alpha.1",
     "globby": "^13.1.3",
