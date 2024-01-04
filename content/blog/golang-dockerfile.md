@@ -15,7 +15,7 @@ tags:
   - tips
 ---
 
-![Zustand](/images/zustand-og.png)
+<img src="/images/zustand-og.png" alt="Zustand" width="400px" height="250px">
 
 ## Introduction
 
