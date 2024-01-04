@@ -2,6 +2,7 @@
 import sitemap from "@astrojs/sitemap";
 import tailwind from "@astrojs/tailwind";
 import vercel from "@astrojs/vercel/static";
+import compress from "astro-compress";
 import { defineConfig } from "astro/config";
 
 /*
@@ -40,6 +41,7 @@ export default defineConfig({
         applyBaseStyles: false,
       },
     }),
+    compress(),
   ],
   adapter: vercel({
     webAnalytics: {
