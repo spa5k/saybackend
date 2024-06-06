@@ -17,7 +17,7 @@
     "@astrojs/sitemap": "^3.1.5",
     "@astrojs/tailwind": "^5.1.0",
     "@vercel/speed-insights": "^1.0.11",
-    "astro": "^4.9.2",
+    "astro": "^4.9.3",
     "astro-pagefind": "^1.5.0",
     "clsx": "^2.1.1",
     "rough-notation": "^0.5.1",
@@ -33,5 +33,6 @@
     "prettier-plugin-astro": "^0.14.0",
     "prettier-plugin-organize-imports": "^3.2.4",
     "prettier-plugin-tailwindcss": "^0.6.1"
-  }
+  },
+  "packageManager": "pnpm@9.2.0"
 }
