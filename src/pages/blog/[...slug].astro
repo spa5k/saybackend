@@ -8,7 +8,6 @@ import BackToPrevious from "@components/BackToPrevious.astro";
 import PostNavigation from "@components/PostNavigation.astro";
 import TableOfContents from "@components/TableOfContents.astro";
 import Giscus from "@components/Giscus.astro";
-import Head from "@components/Head.astro";
 
 export async function getStaticPaths() {
   const posts = (await getCollection("blog"))
