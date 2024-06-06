@@ -1,0 +1,150 @@
+---
+title: "Best Dockerfile for Golang, Optimize Your Dockerfile"
+description: "Create best Dockerfile for Golang, optimize your Dockerfile for Golang and make it blazingly fast! 🔥"
+date: "2024-06-06"
+tags:
+  - "docker"
+  - "golang"
+  - "dockerfile"
+  - "optimization"
+  - "best-practices"
+  - "performance"
+ogImage: "/images/golang-dockerfile-og.svg"
+---
+
+import Notation from "@/components/Notation.astro";
+
+---
+
+![Golang](/images/golang-dockerfile-og.svg)
+
+## Introduction
+
+Creating a Dockerfile for Golang to containerize your application is a good practice, but sometimes, you can optimize it even more by using various techniques that we will be discussing in this article.
+
+## Generic Dockerfile
+
+Generally, you will find this common Dockerfile for Golang:
+
+> It's always recommended to use the latest version of Golang, <Notation>(but don't use the latest tag, keep the version hardcoded)</Notation>
+
+```dockerfile
+# syntax=docker/dockerfile:1
+FROM golang:1.22-alpine
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+
+RUN go mod download
+
+COPY . .
+
+RUN go build -o main .
+
+CMD ["./main"]
+```
+
+## Optimized Dockerfile
+
+To optimize your Dockerfile, you can use multi-stage builds, which help reduce the final image size and improve build times. Here is an optimized version of the Dockerfile:
+
+```dockerfile
+# syntax=docker/dockerfile:1
+# Build stage
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux go build -o main .
+
+# Final stage
+FROM alpine:latest
+
+WORKDIR /root/
+
+COPY --from=builder /app/main .
+
+CMD ["./main"]
+```
+
+### Explanation
+
+- **Multi-stage builds**: By using multi-stage builds, we can separate the build environment from the runtime environment. This helps in keeping the final image lightweight.
+- **Alpine base image**: Using `alpine:latest` as the base image for the final stage ensures a minimal footprint.
+- **Environment variables**: Setting `CGO_ENABLED=0` and `GOOS=linux` ensures that the binary is statically linked and compatible with Linux.
+- **Caching**: Using multi stage builds, we can use the Docker multi stage build cache to cache the dependencies and intermediate layers, which speeds up the build process.
+
+## Additional Optimization Tips
+
+### Use .dockerignore
+
+Create a `.dockerignore` file to exclude unnecessary files from the build context, which can speed up the build process and reduce the image size.
+
+```plaintext
+# .dockerignore
+.git
+node_modules
+dist
+```
+
+> Make sure only the files needed for the build are included in the build context. and the assets that are needed.
+
+### <Notation color="#565656">Cache Dependencies</Notation>
+
+Leverage Docker's layer caching by copying `go.mod` and `go.sum` files first and running `go mod download` before copying the rest of the application files. This way, dependencies are only downloaded if they change.
+
+### Minimize Layers
+
+Combine multiple `RUN` commands into a single layer to reduce the number of layers in the final image.
+
+```dockerfile
+RUN apk add --no-cache git && \
+    go mod download && \
+    go build -o main .
+```
+
+### Use Scratch Base Image
+
+For the smallest possible image, you can use the `scratch` base image. This is useful for simple applications that do not require any additional libraries.
+
+```dockerfile
+# syntax=docker/dockerfile:1
+# Build stage
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux go build -o main .
+
+# Final stage
+FROM scratch
+
+COPY --from=builder /app/main .
+
+CMD ["./main"]
+```
+
+## Conclusion
+
+By following these optimization techniques, you can create a more efficient and faster Dockerfile for your Golang applications. This not only improves the performance but also reduces the size of your Docker images, making them easier to distribute and deploy.
+
+<Notation type="bracket">
+  Remember, optimizing your Dockerfile is an ongoing process. Continuously
+  monitor and refine your Dockerfile to ensure it meets the needs of your
+  application and deployment environment.
+</Notation>
+
+**_Never add <Notation type="underline"> secrets or sensitive information </Notation> directly in the Dockerfile. Use environment variables or Docker secrets for sensitive information._**
