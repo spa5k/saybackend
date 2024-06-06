@@ -4,7 +4,6 @@ import Head from "@components/Head.astro";
 import Header from "@components/Header.astro";
 import PageFind from "@components/PageFind.astro";
 import { SITE } from "@consts";
-import { ViewTransitions } from "astro:transitions";
 type Props = {
   title: string;
   description: string;
@@ -22,7 +21,7 @@ const { title, description, image } = Astro.props;
       description={description}
       image={image}
     />
-    <ViewTransitions />
+    <!-- <ViewTransitions /> -->
   </head>
   <body>
     <Header />
