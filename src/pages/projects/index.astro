@@ -1,9 +1,11 @@
 ---
-import { getCollection } from "astro:content";
-import Layout from "@layouts/Layout.astro";
-import Container from "@components/Container.astro";
+export const prerender = true;
+
 import ArrowCard from "@components/ArrowCard.astro";
+import Container from "@components/Container.astro";
 import { PROJECTS } from "@consts";
+import Layout from "@layouts/Layout.astro";
+import { getCollection } from "astro:content";
 
 const projects = (await getCollection("projects"))
   .filter((project) => !project.data.draft)

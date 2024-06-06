@@ -1,12 +1,14 @@
 ---
-import { type CollectionEntry, getCollection } from "astro:content";
-import Layout from "@layouts/Layout.astro";
+export const prerender = true;
+
+import BackToPrevious from "@components/BackToPrevious.astro";
 import Container from "@components/Container.astro";
 import FormattedDate from "@components/FormattedDate.astro";
-import { readingTime } from "@lib/utils";
-import BackToPrevious from "@components/BackToPrevious.astro";
 import Link from "@components/Link.astro";
 import TableOfContents from "@components/TableOfContents.astro";
+import Layout from "@layouts/Layout.astro";
+import { readingTime } from "@lib/utils";
+import { getCollection, type CollectionEntry } from "astro:content";
 
 export async function getStaticPaths() {
   const projects = (await getCollection("projects"))
