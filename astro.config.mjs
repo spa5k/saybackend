@@ -1,5 +1,4 @@
 import tailwind from "@astrojs/tailwind";
-import vercel from "@astrojs/vercel/static";
 import { defineConfig } from "astro/config";
 
 import mdx from "@astrojs/mdx";
@@ -15,12 +14,4 @@ export default defineConfig({
       theme: "css-variables",
     },
   },
-  adapter: vercel({
-    webAnalytics: {
-      enabled: true,
-    },
-    speedInsights: {
-      enabled: true,
-    },
-  }),
 });
