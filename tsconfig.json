@@ -1,27 +1,10 @@
 {
   "extends": "astro/tsconfigs/strict",
-  "display": "theme/newspaper",
   "compilerOptions": {
-    "verbatimModuleSyntax": true,
-    "plugins": [
-      {
-        "name": "@astrojs/ts-plugin"
-      }
-    ],
+    "strictNullChecks": true,
     "baseUrl": ".",
     "paths": {
-      "@components/*": [
-        "src/components/*"
-      ],
-      "@layouts/*": [
-        "src/layouts/*"
-      ],
-      "@lib/*": [
-        "src/lib/*"
-      ],
-      "@styles/*": [
-        "src/styles/*"
-      ]
+      "@*": ["./src/*"]
     }
   }
 }

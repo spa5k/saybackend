@@ -1,73 +1,128 @@
 ---
-import { blog } from "src/lib/markdoc/frontmatter.schema";
-import { readAll } from "src/lib/markdoc/read";
-import Intro from "../components/Intro.astro";
-import PageMeta from "../components/PageMeta.astro";
-import { SITE_TITLE } from "../config";
-import PageLayout from "../layouts/PageLayout.astro";
-const posts = await readAll({
-  directory: "blog",
-  frontmatterSchema: blog,
-});
+import ArrowCard from "@components/ArrowCard.astro";
+import Container from "@components/Container.astro";
+import Link from "@components/Link.astro";
+import { HOME, SITE, SOCIALS } from "@consts";
+import Layout from "@layouts/Layout.astro";
+import type { CollectionEntry } from "astro:content";
+import { getCollection } from "astro:content";
 
-const sortedPosts = posts
-  .filter((p) => p.frontmatter.draft !== true)
-  .sort(
-    (a, b) =>
-      new Date(b.frontmatter.date).valueOf() -
-      new Date(a.frontmatter.date).valueOf()
-  );
+const blog = (await getCollection("blog"))
+  .filter((post) => !post.data.draft)
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+  .slice(0, SITE.NUM_POSTS_ON_HOMEPAGE);
+
+const projects: CollectionEntry<"projects">[] = (
+  await getCollection("projects")
+)
+  .filter((project) => !project.data.draft)
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+  .slice(0, SITE.NUM_PROJECTS_ON_HOMEPAGE);
 ---
 
-<PageLayout>
-  <PageMeta title={`${SITE_TITLE} | SkyWonder`} slot="meta" />
-  <Fragment slot="main">
-    <Intro />
-    <h2 class="text-3xl">Blogs</h2>
-    <section class="mt-4">
-      <ul>
-        {
-          sortedPosts.map((post) => {
-            const formattedDate = new Date(
-              post.frontmatter.date
-            ).toLocaleDateString("en-us", {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-            });
-            return (
-              <li class="grid grid-cols-[1fr] md:grid-cols-[1fr_auto] mb-3 md:gap-2 items-start">
-                <div class="title">
-                  {post.frontmatter.external ? (
-                    <a
-                      href={post.frontmatter.url}
-                      target="_blank"
-                      class="unset hover:text-text-link"
-                    >
-                      <span>{post.frontmatter.title}</span>
-                      <span>
-                        <i class="ml-1 mr-1 text-[12px] pb-2 fa-solid fa-up-right-from-square" />
-                      </span>
-                    </a>
-                  ) : (
-                    <a
-                      href={`/blog/${post.slug}`}
-                      class="unset hover:text-text-link"
-                    >
-                      {post.frontmatter.title}
-                    </a>
-                  )}
-                </div>
-                <div class="text-text-muted text-sm italic pt-1">
-                  <time datetime={post.frontmatter.date.toISOString()}>
-                    {formattedDate}
-                  </time>
-                </div>
+<Layout title={HOME.TITLE} description={HOME.DESCRIPTION}>
+  <Container>
+    <h1 class="animate font-mono font-semibold text-black dark:text-white">
+      Welcome to SayBackend
+    </h1>
+    <div class="space-y-16">
+      <section>
+        <article class="space-y-4">
+          <span class="animate">
+            <p>
+              SayBackend is your go-to resource for backend and DevOps topics.
+              Dive into our articles to learn about the latest trends, best
+              practices, and tools in the industry.
+            </p>
+            <p>
+              Whether you're a seasoned developer or just starting out,
+              SayBackend has something for everyone. Explore our tutorials,
+              guides, and project showcases to enhance your backend and DevOps
+              skills.
+            </p>
+          </span>
+          <span class="animate">
+            <p>
+              Stay updated with our latest posts and projects. We cover a wide
+              range of topics including server management, CI/CD pipelines,
+              cloud services, and much more.
+            </p>
+            <p>
+              Visit our <Link href="/blog">blog</Link> and <Link
+                href="/projects">projects</Link
+              > sections to get started.
+            </p>
+          </span>
+        </article>
+      </section>
+
+      <section class="animate space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-y-2">
+          <h2 class="font-semibold text-black dark:text-white">Latest posts</h2>
+          <Link href="/blog"> See all posts </Link>
+        </div>
+        <ul class="not-prose flex flex-col gap-4">
+          {
+            blog.map((post) => (
+              <li>
+                <ArrowCard entry={post} />
               </li>
-            );
-          })
-        }
-      </ul>
-    </section>
-  </Fragment>
-</PageLayout>
+            ))
+          }
+        </ul>
+      </section>
+
+      <section class="animate space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-y-2">
+          <h2 class="font-semibold text-black dark:text-white">
+            Recent projects
+          </h2>
+          <Link href="/projects"> See all projects </Link>
+        </div>
+        <ul class="not-prose flex flex-col gap-4">
+          {
+            projects.map((project) => (
+              <li>
+                <ArrowCard entry={project} />
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+
+      <section class="animate space-y-4">
+        <h2 class="font-semibold text-black dark:text-white">Let's Connect</h2>
+        <article>
+          <p>
+            If you want to get in touch with us about something or just to say
+            hi, reach out on social media or send us an email.
+          </p>
+        </article>
+        <ul class="not-prose flex flex-wrap gap-2">
+          {
+            SOCIALS.map((SOCIAL) => (
+              <li class="flex gap-x-2 text-nowrap">
+                <Link
+                  href={SOCIAL.HREF}
+                  external
+                  aria-label={`${SITE.TITLE} on ${SOCIAL.NAME}`}
+                >
+                  {SOCIAL.NAME}
+                </Link>
+                {"/"}
+              </li>
+            ))
+          }
+          <li class="line-clamp-1">
+            <Link
+              href={`mailto:${SITE.EMAIL}`}
+              aria-label={`Email ${SITE.TITLE}`}
+            >
+              {SITE.EMAIL}
+            </Link>
+          </li>
+        </ul>
+      </section>
+    </div>
+  </Container>
+</Layout>
