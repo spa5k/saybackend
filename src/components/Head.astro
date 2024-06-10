@@ -6,6 +6,7 @@ interface Props {
   description: string;
   image?: string;
 }
+import { ViewTransitions } from "astro:transitions";
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
@@ -67,9 +68,9 @@ const { title, description, image = "/images/blog.png " } = Astro.props;
   import { Code, Debug } from "astro:components";
 </script>
 
-<!-- <ViewTransitions /> -->
+<ViewTransitions />
 
-<script is:inline>
+<script is:inline defer>
   function init() {
     preloadTheme();
     onScroll();
