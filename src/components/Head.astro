@@ -1,7 +1,8 @@
 ---
 import "../styles/global.css";
 import { ViewTransitions } from "astro:transitions";
-
+import { join } from "node:path";
+import { AstroFont } from "astro-font";
 import "@fontsource/lexend";
 
 interface Props {
@@ -24,14 +25,24 @@ const { title, description, image = "/images/blog.png" } = Astro.props;
   href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>"
 />
 <meta name="generator" content={Astro.generator} />
-<link
-  rel="preload"
-  href="/fonts/monolisa.ttf"
-  as="font"
-  type="font/woff2"
-  crossorigin
+<AstroFont
+  config={[
+    {
+      name: "Geist_Mono",
+      src: [
+        {
+          style: "normal",
+          weight: "400",
+          path: join(process.cwd(), "public", "fonts", "geist-mono.woff2"),
+        },
+      ],
+      preload: true,
+      display: "swap",
+      fallback: "sans-serif",
+      cssVariable: "font-geist-mono",
+    },
+  ]}
 />
-
 <!-- Canonical URL -->
 <link rel="canonical" href={canonicalURL} />
 
