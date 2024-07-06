@@ -1,36 +1,29 @@
 ---
 import "../styles/global.css";
+import { ViewTransitions } from "astro:transitions";
+
+import "@fontsource/lexend";
 
 interface Props {
   title: string;
   description: string;
   image?: string;
 }
-import { ViewTransitions } from "astro:transitions";
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
-const { title, description, image = "/images/blog.png " } = Astro.props;
+const { title, description, image = "/images/blog.png" } = Astro.props;
 ---
 
 <!-- Global Metadata -->
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link
   rel="icon"
   href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>"
 />
 <meta name="generator" content={Astro.generator} />
-
-<!-- Font preloads -->
-<link
-  rel="preload"
-  href="/fonts/lexend.ttf"
-  as="font"
-  type="font/woff2"
-  crossorigin
-/>
 <link
   rel="preload"
   href="/fonts/monolisa.ttf"
@@ -63,14 +56,11 @@ const { title, description, image = "/images/blog.png " } = Astro.props;
 
 <!-- PageFind -->
 <link href="/pagefind/pagefind-ui.css" rel="stylesheet" />
-<script is:inline src="/pagefind/pagefind-ui.js">
-  import { Image, Picture } from "astro:assets";
-  import { Code, Debug } from "astro:components";
-</script>
+<script is:inline src="/pagefind/pagefind-ui.js"></script>
 
 <ViewTransitions />
 
-<script is:inline defer>
+<script is:inline>
   function init() {
     preloadTheme();
     onScroll();
@@ -178,11 +168,11 @@ const { title, description, image = "/images/blog.png " } = Astro.props;
     css.appendChild(
       document.createTextNode(
         `* {
-             -webkit-transition: none !important;
-             -moz-transition: none !important;
-             -o-transition: none !important;
-             -ms-transition: none !important;
-             transition: none !important;
+              -webkit-transition: none !important;
+              -moz-transition: none !important;
+              -o-transition: none !important;
+              -ms-transition: none !important;
+              transition: none !important;
           }
         `,
       ),
