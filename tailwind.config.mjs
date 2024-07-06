@@ -7,7 +7,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ["Lexend", ...defaultTheme.fontFamily.sans],
-        mono: ["MonoLisa Variable", ...defaultTheme.fontFamily.mono],
+        mono: ["var(--font-geist-mono)"],
       },
     },
   },
