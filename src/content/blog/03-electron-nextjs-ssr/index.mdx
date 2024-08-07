@@ -1,31 +1,33 @@
 ---
-title: "Building an app with Next.js and Electron with SSR and Server Components support"
-description: "Learn how to build an app with Next.js and Electron with SSR and Server Components support"
-date: "2024-07-06"
+title: "Building an app with Next.js and Electron with  Server Components support"
+description: "Learn how to build an app with Next.js and Electron with Server Components support"
+date: "2024-08-07"
 tags:
-  - "docker"
-  - "golang"
-  - "dockerfile"
-  - "optimization"
-  - "best-practices"
-  - "performance"
-ogImage: "/images/dockerfile-golang-og.png"
-draft: true
+  - "electron"
+  - "nextjs"
+  - "ssr"
+  - "rsc"
+  - "react-server-components"
+  - "server-components"
+ogImage: "/images/3-electron-nextjs/nextjs_electron_og.png"
+draft: false
 ---
 
 import Notation from "@/components/Notation.astro";
 
 ---
 
-![NextJS-electron](/images/dockerfile-golang-og.png)
+![NextJS-electron](/images/3-electron-nextjs/nextjs_electron_og.png)
 
 ## Introduction
 
 There are not many ways one can build an app with Electron and Next.js, one of them being the typical Static Site Generation (SSG) approach.
-However, this results in you losing large amount of functionality and dynamic content behaviour that you would be getting with SSR, or React Server Components (RSCs).
+However, this results in you losing large amount of functionality and dynamic content that you would be getting with React Server Components (RSCs).
 And you won't be able to deploy same codebase to the web and desktop. Or you can use Vite in Electron, Next.js in web for the SSR, but that gets too complex especially since the days RSC came out.
 
-So, let's see how we can build an app with Next.js and Electron with SSR and Server Components support.
+So, let's see how we can build an app with Next.js and Electron with Server Components support.
+
+> If you just want to see the code, you can find it <Notation >[here](https://github.com/spa5k/nextjs_approuter_electron) </Notation>
 
 ## What are Server Components?
 
@@ -34,8 +36,8 @@ Server Components, or RSCs, are a new way to build React apps that offloads the 
 It results in sending less javascript to the client, and the server can do the heavy lifting of rendering the components. Quite useful to build websites that require a lot of dynamic content that is fetched from the server.
 
 <Notation type="bracket">
-  This is just the primer, but you can read more about it
-  [here](https://react.dev/blog/2020/12/21/data-fetching-with-react-server-components).
+  This is just the primer, but you can read more about it [in the official
+  docs](https://react.dev/blog/2020/12/21/data-fetching-with-react-server-components).
 </Notation>
 
 ## Setting up the project
@@ -75,7 +77,7 @@ export default nextConfig;
 
 ```json
 {
-  "main": "dist/main.js"
+  "main": "build/main.js"
 }
 ```
 
@@ -126,7 +128,7 @@ export default nextConfig;
   }
 ```
 
-> Preferable, create a Makefile to run the commands, as it gets too complex to run them individually.
+> Preferable, create a Makefile to run the commands, as it gets too complex to run them individually. You can find one Makefile [here](https://github.com/spa5k/nextjs_approuter_electron/blob/main/Makefile)
 
 7. We almost forgot to also add the tsup config file, tsup.config.ts
 
@@ -204,7 +206,7 @@ const createWindow = () => {
 const startNextJSServer = async () => {
   try {
     const nextJSPort = await getPort({ portRange: [30011, 50000] });
-    const webDir = join(dirname(dirname(app.getAppPath())), "web");
+    const webDir = join(app.getAppPath(), "app");
 
     await startServer({
       dir: webDir,
@@ -260,7 +262,7 @@ The port situation is where it gets different from other ways to do electron app
 
 ```ts
 const nextJSPort = await getPort({ portRange: [30011, 50000] }); // It's better to use a range, as it's less likely to be used by other apps.
-const webDir = join(dirname(dirname(app.getAppPath())), "web"); // This is where the Next.js build is stored.
+const webDir = join(app.getAppPath(), "app"); // This is where the Next.js build is stored.
 
 await startServer({
   dir: webDir,
@@ -301,11 +303,21 @@ Now, you can run the app by running the following command:
 npm run dev
 ```
 
+or
+
+```bash
+make dev
+```
+
 This will start the Next.js, Tsup in watch mode for the electron, and nodemon to watch the transpiled files.
 
 Now you will see the window pop up with the Next.js app running in it. You can now try editing any Next.js file and it will automatically reload the app through HMR. Pretty easy right?
 
 Similarly you can also edit the Electron files and it will reload the app, the window will close and open again with the changes.
+
+[![NextJS-electron](/images/3-electron-nextjs/app.png)](/images/3-electron-nextjs/app.png)
+
+As you can see, we are getting a perfectly running server component, a client component, and a way to call electron for native functionalities.
 
 ## Sending commands to Electron from Next.js
 
@@ -333,7 +345,11 @@ And in the main.ts file, you can listen to the ping command like this:
 ipcMain.on("ping", () => console.log("pong"));
 ```
 
-And that's it! You have successfully built an app with Next.js and Electron with SSR and Server Components support.
+And that's it! You have successfully built an app with Next.js and Electron with Server Components support.
+
+Click on the Ping Electron button, and you will see the pong message in the console.
+
+[![NextJS-electron](/images/3-electron-nextjs/terminal.png)](/images/3-electron-nextjs/terminal.png)
 
 Try creating a server component, you will see it's working as expected, and the server is doing the heavy lifting of pre rendering the components.
 
@@ -342,9 +358,11 @@ Try creating a server component, you will see it's working as expected, and the 
 To package the app, you can run the following command:
 
 ```bash
-npm run package
+npm run electron:dist
 ```
 
-> NOTE: This is only set it output it as a directory, you can change it to a different format, like .exe, .dmg, etc. by changing the `--dir` whatever you want accordingly.
+```bash
+make electron_dist
+```
 
-Navi
+Current it's only packaging it as the dir, you can change it to deb, or dmg, or any other format you want.
