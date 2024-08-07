@@ -1,5 +1,5 @@
 ---
-title: "Building an app with Next.js and Electron with  Server Components support"
+title: "Building an App with Next.js and Electron with Server Components Support"
 description: "Learn how to build an app with Next.js and Electron with Server Components support"
 date: "2024-08-07"
 tags:
@@ -21,44 +21,48 @@ import Notation from "@/components/Notation.astro";
 
 ## Introduction
 
-There are not many ways one can build an app with Electron and Next.js, one of them being the typical Static Site Generation (SSG) approach.
-However, this results in you losing large amount of functionality and dynamic content that you would be getting with React Server Components (RSCs).
-And you won't be able to deploy same codebase to the web and desktop. Or you can use Vite in Electron, Next.js in web for the SSR, but that gets too complex especially since the days RSC came out.
+Building an app with Electron and Next.js can be challenging, especially if you want to use React Server Components (RSCs). The typical Static Site Generation (SSG) approach often results in losing a significant amount of functionality and dynamic content.
 
-So, let's see how we can build an app with Next.js and Electron with Server Components support.
+Moreover, deploying the same codebase to both web and desktop can be complex. Using Vite in Electron and Next.js for SSR is an option, but it becomes cumbersome, especially with the advent of RSCs, using same components for both client and server is not possible without hacks.
 
-> If you just want to see the code, you can find it <Notation >[here](https://github.com/spa5k/nextjs_approuter_electron) </Notation>
+In this blog, we'll explore how to build an app with Next.js and Electron with Server Components support.
+
+> If you just want to see the code, you can find it <Notation>[here](https://github.com/spa5k/nextjs_approuter_electron)</Notation>.
 
 ## What are Server Components?
 
-Server Components, or RSCs, are a new way to build React apps that offloads the rendering of components to the server. This means that you can build your app with the same components you would use for client-side rendering, but the server will render them for you. This can help improve performance and reduce the amount of code you need to write.
+Server Components, or RSCs, are a new way to build React apps that offload the rendering of components to the server. This means you can build your app with the same components used for client-side rendering, but the server will render them for you. This can help improve performance and reduce the amount of code you need to write.
 
-It results in sending less javascript to the client, and the server can do the heavy lifting of rendering the components. Quite useful to build websites that require a lot of dynamic content that is fetched from the server.
+RSCs result in sending less JavaScript to the client, allowing the server to handle the heavy lifting of rendering the components. This is particularly useful for building websites that require a lot of dynamic content fetched from the server.
 
 <Notation type="bracket">
-  This is just the primer, but you can read more about it [in the official
+  This is just a quick info, but you can read more about React server components
+  [in the official
   docs](https://react.dev/blog/2020/12/21/data-fetching-with-react-server-components).
 </Notation>
 
-## Setting up the project
+## How it will look like?
 
-1. First, let's create a new Next.js project:
+> [![NextJS-electron](/images/3-electron-nextjs/app.png)](/images/3-electron-nextjs/app.png)
+
+## Setting Up the Project
+
+1. **Create a New Next.js Project:**
 
 ```bash
 npx create-next-app@latest nextjs-electron
 ```
 
-2. Now install the dependencies needed. For this, we need to install `electron` and `electron-builder` and `tsup` for transpiling the electron typescript files.
+2. **Install Dependencies:**
 
 ```bash
 npm install electron electron-builder tsup nodemon npm-run-all cross-env -D
-```
-
-```bash
 npm install get-port-please @electron-toolkit/utils
 ```
 
-3. Update the Next.js config next.config.js to make it output as 'standalone' so that we can use it. Don't worry, vercel easily handles it, or you can just add a condition to set it only when its needed for electron.
+3. **Update Next.js Config:**
+
+Update `next.config.js` to output as 'standalone':
 
 ```js
 /** @type {import('next').NextConfig} */
@@ -70,10 +74,11 @@ const nextConfig = {
 export default nextConfig;
 ```
 
-> Output as 'standalone' results in a pretty small package that we can use in electron, with trimmed node_modules and everything.
-> TIP: This is also the best way when you are going to self host the Next.js app, as it results in a smaller package.
+> Outputting as 'standalone' results in a smaller package that we can use in Electron, with trimmed `node_modules`. This is also the best way when self-hosting the Next.js app.
 
-4. Update your <Notation type="underline">package.json</Notation> to point to the electron transpiled file.
+4. **Update `package.json`:**
+
+Point to the transpiled file in the `main` key:
 
 ```json
 {
@@ -81,74 +86,97 @@ export default nextConfig;
 }
 ```
 
-5. Also add these to your <Notation type="underline">package.json</Notation> so that electron knows what files to bundle for it to include your Next.js build.
+Add the following to ensure Electron knows what files to bundle:
 
 ```json
-  "build": {
-    "asar": true,
-    "executableName": "Electron_Nextjs",
-    "files": [
-      "main"
-    ],
-    "productName": "Electron_Nextjs",
-    "extraFiles": [
-      {
-        "from": ".next/standalone",
-        "to": "web"
-      },
-      {
-        "from": ".next/static",
-        "to": "web/.next/static"
-      },
-      {
-        "from": "public",
-        "to": "web/public"
-      }
+"build": {
+  "asar": true,
+  "executableName": "NextJSElectron",
+  "appId": "com.saybackend.nextjs-electron",
+  "asarUnpack": [
+    "node_modules/next",
+    "node_modules/@img",
+    "node_modules/sharp",
+    "**\\*.{node,dll}"
+  ],
+  "files": [
+    "build",
+    {
+      "from": ".next/standalone",
+      "to": "app",
+      "filter": [
+        "!**/.env",
+        "!**/package.json"
+      ]
+    },
+    {
+      "from": ".next/static",
+      "to": "app/.next/static"
+    },
+    {
+      "from": "public",
+      "to": "app/public"
+    }
+  ],
+  "win": {
+    "target": [
+      "nsis"
     ]
+  },
+  "linux": {
+    "target": [
+      "deb"
+    ],
+    "category": "Development"
   }
+}
 ```
 
-6. We are halfway there. Now let's add the scripts to run the electron and next.js.
+5. **Add Scripts to `package.json`:**
 
 ```json
-  "scripts": {
-    "next:dev": "next dev",
-    "next:build": "next build",
-    "next:start": "next start",
-    "next:lint": "next lint",
-    "postinstall": "electron-builder install-app-deps",
-    "electron:build": "tsup",
-    "build": "run-s next:build electron:build",
-    "dist": "run-s next:build electron:dist",
-    "dev": "npm-run-all --parallel electron:dev next:dev",
-    "electron:build_watch": "tsup --watch",
-    "electron:dev": "npm-run-all --parallel electron:build_watch electron:watch",
-    "electron:watch": "cross-env NODE_ENV='development' nodemon",
-    "package": "electron-builder --dir"
-  }
+"scripts": {
+  "next:dev": "next dev",
+  "next:build": "next build",
+  "next:start": "next start",
+  "next:lint": "next lint",
+  "format": "dprint fmt",
+  "postinstall": "electron-builder install-app-deps",
+  "electron:dist": "electron-builder --dir",
+  "electron:dist:deb": "electron-builder --linux deb",
+  "electron:build": "tsup",
+  "build": "run-s next:build electron:build",
+  "dist": "run-s next:build electron:dist",
+  "dev": "npm-run-all --parallel electron:dev next:dev",
+  "electron:build_watch": "tsup --watch",
+  "electron:dev": "npm-run-all --parallel electron:build_watch electron:watch",
+  "electron:watch": "cross-env NODE_ENV='development' nodemon"
+}
 ```
 
-> Preferable, create a Makefile to run the commands, as it gets too complex to run them individually. You can find one Makefile [here](https://github.com/spa5k/nextjs_approuter_electron/blob/main/Makefile)
+> Preferably, create a Makefile to run the commands, as it gets too complex to run them individually. You can find one Makefile [here](https://github.com/spa5k/nextjs_approuter_electron/blob/main/Makefile).
 
-7. We almost forgot to also add the tsup config file, tsup.config.ts
+6. **Add `tsup.config.ts`:**
 
 ```ts
 import { defineConfig } from "tsup";
 
 export default defineConfig({
   entry: ["./electron/main.ts", "./electron/preload.ts"],
+  splitting: false,
+  sourcemap: false,
   clean: true,
   cjsInterop: true,
   skipNodeModulesBundle: true,
   treeshake: true,
-  outDir: "dist",
+  outDir: "build",
   external: ["electron"],
-  format: ["cjs"], // Can't use esm, as electron doesn't support it
+  format: ["cjs"],
   bundle: true,
 });
 ```
 
-Also the nodemon config file at the root of the project, nodemon.json
+7. **Add `nodemon.json`:**
 
 ```json
 {
@@ -159,28 +187,27 @@ Also the nodemon config file at the root of the project, nodemon.json
 }
 ```
 
-It's quite alright since you need to setup it up only once.
+## Electron Setup
 
-## Electron setup.
+Create a new folder called `electron`, and add two files: `main.ts` and `preload.ts`.
 
-Since we have already defined how to build, transpile electron, the files it needs to add for the Next.js to run. It's time for the main part.
-
-Create a new folder called electron, and add 2 files there,<Notation> main.ts</Notation> and <Notation>preload.ts</Notation>.
-
-and Add the following code to main.ts
+### `main.ts`
 
 ```ts
-import { electronApp, is, optimizer } from "@electron-toolkit/utils";
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { is } from "@electron-toolkit/utils";
+import { app, BrowserWindow, ipcMain } from "electron";
 import { getPort } from "get-port-please";
 import { startServer } from "next/dist/server/lib/start-server";
-import { join, dirname } from "path";
+import { join } from "path";
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
-    webPreferences: { preload: join(__dirname, "preload.js") },
+    webPreferences: {
+      preload: join(__dirname, "preload.js"),
+      nodeIntegration: true,
+    },
   });
 
   mainWindow.on("ready-to-show", () => mainWindow.show());
@@ -205,7 +232,7 @@ const createWindow = () => {
 
 const startNextJSServer = async () => {
   try {
-    const nextJSPort = await getPort({ portRange: [30011, 50000] });
+    const nextJSPort = await getPort({ portRange: [30_011, 50_000] });
     const webDir = join(app.getAppPath(), "app");
 
     await startServer({
@@ -227,10 +254,8 @@ const startNextJSServer = async () => {
 };
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId("com.electron");
-  app.on("browser-window-created", (_, window) =>
-    optimizer.watchWindowShortcuts(window),
-  );
+  createWindow();
+
   ipcMain.on("ping", () => console.log("pong"));
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -242,7 +267,7 @@ app.on("window-all-closed", () => {
 });
 ```
 
-and the preload.ts
+### `preload.ts`
 
 ```ts
 import { contextBridge, ipcRenderer } from "electron";
@@ -256,9 +281,11 @@ contextBridge.exposeInMainWorld("electron", {
 });
 ```
 
-Now coming to the explanation, since Next.js 13, they are not providing a way for us to use a custom server, like through expressjs to run the server for Next.js, as it requires RSC support, so we can use the server that is already build by the Next.js time and put it on use here.
+### Explanation
 
-The port situation is where it gets different from other ways to do electron app, as they either use a JS files, or index.html, but in here, we need to run the server for SSR, RSC experience. We are using `get-port-please` to get a port for the Next.js server to run on.
+Since Next.js 13, they do not provide a way to use a custom server like through Express.js to run the server for Next.js, as it requires RSC support. We can use the server already built by the Next.js team and put it to use here.
+
+The port situation is different from other ways to do an Electron app, as they either use JS files or `index.html`. Here, we need to run the server for SSR and RSC experience. We are using `get-port-please` to get a port for the Next.js server to run on.
 
 ```ts
 const nextJSPort = await getPort({ portRange: [30011, 50000] }); // It's better to use a range, as it's less likely to be used by other apps.
@@ -361,8 +388,14 @@ To package the app, you can run the following command:
 npm run electron:dist
 ```
 
+or
+
 ```bash
 make electron_dist
 ```
 
 Current it's only packaging it as the dir, you can change it to deb, or dmg, or any other format you want.
+
+## GitHub Repository
+
+You can find the complete code for this blog in the GitHub repository [here](https://github.com/spa5k/nextjs_approuter_electron).
