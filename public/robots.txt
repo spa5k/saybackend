@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://saybackend.com/sitemap-index.xml
