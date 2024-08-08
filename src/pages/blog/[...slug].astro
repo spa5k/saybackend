@@ -84,6 +84,30 @@ const { Content, headings } = await post.render();
         <Giscus />
       </div>
     </article>
+    <section class="mt-10" aria-label="Post Tags">
+      <div class="flex flex-wrap gap-2">
+        <ul class="flex flex-wrap gap-2">
+          {
+            post.data.tags!.map((tag, index) => (
+              <li
+                class={`rounded-md bg-gray-800 px-2 py-1 text-sm font-medium text-white ${index >= 5 ? "hidden" : ""}`}
+                title={`${tag}`}
+              >
+                {tag}
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </section>
+    <div
+      id="post-data"
+      data-title={post.data.title}
+      data-ogimage={post.data.ogImage}
+      data-date={post.data.date.toISOString()}
+      data-description={post.data.description}
+    >
+    </div>
   </Container>
 </Layout>
 
@@ -105,4 +129,41 @@ const { Content, headings } = await post.render();
     });
   });
   annotationGroup(annotations).show();
+</script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const postData = document.getElementById("post-data");
+    if (!postData) return;
+
+    const title = postData.dataset.title;
+    const ogImage = postData.dataset.ogimage;
+    const datePublished = postData.dataset.date;
+    const description = postData.dataset.description;
+
+    const script = document.createElement("script");
+    script.type = "application/ld+json";
+    script.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      headline: title,
+      image: ogImage,
+      author: {
+        "@type": "Person",
+        name: "spark",
+      },
+      publisher: {
+        "@type": "Organization",
+        name: "SayBackend",
+        logo: {
+          "@type": "ImageObject",
+          url: "/images/saybackend.png",
+        },
+      },
+      datePublished: datePublished,
+      dateModified: datePublished,
+      description: description,
+    });
+
+    document.head.appendChild(script);
+  });
 </script>
