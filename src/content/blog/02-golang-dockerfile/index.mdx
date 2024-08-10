@@ -33,10 +33,17 @@ ogImage: "/images/dockerfile-golang-og.png"
 ---
 
 import Notation from "@/components/Notation.astro";
+import { Picture } from "astro:assets";
+import OgImage from "./dockerfile-golang-og.png";
 
 ---
 
-![Golang](/images/dockerfile-golang-og.png)
+<Picture
+  src={OgImage}
+  alt="Best Dockerfile for Golang, Optimize Your Dockerfile"
+  inferSize
+  formats={["avif", "webp"]}
+/>
 
 ## Introduction
 

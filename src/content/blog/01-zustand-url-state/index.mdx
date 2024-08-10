@@ -53,11 +53,17 @@ ogImage: "/images/zustand-og.png"
 ---
 
 import Notation from "@/components/Notation.astro";
+import { Picture } from "astro:assets";
+import OgImage from "./zustand-og.png";
 
 ---
 
-![Zustand](/images/zustand-og.png)
-
+<Picture
+  src={OgImage}
+  alt="Store Zustand State into URL"
+  inferSize
+  formats={["avif", "webp"]}
+/>
 ## Introduction
 
 In this tutorial, we'll explore how to Store Zustand state into the URL as a hash. Zustand is a lightweight state management framework that simplifies managing the state of your application. With URL hash storage, we can maintain the application's state even when the user navigates away from the current page. And let user copy the URL and share it with others, so that they can see the same state as the user.
