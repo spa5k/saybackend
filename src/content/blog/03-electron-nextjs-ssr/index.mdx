@@ -39,10 +39,19 @@ draft: false
 ---
 
 import Notation from "@/components/Notation.astro";
+import { Picture } from "astro:assets";
+import AppImage from "./app.png";
+import OgImage from "./nextjs_electron_og.png";
+import ConsoleImage from "./terminal.png";
 
 ---
 
-![NextJS-electron](/images/3-electron-nextjs/nextjs_electron_og.png)
+<Picture
+  src={OgImage}
+  alt="Building an App with Next.js and Electron with Server Components Support"
+  inferSize
+  formats={["avif", "webp"]}
+/>
 
 ## Introduction
 
@@ -68,7 +77,12 @@ RSCs result in sending less JavaScript to the client, allowing the server to han
 
 ## How it will look like?
 
-> [![NextJS-electron](/images/3-electron-nextjs/app.png)](/images/3-electron-nextjs/app.png)
+> <Picture
+>   src={AppImage}
+>   alt="How it will look like"
+>   inferSize
+>   formats={["avif", "webp"]}
+> />
 
 ## Setting Up the Project
 
@@ -367,7 +381,12 @@ Now you will see the window pop up with the Next.js app running in it. You can n
 
 Similarly you can also edit the Electron files and it will reload the app, the window will close and open again with the changes.
 
-[![NextJS-electron](/images/3-electron-nextjs/app.png)](/images/3-electron-nextjs/app.png)
+<Picture
+  src={AppImage}
+  alt="How it will look like"
+  inferSize
+  formats={["avif", "webp"]}
+/>
 
 As you can see, we are getting a perfectly running server component, a client component, and a way to call electron for native functionalities.
 
@@ -401,7 +420,12 @@ And that's it! You have successfully built an app with Next.js and Electron with
 
 Click on the Ping Electron button, and you will see the pong message in the console.
 
-[![NextJS-electron](/images/3-electron-nextjs/terminal.png)](/images/3-electron-nextjs/terminal.png)
+<Picture
+  src={ConsoleImage}
+  alt="pong as output in console"
+  inferSize
+  formats={["avif", "webp"]}
+/>
 
 Try creating a server component, you will see it's working as expected, and the server is doing the heavy lifting of pre rendering the components.
 
