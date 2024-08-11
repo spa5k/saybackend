@@ -10,9 +10,9 @@ export const SITE: Site = {
 };
 
 export const HOME: Metadata = {
-  TITLE: "Home",
+  TITLE: "Say Backend - Your Backend and DevOps Resource",
   DESCRIPTION:
-    "Welcome to my blog! I write about backend development, software engineering, and other tech topics.",
+    "Say Backend is your go-to resource for backend and DevOps topics. Dive into our articles to learn about the latest trends, best practices, and tools in the industry.",
 };
 
 export const BLOG: Metadata = {
