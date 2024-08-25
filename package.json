@@ -11,25 +11,25 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@astrojs/check": "^0.9.2",
-    "@astrojs/mdx": "^3.1.3",
+    "@astrojs/check": "^0.9.3",
+    "@astrojs/mdx": "^3.1.4",
     "@astrojs/rss": "^4.0.7",
     "@astrojs/sitemap": "^3.1.6",
     "@astrojs/tailwind": "^5.1.0",
-    "@fontsource/lexend": "^5.0.20",
+    "@fontsource/lexend": "^5.0.21",
     "@vercel/speed-insights": "^1.0.12",
-    "astro": "^4.13.3",
+    "astro": "^4.14.5",
     "astro-compress": "^2.3.1",
     "astro-font": "^0.1.81",
     "astro-pagefind": "^1.6.0",
     "clsx": "^2.1.1",
     "rough-notation": "^0.5.1",
-    "tailwind-merge": "^2.4.0",
-    "tailwindcss": "^3.4.9",
+    "tailwind-merge": "^2.5.2",
+    "tailwindcss": "^3.4.10",
     "typescript": "^5.5.4"
   },
   "devDependencies": {
-    "@astrojs/vercel": "^7.7.2",
+    "@astrojs/vercel": "^7.8.0",
     "@tailwindcss/typography": "^0.5.14",
     "pagefind": "^1.1.0",
     "prettier": "^3.3.3",
@@ -37,5 +37,5 @@
     "prettier-plugin-organize-imports": "^4.0.0",
     "prettier-plugin-tailwindcss": "^0.6.6"
   },
-  "packageManager": "pnpm@9.7.0"
+  "packageManager": "pnpm@9.8.0"
 }
