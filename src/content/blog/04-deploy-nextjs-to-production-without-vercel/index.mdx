@@ -1,0 +1,101 @@
+---
+title: "Deploying a Next.js App to Production Without Vercel"
+description: "Learn how to deploy a Next.js app to production without using Vercel"
+date: "2024-08-25"
+tags:
+  - "nextjs"
+  - "ssr"
+  - "rsc"
+  - "react-server-components"
+  - "vercel"
+  - "production"
+  - "deployment"
+  - "serverless"
+  - Next.js
+  - Production deployment
+  - Next.js without Vercel
+  - AWS deployment
+  - Server-side rendering (SSR)
+  - React Server Components
+  - Serverless architecture
+  - Next.js production setup
+  - Cloud deployment
+  - Node.js hosting
+  - Self-hosting Next.js
+  - Standalone Next.js build
+  - CI/CD for Next.js
+  - Deployment strategies
+  - Optimizing Next.js for production
+  - Next.js production setup
+  - Cloud deployment
+  - Node.js hosting
+  - Self-hosting Next.js
+  - Standalone Next.js build
+  - CI/CD for Next.js
+
+ogImage: "/images/4-deploy-nextjs-to-production-without-vercel/nextjs_og.png"
+draft: true
+---
+
+import Notation from "@/components/Notation.astro";
+import { Picture } from "astro:assets";
+import AppImage from "./app.png";
+import OgImage from "./nextjs_electron_og.png";
+import ConsoleImage from "./terminal.png";
+
+---
+
+<Picture
+  src={OgImage}
+  alt="Building an App with Next.js and Electron with Server Components Support"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+## Introduction
+
+When it comes to deploying a Next.js app to production, generally everyone thinking starts from Vercel, and ends with Netlify, Firebase type providers. Not only are these providers very expensive, but they also have a lot of limitations.
+A wrong configuration in your serverless function can lead to a big bill, like this [story](https://www.youtube.com/watch?v=03f-JQlcDLA) where a Solo developer got a $100000 bill from Vercel because her app went viral.
+
+So, you might be asking yourself, what we can do?
+
+Unlike frameworks like Remix, you can not easily deploy a Next.js without going through hoops, especially if you checkout their .next folder.
+But, the good news is that vercel hasn't left you without options. There is a simple way on how you can run a Next.js app using Node.js, without any serverless functions drama, direclty in optmized way.
+
+We will go through steps by steps, this time on how we can make the most efficient Dockerized Next.js app.
+
+### Setting up the project
+
+1. Create a new Next.js app
+
+```bash
+npx create-next-app@latest nextjs-app
+```
+
+2. Install the dependencies
+
+```bash
+npm install
+```
+
+3. Build the app
+
+```bash
+npm run build
+```
+
+4. Create a Dockerfile
+
+```dockerfile
+FROM node:20-alpine
+
+COPY . .
+
+RUN npm install --production
+
+RUN npm run build
+
+CMD ["npm", "run", "start"]
+```
+
+This Dockerfile will build the Next.js app and install the dependencies in production mode, but its terrible for the performance and the size of the image will be huge.
