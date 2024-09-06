@@ -266,3 +266,20 @@ const { title, description, image = "/images/blog.png" } = Astro.props;
   document.addEventListener("astro:after-swap", () => init());
   preloadTheme();
 </script>
+
+<!-- Google tag (gtag.js) -->
+<script
+  type="text/partytown"
+  async
+  src="https://www.googletagmanager.com/gtag/js?id=G-5XS7E70997"></script>
+<script type="text/partytown">
+  window.dataLayer = window.dataLayer || [];
+
+  window.gtag = function gtag() {
+    dataLayer.push(arguments);
+  };
+
+  gtag("js", new Date());
+
+  gtag("config", "G-5XS7E70997");
+</script>

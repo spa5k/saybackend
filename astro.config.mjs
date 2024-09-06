@@ -7,10 +7,24 @@ import { defineConfig } from "astro/config";
 
 import compress from "astro-compress";
 
+import partytown from "@astrojs/partytown";
+
 /** @type {import('astro').AstroConfig} */
 export default defineConfig({
   site: "https://www.saybackend.com",
-  integrations: [tailwind(), sitemap(), mdx(), pagefind(), compress()],
+  integrations: [
+    tailwind(),
+    sitemap(),
+    mdx(),
+    pagefind(),
+    compress(),
+    partytown({
+      config: {
+        forward: ["dataLayer.push", "gtag"],
+      },
+    }),
+  ],
+  prefetch: true,
   markdown: {
     shikiConfig: {
       theme: "css-variables",
