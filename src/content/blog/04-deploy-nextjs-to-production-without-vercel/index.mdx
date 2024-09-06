@@ -1,7 +1,7 @@
 ---
-title: "Deploying a Next.js App to Production Without Vercel"
-description: "Learn how to deploy a Next.js app to production without using Vercel"
-date: "2024-08-25"
+title: "Deploying a Next.js App to Production in any server"
+description: "Build a docker image of your nextjs app that can be deployed to any server, without any propreitary cloud provider lock-in."
+date: "2024-09-06"
 tags:
   - "nextjs"
   - "ssr"
@@ -11,39 +11,54 @@ tags:
   - "production"
   - "deployment"
   - "serverless"
-  - Next.js
-  - Production deployment
-  - Next.js without Vercel
-  - AWS deployment
-  - Server-side rendering (SSR)
-  - React Server Components
-  - Serverless architecture
-  - Next.js production setup
-  - Cloud deployment
-  - Node.js hosting
-  - Self-hosting Next.js
-  - Standalone Next.js build
-  - CI/CD for Next.js
-  - Deployment strategies
-  - Optimizing Next.js for production
-  - Next.js production setup
-  - Cloud deployment
-  - Node.js hosting
-  - Self-hosting Next.js
-  - Standalone Next.js build
-  - CI/CD for Next.js
+  - "Next.js"
+  - "Production deployment"
+  - "Next.js without Vercel"
+  - "AWS deployment"
+  - "Server-side rendering (SSR)"
+  - "React Server Components"
+  - "Serverless architecture"
+  - "Next.js production setup"
+  - "Cloud deployment"
+  - "Node.js hosting"
+  - "Self-hosting Next.js"
+  - "Standalone Next.js build"
+  - "CI/CD for Next.js"
+  - "Deployment strategies"
+  - "Optimizing Next.js for production"
+  - "Next.js production setup"
+  - "Cloud deployment"
+  - "Node.js hosting"
+  - "Self-hosting Next.js"
+  - "Standalone Next.js build"
+  - "CI/CD for Next.js"
+  - "Nextjs in aws"
+  - "Nextjs in docker"
+  - "Nextjs in production"
+  - "Nextjs in vercel"
+  - "Nextjs in any server"
+  - "Nextjs in any cloud"
+  - "Nextjs in any hosting"
+  - "Nextjs in any platform"
+  - "Nextjs in any cloud"
 
-ogImage: "/images/4-deploy-nextjs-to-production-without-vercel/nextjs_og.png"
-draft: true
+ogImage: "/images/4-nextjs-docker/nextjs_docker.png"
+draft: false
 ---
 
-import Notation from "@/components/Notation.astro";
 import { Picture } from "astro:assets";
-import AppImage from "./app.png";
-import OgImage from "./nextjs_electron_og.png";
-import ConsoleImage from "./terminal.png";
-
----
+import OgImage from "./nextjs_docker_og.jpg";
+import DockerImage from "./1_intialbuild.png";
+import DockerRun from "./2_initial_run.png";
+import Callout from "@/components/Callout.astro";
+import InitialVisit from "./3_initial_visit.png";
+import SecondBuild from "./4_second_build.png";
+import ThirdBuild from "./5_third_build.png";
+import SecondVisit from "./6_second_visit.png";
+import WellWellWell from "./7_wellwellwell.gif";
+import FinalRun from "./8_final_run.png";
+import FinalVisit from "./9_final_visit.png";
+import FinalBuild from "./10_final_build.png";
 
 <Picture
   src={OgImage}
@@ -64,7 +79,7 @@ But, the good news is that vercel hasn't left you without options. There is a si
 
 We will go through steps by steps, this time on how we can make the most efficient Dockerized Next.js app.
 
-### Setting up the project
+## Setting up the project
 
 1. Create a new Next.js app
 
@@ -87,15 +102,568 @@ npm run build
 4. Create a Dockerfile
 
 ```dockerfile
-FROM node:20-alpine
+FROM node:22-alpine
+
+RUN npm install -g pnpm
 
 COPY . .
 
-RUN npm install --production
+RUN pnpm install
 
-RUN npm run build
+RUN pnpm run build
 
-CMD ["npm", "run", "start"]
+CMD ["pnpm", "run", "start"]
 ```
 
 This Dockerfile will build the Next.js app and install the dependencies in production mode, but its terrible for the performance and the size of the image will be huge.
+
+<Callout type="info">
+  Rather than using the stock repo, I will be using a personal production project for the real world example, so some things will be different, but the core concept will be the same.
+</Callout>
+
+5. Now create the docker image
+
+```bash
+docker build -t nextjs-app .
+```
+
+Open the Docker Desktop and you should see the image there.
+
+<Picture
+  src={DockerImage}
+  alt="Docker Image"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+and as you see, its 1.53 GB, it's huge and absolutely terrible for the performance and it took like 3 minutes to build, and because it has no cache, every time you make a change, you have to rebuild the image.
+
+6. Run the docker image
+
+```bash
+docker run -p 3000:3000 nextjs-app
+```
+
+You will see the terminal output, and the app will be running on port 3000, it's typical nextjs output, but this time it's running directly on Node.js, without any serverless functions.
+
+<Picture
+  src={DockerRun}
+  alt="Docker Run"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+7. Open the app in the browser
+
+```bash
+http://localhost:3000
+```
+
+<Picture
+  src={InitialVisit}
+  alt="Initial Visit"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+and everything seems to be working fine, but we are not done yet.
+
+## Optimizing the Docker image
+
+1. Now let's add multi-stage build to the Dockerfile
+
+```dockerfile
+FROM node:22-alpine AS base
+
+# Install pnpm globally
+RUN npm install -g pnpm
+
+# Set the working directory
+WORKDIR /app
+
+# Copy all files to the working directory
+COPY . .
+
+# Install dependencies
+RUN pnpm install
+
+FROM base AS builder
+
+# Build the application
+RUN pnpm run build
+
+FROM node:22-alpine AS runner
+
+# Install pnpm in the runner stage
+RUN npm install -g pnpm
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the necessary files from the builder stage
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
+
+# Install only production dependencies
+RUN pnpm install --prod
+
+# Start the application
+CMD ["pnpm", "run", "start"]
+```
+
+<Callout type="info">
+  This is a multi-stage build, the first stage is the base stage, where we install the dependencies and the second stage is the builder stage, where we build the app and then we copy the built app from the builder stage to the runner stage and then we run the app.
+</Callout>
+
+
+2. Build the image again
+
+```bash
+docker build -t nextjs-app .
+```
+
+
+This time, it took around 1.5 minutes to build. And the image size is 1.36 GB, not much better if you ask me.
+<Picture
+  src={SecondBuild}
+  alt="Second Build"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+3. Run the image again
+
+```bash
+docker run -p 3000:3000 nextjs-app
+```
+
+4. Open the app in the browser
+
+```bash
+http://localhost:3000
+```
+
+and everything seems to be working fine, but we are not done yet.
+
+## More optimizations
+
+1. Update your next.config.js to use the standalone build
+
+```javascript
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'standalone',
+};
+
+export default nextConfig;
+
+```
+
+<Callout type="info">
+  This will make the Next.js app a standalone app, so you can run it directly from the Node.js, without any serverless functions.
+</Callout>
+
+2. Update the Dockerfile to use the standalone build
+
+```dockerfile
+FROM node:22-alpine AS base
+
+# Install pnpm globally
+RUN npm install -g pnpm
+
+# Set the working directory
+WORKDIR /app
+
+# Copy all files to the working directory
+COPY . .
+
+# Install dependencies
+RUN pnpm install
+
+FROM base AS builder
+
+# Build the application
+RUN pnpm run build
+
+FROM node:22-alpine AS runner
+
+# Install pnpm in the runner stage
+RUN npm install -g pnpm
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the necessary files from the builder stage for the standalone build
+COPY --from=builder /app/.next/standalone ./
+
+# Start the application
+CMD ["node", "server.js"]
+```
+As you see, we are not copying the entire .next folder, and neither we are copying the node_modules folder, because we are using the dependencies from the base stage.
+
+<Callout type="info">
+The first build will take some time, because it has to install the dependencies and build the app, but the second build will be much faster, because it will use the cache from the base stage.
+</Callout>
+
+3. Build the image again
+
+```bash
+docker build -t nextjs-app .
+```
+
+<Picture
+  src={ThirdBuild}
+  alt="Third Build"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+This time it took around 40 seconds to build, and the image size is just 287 MB, which is amazing if you compare it to the previous image.
+
+4. Run the image again
+
+```bash
+docker run -p 3000:3000 nextjs-app
+```
+
+5. Open the app in the browser
+
+```bash
+http://localhost:3000
+```
+
+<Picture
+  src={SecondVisit}
+  alt="Second Visit"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+Doesn't this look amazing? *cough* *cough* WHERE ARE MY STYLES AND IMAGES?
+
+<Picture
+  src={WellWellWell}
+  alt="Well Well Well"
+  inferSize
+  formats={["gif"]}
+/>
+
+Hey! don't give me that look, I know what I did, we are almost done.
+This is how the things are supposed to be, we are on the right path. Apparently the standalone build only contains the node_modules for the dependencies that are used in the app, and the css, images etc are not included in it.
+
+Now it's time to fix it.
+
+6. Update the Dockerfile to copy assets correctly
+```dockerfile
+FROM node:22-alpine AS base
+
+# Install pnpm globally
+RUN npm install -g pnpm
+
+# Set the working directory
+WORKDIR /app
+
+# Copy all files to the working directory
+COPY . .
+
+# Install dependencies
+RUN pnpm install
+
+FROM base AS builder
+
+# Build the application
+RUN pnpm run build
+
+FROM node:22-alpine AS runner
+
+# Install pnpm in the runner stage
+RUN npm install -g pnpm
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the necessary files from the builder stage for the standalone build
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/static .next/static
+
+# Start the application
+CMD ["node", "server.js"]
+```
+
+We added 2 lines, one to copy the static folder and the other to copy the public folder.
+The static folder contains the css, images, fonts etc, and the public folder contains the favicon, images, and other static assets.
+
+```dockerfile
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/static .next/static
+```
+
+7. Build the image again
+
+```bash
+docker build -t nextjs-app .
+```
+
+Your image size will increase a bit according to how much assets you have, but it's still much better than the previous image.
+
+<Picture
+  src={ThirdBuild}
+  alt="Final Build"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+8. Run the image again
+
+```bash
+docker run -p 3000:3000 nextjs-app
+```
+
+<Picture
+  src={FinalRun}
+  alt="Final Run"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+9. Open the app in the browser
+
+```bash
+http://localhost:3000
+```
+
+<Picture
+  src={FinalVisit}
+  alt="Final Visit"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+And everything seems to be working fine, and the best part is that the image size is only 290 MB, and it's still running directly on Node.js, without any serverless functions.
+
+Now you can just push this image to your favorite registry, and you are done.
+
+<Callout type="info">
+  If you want to learn more about the standalone build, you can checkout the [official documentation](https://nextjs.org/docs/app/building-your-application/deploying).
+</Callout>
+
+
+## Deployment related optimizations
+
+1. Secure Docker Image
+> Currently we are running it as root, which is not a good practice, so let's run it as a non-root user.
+
+```dockerfile
+FROM node:22-alpine AS base
+
+# Install pnpm globally
+RUN npm install -g pnpm
+
+# Set the working directory
+WORKDIR /app
+
+# Copy package.json and pnpm-lock.yaml to install dependencies first
+COPY package.json pnpm-lock.yaml ./
+
+# Install dependencies
+RUN pnpm install
+
+# Copy the rest of the application files
+COPY . .
+
+FROM base AS builder
+
+# Build the application
+RUN pnpm run build
+
+FROM node:22-alpine AS runner
+
+# Install pnpm in the runner stage
+RUN npm install -g pnpm
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the necessary files from the builder stage for the standalone build
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/static .next/static
+
+# Change ownership of the files to the node user
+RUN chown -R node:node /app
+
+# Switch to the non-root user
+USER node
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]
+```
+<Callout type="warn">
+If you had paid attention, there was a problem in the initial dockerfiles, we were copying everything in the first stage itself, so the caching would have had failed.
+Now we are only copying the package.json and pnpm-lock.yaml in the first stage, and the rest of the files in the second stage, so the caching will work.
+</Callout>
+2. If you are running this in Github Actions, elsewhere, you can build the nextjs app in the github actions itself, and only do the final stage, and set it to copy from the local files like this - 
+
+```dockerfile
+# syntax=docker/dockerfile:1.4
+FROM node:22-slim AS runner
+
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+# Copy the .next directory and other built artifacts to the container
+COPY .next/standalone ./
+COPY public ./public
+COPY .next/static ./static
+
+USER node
+
+EXPOSE 3000
+
+# Start the Next.js app
+CMD ["node", "server.js"]
+```
+
+<Callout type="info">
+We are using docker image node:22-slim, because it's based on Debian, and the github actions runner is based on Ubuntu, so we need to use the same base image.
+</Callout>
+
+Generally it's safer to use the debian based image, because it's more compatible with various internal libraries.
+
+### Cache handler for Vercel like caching.
+
+Currently, it won't have any caching, so the RSC, SSR etc, won't be as fast as how it's in vercel. But it's not all dark, we can still get similar behaviour on our own.
+
+1. Update the next.config.js to use the cache handler
+
+```javascript
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  cacheHandler:
+    process.env.NODE_ENV === "production"
+      ? require.resolve("./cache-handler.js")
+      : undefined,
+  env: {
+    NEXT_PUBLIC_REDIS_INSIGHT_URL:
+      process.env.REDIS_INSIGHT_URL ?? "http://localhost:8001",
+  },
+  output: 'standalone',
+};
+
+export default nextConfig;
+```
+
+2. Create a cache-handler.js file
+
+```javascript
+const { CacheHandler } = require("@neshca/cache-handler");
+const createRedisHandler = require("@neshca/cache-handler/redis-stack").default;
+const createLruHandler = require("@neshca/cache-handler/local-lru").default;
+const { createClient } = require("redis");
+const { PHASE_PRODUCTION_BUILD } = require("next/constants");
+
+/* from https://caching-tools.github.io/next-shared-cache/redis */
+CacheHandler.onCreation(async () => {
+  let client;
+  // use redis client during build could cause issue https://github.com/caching-tools/next-shared-cache/issues/284#issuecomment-1919145094
+  if (PHASE_PRODUCTION_BUILD !== process.env.NEXT_PHASE) {
+    try {
+      // Create a Redis client.
+      client = createClient({
+        url: process.env.REDIS_URL ?? "redis://localhost:6379",
+      });
+
+      // Redis won't work without error handling.
+      // NB do not throw exceptions in the redis error listener,
+      // because it will prevent reconnection after a socket exception.
+      client.on("error", (e) => {
+        if (typeof process.env.NEXT_PRIVATE_DEBUG_CACHE !== "undefined") {
+          console.warn("Redis error", e);
+        }
+      });
+    } catch (error) {
+      console.warn("Failed to create Redis client:", error);
+    }
+  }
+
+  if (client) {
+    try {
+      console.info("Connecting Redis client...");
+
+      // Wait for the client to connect.
+      // Caveat: This will block the server from starting until the client is connected.
+      // And there is no timeout. Make your own timeout if needed.
+      await client.connect();
+      console.info("Redis client connected.");
+    } catch (error) {
+      console.warn("Failed to connect Redis client:", error);
+
+      console.warn("Disconnecting the Redis client...");
+      // Try to disconnect the client to stop it from reconnecting.
+      client
+        .disconnect()
+        .then(() => {
+          console.info("Redis client disconnected.");
+        })
+        .catch(() => {
+          console.warn(
+            "Failed to quit the Redis client after failing to connect.",
+          );
+        });
+    }
+  }
+
+  /** @type {import("@neshca/cache-handler").Handler | null} */
+  let redisHandler = null;
+  if (client?.isReady) {
+    // Create the `redis-stack` Handler if the client is available and connected.
+    redisHandler = await createRedisHandler({
+      client,
+      keyPrefix: "prefix:",
+      timeoutMs: 1000,
+    });
+  }
+  // Fallback to LRU handler if Redis client is not available.
+  // The application will still work, but the cache will be in memory only and not shared.
+  const LRUHandler = createLruHandler();
+  console.warn(
+    "Falling back to LRU handler because Redis client is not available.",
+  );
+
+  return {
+    handlers: [redisHandler, LRUHandler],
+  };
+});
+
+module.exports = CacheHandler;
+```
+
+Update the ENV variables accordingly, now when you horizontally scale your app, the cache can be shared across all the instances, and the cache will be much faster than the local-lru cache.
+
+<Callout type="info">
+  Read more about it here - [Next.js Cache Handler](https://github.com/vercel/next.js/tree/canary/examples/cache-handler-redis)
+</Callout>
+
+## Conclusion
+
+In this article, we learned how to deploy a Next.js app to production without using Vercel, and we also learned how to optimize the image size and the build time.
+
+We also learned how to use the cache handler to get similar behaviour to Vercel.
+
+I hope you enjoyed reading this article as much as I enjoyed writing it.
+
+The next article will be about how you can publish this app in AWS, will all the bells and whistles, so stay tuned.
+
+Thank you for reading.

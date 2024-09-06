@@ -7,7 +7,7 @@ import { defineConfig } from "astro/config";
 
 import compress from "astro-compress";
 
-// https://astro.build/config
+/** @type {import('astro').AstroConfig} */
 export default defineConfig({
   site: "https://www.saybackend.com",
   integrations: [tailwind(), sitemap(), mdx(), pagefind(), compress()],
@@ -26,7 +26,7 @@ export default defineConfig({
   }),
   image: {
     service: {
-      entrypoint: "astro/assets/services/squoosh",
+      entrypoint: "astro/assets/services/sharp",
     },
   },
 });
