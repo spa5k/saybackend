@@ -229,7 +229,7 @@ CMD ["./main"]
   choose the best base image for your application.
 </Callout>
 
-### Best Optimization for Production
+## Best Optimization for Production
 
 The Alpine image is quite nice, and works well, but, it can start causing some problems because of how it's DNS is configured. Please read this blog post for more information: [Alpine Linux DNS Issues](https://martinheinz.dev/blog/92) by Martin Heinz.
 
@@ -262,7 +262,7 @@ RUN go build -o main . -ldflags="-w -s"
 # Final stage: Run the application
 FROM debian:bookworm-slim
 
-WORKDIR /root/
+WORKDIR /app
 
 # Create a non-root user and group
 RUN groupadd -r appuser && useradd -r -g appuser appuser
@@ -271,7 +271,7 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 COPY --from=builder /app/main .
 
 # Change ownership of the application binary
-RUN chown appuser:appuser /root/main
+RUN chown appuser:appuser /app/main
 
 # Switch to the non-root user
 USER appuser
@@ -296,7 +296,7 @@ If you still want to use Alpine, update the final stage of dockerfile to this
 # Final stage: Run the application
 FROM alpine:latest
 
-WORKDIR /root/
+WORKDIR /app
 
 # Create a non-root user and group
 RUN addgroup -S appuser && adduser -S appuser -G appuser
@@ -305,12 +305,63 @@ RUN addgroup -S appuser && adduser -S appuser -G appuser
 COPY --from=builder /app/main .
 
 # Change ownership of the application binary
-RUN chown appuser:appuser /root/main
+RUN chown appuser:appuser /app/main
 
 # Switch to the non-root user
 USER appuser
 
 CMD ["./main"]
+```
+
+### Using github actions?
+
+In case you are using github actions, build the docker binary there, so that you can leverage the existing cache using the setup-go action.
+
+```yaml
+name: Run CICD
+
+on:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - name: Build
+        run: go build -o main -ldflags="-w -s"
+      - name: Build Docker Image
+        run: |
+          docker build -t golang-app .
+```
+
+and set your Dockerfile to just the final stage, and rather than copying the binary from the builder stage, we will just copy the built binary from the github actions cache.
+
+```dockerfile
+# Final stage: Run the application
+FROM debian:bookworm-slim
+
+WORKDIR /app
+
+# Create a non-root user and group
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Copy the built application
+COPY ./main /app/main
+
+# Change ownership of the application binary
+RUN chown appuser:appuser /app/main
+
+# Switch to the non-root user
+USER appuser
+CMD ["/main"]
 ```
 
 ## Conclusion
