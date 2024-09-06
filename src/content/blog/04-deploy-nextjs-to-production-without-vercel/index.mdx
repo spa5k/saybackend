@@ -70,7 +70,7 @@ import FinalBuild from "./10_final_build.png";
 ## Introduction
 
 When it comes to deploying a Next.js app to production, generally everyone thinking starts from Vercel, and ends with Netlify, Firebase type providers. Not only are these providers very expensive, but they also have a lot of limitations.
-A wrong configuration in your serverless function can lead to a big bill, like this [story](https://www.youtube.com/watch?v=03f-JQlcDLA) where a Solo developer got a $100000 bill from Vercel because her app went viral.
+A wrong configuration in your serverless function can lead to a big bill, like this [story](https://www.youtube.com/watch?v=SCIfWhAheVw) where a Solo developer got a $100000 bill from Vercel because her app went viral.
 
 So, you might be asking yourself, what we can do?
 
@@ -510,16 +510,68 @@ CMD ["node", "server.js"]
 <Callout type="warn">
   If you had paid attention, there was a problem in the initial dockerfiles, we
   were copying everything in the first stage itself, so the caching would have
-  had failed. Now we are only copying the package.json and pnpm-lock.yaml in the
-  first stage, and the rest of the files in the second stage, so the caching
+  had failed since no matter what file we edit, the caching would be invalidated. 
+  Now we are only copying the package.json and pnpm-lock.yaml in the
+  first stage, and the rest of the files in the build stage, so the caching
   will work.
 </Callout>
-2. If you are running this in Github Actions, elsewhere, you can build the
+## Using Github actions
+
+
+If you are running this in Github Actions, elsewhere, you can build the
 nextjs app in the github actions itself, and only do the final stage, and set it
-to copy from the local files like this -{" "}
+to copy from the local files like this.
+
+- Github Actions cicd.yml 
+
+```yaml
+name: Staging CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-test-deploy:
+    name: Test, Build, Push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+      - name: Cache node_modules and Yarn cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.cache
+            ./node_modules
+            ${{ github.workspace }}/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run:  pnpm build
+
+      - name: Build Docker Image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: docker build -t nextjs-app .
+```
 
 ```dockerfile
-# syntax=docker/dockerfile:1.4
 FROM node:22-slim AS runner
 
 WORKDIR /app
