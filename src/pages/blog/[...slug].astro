@@ -69,6 +69,16 @@ const { Content, headings } = await post.render();
         <div class="font-base text-sm">
           {readingTime(post.body)}
         </div>
+        {
+          post.data.updated && (
+            <>
+              &bull;
+              <div class="font-base text-sm">
+                Updated at - <FormattedDate date={post.data.updated} />
+              </div>
+            </>
+          )
+        }
       </div>
       <h1 class="animate text-3xl font-semibold text-black dark:text-white">
         {post.data.title}
@@ -112,25 +122,6 @@ const { Content, headings } = await post.render();
   </Container>
 </Layout>
 
-<script>
-  import { annotate, annotationGroup } from "rough-notation";
-  const notions = document.querySelectorAll("span[data-notion-identity]");
-  const annotations = new Array(notions.length).fill(0).map((_, index) => {
-    const node = notions[index] as HTMLSpanElement;
-    const type = node.dataset.notionType;
-    const color = node.dataset.notionColor;
-    const strokeWidth = node.dataset.notionStrokewidth;
-    return annotate(node, {
-      type: (type as "underline") ?? "underline",
-      color: color ?? "red",
-      animate: false,
-      multiline: type === "bracket" ? false : true,
-      brackets: ["left", "right"],
-      strokeWidth: Number(strokeWidth) ?? 1.5,
-    });
-  });
-  annotationGroup(annotations).show();
-</script>
 <script>
   document.addEventListener("DOMContentLoaded", () => {
     const postData = document.getElementById("post-data");

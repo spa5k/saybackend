@@ -38,7 +38,7 @@ ogImage: "/images/3-electron-nextjs/nextjs_electron_og.png"
 draft: false
 ---
 
-import Notation from "@/components/Notation.astro";
+import Callout from "@/components/Callout.astro";
 import { Picture } from "astro:assets";
 import AppImage from "./app.png";
 import OgImage from "./nextjs_electron_og.png";
@@ -61,7 +61,10 @@ Moreover, deploying the same codebase to both web and desktop can be complex. Us
 
 In this blog, we'll explore how to build an app with Next.js and Electron with Server Components support.
 
-> If you just want to see the code, you can find it <Notation>[here](https://github.com/spa5k/nextjs_approuter_electron)</Notation>.
+<Callout type="info">
+  If you just want to see the code, you can find it
+  [here](https://github.com/spa5k/nextjs_approuter_electron).
+</Callout>
 
 ## What are Server Components?
 
@@ -69,11 +72,11 @@ Server Components, or RSCs, are a new way to build React apps that offload the r
 
 RSCs result in sending less JavaScript to the client, allowing the server to handle the heavy lifting of rendering the components. This is particularly useful for building websites that require a lot of dynamic content fetched from the server.
 
-<Notation type="bracket">
+<Callout type="info">
   This is just a quick info, but you can read more about React server components
   [in the official
   docs](https://react.dev/blog/2020/12/21/data-fetching-with-react-server-components).
-</Notation>
+</Callout>
 
 ## How it will look like?
 

@@ -2,6 +2,7 @@
 title: "Best Dockerfile for Golang, Optimize Your Dockerfile"
 description: "Create best Dockerfile for Golang, optimize your Dockerfile for Golang and make it blazingly fast! 🔥"
 date: "2024-06-06"
+updated: "2024-09-05"
 tags:
   - "docker"
   - "golang"
@@ -32,11 +33,13 @@ tags:
 ogImage: "/images/dockerfile-golang-og.png"
 ---
 
-import Notation from "@/components/Notation.astro";
+import Callout from "@/components/Callout.astro";
 import { Picture } from "astro:assets";
 import OgImage from "./dockerfile-golang-og.png";
-
----
+import FirstBuild from "./1_first_build.png";
+import FirstRun from "./2_first_run.png";
+import OptimizedBuild from "./3_optimized_build.png";
+import DebianBuild from "./4_debian_build.png";
 
 <Picture
   src={OgImage}
@@ -53,11 +56,10 @@ Creating a Dockerfile for Golang to containerize your application is a good prac
 
 Generally, you will find this common Dockerfile for Golang:
 
-> It's always recommended to use the latest version of Golang, <Notation>(but don't use the latest tag, keep the version hardcoded)</Notation>
+> It's always recommended to use the latest version of Golang, (but don't use the latest tag, keep the version hardcoded)
 
 ```dockerfile
-# syntax=docker/dockerfile:1
-FROM golang:1.22-alpine
+FROM golang:1.23.1-alpine
 
 WORKDIR /app
 
@@ -72,14 +74,49 @@ RUN go build -o main .
 CMD ["./main"]
 ```
 
-## Optimized Dockerfile
+### Build the Dockerfile
+
+```bash
+docker build -t golang-app .
+```
+
+<Picture
+  src={FirstBuild}
+  alt="Docker Build"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+It's absolutely terrible image, 490MB, even with alpine. We will gradually optimize it.
+
+### Run the Dockerfile
+
+```bash
+docker run -d -p 8080:8080 golang-app
+```
+
+<Picture src={FirstRun} alt="Docker Run" inferSize formats={["avif", "webp"]} />
+
+It's running nicely, at port 8080.
+
+ping the healthcheck endpoint:
+
+```bash
+curl http://localhost:8080/health
+```
+
+we get a success response, so it's working.
+
+```json
+{ "status": "healthy" }
+```
+
+## Optimizing the Dockerfile
 
 To optimize your Dockerfile, you can use multi-stage builds, which help reduce the final image size and improve build times. Here is an optimized version of the Dockerfile:
 
 ```dockerfile
-# syntax=docker/dockerfile:1
-# Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23.1-alpine AS builder
 
 WORKDIR /app
 
@@ -89,7 +126,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o main .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o main .
 
 # Final stage
 FROM alpine:latest
@@ -101,12 +138,28 @@ COPY --from=builder /app/main .
 CMD ["./main"]
 ```
 
-### Explanation
+- Build the Dockerfile
+
+```bash
+docker build -t golang-app .
+```
+
+<Picture
+  src={OptimizedBuild}
+  alt="Optimized Build"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+It's just 20.39 MB, what more can you ask for? From 490MB to 20.39MB, that's a 95% reduction in size, not only that, there is also caching of the dependencies, so the subsequent builds are faster.
+
+### Explanation on the Dockerfile
 
 - **Multi-stage builds**: By using multi-stage builds, we can separate the build environment from the runtime environment. This helps in keeping the final image lightweight.
 - **Alpine base image**: Using `alpine:latest` as the base image for the final stage ensures a minimal footprint.
 - **Environment variables**: Setting `CGO_ENABLED=0` and `GOOS=linux` ensures that the binary is statically linked and compatible with Linux.
 - **Caching**: Using multi stage builds, we can use the Docker multi stage build cache to cache the dependencies and intermediate layers, which speeds up the build process.
+- **LD Flags**: Using `-ldflags="-w -s"` to strip the binary of debug information and symbols, which helps in reducing the size of the binary.
 
 ## Additional Optimization Tips
 
@@ -117,13 +170,15 @@ Create a `.dockerignore` file to exclude unnecessary files from the build contex
 ```plaintext
 # .dockerignore
 .git
-node_modules
+build
+random_stuff
+bin
 dist
 ```
 
 > Make sure only the files needed for the build are included in the build context. and the assets that are needed.
 
-### <Notation color="#565656">Cache Dependencies</Notation>
+### Cache Dependencies
 
 Leverage Docker's layer caching by copying `go.mod` and `go.sum` files first and running `go mod download` before copying the rest of the application files. This way, dependencies are only downloaded if they change.
 
@@ -137,6 +192,11 @@ RUN apk add --no-cache git && \
     go build -o main .
 ```
 
+<Callout type="info">
+  It does not matter much in our case if we combine RUN commands or not, I've
+  just given it as an example.
+</Callout>
+
 ### Use Scratch Base Image
 
 For the smallest possible image, you can use the `scratch` base image. This is useful for simple applications that do not require any additional libraries.
@@ -144,7 +204,7 @@ For the smallest possible image, you can use the `scratch` base image. This is u
 ```dockerfile
 # syntax=docker/dockerfile:1
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23.1-alpine AS builder
 
 WORKDIR /app
 
@@ -154,7 +214,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o main .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o main .
 
 # Final stage
 FROM scratch
@@ -164,14 +224,106 @@ COPY --from=builder /app/main .
 CMD ["./main"]
 ```
 
+<Callout type="info">
+  Smallest is not always best, it's important to consider the trade-offs and
+  choose the best base image for your application.
+</Callout>
+
+### Best Optimization for Production
+
+The Alpine image is quite nice, and works well, but, it can start causing some problems because of how it's DNS is configured. Please read this blog post for more information: [Alpine Linux DNS Issues](https://martinheinz.dev/blog/92) by Martin Heinz.
+
+Preferably, you should use the debian-slim image, which is a minimal version of Debian, and has no such problems + the rock solid base of Debian.
+
+```dockerfile
+# Stage 1: Install dependencies
+FROM golang:1.23.1-bookworm AS deps
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+
+RUN go mod download
+
+# Stage 2: Build the application
+FROM golang:1.23.1-bookworm AS builder
+
+WORKDIR /app
+
+COPY --from=deps /go/pkg /go/pkg
+COPY . .
+
+# Enable them if you need them
+# ENV CGO_ENABLED=0
+# ENV GOOS=linux
+
+RUN go build -o main . -ldflags="-w -s"
+
+# Final stage: Run the application
+FROM debian:bookworm-slim
+
+WORKDIR /root/
+
+# Create a non-root user and group
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Copy the built application
+COPY --from=builder /app/main .
+
+# Change ownership of the application binary
+RUN chown appuser:appuser /root/main
+
+# Switch to the non-root user
+USER appuser
+
+CMD ["./main"]
+```
+
+<Picture
+  src={DebianBuild}
+  alt="Debian Build"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+Using the debian-slim image, we get the image of size 131 MB, which isn't that much, and is super stable. Always prefer stability over the smallest size.
+
+### Still want to use Alpine?
+
+If you still want to use Alpine, update the final stage of dockerfile to this
+
+```dockerfile
+# Final stage: Run the application
+FROM alpine:latest
+
+WORKDIR /root/
+
+# Create a non-root user and group
+RUN addgroup -S appuser && adduser -S appuser -G appuser
+
+# Copy the built application
+COPY --from=builder /app/main .
+
+# Change ownership of the application binary
+RUN chown appuser:appuser /root/main
+
+# Switch to the non-root user
+USER appuser
+
+CMD ["./main"]
+```
+
 ## Conclusion
 
 By following these optimization techniques, you can create a more efficient and faster Dockerfile for your Golang applications. This not only improves the performance but also reduces the size of your Docker images, making them easier to distribute and deploy.
 
-<Notation type="bracket">
+<Callout type="info">
   Remember, optimizing your Dockerfile is an ongoing process. Continuously
   monitor and refine your Dockerfile to ensure it meets the needs of your
   application and deployment environment.
-</Notation>
+</Callout>
 
-**_Never add <Notation type="underline"> secrets or sensitive information </Notation> directly in the Dockerfile. Use environment variables or Docker secrets for sensitive information._**
+<Callout type="warning">
+  **_Never add secrets or sensitive information directly in the Dockerfile. Use
+  environment variables or Docker secrets for sensitive information._**
+</Callout>

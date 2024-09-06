@@ -118,7 +118,9 @@ CMD ["pnpm", "run", "start"]
 This Dockerfile will build the Next.js app and install the dependencies in production mode, but its terrible for the performance and the size of the image will be huge.
 
 <Callout type="info">
-  Rather than using the stock repo, I will be using a personal production project for the real world example, so some things will be different, but the core concept will be the same.
+  Rather than using the stock repo, I will be using a personal production
+  project for the real world example, so some things will be different, but the
+  core concept will be the same.
 </Callout>
 
 5. Now create the docker image
@@ -214,9 +216,11 @@ CMD ["pnpm", "run", "start"]
 ```
 
 <Callout type="info">
-  This is a multi-stage build, the first stage is the base stage, where we install the dependencies and the second stage is the builder stage, where we build the app and then we copy the built app from the builder stage to the runner stage and then we run the app.
+  This is a multi-stage build, the first stage is the base stage, where we
+  install the dependencies and the second stage is the builder stage, where we
+  build the app and then we copy the built app from the builder stage to the
+  runner stage and then we run the app.
 </Callout>
-
 
 2. Build the image again
 
@@ -224,8 +228,8 @@ CMD ["pnpm", "run", "start"]
 docker build -t nextjs-app .
 ```
 
-
 This time, it took around 1.5 minutes to build. And the image size is 1.36 GB, not much better if you ask me.
+
 <Picture
   src={SecondBuild}
   alt="Second Build"
@@ -254,15 +258,15 @@ and everything seems to be working fine, but we are not done yet.
 ```javascript
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  output: "standalone",
 };
 
 export default nextConfig;
-
 ```
 
 <Callout type="info">
-  This will make the Next.js app a standalone app, so you can run it directly from the Node.js, without any serverless functions.
+  This will make the Next.js app a standalone app, so you can run it directly
+  from the Node.js, without any serverless functions.
 </Callout>
 
 2. Update the Dockerfile to use the standalone build
@@ -301,10 +305,13 @@ COPY --from=builder /app/.next/standalone ./
 # Start the application
 CMD ["node", "server.js"]
 ```
+
 As you see, we are not copying the entire .next folder, and neither we are copying the node_modules folder, because we are using the dependencies from the base stage.
 
 <Callout type="info">
-The first build will take some time, because it has to install the dependencies and build the app, but the second build will be much faster, because it will use the cache from the base stage.
+  The first build will take some time, because it has to install the
+  dependencies and build the app, but the second build will be much faster,
+  because it will use the cache from the base stage.
 </Callout>
 
 3. Build the image again
@@ -341,14 +348,9 @@ http://localhost:3000
   formats={["avif", "webp"]}
 />
 
-Doesn't this look amazing? *cough* *cough* WHERE ARE MY STYLES AND IMAGES?
+Doesn't this look amazing? _cough_ _cough_ WHERE ARE MY STYLES AND IMAGES?
 
-<Picture
-  src={WellWellWell}
-  alt="Well Well Well"
-  inferSize
-  formats={["gif"]}
-/>
+<Picture src={WellWellWell} alt="Well Well Well" inferSize formats={["gif"]} />
 
 Hey! don't give me that look, I know what I did, we are almost done.
 This is how the things are supposed to be, we are on the right path. Apparently the standalone build only contains the node_modules for the dependencies that are used in the app, and the css, images etc are not included in it.
@@ -356,6 +358,7 @@ This is how the things are supposed to be, we are on the right path. Apparently 
 Now it's time to fix it.
 
 6. Update the Dockerfile to copy assets correctly
+
 ```dockerfile
 FROM node:22-alpine AS base
 
@@ -422,12 +425,7 @@ Your image size will increase a bit according to how much assets you have, but i
 docker run -p 3000:3000 nextjs-app
 ```
 
-<Picture
-  src={FinalRun}
-  alt="Final Run"
-  inferSize
-  formats={["avif", "webp"]}
-/>
+<Picture src={FinalRun} alt="Final Run" inferSize formats={["avif", "webp"]} />
 
 9. Open the app in the browser
 
@@ -447,14 +445,15 @@ And everything seems to be working fine, and the best part is that the image siz
 Now you can just push this image to your favorite registry, and you are done.
 
 <Callout type="info">
-  If you want to learn more about the standalone build, you can checkout the [official documentation](https://nextjs.org/docs/app/building-your-application/deploying).
+  If you want to learn more about the standalone build, you can checkout the
+  [official
+  documentation](https://nextjs.org/docs/app/building-your-application/deploying).
 </Callout>
-
 
 ## Deployment related optimizations
 
 1. Secure Docker Image
-> Currently we are running it as root, which is not a good practice, so let's run it as a non-root user.
+   > Currently we are running it as root, which is not a good practice, so let's run it as a non-root user.
 
 ```dockerfile
 FROM node:22-alpine AS base
@@ -507,11 +506,17 @@ EXPOSE 3000
 
 CMD ["node", "server.js"]
 ```
+
 <Callout type="warn">
-If you had paid attention, there was a problem in the initial dockerfiles, we were copying everything in the first stage itself, so the caching would have had failed.
-Now we are only copying the package.json and pnpm-lock.yaml in the first stage, and the rest of the files in the second stage, so the caching will work.
+  If you had paid attention, there was a problem in the initial dockerfiles, we
+  were copying everything in the first stage itself, so the caching would have
+  had failed. Now we are only copying the package.json and pnpm-lock.yaml in the
+  first stage, and the rest of the files in the second stage, so the caching
+  will work.
 </Callout>
-2. If you are running this in Github Actions, elsewhere, you can build the nextjs app in the github actions itself, and only do the final stage, and set it to copy from the local files like this - 
+2. If you are running this in Github Actions, elsewhere, you can build the
+nextjs app in the github actions itself, and only do the final stage, and set it
+to copy from the local files like this -{" "}
 
 ```dockerfile
 # syntax=docker/dockerfile:1.4
@@ -537,7 +542,9 @@ CMD ["node", "server.js"]
 ```
 
 <Callout type="info">
-We are using docker image node:22-slim, because it's based on Debian, and the github actions runner is based on Ubuntu, so we need to use the same base image.
+  We are using docker image node:22-slim, because it's based on Debian, and the
+  github actions runner is based on Ubuntu, so we need to use the same base
+  image.
 </Callout>
 
 Generally it's safer to use the debian based image, because it's more compatible with various internal libraries.
@@ -559,7 +566,7 @@ const nextConfig = {
     NEXT_PUBLIC_REDIS_INSIGHT_URL:
       process.env.REDIS_INSIGHT_URL ?? "http://localhost:8001",
   },
-  output: 'standalone',
+  output: "standalone",
 };
 
 export default nextConfig;
@@ -653,7 +660,8 @@ module.exports = CacheHandler;
 Update the ENV variables accordingly, now when you horizontally scale your app, the cache can be shared across all the instances, and the cache will be much faster than the local-lru cache.
 
 <Callout type="info">
-  Read more about it here - [Next.js Cache Handler](https://github.com/vercel/next.js/tree/canary/examples/cache-handler-redis)
+  Read more about it here - [Next.js Cache
+  Handler](https://github.com/vercel/next.js/tree/canary/examples/cache-handler-redis)
 </Callout>
 
 ## Conclusion
