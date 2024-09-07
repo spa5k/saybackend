@@ -257,7 +257,7 @@ COPY . .
 # ENV CGO_ENABLED=0
 # ENV GOOS=linux
 
-RUN go build -o main . -ldflags="-w -s"
+RUN go build -ldflags="-w -s" -o main .
 
 # Final stage: Run the application
 FROM debian:bookworm-slim
@@ -336,7 +336,7 @@ jobs:
         with:
           go-version: "1.23"
       - name: Build
-        run: go build -o main -ldflags="-w -s"
+        run: go build -ldflags="-w -s" -o main
       - name: Build Docker Image
         run: |
           docker build -t golang-app .
