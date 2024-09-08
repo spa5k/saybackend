@@ -17,7 +17,7 @@
     "@astrojs/rss": "^4.0.7",
     "@astrojs/sitemap": "^3.1.6",
     "@astrojs/tailwind": "^5.1.0",
-    "@fontsource/lexend": "^5.0.21",
+    "@fontsource/lexend": "^5.0.22",
     "@vercel/speed-insights": "^1.0.12",
     "astro": "^4.15.4",
     "astro-compress": "^2.3.1",
