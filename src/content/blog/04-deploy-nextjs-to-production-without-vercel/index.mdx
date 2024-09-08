@@ -510,19 +510,18 @@ CMD ["node", "server.js"]
 <Callout type="warn">
   If you had paid attention, there was a problem in the initial dockerfiles, we
   were copying everything in the first stage itself, so the caching would have
-  had failed since no matter what file we edit, the caching would be invalidated. 
-  Now we are only copying the package.json and pnpm-lock.yaml in the
-  first stage, and the rest of the files in the build stage, so the caching
+  had failed since no matter what file we edit, the caching would be
+  invalidated. Now we are only copying the package.json and pnpm-lock.yaml in
+  the first stage, and the rest of the files in the build stage, so the caching
   will work.
 </Callout>
 ## Using Github actions
-
 
 If you are running this in Github Actions, elsewhere, you can build the
 nextjs app in the github actions itself, and only do the final stage, and set it
 to copy from the local files like this.
 
-- Github Actions cicd.yml 
+- Github Actions cicd.yml
 
 ```yaml
 name: Staging CI/CD
@@ -546,7 +545,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
+          cache: "pnpm"
       - name: Cache node_modules and Yarn cache
         uses: actions/cache@v4
         with:
@@ -563,7 +562,7 @@ jobs:
         run: pnpm install
 
       - name: Build
-        run:  pnpm build
+        run: pnpm build
 
       - name: Build Docker Image
         env:
@@ -728,8 +727,8 @@ The next article will be about how you can publish this app in AWS, will all the
 
 Thank you for reading.
 
-
 <Callout type="info">
   I'm looking for a job, if you are looking for a senior backend developer,
-  please consider me, I'm available on my email <a href="mailto:admin@saybackend.com">admin@saybackend.com</a>
+  please consider me, I'm available on my email{" "}
+  <a href="mailto:admin@saybackend.com">admin@saybackend.com</a>
 </Callout>
