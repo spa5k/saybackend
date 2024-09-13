@@ -46,11 +46,11 @@ ogImage: "/images/4-nextjs-docker/nextjs_docker.png"
 draft: false
 ---
 
+import Callout from "@/components/Callout.astro";
 import { Picture } from "astro:assets";
-import OgImage from "./nextjs_docker_og.jpg";
+import FinalBuild from "./10_final_build.png";
 import DockerImage from "./1_intialbuild.png";
 import DockerRun from "./2_initial_run.png";
-import Callout from "@/components/Callout.astro";
 import InitialVisit from "./3_initial_visit.png";
 import SecondBuild from "./4_second_build.png";
 import ThirdBuild from "./5_third_build.png";
@@ -58,7 +58,7 @@ import SecondVisit from "./6_second_visit.png";
 import WellWellWell from "./7_wellwellwell.gif";
 import FinalRun from "./8_final_run.png";
 import FinalVisit from "./9_final_visit.png";
-import FinalBuild from "./10_final_build.png";
+import OgImage from "./nextjs_docker_og.jpg";
 
 <Picture
   src={OgImage}
@@ -470,10 +470,11 @@ COPY package.json pnpm-lock.yaml ./
 # Install dependencies
 RUN pnpm install
 
-# Copy the rest of the application files
-COPY . .
 
 FROM base AS builder
+
+# Copy the rest of the application files
+COPY . .
 
 # Build the application
 RUN pnpm run build
@@ -546,7 +547,7 @@ jobs:
         with:
           node-version: 22
           cache: "pnpm"
-      - name: Cache node_modules and Yarn cache
+      - name: Cache node_modules and Nextjs build files
         uses: actions/cache@v4
         with:
           path: |
