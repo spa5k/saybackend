@@ -11,15 +11,15 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@astrojs/check": "^0.9.3",
-    "@astrojs/mdx": "^3.1.5",
+    "@astrojs/check": "^0.9.4",
+    "@astrojs/mdx": "^3.1.9",
     "@astrojs/partytown": "^2.1.2",
-    "@astrojs/rss": "^4.0.7",
-    "@astrojs/sitemap": "^3.1.6",
-    "@astrojs/tailwind": "^5.1.0",
+    "@astrojs/rss": "^4.0.9",
+    "@astrojs/sitemap": "^3.2.1",
+    "@astrojs/tailwind": "^5.1.2",
     "@fontsource/lexend": "^5.1.0",
     "@vercel/speed-insights": "^1.0.12",
-    "astro": "^4.15.4",
+    "astro": "^4.16.9",
     "astro-compress": "^2.3.1",
     "astro-font": "^0.1.81",
     "astro-pagefind": "^1.6.0",
@@ -29,7 +29,7 @@
     "typescript": "^5.6.2"
   },
   "devDependencies": {
-    "@astrojs/vercel": "^7.8.1",
+    "@astrojs/vercel": "^7.8.2",
     "@tailwindcss/typography": "^0.5.15",
     "pagefind": "^1.1.1",
     "prettier": "^3.3.3",
