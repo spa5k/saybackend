@@ -1,20 +1,20 @@
 ---
-import BackToPrevious from "@components/BackToPrevious.astro";
+import { type CollectionEntry, getCollection, render } from "astro:content";
+import Layout from "@layouts/Layout.astro";
 import Container from "@components/Container.astro";
 import FormattedDate from "@components/FormattedDate.astro";
-import Giscus from "@components/Giscus.astro";
+import { readingTime } from "@lib/utils";
+import BackToPrevious from "@components/BackToPrevious.astro";
 import PostNavigation from "@components/PostNavigation.astro";
 import TableOfContents from "@components/TableOfContents.astro";
-import Layout from "@layouts/Layout.astro";
-import { readingTime } from "@lib/utils";
-import { type CollectionEntry, getCollection } from "astro:content";
+import Giscus from "@components/Giscus.astro";
 
 export async function getStaticPaths() {
   const posts = (await getCollection("blog"))
     .filter((post) => !post.data.draft)
     .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
   return posts.map((post) => ({
-    params: { slug: post.slug },
+    params: { id: post.id },
     props: post,
   }));
 }
@@ -27,7 +27,7 @@ const posts = (await getCollection("blog"))
 function getNextPost() {
   let postIndex;
   for (const post of posts) {
-    if (post.slug === Astro.params.slug) {
+    if (post.id === Astro.params.id) {
       postIndex = posts.indexOf(post);
       return posts[postIndex + 1];
     }
@@ -37,7 +37,7 @@ function getNextPost() {
 function getPrevPost() {
   let postIndex;
   for (const post of posts) {
-    if (post.slug === Astro.params.slug) {
+    if (post.id === Astro.params.id) {
       postIndex = posts.indexOf(post);
       return posts[postIndex - 1];
     }
@@ -48,14 +48,10 @@ const nextPost = getNextPost();
 const prevPost = getPrevPost();
 
 const post = Astro.props;
-const { Content, headings } = await post.render();
+const { Content, headings } = await render(post);
 ---
 
-<Layout
-  title={post.data.title}
-  description={post.data.description}
-  image={post.data.ogImage}
->
+<Layout title={post.data.title} description={post.data.description}>
   <Container>
     <div class="animate">
       <BackToPrevious href="/blog">Back to blog</BackToPrevious>
@@ -66,23 +62,31 @@ const { Content, headings } = await post.render();
           <FormattedDate date={post.data.date} />
         </div>
         &bull;
-        <div class="font-base text-sm">
-          {readingTime(post.body)}
-        </div>
         {
-          post.data.updated && (
-            <>
-              &bull;
-              <div class="font-base text-sm">
-                Updated at - <FormattedDate date={post.data.updated} />
-              </div>
-            </>
+          post.body && (
+            <div class="font-base text-sm">{readingTime(post.body)}</div>
           )
         }
       </div>
       <h1 class="animate text-3xl font-semibold text-black dark:text-white">
         {post.data.title}
       </h1>
+      {
+        post.data.tags && post.data.tags?.length > 0 ? (
+          <div class="animate flex gap-2 pt-1">
+            <ul class="flex flex-wrap gap-2">
+              {post.data.tags.map((tag, index) => (
+                <li
+                  class={`rounded-md bg-gray-800 px-2 py-1 text-sm font-medium text-white ${index >= 5 ? "hidden" : ""}`}
+                  title={`${tag}`}
+                >
+                  <a href={`/tags/${tag}`}>{tag}</a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null
+      }
     </div>
     {headings.length > 0 && <TableOfContents headings={headings} />}
     <article class="animate">
@@ -94,31 +98,6 @@ const { Content, headings } = await post.render();
         <Giscus />
       </div>
     </article>
-    <section class="mt-10" aria-label="Post Tags">
-      <div class="flex flex-wrap gap-2">
-        <ul class="flex flex-wrap gap-2">
-          {
-            post.data.tags &&
-              post.data.tags.map((tag, index) => (
-                <li
-                  class={`rounded-md bg-gray-800 px-2 py-1 text-sm font-medium text-white ${index >= 5 ? "hidden" : ""}`}
-                  title={`${tag}`}
-                >
-                  {tag}
-                </li>
-              ))
-          }
-        </ul>
-      </div>
-    </section>
-    <div
-      id="post-data"
-      data-title={post.data.title}
-      data-ogimage={post.data.ogImage}
-      data-date={post.data.date.toISOString()}
-      data-description={post.data.description}
-    >
-    </div>
   </Container>
 </Layout>
 

@@ -5,7 +5,6 @@ import Header from "@components/Header.astro";
 import PageFind from "@components/PageFind.astro";
 import { SITE } from "@consts";
 import SpeedInsights from "@vercel/speed-insights/astro";
-import { ViewTransitions } from "astro:transitions";
 
 type Props = {
   title: string;
@@ -25,7 +24,6 @@ const { title, description, image } = Astro.props;
       image={image}
     />
     <SpeedInsights />
-    <ViewTransitions />
   </head>
   <body>
     <Header />

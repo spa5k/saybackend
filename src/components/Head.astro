@@ -1,6 +1,6 @@
 ---
 import "../styles/global.css";
-import { ViewTransitions } from "astro:transitions";
+import { ClientRouter } from "astro:transitions";
 import { join } from "node:path";
 import { AstroFont } from "astro-font";
 import "@fontsource/lexend";
@@ -69,7 +69,7 @@ const { title, description, image = "/images/blog.png" } = Astro.props;
 <link href="/pagefind/pagefind-ui.css" rel="stylesheet" />
 <script is:inline src="/pagefind/pagefind-ui.js"></script>
 
-<ViewTransitions />
+<ClientRouter />
 
 <script is:inline>
   function init() {
