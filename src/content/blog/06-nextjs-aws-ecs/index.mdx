@@ -1,0 +1,267 @@
+---
+title: "Deploying Your Next.js Docker Image to AWS ECS Fargate and ECR"
+description: "Continue your Next.js deployment journey by pushing your Docker image to AWS Elastic Container Registry (ECR) and deploying it using AWS Elastic Container Service (ECS) Fargate."
+date: "2025-02-10"
+draft: true
+tags:
+  - "nextjs"
+  - "docker"
+  - "aws"
+  - "ecs"
+  - "ecr"
+  - "fargate"
+  - "deployment"
+  - "cloud"
+  - "infrastructure-as-code"
+  - "containerization"
+  - "aws-ecs-fargate"
+  - "aws-ecr"
+  - "nextjs-deployment"
+  - "docker-image"
+  - "cloud-deployment"
+  - "serverless"
+  - "aws-deployment"
+  - "nextjs-production"
+ogImage: "/images/nextjs-aws-ecs.png"
+---
+
+import { Picture } from "astro:assets";
+import OgImage from "./nextjs-aws-ecs.png";
+import Callout from "@/components/Callout.astro";
+
+<Picture
+  src={OgImage}
+  alt="Deploying Next.js to AWS ECS Fargate and ECR"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+## Introduction
+
+Welcome back to our comprehensive guide series on deploying Next.js applications without relying on proprietary cloud providers like Vercel. In our last post, we meticulously walked through building and optimizing a Dockerized Next.js application. Today, we're excited to take that a step further by deploying your Docker image to **AWS Elastic Container Registry (ECR)** and **AWS Elastic Container Service (ECS) Fargate**. This approach ensures scalability, reliability, and complete control over your deployment environment.
+
+By the end of this guide, you'll have a fully deployed Next.js application running on AWS's serverless container platform, leveraging ECR for efficient Docker image storage and management.
+
+## Prerequisites
+
+Before diving in, make sure you have the following:
+
+- **AWS Account**: If you don't have one, [sign up here](https://aws.amazon.com/).
+- **AWS CLI Installed and Configured**: Follow the [official guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html) to install and configure.
+- **Docker Installed**: Ensure Docker is installed on your machine. [Download Docker](https://www.docker.com/get-started).
+- **Existing Next.js Docker Image**: As per the previous blog, you should have a Docker image of your Next.js app ready for deployment.
+
+> **Pro Tip:** Familiarize yourself with AWS ECS and ECR concepts by reviewing [AWS ECS Documentation](https://docs.aws.amazon.com/ecs/index.html) and [AWS ECR Documentation](https://docs.aws.amazon.com/ecr/).
+
+## Step 1: Create an AWS ECR Repository
+
+AWS Elastic Container Registry (ECR) is a fully managed Docker container registry that makes it easy to store, manage, and deploy Docker container images.
+
+### Using the AWS Management Console
+
+1. **Navigate to ECR in the AWS Console:**
+
+   Go to the [AWS Management Console](https://console.aws.amazon.com/) and select **Elastic Container Registry** from the services menu.
+
+2. **Create a New Repository:**
+
+   - Click on **Repositories** in the sidebar.
+   - Click **Create repository**.
+   - Choose **Private** (recommended for most use cases).
+   - Enter a repository name, e.g., `nextjs-app`.
+   - Leave other settings as default or adjust based on your requirements.
+   - Click **Create repository**.
+
+   ![Create ECR Repository](./create-ecr-repository.png)
+
+### Using the AWS CLI
+
+Alternatively, create an ECR repository using the AWS CLI:
+
+```bash
+aws ecr create-repository --repository-name nextjs-app --region us-east-1
+```
+
+Replace `us-east-1` with your preferred AWS region.
+
+## Step 2: Authenticate Docker to Your ECR Repository
+
+Before pushing your Docker image to ECR, authenticate your Docker client to the registry.
+
+```bash
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <your_account_id>.dkr.ecr.us-east-1.amazonaws.com
+```
+
+Replace `<your_account_id>` with your AWS account ID and ensure the region matches your ECR repository.
+
+## Step 3: Tag Your Docker Image
+
+Docker images need to be tagged with the ECR repository URI before being pushed.
+
+1. **Identify Your Docker Image:**
+
+   List your Docker images to find the one you built earlier.
+
+   ```bash
+   docker images
+   ```
+
+   Assume your image is tagged as `nextjs-app:latest`.
+
+2. **Tag the Image:**
+
+   ```bash
+   docker tag nextjs-app:latest <your_account_id>.dkr.ecr.us-east-1.amazonaws.com/nextjs-app:latest
+   ```
+
+   Replace `<your_account_id>` and ensure the repository name matches the one you created.
+
+## Step 4: Push the Docker Image to ECR
+
+Now, push the tagged image to your ECR repository.
+
+```bash
+docker push <your_account_id>.dkr.ecr.us-east-1.amazonaws.com/nextjs-app:latest
+```
+
+You should see output indicating the progress of the image layers being pushed.
+
+![Push Docker Image](./push-docker-image.png)
+
+## Step 5: Set Up AWS ECS Fargate
+
+AWS Elastic Container Service (ECS) with Fargate allows you to run containers without managing servers or clusters.
+
+### Create an ECS Cluster
+
+1. **Navigate to ECS in the AWS Console:**
+
+   Go to the [AWS ECS Console](https://console.aws.amazon.com/ecs/home).
+
+2. **Create a New Cluster:**
+
+   - Click on **Clusters** in the sidebar.
+   - Click **Create Cluster**.
+   - Select **Networking only** (Fargate).
+   - Click **Next step**.
+   - Enter a cluster name, e.g., `nextjs-cluster`.
+   - Click **Create**.
+
+   ![Create ECS Cluster](./create-ecs-cluster.png)
+
+### Create a Task Definition
+
+1. **Navigate to Task Definitions:**
+
+   Within the ECS console, click on **Task Definitions** in the sidebar.
+
+2. **Create New Task Definition:**
+
+   - Click **Create new Task Definition**.
+   - Select **Fargate** and click **Next step**.
+   - Enter a task definition name, e.g., `nextjs-task`.
+   - Set **Task execution role** to `ecsTaskExecutionRole` (if not existing, create it).
+   - Under **Container definitions**, click **Add container**.
+     - **Container name**: `nextjs-container`.
+     - **Image**: `<your_account_id>.dkr.ecr.us-east-1.amazonaws.com/nextjs-app:latest`.
+     - **Port mappings**: Container port `3000`.
+   - Click **Add**.
+   - Review and click **Create**.
+
+   ![Create Task Definition](./create-task-definition.png)
+
+## Step 6: Deploy the ECS Service
+
+1. **Navigate to Your Cluster:**
+
+   Go to **Clusters** and select `nextjs-cluster`.
+
+2. **Create a Service:**
+
+   - Click on **Services** tab.
+   - Click **Create**.
+   - **Launch type**: Select **Fargate**.
+   - **Task Definition**: Choose `nextjs-task`.
+   - **Service name**: `nextjs-service`.
+   - **Number of tasks**: `1` (adjust based on your needs).
+   - **Cluster VPC and Subnets**: Choose default or specify as required.
+   - **Security Groups**: Ensure it allows inbound traffic on port `3000`.
+   - Click **Next step**.
+   - **Configure Auto Scaling**: Optional for this guide.
+   - Click **Next step** and then **Create Service**.
+
+   ![Create ECS Service](./create-ecs-service.png)
+
+### Set Up a Load Balancer (Optional but Recommended)
+
+For production environments, it's advisable to set up a Load Balancer.
+
+1. **During Service Creation:**
+
+   - Select **Application Load Balancer**.
+   - Configure listeners and target groups accordingly.
+   - Ensure the Load Balancer's security group allows inbound traffic on necessary ports (e.g., `80` or `443`).
+
+   ![Configure Load Balancer](./configure-load-balancer.png)
+
+## Step 7: Access Your Deployed Application
+
+Once the service is active, it will provide a public IP or DNS to access your application.
+
+1. **Find the Public IP/DNS:**
+
+   - Navigate to the **Tasks** tab within your cluster.
+   - Click on the running task.
+   - Under **Networking**, find the **Public IP** or **DNS**.
+
+2. **Access in Browser:**
+
+   Open your browser and navigate to `http://<Public_IP>:3000` or the provided DNS.
+
+   ![Access Deployed App](./access-deployed-app.png)
+
+## Visual Guide
+
+To help you visualize the deployment process, here's a simple flowchart:
+
+```markdown
+graph TD
+A[Build Docker Image] --> B[Push to AWS ECR]
+B --> C[Create ECS Cluster]
+C --> D[Define Task]
+D --> E[Deploy Service]
+E --> F[Access Application]
+```
+
+This diagram illustrates the streamlined flow from building your Docker image to accessing your deployed Next.js application on AWS ECS Fargate.
+
+## Best Practices and Tips
+
+- **Use Environment Variables:** Store sensitive information like API keys using AWS Secrets Manager or AWS Systems Manager Parameter Store.
+- **Enable Logging:** Integrate with AWS CloudWatch to monitor logs and set up alerts.
+- **Implement CI/CD Pipelines:** Automate the build and deployment process using AWS CodePipeline or third-party tools like GitHub Actions.
+- **Scale Appropriately:** Configure auto-scaling based on CPU or memory usage to handle traffic spikes.
+- **Secure Your Application:** Implement HTTPS using AWS Certificate Manager and ensure your security groups are tightly configured.
+- **Optimize Costs:** Regularly review your ECS and ECR usage to optimize costs. Consider reserved instances or savings plans if applicable.
+- **Automate with Infrastructure as Code:** Use tools like AWS CloudFormation or Terraform to automate and version your infrastructure setups.
+
+## Conclusion
+
+Deploying your Next.js application to AWS ECS Fargate and ECR provides a robust and scalable solution without the complexities of managing server infrastructure. By leveraging Docker and AWS's serverless container services, you can focus on building and improving your application while AWS handles the heavy lifting.
+
+In this guide, we covered:
+
+- **Setting up an ECR repository**: Efficiently storing and managing your Docker images.
+- **Pushing your Docker image to ECR**: Seamlessly transferring your image for deployment.
+- **Configuring and deploying your application using ECS Fargate**: Hosting your application in a scalable, serverless environment.
+- **Accessing your deployed Next.js application**: Verifying your deployment and accessing your live application.
+
+This setup ensures your application is production-ready, scalable, and maintainable. In future posts, we’ll explore more advanced topics like setting up CI/CD pipelines, implementing monitoring and logging, and optimizing costs.
+
+Thank you for following along!
+
+<Callout type="info">
+  I'm actively seeking opportunities as a Senior Backend Developer. If you're
+  looking to enhance your team with experienced talent, feel free to reach out
+  to me at <a href="mailto:admin@saybackend.com">admin@saybackend.com</a>.
+</Callout>

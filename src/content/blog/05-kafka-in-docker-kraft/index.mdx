@@ -2,6 +2,7 @@
 title: "Running Kafka Locally with Docker and KRaft Mode"
 description: "Learn how to set up and run Apache Kafka locally using Docker with the new KRaft mode, eliminating the need for Zookeeper."
 date: "2025-01-27"
+draft: true
 tags:
   - "kafka"
   - "docker"
@@ -69,7 +70,7 @@ Before diving in, ensure you have the following installed on your machine:
 Let's begin by setting up the `docker-compose.yml` file. This configuration will define a two-node Kafka cluster operating in KRaft mode.
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   kafka1:
@@ -124,10 +125,10 @@ Here's a simple diagram to illustrate the setup:
 
 ```markdown
 graph LR
-  kafka1[Kafka Node 1]
-  kafka2[Kafka Node 2]
-  kafka1 -->|Controller & Broker| kafka2
-  kafka2 -->|Controller & Broker| kafka1
+kafka1[Kafka Node 1]
+kafka2[Kafka Node 2]
+kafka1 -->|Controller & Broker| kafka2
+kafka2 -->|Controller & Broker| kafka1
 ```
 
 This diagram showcases the bidirectional communication between the two Kafka nodes, both acting as controllers and brokers.
@@ -254,5 +255,7 @@ Setting up Apache Kafka locally with Docker and KRaft mode is a streamlined appr
 **Note:** While this setup is excellent for development and testing, it's not recommended for production use. Production environments require considerations for scalability, security, and robust monitoring mechanisms.
 
 <Callout type="info">
-  I'm actively seeking opportunities as a Senior Backend Developer. If you're looking to enhance your team with experienced talent, feel free to reach out to me at <a href="mailto:admin@saybackend.com">admin@saybackend.com</a>.
+  I'm actively seeking opportunities as a Senior Backend Developer. If you're
+  looking to enhance your team with experienced talent, feel free to reach out
+  to me at <a href="mailto:admin@saybackend.com">admin@saybackend.com</a>.
 </Callout>
