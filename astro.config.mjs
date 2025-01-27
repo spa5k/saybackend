@@ -1,7 +1,7 @@
 import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
-import tailwind from "@astrojs/tailwind";
 import vercel from "@astrojs/vercel";
+import tailwindcss from "@tailwindcss/vite";
 import pagefind from "astro-pagefind";
 import { defineConfig } from "astro/config";
 
@@ -13,7 +13,6 @@ import partytown from "@astrojs/partytown";
 export default defineConfig({
   site: "https://www.saybackend.com",
   integrations: [
-    tailwind(),
     sitemap(),
     mdx(),
     pagefind(),
@@ -24,6 +23,9 @@ export default defineConfig({
       },
     }),
   ],
+  vite: {
+    plugins: [tailwindcss()],
+  },
   prefetch: true,
   markdown: {
     shikiConfig: {
