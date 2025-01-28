@@ -1,7 +1,8 @@
 ---
 title: "Comparing Three uuidv7 Generating Functions in Postgres"
 description: "Dive into the world of UUID generation in Postgres with a comparison of three uuidv7 generating functions. Discover which one fits your project's needs best!"
-date: "2024-04-27"
+date: "2025-01-29"
+draft: true
 tags:
   - "postgres"
   - "uuid"
@@ -29,21 +30,13 @@ ogImage: "/images/uuidv7-postgres-og.png"
 
 import Callout from "@/components/Callout.astro";
 import { Picture } from "astro:assets";
-import OgImage from "./uuidv7-postgres-og.png";
-import FunctionOneImage from "./function_one.png";
-import FunctionTwoImage from "./function_two.png";
-import FunctionThreeImage from "./function_three.png";
 
----
-import { useEffect, useState } from "react";
----
-
-<Picture
-  src={OgImage}
-  alt="Comparing Three uuidv7 Generating Functions in Postgres"
-  inferSize
-  formats={["avif", "webp"]}
-/>
+{/_ <Picture
+src={OgImage}
+alt="Comparing Three uuidv7 Generating Functions in Postgres"
+inferSize
+formats={["avif", "webp"]}
+/> _/}
 
 ## Introduction
 
@@ -56,7 +49,8 @@ In this blog post, we'll delve into three different uuidv7 generating functions 
 UUIDv7 is the latest version in the UUID standard, designed to incorporate time-based elements, making them more sortable and performant compared to their predecessors like UUIDv4. This time-based nature ensures that UUIDv7s can be generated in a sequential manner, which is beneficial for indexing and querying in databases like Postgres.
 
 <Callout type="info">
-  **Pro Tip:** Using time-ordered UUIDs can significantly improve database indexing performance, especially in high-write scenarios.
+  **Pro Tip:** Using time-ordered UUIDs can significantly improve database
+  indexing performance, especially in high-write scenarios.
 </Callout>
 
 ## The Three uuidv7 Generating Functions
@@ -69,75 +63,86 @@ Let's explore three popular uuidv7 generating functions available for Postgres:
 
 ### 1. Function One: `uuidv7_generate1()`
 
-<Picture
-  src={FunctionOneImage}
-  alt="uuidv7_generate1 Function"
-  inferSize
-  formats={["avif", "webp"]}
-/>
+{/_ <Picture
+src={FunctionOneImage}
+alt="uuidv7_generate1 Function"
+inferSize
+formats={["avif", "webp"]}
+/> _/}
 
 The `uuidv7_generate1()` function is a straightforward implementation that leverages Postgres's built-in features to generate uuidv7s. It's known for its simplicity and ease of integration.
 
 #### **Pros:**
+
 - **Simplicity:** Easy to implement without external dependencies.
 - **Performance:** Efficient for applications with moderate UUID generation needs.
 - **Maintenance:** Minimal maintenance required as it relies on Postgres's native functions.
 
 #### **Cons:**
+
 - **Flexibility:** Limited customization options for specific UUID generation patterns.
 - **Scalability:** May not perform optimally under extremely high UUID generation loads.
 
 #### **Example Usage:**
+
 ```sql
 SELECT uuidv7_generate1();
 ```
 
 ### 2. Function Two: `uuidv7_generate2()`
 
+{/\*
+
 <Picture
   src={FunctionTwoImage}
   alt="uuidv7_generate2 Function"
   inferSize
   formats={["avif", "webp"]}
-/>
+/> */}
 
 The `uuidv7_generate2()` function introduces additional features, such as customizable timestamp precision and optional namespace integration, making it a more versatile choice for complex applications.
 
 #### **Pros:**
+
 - **Customization:** Allows fine-tuning of timestamp precision and namespace usage.
 - **Compatibility:** Better suited for applications requiring integration with existing UUID namespaces.
 - **Enhanced Performance:** Optimized for high-throughput environments.
 
 #### **Cons:**
+
 - **Complexity:** Slightly more complex to implement compared to `uuidv7_generate1()`.
 - **Dependencies:** May rely on external libraries or extensions for advanced features.
 
 #### **Example Usage:**
+
 ```sql
 SELECT uuidv7_generate2('my_namespace');
 ```
 
 ### 3. Function Three: `uuidv7_generate3()`
 
-<Picture
-  src={FunctionThreeImage}
-  alt="uuidv7_generate3 Function"
-  inferSize
-  formats={["avif", "webp"]}
-/>
+{/_ <Picture
+src={FunctionThreeImage}
+alt="uuidv7_generate3 Function"
+inferSize
+formats={["avif", "webp"]}
+/> _/}
 
 The `uuidv7_generate3()` function stands out with its focus on security and cryptographic strength, ensuring that generated UUIDs are not only unique but also secure against predictability attacks.
 
 #### **Pros:**
+
 - **Security:** Incorporates cryptographic techniques to enhance UUID security.
 - **Uniqueness:** Guarantees a higher degree of uniqueness, reducing collision risks.
 - **Advanced Features:** Supports features like embedding additional metadata within the UUID.
 
 #### **Cons:**
+
 - **Performance Overhead:** Additional security measures may introduce slight performance delays.
 - **Implementation Complexity:** More intricate setup due to advanced security features.
 
 #### **Example Usage:**
+
 ```sql
 SELECT uuidv7_generate3();
 ```
@@ -146,16 +151,17 @@ SELECT uuidv7_generate3();
 
 To provide a clearer picture, let's compare the performance of these three functions under different load scenarios.
 
-| Function               | Average Generation Time (ms) | Collision Rate |
-|------------------------|------------------------------|-----------------|
-| `uuidv7_generate1()`   | 1.2                          | Low             |
-| `uuidv7_generate2()`   | 1.5                          | Very Low        |
-| `uuidv7_generate3()`   | 2.0                          | Extremely Low   |
+| Function             | Average Generation Time (ms) | Collision Rate |
+| -------------------- | ---------------------------- | -------------- |
+| `uuidv7_generate1()` | 1.2                          | Low            |
+| `uuidv7_generate2()` | 1.5                          | Very Low       |
+| `uuidv7_generate3()` | 2.0                          | Extremely Low  |
 
-*Note: These metrics are based on benchmark tests conducted with 1 million UUID generations.*
+_Note: These metrics are based on benchmark tests conducted with 1 million UUID generations._
 
 <Callout type="warning">
-  **Caution:** While performance is a critical factor, it's essential to balance it with your application's specific needs and security requirements.
+  **Caution:** While performance is a critical factor, it's essential to balance
+  it with your application's specific needs and security requirements.
 </Callout>
 
 ## Choosing the Right Function for Your Project
@@ -188,5 +194,108 @@ Choosing the right uuidv7 generating function in Postgres depends largely on you
 By comparing `uuidv7_generate1()`, `uuidv7_generate2()`, and `uuidv7_generate3()`, we've highlighted the key aspects to consider, ensuring that your UUID generation aligns perfectly with your application's goals.
 
 <Callout type="info">
-  **Job Opportunity:** If you're looking for a senior backend developer with expertise in Postgres and UUID generation strategies, feel free to reach out to me at <a href="mailto:admin@saybackend.com">admin@saybackend.com</a>.
+  **Job Opportunity:** If you're looking for a senior backend developer with
+  expertise in Postgres and UUID generation strategies, feel free to reach out
+  to me at <a href="mailto:admin@saybackend.com">admin@saybackend.com</a>.
 </Callout>
+
+---
+
+title: "UUIDv7 in PostgreSQL"
+date: "2025-01-28"
+
+---
+
+Existing functions -
+
+-- Based off IETF draft, https://datatracker.ietf.org/doc/draft-peabody-dispatch-new-uuid-format/
+
+```sql
+create or replace function uuid_generate_v7()
+returns uuid
+as $$
+begin
+  -- use random v4 uuid as starting point (which has the same variant we need)
+  -- then overlay timestamp
+  -- then set version 7 by flipping the 2 and 1 bit in the version 4 string
+  return encode(
+    set_bit(
+      set_bit(
+        overlay(uuid_send(gen_random_uuid())
+                placing substring(int8send(floor(extract(epoch from clock_timestamp()) * 1000)::bigint) from 3)
+                from 1 for 6
+        ),
+        52, 1
+      ),
+      53, 1
+    ),
+    'hex')::uuid;
+end
+$$
+language plpgsql
+volatile;
+```
+
+```sql
+CREATE FUNCTION uuidv7() RETURNS uuid
+AS $$
+  -- Replace the first 48 bits of a uuidv4 with the current
+  -- number of milliseconds since 1970-01-01 UTC
+  -- and set the "ver" field to 7 by setting additional bits
+  select encode(
+    set_bit(
+      set_bit(
+        overlay(uuid_send(gen_random_uuid()) placing
+	  substring(int8send((extract(epoch from clock_timestamp())*1000)::bigint) from 3)
+	  from 1 for 6),
+	52, 1),
+      53, 1), 'hex')::uuid;
+$$ LANGUAGE sql volatile;
+```
+
+/\* Version with the "rand_a" field containing sub-milliseconds (method 3 of the spec)
+clock_timestamp() is hoped to provide enough precision and consecutive
+calls to not happen fast enough to output the same values in that field.
+The uuid is the concatenation of:
+
+- 6 bytes with the current Unix timestamp (number of milliseconds since 1970-01-01 UTC)
+- 2 bytes with
+  - 4 bits for the "ver" field
+  - 12 bits for the fractional part after the milliseconds
+- 8 bytes of randomness from the second half of a uuidv4
+  \*/
+
+```sql
+CREATE FUNCTION uuidv7_sub_ms() RETURNS uuid
+AS $$
+select encode(
+ substring(int8send(floor(t_ms)::int8) from 3) ||
+ int2send((7<<12)::int2 | ((t_ms-floor(t_ms))*4096)::int2) ||
+ substring(uuid_send(gen_random_uuid()) from 9 for 8)
+, 'hex')::uuid
+from (select extract(epoch from clock_timestamp())*1000 as t_ms) s
+$$ LANGUAGE sql volatile;
+```
+
+```sql
+-- Function to generate new v7 UUIDs.
+-- In the future we might want use an extension: https://github.com/fboulnois/pg_uuidv7
+-- Or, once the UUIDv7 spec is finalized, it will probably make it into the 'uuid-ossp' extension
+-- and a custom function will no longer be necessary.
+create or replace function uuid_generate_v7()
+returns uuid
+as $$
+declare
+  unix_ts_ms bytea;
+  uuid_bytes bytea;
+begin
+  unix_ts_ms = substring(int8send(floor(extract(epoch from clock_timestamp()) * 1000)::bigint) from 3);
+  uuid_bytes = uuid_send(gen_random_uuid());
+  uuid_bytes = overlay(uuid_bytes placing unix_ts_ms from 1 for 6);
+  uuid_bytes = set_byte(uuid_bytes, 6, (b'0111' || get_byte(uuid_bytes, 6)::bit(4))::bit(8)::int);
+  return encode(uuid_bytes, 'hex')::uuid;
+end
+$$
+language plpgsql
+volatile;
+```
