@@ -22,11 +22,11 @@ tags:
   - "serverless"
   - "aws-deployment"
   - "nextjs-production"
-ogImage: "/images/nextjs-aws-ecs.png"
+ogImage: "/images/nextjs_aws_ecs_og.png"
 ---
 
 import { Picture } from "astro:assets";
-import OgImage from "./nextjs-aws-ecs.png";
+import OgImage from "./kafka_docker_kraft_og.png";
 import Callout from "@/components/Callout.astro";
 
 <Picture
@@ -72,7 +72,7 @@ AWS Elastic Container Registry (ECR) is a fully managed Docker container registr
    - Leave other settings as default or adjust based on your requirements.
    - Click **Create repository**.
 
-   ![Create ECR Repository](./create-ecr-repository.png)
+   {/* ![Create ECR Repository](./create-ecr-repository.png) */}
 
 ### Using the AWS CLI
 
@@ -126,7 +126,7 @@ docker push <your_account_id>.dkr.ecr.us-east-1.amazonaws.com/nextjs-app:latest
 
 You should see output indicating the progress of the image layers being pushed.
 
-![Push Docker Image](./push-docker-image.png)
+{/* ![Push Docker Image](./push-docker-image.png) */}
 
 ## Step 5: Set Up AWS ECS Fargate
 
@@ -147,7 +147,7 @@ AWS Elastic Container Service (ECS) with Fargate allows you to run containers wi
    - Enter a cluster name, e.g., `nextjs-cluster`.
    - Click **Create**.
 
-   ![Create ECS Cluster](./create-ecs-cluster.png)
+   {/* ![Create ECS Cluster](./create-ecs-cluster.png) */}
 
 ### Create a Task Definition
 
@@ -168,7 +168,7 @@ AWS Elastic Container Service (ECS) with Fargate allows you to run containers wi
    - Click **Add**.
    - Review and click **Create**.
 
-   ![Create Task Definition](./create-task-definition.png)
+   {/* ![Create Task Definition](./create-task-definition.png) */}
 
 ## Step 6: Deploy the ECS Service
 
@@ -190,7 +190,7 @@ AWS Elastic Container Service (ECS) with Fargate allows you to run containers wi
    - **Configure Auto Scaling**: Optional for this guide.
    - Click **Next step** and then **Create Service**.
 
-   ![Create ECS Service](./create-ecs-service.png)
+   {/* ![Create ECS Service](./create-ecs-service.png) */}
 
 ### Set Up a Load Balancer (Optional but Recommended)
 
@@ -202,7 +202,7 @@ For production environments, it's advisable to set up a Load Balancer.
    - Configure listeners and target groups accordingly.
    - Ensure the Load Balancer's security group allows inbound traffic on necessary ports (e.g., `80` or `443`).
 
-   ![Configure Load Balancer](./configure-load-balancer.png)
+   {/* ![Configure Load Balancer](./configure-load-balancer.png) */}
 
 ## Step 7: Access Your Deployed Application
 
@@ -218,7 +218,7 @@ Once the service is active, it will provide a public IP or DNS to access your ap
 
    Open your browser and navigate to `http://<Public_IP>:3000` or the provided DNS.
 
-   ![Access Deployed App](./access-deployed-app.png)
+   {/* ![Access Deployed App](./access-deployed-app.png) */}
 
 ## Visual Guide
 
