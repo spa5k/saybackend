@@ -1,8 +1,7 @@
 ---
 title: "Running Kafka Locally with Docker and KRaft Mode"
 description: "Learn how to set up and run Apache Kafka locally using Docker with the new KRaft mode, eliminating the need for Zookeeper."
-date: "2025-01-27"
-draft: true
+date: "2025-01-28"
 tags:
   - "kafka"
   - "docker"
@@ -33,229 +32,255 @@ tags:
   - "kafka-kraft-mode-docker"
   - "kafka-docker-cluster"
   - "kafka-kraft-mode-configuration"
-ogImage: "/images/kafka-docker-kraft.png"
+ogImage: "/images/kafka_docker_kraft_og.png"
 ---
 
 import { Picture } from "astro:assets";
-import OgImage from "./kafka-docker-kraft.png";
+import OgImage from "./kafka_docker_kraft_og.png";
+import KafkaZookeeperKraft from "./kafka_zookeeper_kraft.jpg";
 import Callout from "@/components/Callout.astro";
-
----
+import TopicCreation from "./1_kafka_ui_topic_creation.png";
+import BasicTxt from "./2_basic_text_messages.png";
+import StructuredJson from "./3_json_message.png";
+import MessagesOnUI from "./4_messages_on_ui.png";
 
 <Picture
   src={OgImage}
-  alt="Running Kafka Locally with Docker and KRaft Mode"
+  alt="Laptop showing Kafka and Docker logos with KRaft mode enabled"
   inferSize
   formats={["avif", "webp"]}
 />
 
-## Introduction
+## Why KRaft Mode Matters
 
-Welcome to this comprehensive guide on setting up Apache Kafka locally using Docker with the innovative KRaft mode. Apache Kafka has revolutionized the way we handle real-time data pipelines and streaming applications. Traditionally, Kafka relied on Zookeeper for cluster coordination, but with the introduction of **KRaft (Kafka Raft Metadata) mode**, Kafka can now operate seamlessly without Zookeeper. This not only simplifies deployment and management but also enhances Kafka's performance and reliability.
+Kafka Raft Metadata (KRaft) is a new mode for Apache Kafka that eliminates the need for Zookeeper. It was introduced in KIP-500 to remove the kafka dependency on Zookeeper.
+Apache Kafka traditionally required Zookeeper for cluster coordination - until KRaft (Kafka Raft Metadata) mode arrived. This update eliminates Zookeeper dependencies while improving:
 
-Whether you're a developer looking to experiment with Kafka's features, a data engineer setting up a development environment, or someone eager to understand the nuances of Kafka's architecture, this tutorial is tailored for you.
+<Picture
+  src={KafkaZookeeperKraft}
+  alt="Kafka Raft Metadata (KRaft) mode"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+> Image from [Kafka Raft Metadata (KRaft)
+mode](https://developer.confluent.io/learn/kraft/)
+
+- **Simplified architecture**: Fewer moving parts
+- **Faster recovery**: Metadata changes happen in milliseconds
+- **Easier scaling**: More predictable cluster behavior
+
+I recently wanted to setup Kafka for my local development, and after quite a few tries, ngl, I was finally able to do it. Let's show you how it went.
 
 ## Prerequisites
 
-Before diving in, ensure you have the following installed on your machine:
+- Docker (Latest version?)
+- 4GB+ free memory (Kafka containers can be hungry)
 
-- **Docker** (version 20.10.0 or later): Docker provides the necessary environment to run Kafka containers effortlessly.
-- **Docker Compose** (version 1.29.0 or later): Docker Compose helps in defining and managing multi-container Docker applications.
-- **Basic Understanding of Kafka Concepts**: Familiarity with Kafka's architecture, topics, brokers, and producers/consumers will be beneficial.
-
-> **Pro Tip:** If you're new to Kafka, consider going through some introductory materials to get acquainted with its core concepts.
-
-## Setting Up the Docker Compose File
-
-Let's begin by setting up the `docker-compose.yml` file. This configuration will define a two-node Kafka cluster operating in KRaft mode.
+## Complete Docker Compose Setup
 
 ```yaml
-version: "3.8"
-
 services:
-  kafka1:
-    image: bitnami/kafka:3.7
-    container_name: kafka1
+  kafka:
+    image: apache/kafka:latest
+    container_name: broker
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092,EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
     ports:
-      - "9092:9092"
-    environment:
-      - KAFKA_ENABLE_KRAFT=yes
-      - KAFKA_CFG_NODE_ID=1
-      - KAFKA_CFG_PROCESS_ROLES=controller,broker
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-    volumes:
-      - kafka_data:/bitnami/kafka
+      - "9094:9094"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "./opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
 
-  kafka2:
-    image: bitnami/kafka:3.7
-    container_name: kafka2
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8088:8080"
     environment:
-      - KAFKA_ENABLE_KRAFT=yes
-      - KAFKA_CFG_NODE_ID=2
-      - KAFKA_CFG_PROCESS_ROLES=controller,broker
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9093
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:9092
+      KAFKA_CLUSTERS_0_READONLY: "false"
     depends_on:
-      - kafka1
-    volumes:
-      - kafka_data:/bitnami/kafka
-
-volumes:
-  kafka_data:
+      kafka:
+        condition: service_healthy
 ```
 
-### Breakdown of the Configuration
+**Kafka Configuration:**
 
-1. **KAFKA_ENABLE_KRAFT=yes**: Activates KRaft mode, enabling Kafka to run without Zookeeper.
-2. **KAFKA_CFG_NODE_ID**: Assigns a unique identifier to each Kafka node.
-3. **KAFKA_CFG_PROCESS_ROLES**: Defines the roles of the node, in this case, both controller and broker.
-4. **KAFKA_CFG_CONTROLLER_QUORUM_VOTERS**: Lists the voters participating in the controller quorum, ensuring high availability.
-5. **KAFKA_CFG_LISTENERS**: Specifies the network interfaces Kafka listens on for client and controller communications.
-6. **KAFKA_CFG_ADVERTISED_LISTENERS**: Determines the addresses clients will use to connect to Kafka.
-7. **Volumes**: Persists Kafka data, ensuring data durability across container restarts.
+- `KAFKA_NODE_ID`: Unique identifier for the broker
+- `KAFKA_PROCESS_ROLES`: Broker and controller roles
+- `KAFKA_LISTENERS`: Listeners for different protocols
+- `KAFKA_ADVERTISED_LISTENERS`: Addresses advertised to clients
+- `KAFKA_LISTENER_SECURITY_PROTOCOL_MAP`: Security protocol map
+- `KAFKA_INTER_BROKER_LISTENER_NAME`: Inter-broker listener name
+- `KAFKA_CONTROLLER_QUORUM_VOTERS`: Controller quorum voters
+- `KAFKA_CONTROLLER_LISTENER_NAMES`: Controller listener names
+- `KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR`: Offsets topic replication factor
+- `KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR`: Transaction state log replication factor
+- `KAFKA_TRANSACTION_STATE_LOG_MIN_ISR`: Transaction state log minimum ISR
 
-### Visual Representation
+## Cluster Management Commands
 
-Here's a simple diagram to illustrate the setup:
-
-```markdown
-graph LR
-kafka1[Kafka Node 1]
-kafka2[Kafka Node 2]
-kafka1 -->|Controller & Broker| kafka2
-kafka2 -->|Controller & Broker| kafka1
-```
-
-This diagram showcases the bidirectional communication between the two Kafka nodes, both acting as controllers and brokers.
-
-## Starting the Kafka Cluster
-
-With the configuration in place, let's get the cluster up and running.
-
-1. **Launch the Cluster:**
-
-   Open your terminal, navigate to the directory containing the `docker-compose.yml` file, and execute:
-
-   ```bash
-   docker-compose up -d
-   ```
-
-   This command starts both Kafka nodes in detached mode.
-
-2. **Verify the Running Containers:**
-
-   To ensure that both Kafka containers are running smoothly, use:
-
-   ```bash
-   docker ps
-   ```
-
-   You should see both `kafka1` and `kafka2` listed as active containers.
-
-## Creating a Topic
-
-Now that our Kafka cluster is operational, let's create a topic to start producing and consuming messages.
+**Start all services:**
 
 ```bash
-docker exec -it kafka1 kafka-topics.sh --create \
-  --topic test-topic \
+docker-compose up -d
+```
+
+**Verify running containers:**
+
+```bash
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+```
+
+**Expected output:**
+
+```
+NAMES     STATUS              PORTS
+broker            Up 4 minutes (healthy)    9092/tcp, 0.0.0.0:9094->9094/tcp
+kafka-ui          Up 4 minutes              0.0.0.0:8088->8080/tcp
+```
+
+## Monitoring with Kafka UI
+
+After starting containers, access http://localhost:8088 to:
+
+- View real-time broker status
+- Inspect topic configurations
+- Monitor consumer lag
+- Explore message payloads
+- Manage ACLs (access control lists)
+
+## Connection URLs to use in your applications
+
+You will need to connect to the broker using the following URL:
+
+- If running outside of docker:
+
+```
+localhost:9094
+```
+
+- If running inside of docker:
+
+```
+broker:9092
+```
+
+## Topic Management: CLI vs UI
+
+**Command-line creation:**
+
+```bash
+docker exec broker /opt/kafka/bin/kafka-topics.sh \
+  --topic orders \
+  --create \
   --bootstrap-server localhost:9092 \
   --partitions 3 \
-  --replication-factor 2
+  --replication-factor 1
 ```
 
-**Explanation of the Command:**
+**UI alternative:**
 
-- **--topic test-topic**: Names the topic as "test-topic".
-- **--bootstrap-server localhost:9092**: Connects to the Kafka cluster via the exposed port.
-- **--partitions 3**: Divides the topic into 3 partitions for parallelism.
-- **--replication-factor 2**: Ensures that each partition is replicated across 2 brokers for fault tolerance.
+1. Navigate to Topics → Create Topic
+2. Set partitions/replication
+3. Click "Submit"
 
-## Producing and Consuming Messages
+<Picture
+  src={TopicCreation}
+  alt="Kafka UI topic creation"
+  inferSize
+  formats={["avif", "webp"]}
+/>
 
-Let's test our Kafka setup by sending and receiving messages.
+## Message Production Patterns
 
-1. **Start a Console Producer:**
-
-   This producer will allow you to send messages to the `test-topic`.
-
-   ```bash
-   docker exec -it kafka1 kafka-console-producer.sh \
-     --topic test-topic \
-     --bootstrap-server localhost:9092
-   ```
-
-   Type your messages here and press Enter to send them.
-
-2. **Start a Console Consumer:**
-
-   In a new terminal window, start a consumer to receive messages from the `test-topic`.
-
-   ```bash
-   docker exec -it kafka1 kafka-console-consumer.sh \
-     --topic test-topic \
-     --bootstrap-server localhost:9092 \
-     --from-beginning
-   ```
-
-   Any messages you send from the producer will appear here in real-time.
-
-## Monitoring and Management
-
-Monitoring is crucial to ensure your Kafka cluster runs smoothly. Here's how you can utilize Kafka's built-in tools:
-
-1. **List All Topics:**
-
-   ```bash
-   docker exec -it kafka1 kafka-topics.sh --list --bootstrap-server localhost:9092
-   ```
-
-   This command displays all the topics currently available in your Kafka cluster.
-
-2. **Describe a Specific Topic:**
-
-   Get detailed information about `test-topic`:
-
-   ```bash
-   docker exec -it kafka1 kafka-topics.sh --describe --topic test-topic --bootstrap-server localhost:9092
-   ```
-
-   You'll receive details like the number of partitions, replication factor, and the status of each partition.
-
-## Stopping the Cluster
-
-Once you've completed your tasks, you might want to stop the Kafka cluster to free up resources.
+**Basic text messages:**
 
 ```bash
-docker-compose down
+docker exec -it broker /opt/kafka/bin/kafka-console-producer.sh \
+  --topic orders \
+  --bootstrap-server localhost:9092
 ```
 
-This command stops and removes the containers and network but retains the Kafka data volume, ensuring your data persists for future sessions.
+<Picture
+  src={BasicTxt}
+  alt="Kafka console producer"
+  inferSize
+  formats={["avif", "webp"]}
+/>
 
-## Best Practices and Tips
+**Structured JSON:**
 
-- **Data Persistence:** Always ensure that your Kafka data directories are mounted to Docker volumes to prevent data loss upon container restarts.
-- **Scaling:** While this tutorial sets up a two-node cluster, Kafka can scale horizontally by adding more brokers to handle increased load.
-- **Security:** For production environments, consider implementing security measures like SSL encryption and proper authentication mechanisms.
-- **Monitoring Tools:** Integrate third-party monitoring solutions like Prometheus and Grafana for enhanced visibility into your Kafka cluster's performance.
+```bash
+# Using jq for JSON formatting
+echo '{"id":1001, "amount":49.99}' | jq -c | docker exec -i broker /opt/kafka/bin/kafka-console-producer.sh \
+  --topic orders \
+  --bootstrap-server localhost:9092
+```
 
-## Conclusion
+<Picture
+  src={StructuredJson}
+  alt="Kafka console producer"
+  inferSize
+  formats={["avif", "webp"]}
+/>
 
-Setting up Apache Kafka locally with Docker and KRaft mode is a streamlined approach that eliminates the complexities associated with Zookeeper. This setup is ideal for:
+You can also see the messages on the UI:
 
-- **Learning Kafka:** Dive deep into Kafka's functionalities without the overhead of managing a full-fledged production environment.
-- **Development and Testing:** Develop and test your applications in an environment that mirrors real-world Kafka setups.
-- **Prototyping:** Build and experiment with proof-of-concept projects, tweaking configurations as needed.
+<Picture
+  src={MessagesOnUI}
+  alt="Kafka messages on UI"
+  inferSize
+  formats={["avif", "webp"]}
+/>
 
-**Note:** While this setup is excellent for development and testing, it's not recommended for production use. Production environments require considerations for scalability, security, and robust monitoring mechanisms.
+## Troubleshooting Checklist
+
+**Brokers not connecting?**
+
+- Check port conflicts with `netstat -tuln | grep 9092`
+
+**UI not showing topics?**
+
+- Ensure bootstrap servers match in UI config
+- Check container logs: `docker logs kafka-ui`
+
+## When to Choose This Setup
+
+**Good for:**
+
+- Local development
+- CI/CD pipelines
+- Prototyping new features
+
+**Not for:**
+
+- Production deployments
+- High-availability requirements
+- Sensitive data handling
+
+## Learn More
+
+- [Kafka Raft Metadata (KRaft) mode](https://developer.confluent.io/learn/kraft/)
+- [More details on KRaft](https://docs.confluent.io/platform/current/kafka-metadata/kraft.html#kraft-overview)
 
 <Callout type="info">
-  I'm actively seeking opportunities as a Senior Backend Developer. If you're
-  looking to enhance your team with experienced talent, feel free to reach out
-  to me at <a href="mailto:admin@saybackend.com">admin@saybackend.com</a>.
+  Senior Backend Engineer available for Kafka and distributed systems projects.
+  Contact: [admin@saybackend.com](mailto:admin@saybackend.com)
 </Callout>
