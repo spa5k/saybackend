@@ -31,13 +31,6 @@ ogImage: "/images/uuidv7-postgres-og.png"
 import Callout from "@/components/Callout.astro";
 import { Picture } from "astro:assets";
 
-{/_ <Picture
-src={OgImage}
-alt="Comparing Three uuidv7 Generating Functions in Postgres"
-inferSize
-formats={["avif", "webp"]}
-/> _/}
-
 ## Introduction
 
 When building scalable applications, generating unique identifiers efficiently and reliably is crucial. UUIDs (Universally Unique Identifiers) have long been the go-to solution for this purpose. With the introduction of uuidv7, developers have more options for generating time-ordered UUIDs, enhancing both uniqueness and performance.
@@ -63,13 +56,6 @@ Let's explore three popular uuidv7 generating functions available for Postgres:
 
 ### 1. Function One: `uuidv7_generate1()`
 
-{/_ <Picture
-src={FunctionOneImage}
-alt="uuidv7_generate1 Function"
-inferSize
-formats={["avif", "webp"]}
-/> _/}
-
 The `uuidv7_generate1()` function is a straightforward implementation that leverages Postgres's built-in features to generate uuidv7s. It's known for its simplicity and ease of integration.
 
 #### **Pros:**
@@ -91,15 +77,6 @@ SELECT uuidv7_generate1();
 
 ### 2. Function Two: `uuidv7_generate2()`
 
-{/\*
-
-<Picture
-  src={FunctionTwoImage}
-  alt="uuidv7_generate2 Function"
-  inferSize
-  formats={["avif", "webp"]}
-/> */}
-
 The `uuidv7_generate2()` function introduces additional features, such as customizable timestamp precision and optional namespace integration, making it a more versatile choice for complex applications.
 
 #### **Pros:**
@@ -120,13 +97,6 @@ SELECT uuidv7_generate2('my_namespace');
 ```
 
 ### 3. Function Three: `uuidv7_generate3()`
-
-{/_ <Picture
-src={FunctionThreeImage}
-alt="uuidv7_generate3 Function"
-inferSize
-formats={["avif", "webp"]}
-/> _/}
 
 The `uuidv7_generate3()` function stands out with its focus on security and cryptographic strength, ensuring that generated UUIDs are not only unique but also secure against predictability attacks.
 
