@@ -500,6 +500,10 @@ RUN chown -R node:node /app
 # Switch to the non-root user
 USER node
 
+# Add healthcheck for container monitoring
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
@@ -510,7 +514,11 @@ EXPOSE 3000
 CMD ["node", "server.js"]
 ```
 
-<Callout type="warn">
+<Callout type="info">
+  The added HEALTHCHECK instruction helps container orchestrators monitor the
+  health of your Next.js application. Make sure to implement the corresponding
+  health check endpoint in your application.
+  <br />
   If you had paid attention, there was a problem in the initial dockerfiles, we
   were copying everything in the first stage itself, so the caching would have
   had failed since no matter what file we edit, the caching would be
@@ -518,6 +526,9 @@ CMD ["node", "server.js"]
   the first stage, and the rest of the files in the build stage, so the caching
   will work.
 </Callout>
+
+Healthcheck is a good practice, it's not only for the container orchestrators, but also for the load balancers, so they can know if the container is healthy or not. Docker etc, can also use it to know if the container is healthy or not.
+
 ## Using Github actions
 
 If you are running this in Github Actions, elsewhere, you can build the
@@ -587,6 +598,10 @@ COPY .next/standalone ./
 COPY public ./public
 COPY .next/static .next/static
 
+# Add healthcheck for container monitoring
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+
 USER node
 
 EXPOSE 3000
@@ -596,7 +611,7 @@ CMD ["node", "server.js"]
 ```
 
 <Callout type="info">
-  We are using docker image node:22-slim, because it's based on Debian, and the
+  We are using docker image node:24-slim, because it's based on Debian, and the
   github actions runner is based on Ubuntu, so we need to use the same base
   image.
 </Callout>
@@ -740,3 +755,8 @@ As we establish our agency, we are offering exclusive early-stage discounts for 
 <br />
 Let's build something exceptional together. Contact me at <a href="mailto:admin@saybackend.com">admin@saybackend.com</a> to discuss your project.
 </Callout>
+
+### Updates
+
+1. In Next.js 15, improved cache control headers was added, you can read more about it [here](https://x.com/leeerob/status/1843796169173995544).
+2. With Next.js 15, you no longer need to manually install sharp — Next.js will use sharp automatically when using next start or running with standalone output mode.
