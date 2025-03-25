@@ -7,10 +7,23 @@ import Layout from "@layouts/Layout.astro";
 import type { CollectionEntry } from "astro:content";
 import { getCollection } from "astro:content";
 
-const blog = (await getCollection("blog"))
+let blog = (await getCollection("blog"))
   .filter((post) => !post.data.draft)
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
   .slice(0, SITE.NUM_POSTS_ON_HOMEPAGE);
+
+// Sort using updated date if it exists, otherwise use date
+blog = blog.sort((a, b) => {
+  const aDate =
+    a.data.updated && a.data.updated > a.data.date
+      ? a.data.updated
+      : a.data.date;
+  const bDate =
+    b.data.updated && b.data.updated > b.data.date
+      ? b.data.updated
+      : b.data.date;
+  return bDate.valueOf() - aDate.valueOf();
+});
 
 const projects: CollectionEntry<"projects">[] = (
   await getCollection("projects")

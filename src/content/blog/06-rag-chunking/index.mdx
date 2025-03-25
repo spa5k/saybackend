@@ -35,14 +35,14 @@ tags:
 ogImage: "/images/6-rag-chunking-strategies/rag_strategies_og.png"
 ---
 
-import { Picture } from "astro:assets";
-import OgImage from "./rag_strategies_og.png";
 import Callout from "@/components/Callout.astro";
-import CookieCutter from "./1-cookie-cutter.excalidraw.png";
-import NaturalBreaks from "./2-natural-chunking.excalidraw.png";
-import StructureAware from "./3-structure-aware-chunking.excalidraw.png";
-import MeaningBased from "./4-semantic-chunking.excalidraw.png";
-import Adaptive from "./5-adaptive-chunking.excalidraw.png";
+import { Picture } from "astro:assets";
+import CookieCutter from "./1-cookie-cutter.png";
+import NaturalBreaks from "./2-natural-chunking.png";
+import StructureAware from "./3-structure-aware-chunking.png";
+import MeaningBased from "./4-semantic-chunking.png";
+import Adaptive from "./5-adaptive-chunking.png";
+import OgImage from "./rag_strategies_og.png";
 
 <Picture
   src={OgImage}
@@ -53,13 +53,13 @@ import Adaptive from "./5-adaptive-chunking.excalidraw.png";
 
 ## Text Chunking for RAG Systems: How to Make AI Understand Documents Better
 
-Think of reading a book through a keyhole. You’d catch bits and pieces, but never the full story. That’s exactly what happens when AI breaks text into chunks the wrong way. In Retrieval-Augmented Generation (RAG) systems, how you divide documents can make or break the quality of your results. Let’s look at some practical ways to help AI get the clearest, most useful view of your data.
+Think of reading a book through a keyhole. You'd catch bits and pieces, but never the full story. That's exactly what happens when AI breaks text into chunks the wrong way. In Retrieval-Augmented Generation (RAG) systems, how you divide documents can make or break the quality of your results. Let's look at some practical ways to help AI get the clearest, most useful view of your data.
 
 ### My Experience with Chunking
 
 Not long ago, I had to build a RAG system from scratch. I knew **just enough** about embeddings to realize I needed better chunking. So, I went deep—reading research papers, watching YouTube breakdowns, and learning from experts. The more I learned, the more I realized how **huge** of a difference proper chunking makes.
 
-Here’s what I found.
+Here's what I found.
 
 ### Why Chunking Matters
 
@@ -80,7 +80,7 @@ But when done right:
 - **Search is faster and more precise**
 - **Answers actually make sense**
 
-Chunking isn’t just a small detail—it’s a **game-changer** for any RAG system. Up next, let’s dig into **how to do it right**.
+Chunking isn't just a small detail—it's a **game-changer** for any RAG system. Up next, let's dig into **how to do it right**.
 
 ## **5 Ways to Split Text—From Simple to Sophisticated**
 
@@ -283,7 +283,7 @@ Output:
 
 **Pro Tip:** Start simple and scale up. Most applications do well with natural breaks splitting, while technical docs benefit from structure-aware approaches. Save adaptive chunking for mission-critical systems.
 
-Remember: The best chunking strategy mirrors how humans naturally process information—keeping related ideas together while maintaining manageable piece sizes. Test different approaches and monitor how they affect your AI’s performance!
+Remember: The best chunking strategy mirrors how humans naturally process information—keeping related ideas together while maintaining manageable piece sizes. Test different approaches and monitor how they affect your AI's performance!
 
 <Callout type="default">
   Nowadays, the LLMs are very cheap, very fast, and have a very big context
@@ -293,3 +293,14 @@ Remember: The best chunking strategy mirrors how humans naturally process inform
 </Callout>
 
 > It also depends on your embedding model, and nowadays, even the models that you can run locally like [BGE-m3](https://huggingface.co/BAAI/bge-m3), [nomic-embed-text](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5), are more than capable of handling the whole document at once. Or use the Gemini free embedding API.
+
+<Callout type="info" title="End-to-End Software Development Solutions">
+I am in the process of launching my development agency, offering high-quality software solutions tailored to your needs. With expertise in TypeScript, Golang, and modern cloud infrastructure, I build everything from MVPs to scalable, production-ready applications.
+
+<br />
+
+As we establish our agency, we are offering exclusive early-stage discounts for our first clients. This is a great opportunity to get top-tier development at a reduced rate.
+
+<br />
+Let's build something exceptional together. Contact me at <a href="mailto:admin@saybackend.com">admin@saybackend.com</a> to discuss your project.
+</Callout>
