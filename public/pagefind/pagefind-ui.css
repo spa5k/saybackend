@@ -362,9 +362,10 @@ legend.svelte-1v2r7ls.svelte-1v2r7ls {
   --pagefind-ui-border-radius: 8px;
   --pagefind-ui-image-border-radius: 8px;
   --pagefind-ui-image-box-ratio: 3 / 2;
-  --pagefind-ui-font: system, -apple-system, "BlinkMacSystemFont",
-    ".SFNSText-Regular", "San Francisco", "Roboto", "Segoe UI",
-    "Helvetica Neue", "Lucida Grande", "Ubuntu", "arial", sans-serif;
+  --pagefind-ui-font:
+    system, -apple-system, "BlinkMacSystemFont", ".SFNSText-Regular",
+    "San Francisco", "Roboto", "Segoe UI", "Helvetica Neue", "Lucida Grande",
+    "Ubuntu", "arial", sans-serif;
 }
 .pagefind-ui.svelte-e9gkc3 {
   width: 100%;

@@ -2,6 +2,7 @@
 title: "Deploying a Next.js App to Production in any server"
 description: "Build a docker image of your nextjs app that can be deployed to any server, without any propreitary cloud provider lock-in."
 date: "2024-09-06"
+updated: "2025-03-25"
 tags:
   - "nextjs"
   - "ssr"
@@ -41,7 +42,8 @@ tags:
   - "Nextjs in any hosting"
   - "Nextjs in any platform"
   - "Nextjs in any cloud"
-
+  - "Updated for Next.js 15"
+  - "Next.js 15"
 ogImage: "/images/4-nextjs-docker/nextjs_docker.png"
 draft: false
 ---
@@ -69,7 +71,7 @@ import OgImage from "./nextjs_docker_og.jpg";
 
 ## Introduction
 
-When it comes to deploying a Next.js app to production, generally everyone thinking starts from Vercel, and ends with Netlify, Firebase type providers. Not only are these providers very expensive, but they also have a lot of limitations.
+Updated for Next.js 15. When it comes to deploying a Next.js app to production, generally everyone thinking starts from Vercel, and ends with Netlify, Firebase type providers. Not only are these providers very expensive, but they also have a lot of limitations.
 A wrong configuration in your serverless function can lead to a big bill, like this [story](https://www.youtube.com/watch?v=SCIfWhAheVw) where a Solo developer got a $100000 bill from Vercel because her app went viral.
 
 So, you might be asking yourself, what we can do?
@@ -102,7 +104,7 @@ npm run build
 4. Create a Dockerfile
 
 ```dockerfile
-FROM node:22-alpine
+FROM node:24-alpine
 
 RUN npm install -g pnpm
 
@@ -175,7 +177,7 @@ and everything seems to be working fine, but we are not done yet.
 1. Now let's add multi-stage build to the Dockerfile
 
 ```dockerfile
-FROM node:22-alpine AS base
+FROM node:24-alpine AS base
 
 # Install pnpm globally
 RUN npm install -g pnpm
@@ -194,7 +196,7 @@ FROM base AS builder
 # Build the application
 RUN pnpm run build
 
-FROM node:22-alpine AS runner
+FROM node:24-alpine AS runner
 
 # Install pnpm in the runner stage
 RUN npm install -g pnpm
@@ -272,7 +274,7 @@ export default nextConfig;
 2. Update the Dockerfile to use the standalone build
 
 ```dockerfile
-FROM node:22-alpine AS base
+FROM node:24-alpine AS base
 
 # Install pnpm globally
 RUN npm install -g pnpm
@@ -291,7 +293,7 @@ FROM base AS builder
 # Build the application
 RUN pnpm run build
 
-FROM node:22-alpine AS runner
+FROM node:24-alpine AS runner
 
 # Install pnpm in the runner stage
 RUN npm install -g pnpm
@@ -360,7 +362,7 @@ Now it's time to fix it.
 6. Update the Dockerfile to copy assets correctly
 
 ```dockerfile
-FROM node:22-alpine AS base
+FROM node:24-alpine AS base
 
 # Install pnpm globally
 RUN npm install -g pnpm
@@ -379,7 +381,7 @@ FROM base AS builder
 # Build the application
 RUN pnpm run build
 
-FROM node:22-alpine AS runner
+FROM node:24-alpine AS runner
 
 # Install pnpm in the runner stage
 RUN npm install -g pnpm
@@ -456,7 +458,7 @@ Now you can just push this image to your favorite registry, and you are done.
    > Currently we are running it as root, which is not a good practice, so let's run it as a non-root user.
 
 ```dockerfile
-FROM node:22-alpine AS base
+FROM node:24-alpine AS base
 
 # Install pnpm globally
 RUN npm install -g pnpm
@@ -479,7 +481,7 @@ COPY . .
 # Build the application
 RUN pnpm run build
 
-FROM node:22-alpine AS runner
+FROM node:24-alpine AS runner
 
 # Install pnpm in the runner stage
 RUN npm install -g pnpm
@@ -542,10 +544,10 @@ jobs:
         uses: actions/checkout@v4
       - uses: pnpm/action-setup@v3
         with:
-          version: 9
+          version: 10
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: "pnpm"
       - name: Cache node_modules and Nextjs build files
         uses: actions/cache@v4
@@ -572,7 +574,7 @@ jobs:
 ```
 
 ```dockerfile
-FROM node:22-slim AS runner
+FROM node:24-slim AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production
@@ -724,12 +726,17 @@ We also learned how to use the cache handler to get similar behaviour to Vercel.
 
 I hope you enjoyed reading this article as much as I enjoyed writing it.
 
-The next article will be about how you can publish this app in AWS, will all the bells and whistles, so stay tuned.
+You can now use this docker image to Coolify, Docker, Kubernetes, etc.
 
 Thank you for reading.
 
-<Callout type="info">
-  I'm looking for a job, if you are looking for a senior backend developer,
-  please consider me, I'm available on my email{" "}
-  <a href="mailto:admin@saybackend.com">admin@saybackend.com</a>
+<Callout type="info" title="End-to-End Software Development Solutions">
+I am in the process of launching my development agency, offering high-quality software solutions tailored to your needs. With expertise in TypeScript, Golang, and modern cloud infrastructure, I build everything from MVPs to scalable, production-ready applications.
+
+<br />
+
+As we establish our agency, we are offering exclusive early-stage discounts for our first clients. This is a great opportunity to get top-tier development at a reduced rate.
+
+<br />
+Let's build something exceptional together. Contact me at <a href="mailto:admin@saybackend.com">admin@saybackend.com</a> to discuss your project.
 </Callout>
