@@ -733,6 +733,49 @@ Update the ENV variables accordingly, now when you horizontally scale your app, 
   Handler](https://github.com/vercel/next.js/tree/canary/examples/cache-handler-redis)
 </Callout>
 
+## Caveats and Limitations
+
+When self-hosting your Next.js application, there are several key features you won't get compared to using Vercel:
+
+1. **Edge Functions and Global Distribution**
+   - No automatic edge function deployment
+   - No built-in global CDN distribution
+   - You'll need to set up your own CDN (e.g., Cloudflare, AWS CloudFront)
+
+2. **Infrastructure Management**
+   - No automatic SSL/HTTPS management
+   - No automatic scaling and load balancing
+   - No built-in monitoring and analytics
+   - You'll need to manage your own infrastructure
+
+3. **Development Experience**
+   - No automatic preview deployments
+   - No built-in environment variable management
+   - No automatic branch deployments
+   - You'll need to set up your own CI/CD pipeline
+
+4. **Performance Features**
+   - While we can implement Redis caching, it's not as sophisticated as Vercel's edge cache
+   - No automatic cache invalidation and warming
+   - No automatic build optimization
+   - You'll need to optimize performance manually
+
+<Callout type="info">
+  While these limitations exist, self-hosting gives you more control over your infrastructure and can be more cost-effective for certain use cases. You can also implement many of these features yourself using third-party services or custom solutions.
+</Callout>
+
+### Middleware Support
+
+Yes, this setup fully supports Next.js middleware! The standalone output mode includes middleware support, and it works exactly the same way as it does on Vercel. You can use middleware for:
+
+- Authentication and authorization
+- Request/response manipulation
+- Redirects and rewrites
+- Headers manipulation
+- Edge runtime functions
+
+The only difference is that middleware runs on your own infrastructure rather than Vercel's edge network. If you need global distribution for your middleware, you'll need to set up your own CDN or use a service like Cloudflare Workers.
+
 ## Conclusion
 
 In this article, we learned how to deploy a Next.js app to production without using Vercel, and we also learned how to optimize the image size and the build time.
