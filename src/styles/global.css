@@ -20,6 +20,7 @@
   color utility to any element that depends on these defaults.
 */
 @layer base {
+
   *,
   ::after,
   ::before,
@@ -79,6 +80,7 @@
     @apply decoration-black/30 dark:decoration-white/30;
     @apply transition-colors duration-300 ease-in-out;
   }
+
   article a:hover {
     @apply text-black dark:text-white;
     @apply decoration-black/50 dark:decoration-white/50;
@@ -119,6 +121,21 @@ pre {
   --astro-code-token-string-expression: #ae42a0;
   --astro-code-token-punctuation: #8996a3;
   --astro-code-token-link: #8d85ff;
+
+  /* Callout colors */
+  --color-info: #2563eb;
+  --color-info-bg: #eff6ff;
+  --color-warning: #d97706;
+  --color-warning-bg: #fffbeb;
+  --color-default: #6b7280;
+  --color-default-bg: #f3f4f6;
+
+  /* UI Colors */
+  --color-border: rgba(0, 0, 0, 0.15);
+  --color-bg-secondary: rgba(0, 0, 0, 0.02);
+  --color-bg-hover: rgba(0, 0, 0, 0.05);
+  --color-text-primary: #000;
+  --color-text-secondary: #666;
 }
 
 .dark {
@@ -146,4 +163,15 @@ pre {
 
 .copy-code:active {
   @apply scale-90 transition-transform;
+}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-border: rgba(255, 255, 255, 0.2);
+    --color-bg-secondary: rgba(255, 255, 255, 0.02);
+    --color-bg-hover: rgba(255, 255, 255, 0.05);
+    --color-text-primary: #fff;
+    --color-text-secondary: #999;
+  }
 }
