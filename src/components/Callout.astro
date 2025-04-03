@@ -1,41 +1,57 @@
 ---
 interface Props {
-  type?: "default" | "info" | "warning" | "error";
+  type?: "info" | "warning" | "default";
   title?: string;
-  class?: string;
-}
-const { type = "default", title, class: className } = Astro.props;
-let emoji = "💡";
-if (type === "info") {
-  emoji = "ℹ️";
-} else if (type === "warning") {
-  emoji = "⚠️";
-} else if (type === "error") {
-  emoji = "🚨";
 }
 
-const baseClasses = "relative my-4 flex rounded border p-4";
-const typeClasses = {
-  default:
-    "border-orange-800 bg-orange-100 text-orange-950 dark:border-orange-200/20 dark:bg-orange-950/20 dark:text-orange-200",
-  info: "border-blue-800 bg-blue-100 text-blue-950 dark:border-blue-200/20 dark:bg-blue-950/20 dark:text-blue-200",
-  warning:
-    "border-yellow-800 bg-yellow-100 text-yellow-950 dark:border-yellow-200/20 dark:bg-yellow-950/20 dark:text-yellow-200",
-  error:
-    "border-red-800 bg-red-100 text-red-950 dark:border-red-200/20 dark:bg-red-950/20 dark:text-red-200",
-};
+const { type = "default", title } = Astro.props;
 ---
 
-<div class:list={["not-prose", baseClasses, typeClasses[type], className]}>
-  <span class="pointer-events-none mt-1 flex-shrink-0 pr-3 text-xl select-none"
-    >{emoji}</span
-  >
-  <div class="flex-1">
-    {title && <h3 class="mb-2 text-lg font-semibold">{title}</h3>}
-    <div
-      class="prose dark:prose-invert max-w-none [&>p]:my-0 [&>p:last-child]:mb-0"
-    >
-      <slot />
-    </div>
+<div class={`callout callout-${type}`}>
+  {title && <h3 class="callout-title">{title}</h3>}
+  <div class="callout-content">
+    <slot />
   </div>
 </div>
+
+<style>
+  .callout {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .callout-info {
+    background-color: var(--color-info-bg);
+    border-left: 4px solid var(--color-info);
+  }
+
+  .callout-warning {
+    background-color: var(--color-warning-bg);
+    border-left: 4px solid var(--color-warning);
+  }
+
+  .callout-default {
+    background-color: var(--color-default-bg);
+    border-left: 4px solid var(--color-default);
+  }
+
+  .callout-title {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .callout-content {
+    font-size: 0.95rem;
+  }
+
+  .callout-content :global(p) {
+    margin: 0;
+  }
+
+  .callout-content :global(p + p) {
+    margin-top: 0.5rem;
+  }
+</style>

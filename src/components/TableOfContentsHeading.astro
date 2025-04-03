@@ -7,13 +7,13 @@ import type { Heading } from "./TableOfContents.astro";
 const { heading } = Astro.props;
 ---
 
-<li class="list-inside list-disc px-6 py-1.5 text-sm">
-  <Link href={"#" + heading.slug} underline>
+<li class="toc-item">
+  <Link href={"#" + heading.slug} class="toc-link">
     {heading.text}
   </Link>
   {
     heading.subheadings.length > 0 && (
-      <ul class="translate-x-3">
+      <ul class="toc-subitems">
         {heading.subheadings.map((subheading: Heading) => (
           <Astro.self heading={subheading} />
         ))}
@@ -21,3 +21,44 @@ const { heading } = Astro.props;
     )
   }
 </li>
+
+<style>
+  .toc-item {
+    list-style: none;
+    padding: 0.5rem 1rem;
+    font-size: 0.95rem;
+    position: relative;
+  }
+
+  .toc-item::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 0.5rem;
+    height: 1px;
+    background-color: var(--color-border);
+    transform: translateY(-50%);
+  }
+
+  .toc-link {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: color 0.2s ease;
+    display: block;
+    padding-left: 0.75rem;
+  }
+
+  .toc-link:hover {
+    color: var(--color-text-primary);
+  }
+
+  .toc-subitems {
+    margin: 0.25rem 0 0 1rem;
+    padding: 0;
+  }
+
+  .toc-subitems .toc-item::before {
+    width: 0.25rem;
+  }
+</style>
