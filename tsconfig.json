@@ -3,6 +3,8 @@
   "compilerOptions": {
     "strictNullChecks": true,
     "baseUrl": ".",
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
     "paths": {
       "@*": ["./src/*"]
     }

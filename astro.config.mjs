@@ -5,6 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 import pagefind from "astro-pagefind";
 import { defineConfig } from "astro/config";
 
+import solidJs from "@astrojs/solid-js";
 import compress from "astro-compress";
 
 import partytown from "@astrojs/partytown";
@@ -22,6 +23,7 @@ export default defineConfig({
         forward: ["dataLayer.push", "gtag"],
       },
     }),
+    solidJs(),
   ],
   vite: {
     plugins: [tailwindcss()],
