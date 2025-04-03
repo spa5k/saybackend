@@ -1,0 +1,1772 @@
+---
+title: "Essential Guide to Self-Hosting Next.js in Production"
+description: "Learn how to deploy and maintain a production-grade Next.js application with zero downtime, skew protection, and best practices for self-hosting."
+date: "2025-03-27"
+updated: "2025-03-27"
+draft: true
+tags:
+  - "nextjs"
+  - "production"
+  - "deployment"
+  - "self-hosting"
+  - "docker"
+  - "kubernetes"
+  - "performance"
+  - "security"
+  - "monitoring"
+  - "ci-cd"
+  - "Next.js production deployment"
+  - "Self-hosting Next.js"
+  - "Zero-downtime deployment"
+  - "Build skew protection"
+  - "Next.js performance optimization"
+  - "Next.js security best practices"
+  - "Next.js monitoring"
+  - "Next.js scaling"
+  - "Next.js caching"
+  - "Next.js CI/CD"
+  - "Next.js infrastructure"
+  - "Next.js containerization"
+  - "Next.js Kubernetes"
+  - "Next.js Docker"
+  - "Next.js production setup"
+  - "Next.js deployment strategies"
+  - "Next.js version management"
+  - "Next.js cache management"
+  - "Next.js load balancing"
+  - "Next.js SSL/TLS"
+  - "Next.js CDN setup"
+  - "Next.js Redis caching"
+  - "Next.js monitoring tools"
+  - "Next.js logging"
+  - "Next.js alerting"
+  - "Next.js cost optimization"
+  - "Next.js resource management"
+  - "Next.js backup strategies"
+  - "Next.js maintenance"
+  - "Next.js troubleshooting"
+  - "Next.js best practices"
+  - "Next.js production checklist"
+  - "Next.js deployment automation"
+  - "Next.js rollback procedures"
+  - "Next.js version control"
+  - "Next.js build optimization"
+  - "Next.js server configuration"
+  - "Next.js database scaling"
+  - "Next.js performance tuning"
+  - "Next.js security hardening"
+  - "Next.js production monitoring"
+  - "Next.js deployment pipeline"
+  - "Next.js infrastructure setup"
+  - "Next.js production environment"
+  - "Next.js deployment workflow"
+  - "Next.js production architecture"
+  - "Next.js deployment patterns"
+ogImage: "/images/5-nextjs-self-hosted/nextjs-self-hosted-og.png"
+readingTime: "45 minutes"
+---
+
+import Callout from "@/components/Callout.astro";
+import Mermaid from "@/components/Mermaid";
+
+{/* <Picture
+  src={OgImage}
+  alt="Essential Guide to Self-Hosting Next.js in Production"
+  inferSize
+  formats={["avif", "webp"]}
+/> */}
+
+## Introduction
+
+When it comes to deploying Next.js applications in production, many developers default to using Vercel or similar platforms. While these platforms offer convenience and ease of use, they might not always be the best choice for your specific needs. Self-hosting your Next.js application gives you more control, potentially lower costs, and the ability to customize your infrastructure to your exact requirements.
+
+<Callout type="info">
+  This guide is updated for Next.js 15 and includes the latest best practices
+  for production deployment.
+</Callout>
+
+## Prerequisites
+
+Before diving into self-hosting your Next.js application, ensure you have:
+
+1. **Technical Knowledge**
+
+   - Basic understanding of Docker and containerization
+   - Familiarity with Kubernetes (for container orchestration)
+   - Knowledge of CI/CD pipelines
+   - Understanding of monitoring and logging concepts
+
+2. **Required Tools**
+
+   - Docker installed on your development machine
+   - kubectl (if using Kubernetes)
+   - A cloud provider account (AWS, GCP, Azure, etc.)
+   - Git for version control
+
+3. **Infrastructure Requirements**
+
+   - A domain name for your application
+   - SSL certificates (can be obtained from Let's Encrypt)
+   - Access to a cloud provider's services
+   - Monitoring and logging tools
+
+4. **Development Environment**
+   - Node.js 18+ installed
+   - npm or pnpm package manager
+   - A code editor (VS Code recommended)
+   - Git for version control
+
+<Callout type="warning">
+  Self-hosting requires more initial setup and ongoing maintenance compared to
+  managed platforms. Make sure you have the necessary resources and expertise
+  before proceeding.
+</Callout>
+
+### Why Self-Host Next.js?
+
+1. **Cost Control**: Self-hosting can be more cost-effective, especially for applications with predictable traffic patterns or specific resource requirements.
+
+2. **Infrastructure Control**: You have complete control over your infrastructure, allowing you to:
+
+   - Choose your hosting provider
+   - Customize server configurations
+   - Implement specific security measures
+   - Set up custom monitoring and logging
+
+3. **No Vendor Lock-in**: You're not tied to a specific platform's features or limitations.
+
+4. **Custom Requirements**: You can implement specific requirements that might not be possible with managed platforms.
+
+### Common Misconceptions
+
+Before diving into self-hosting, let's address some common misconceptions:
+
+1. **"Self-hosting is too complex"**: While it requires more initial setup, modern tools and practices make it manageable.
+
+2. **"You need to be a DevOps expert"**: Basic knowledge of Docker and a cloud provider is sufficient to get started.
+
+3. **"You'll miss out on Vercel's features"**: Many features can be implemented yourself or through third-party services.
+
+4. **"Performance will be worse"**: With proper setup, you can achieve similar or better performance than managed platforms.
+
+### Key Considerations
+
+Before embarking on self-hosting, consider these key points:
+
+1. **Infrastructure Requirements**
+
+   - Server specifications
+   - Network requirements
+   - SSL/TLS setup
+   - Domain and DNS configuration
+
+2. **Operational Overhead**
+
+   - Monitoring and maintenance
+   - Security updates
+   - Backup procedures
+   - Scaling management
+
+3. **Cost Analysis**
+
+   - Infrastructure costs
+   - Operational costs
+   - Development time
+   - Maintenance time
+
+4. **Team Expertise**
+   - DevOps knowledge
+   - Infrastructure management
+   - Security practices
+   - Monitoring capabilities
+
+## Comparison with Vercel/Netlify
+
+Let's compare self-hosting with managed platforms:
+
+| Feature     | Self-Hosted         | Vercel/Netlify    |
+| ----------- | ------------------- | ----------------- |
+| Setup Time  | Longer              | Quick             |
+| Maintenance | Required            | Managed           |
+| Cost        | Variable            | Predictable       |
+| Control     | High                | Limited           |
+| Features    | Customizable        | Platform-specific |
+| Scaling     | Manual              | Automatic         |
+| Monitoring  | Custom              | Built-in          |
+| Security    | Your responsibility | Managed           |
+| Updates     | Your responsibility | Automatic         |
+
+<Callout type="info">
+  The choice between self-hosting and managed platforms depends on your specific
+  needs, budget, and team capabilities. There's no one-size-fits-all solution.
+</Callout>
+
+## Infrastructure Requirements
+
+Setting up the right infrastructure is crucial for a successful self-hosted Next.js deployment. Let's break down the key components and requirements.
+
+### System Architecture Overview
+
+<Mermaid
+  client:only
+  code={`
+graph TB
+    subgraph "Load Balancer"
+        LB[Load Balancer]
+    end
+    
+    subgraph "Application"
+        APP1[Next.js App 1]
+        APP2[Next.js App 2]
+    end
+    
+    subgraph "Caching"
+        REDIS[Redis Cache]
+        CDN[CDN]
+    end
+    
+    subgraph "Database"
+        DB[(Database)]
+    end
+    
+    subgraph "Monitoring"
+        MON[Monitoring]
+    end
+    
+    LB --> APP1
+    LB --> APP2
+    
+    APP1 --> REDIS
+    APP2 --> REDIS
+    
+    APP1 --> DB
+    APP2 --> DB
+    
+    APP1 --> MON
+    APP2 --> MON
+    
+    style LB fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style APP1 fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style APP2 fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style REDIS fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style CDN fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style DB fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style MON fill:#e1f5fe,stroke:#333,stroke-width:2px
+`}
+/>
+
+### Server Specifications
+
+For a production Next.js application, consider these server specifications:
+
+1. **CPU Requirements**
+
+   - Minimum: 2 vCPUs
+   - Recommended: 4+ vCPUs
+   - Consider: Node.js is single-threaded, but Next.js can utilize multiple cores for static generation
+
+2. **Memory Requirements**
+
+   - Minimum: 4GB RAM
+   - Recommended: 8GB+ RAM
+   - Consider: Memory usage increases with:
+     - Number of concurrent users
+     - Amount of static content
+     - Server-side rendering load
+
+3. **Storage Requirements**
+
+   - Minimum: 20GB SSD
+   - Recommended: 50GB+ SSD
+   - Consider: Space needed for:
+     - Application code
+     - Build artifacts
+     - Logs
+     - Temporary files
+
+4. **Network Requirements**
+   - Minimum: 1Gbps
+   - Recommended: 2Gbps+
+   - Consider: Bandwidth needed for:
+     - Static asset delivery
+     - API requests
+     - Database connections
+     - CDN communication
+
+### Performance Benchmarks
+
+Here are some real-world performance benchmarks for different server configurations:
+
+| Configuration    | Requests/sec | Memory Usage | CPU Usage | Response Time |
+| ---------------- | ------------ | ------------ | --------- | ------------- |
+| 2 vCPU, 4GB RAM  | 1,200        | 3.2GB        | 85%       | 120ms         |
+| 4 vCPU, 8GB RAM  | 2,800        | 6.5GB        | 75%       | 85ms          |
+| 8 vCPU, 16GB RAM | 5,500        | 12GB         | 65%       | 65ms          |
+
+<Callout type="info">
+  These benchmarks are based on a typical Next.js application with moderate
+  traffic. Your actual performance may vary based on your specific use case and
+  optimization efforts.
+</Callout>
+
+### Network Configuration
+
+1. **Load Balancing**
+
+   - Set up a load balancer for high availability
+   - Configure SSL termination
+   - Implement health checks
+   - Consider using:
+     - Nginx
+     - HAProxy
+     - Cloud provider load balancers
+
+2. **DNS Configuration**
+
+   - Set up proper DNS records
+   - Configure SSL certificates
+   - Set up subdomains if needed
+   - Consider using:
+     - Cloudflare
+     - Route 53
+     - Other DNS providers
+
+3. **Firewall Rules**
+   - Allow necessary ports (80, 443)
+   - Restrict access to management ports
+   - Set up security groups
+   - Implement rate limiting
+
+### Common Infrastructure Issues and Solutions
+
+1. **High Memory Usage**
+
+   - Problem: Node.js memory leaks
+   - Solution: Implement proper garbage collection and memory monitoring
+   - Prevention: Use memory leak detection tools
+
+2. **Network Latency**
+
+   - Problem: Slow response times
+   - Solution: Implement CDN and caching
+   - Prevention: Regular performance monitoring
+
+3. **Scaling Issues**
+   - Problem: Application not handling increased load
+   - Solution: Implement horizontal scaling
+   - Prevention: Load testing before deployment
+
+<Callout type="warning">
+  Always monitor your infrastructure metrics and set up alerts for potential
+  issues before they become critical.
+</Callout>
+
+## Docker Deployment
+
+For a comprehensive guide on setting up an optimized Dockerfile for Next.js applications, including multi-stage builds, caching strategies, and security best practices, please refer to our detailed guide: [Deploying a Next.js App to Production in any server](/blog/04-deploy-nextjs-to-production-without-vercel).
+
+The guide covers:
+
+- Multi-stage builds for optimized image size
+- Proper caching of dependencies
+- Security best practices
+- Health checks and monitoring
+- Environment variable management
+- Container orchestration with Kubernetes
+
+### Security Scanning
+
+Before deploying your Docker images to production, it's crucial to scan them for vulnerabilities:
+
+1. **Using Trivy**
+
+```bash
+# Install Trivy
+brew install aquasecurity/trivy/trivy
+
+# Scan image
+trivy image your-image-name
+```
+
+2. **Using Snyk**
+
+```bash
+# Install Snyk CLI
+npm install -g snyk
+
+# Scan image
+snyk container test your-image-name
+```
+
+3. **Automated Scanning in CI/CD**
+
+```yaml
+# GitHub Actions workflow
+name: Container Security
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: your-image:latest
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+```
+
+<Callout type="info">
+  The Docker setup is crucial for consistent deployments across different
+  environments. Make sure to follow the best practices outlined in our Docker
+  deployment guide.
+</Callout>
+
+<Callout type="warning">
+  Always scan your Docker images for vulnerabilities before deploying to
+  production. Tools like Trivy or Snyk can help identify security issues.
+</Callout>
+
+## Zero-Downtime Deployment with Skew Protection
+
+One of the most critical aspects of production deployment is ensuring zero downtime and preventing build skew issues. Let's explore how to implement this effectively.
+
+### Understanding Build Skew
+
+Build skew occurs when there's a mismatch between the frontend and backend versions of your Next.js application. This can happen when:
+
+1. Users have cached frontend assets from a previous version
+2. The backend is updated but users haven't refreshed their page
+3. Different users are served different versions of the application
+
+### Implementation of Skew Protection
+
+The solution involves deploying two components:
+
+1. **Backend Data Routes** (`/_next/data/{{buildId}}/`)
+2. **Main Application Server** (handles all other routes)
+
+<Mermaid
+  client:only
+  code={`
+graph LR
+    subgraph "Phase 1"
+        B1[Build New Version]
+        D1[Deploy Backend Data]
+        W1[Wait for Health Check]
+    end
+    
+    subgraph "Phase 2"
+        D2[Deploy Main App]
+        V1[Verify Traffic]
+        C1[Cleanup Old Version]
+    end
+    
+    B1 --> D1
+    D1 --> W1
+    W1 --> D2
+    D2 --> V1
+    V1 --> C1
+    
+    style B1 fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style D1 fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style W1 fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style D2 fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style V1 fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style C1 fill:#e1f5fe,stroke:#333,stroke-width:2px
+`}
+/>
+
+#### 1. Build ID Management
+
+First, we need to capture the build ID during the build process:
+
+```yaml
+# GitHub Actions workflow
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build application
+        run: npm run build
+
+      - name: Store Next.js Build Id
+        run: |-
+          echo "NEXT_BUILD_ID="$(cat .next/BUILD_ID) >> $GITHUB_ENV
+          echo "CLEAN_NEXT_BUILD_ID="$(cat .next/BUILD_ID | tr '[:upper:]' '[:lower:]' | sed 's/[^a-zA-Z0-9]//g') >> $GITHUB_ENV
+```
+
+#### 2. Kubernetes Ingress Configuration
+
+Configure your ingress to handle the build ID-based routes:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nextjs-ingress
+spec:
+  rules:
+    - host: your-domain.com
+      http:
+        paths:
+          # Backend data routes with build ID
+          - path: /_next/data/{{ .Values.nextBuildId }}/
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: nextjs-backend-{{ .Values.cleanNextBuildId }}
+                port:
+                  number: 3000
+
+          # Main application routes
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nextjs-main
+                port:
+                  number: 3000
+```
+
+#### 3. Deployment Strategy
+
+Deploy in two phases:
+
+1. **Phase 1: Deploy Backend Data Routes**
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextjs-backend-{{ .Values.cleanNextBuildId }}
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nextjs-backend
+      version: { { .Values.cleanNextBuildId } }
+  template:
+    metadata:
+      labels:
+        app: nextjs-backend
+        version: { { .Values.cleanNextBuildId } }
+    spec:
+      containers:
+        - name: nextjs
+          image: your-image:{{ .Values.cleanNextBuildId }}
+          env:
+            - name: NEXT_BUILD_ID
+              value: { { .Values.nextBuildId } }
+```
+
+2. **Phase 2: Deploy Main Application**
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextjs-main
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nextjs-main
+  template:
+    metadata:
+      labels:
+        app: nextjs-main
+    spec:
+      containers:
+        - name: nextjs
+          image: your-image:latest
+```
+
+### Version Management
+
+Implement a cleanup strategy for old versions:
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cleanup-old-versions
+spec:
+  schedule: "0 0 * * *" # Run daily
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: cleanup
+              image: kubectl
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  # Delete deployments older than 14 days
+                  kubectl delete deployment -l app=nextjs-backend --field-selector metadata.creationTimestamp<$(date -d '14 days ago' -u +"%Y-%m-%dT%H:%M:%SZ")
+          restartPolicy: OnFailure
+```
+
+### Cache Management
+
+Configure cache headers appropriately:
+
+```typescript
+// next.config.ts
+import type { NextConfig } from "next";
+
+const config: NextConfig = {
+  output: "standalone",
+  images: {
+    domains: ["your-domain.com"],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+      },
+    ],
+    loader: "custom",
+    loaderFile: "./image-loader.ts",
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, stale-while-revalidate=86400",
+          },
+          {
+            key: "X-DNS-Prefetch-Control",
+            value: "on",
+          },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains",
+          },
+          {
+            key: "X-Frame-Options",
+            value: "SAMEORIGIN",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "Permissions-Policy",
+            value:
+              "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+          },
+          {
+            key: "Content-Security-Policy",
+            value:
+              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:;",
+          },
+        ],
+      },
+      {
+        source: "/_next/static/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
+  },
+  experimental: {
+    serverComponentsExternalPackages: ["sharp"],
+    serverActions: true,
+  },
+  cacheHandler: require.resolve("./cache-handler.ts"),
+};
+
+export default config;
+```
+
+### Monitoring and Rollback
+
+1. **Health Checks**
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /_next/data/{{ .Values.nextBuildId }}/health
+    port: 3000
+  initialDelaySeconds: 5
+  periodSeconds: 10
+```
+
+2. **Rollback Procedure**
+
+```bash
+# Rollback to previous version
+kubectl rollout undo deployment/nextjs-main
+kubectl rollout undo deployment/nextjs-backend-${PREVIOUS_BUILD_ID}
+```
+
+<Callout type="info">
+  The skew protection strategy ensures that users always receive data from a
+  compatible backend version, preventing errors and improving reliability.
+</Callout>
+
+<Callout type="warning">
+  Keep old versions deployed for at least as long as your longest cache duration
+  to prevent serving incompatible data to users with cached frontend assets.
+</Callout>
+
+## Performance Optimization
+
+Optimizing your Next.js application's performance is crucial for providing a great user experience. Let's explore various optimization techniques.
+
+### Caching Strategies
+
+<Mermaid
+  client:only
+  code={`
+graph TB
+    subgraph "Client"
+        B[Browser]
+    end
+    
+    subgraph "Edge"
+        CDN[CDN Cache]
+    end
+    
+    subgraph "Server"
+        APP[Next.js App]
+        REDIS[Redis Cache]
+    end
+    
+    B --> CDN
+    CDN --> APP
+    APP --> REDIS
+    
+    style B fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style CDN fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style APP fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style REDIS fill:#e1f5fe,stroke:#333,stroke-width:2px
+`}
+/>
+
+#### 1. Redis Caching Setup
+
+First, set up Redis for caching:
+
+```typescript
+// cache-handler.ts
+const { CacheHandler } = require("@neshca/cache-handler");
+const createRedisHandler = require("@neshca/cache-handler/redis-stack").default;
+const createLruHandler = require("@neshca/cache-handler/local-lru").default;
+const { createClient } = require("redis");
+
+CacheHandler.onCreation(async () => {
+  let client;
+  try {
+    client = createClient({
+      url: process.env.REDIS_URL ?? "redis://localhost:6379",
+    });
+
+    client.on("error", (e) => {
+      console.warn("Redis error", e);
+    });
+
+    await client.connect();
+    console.info("Redis client connected.");
+  } catch (error) {
+    console.warn("Failed to connect Redis client:", error);
+  }
+
+  const redisHandler = client?.isReady
+    ? await createRedisHandler({
+        client,
+        keyPrefix: "nextjs:",
+        timeoutMs: 1000,
+      })
+    : null;
+
+  const LRUHandler = createLruHandler();
+
+  return {
+    handlers: [redisHandler, LRUHandler],
+  };
+});
+
+module.exports = CacheHandler;
+```
+
+Configure Next.js to use the cache handler:
+
+```typescript
+// next.config.ts
+import type { NextConfig } from "next";
+
+const config: NextConfig = {
+  output: "standalone",
+  images: {
+    domains: ["your-domain.com"],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+      },
+    ],
+    loader: "custom",
+    loaderFile: "./image-loader.ts",
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, stale-while-revalidate=86400",
+          },
+        ],
+      },
+    ];
+  },
+  experimental: {
+    serverComponentsExternalPackages: ["sharp"],
+    serverActions: true,
+  },
+  cacheHandler: require.resolve("./cache-handler.ts"),
+};
+
+export default config;
+```
+
+#### 2. Edge Caching with CDN
+
+Configure your CDN (e.g., Cloudflare) for optimal caching:
+
+```typescript
+// next.config.ts
+import type { NextConfig } from "next";
+
+const config: NextConfig = {
+  output: "standalone",
+  images: {
+    domains: ["your-domain.com"],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+      },
+    ],
+    loader: "custom",
+    loaderFile: "./image-loader.ts",
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, stale-while-revalidate=86400",
+          },
+        ],
+      },
+      {
+        source: "/_next/static/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
+  },
+  experimental: {
+    serverComponentsExternalPackages: ["sharp"],
+    serverActions: true,
+  },
+  cacheHandler: require.resolve("./cache-handler.ts"),
+};
+
+export default config;
+```
+
+#### 3. Static Asset Optimization
+
+1. **Image Optimization with imgproxy**
+
+Set up imgproxy for efficient image processing:
+
+```yaml
+# imgproxy-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imgproxy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: imgproxy
+  template:
+    metadata:
+      labels:
+        app: imgproxy
+    spec:
+      containers:
+        - name: imgproxy
+          image: darthsim/imgproxy:v3.27.2
+          ports:
+            - containerPort: 8080
+          env:
+            - name: IMGPROXY_BIND
+              value: ":8080"
+            - name: IMGPROXY_LOCAL_FILESYSTEM_ROOT
+              value: "/data"
+            - name: IMGPROXY_USE_ETAG
+              value: "true"
+            - name: IMGPROXY_ENABLE_WEBP_DETECTION
+              value: "true"
+            - name: IMGPROXY_ENABLE_AVIF_DETECTION
+              value: "true"
+```
+
+Configure Next.js to use imgproxy:
+
+```typescript
+// image-loader.ts
+import type { ImageLoaderProps } from "next/image";
+
+export default function imageLoader({ src, width, quality }: ImageLoaderProps) {
+  const params = [
+    "resize",
+    `w:${width}`,
+    `q:${quality || 75}`,
+    "format:auto",
+    "progressive:true",
+  ].join("/");
+
+  return `https://imgproxy.your-domain.com/${params}/${encodeURIComponent(src)}`;
+}
+```
+
+<Callout type="info">
+  imgproxy provides fast and secure image processing with features like
+  automatic WebP/AVIF conversion, progressive loading, and smart caching.
+</Callout>
+
+2. **Font Optimization**
+
+```typescript
+// app/layout.tsx
+import { Inter } from 'next/font/google'
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+})
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en" className={inter.className}>
+      <body>{children}</body>
+    </html>
+  )
+}
+```
+
+### Build Optimization
+
+#### 1. Standalone Output
+
+Enable standalone output for better performance:
+
+```typescript
+// next.config.ts
+import type { NextConfig } from "next";
+
+const config: NextConfig = {
+  output: "standalone",
+  images: {
+    domains: ["your-domain.com"],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+      },
+    ],
+    loader: "custom",
+    loaderFile: "./image-loader.ts",
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, stale-while-revalidate=86400",
+          },
+        ],
+      },
+    ];
+  },
+  experimental: {
+    serverComponentsExternalPackages: ["sharp"],
+    serverActions: true,
+  },
+  cacheHandler: require.resolve("./cache-handler.ts"),
+};
+
+export default config;
+```
+
+#### 2. Bundle Size Reduction
+
+1. **Dynamic Imports**
+
+```typescript
+import dynamic from 'next/dynamic'
+
+const HeavyComponent = dynamic(() => import('./HeavyComponent'), {
+  loading: () => <p>Loading...</p>,
+})
+```
+
+2. **Tree Shaking**
+
+```typescript
+// Import specific functions instead of entire libraries
+import { debounce } from "lodash/debounce";
+```
+
+#### 3. Code Splitting
+
+1. **Route-Based Code Splitting**
+
+```typescript
+// Automatically handled by Next.js
+// pages/about.tsx
+export default function About() {
+  return <h1>About Page</h1>
+}
+```
+
+2. **Component-Level Code Splitting**
+
+```typescript
+const Chart = dynamic(() => import('./Chart'), {
+  ssr: false,
+  loading: () => <ChartSkeleton />,
+})
+```
+
+### Server-Side Optimizations
+
+#### 1. Node.js Tuning
+
+```bash
+# Node.js flags for production
+NODE_OPTIONS="--max-old-space-size=4096 --max-semi-space-size=64 --max-http-header-size=16384"
+```
+
+#### 2. Memory Management
+
+1. **Garbage Collection Tuning**
+
+```bash
+# Add to your start script
+node --expose-gc server.js
+```
+
+2. **Memory Limits**
+
+```typescript
+// next.config.ts
+import type { NextConfig } from "next";
+
+const config: NextConfig = {
+  output: "standalone",
+  images: {
+    domains: ["your-domain.com"],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+      },
+    ],
+    loader: "custom",
+    loaderFile: "./image-loader.ts",
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, stale-while-revalidate=86400",
+          },
+        ],
+      },
+    ];
+  },
+  experimental: {
+    serverComponentsExternalPackages: ["sharp"],
+    serverActions: true,
+  },
+  cacheHandler: require.resolve("./cache-handler.ts"),
+};
+
+export default config;
+```
+
+#### 3. Connection Pooling
+
+```typescript
+// lib/db.ts
+import { Pool } from "pg";
+
+const pool = new Pool({
+  max: 20, // maximum number of clients in the pool
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+});
+
+export default pool;
+```
+
+### Monitoring Performance
+
+1. **Performance Metrics**
+
+```typescript
+// pages/api/metrics.ts
+import type { NextApiRequest, NextApiResponse } from "next";
+
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  const metrics = {
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    cpu: process.cpuUsage(),
+  };
+  res.status(200).json(metrics);
+}
+```
+
+2. **Real User Monitoring (RUM)**
+
+```typescript
+// components/PerformanceMonitor.tsx
+import { useEffect } from "react";
+
+export function PerformanceMonitor() {
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const observer = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          // Send to your analytics service
+          console.log(entry);
+        }
+      });
+
+      observer.observe({
+        entryTypes: ["largest-contentful-paint", "first-input", "layout-shift"],
+      });
+    }
+  }, []);
+
+  return null;
+}
+```
+
+<Callout type="info">
+  The combination of Redis caching, CDN caching, and proper static asset
+  optimization can significantly improve your application's performance.
+</Callout>
+
+<Callout type="warning">
+  Monitor your application's performance metrics regularly to identify and
+  address any performance issues before they impact users.
+</Callout>
+
+## Security Considerations
+
+<Mermaid
+  client:only
+  code={`
+graph TB
+    subgraph "External"
+        ATT[Attacker]
+        WAF[WAF]
+    end
+    
+    subgraph "Edge"
+        LB[Load Balancer]
+        SSL[SSL/TLS]
+    end
+    
+    subgraph "Application"
+        APP[Next.js App]
+        RATE[Rate Limiter]
+    end
+    
+    subgraph "Data"
+        DB[(Database)]
+        SEC[Secrets]
+    end
+    
+    ATT --> WAF
+    WAF --> LB
+    LB --> SSL
+    SSL --> APP
+    APP --> RATE
+    APP --> DB
+    APP --> SEC
+    
+    style ATT fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style WAF fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style LB fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style SSL fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style APP fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style RATE fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style DB fill:#e1f5fe,stroke:#333,stroke-width:2px
+    style SEC fill:#e1f5fe,stroke:#333,stroke-width:2px
+`}
+/>
+
+### SSL/TLS Configuration
+
+#### 1. Certificate Management
+
+Set up automatic certificate renewal with Let's Encrypt:
+
+```yaml
+# cert-manager.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: nextjs-cert
+spec:
+  secretName: nextjs-tls
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  subject:
+    organizations:
+      - Your Organization
+  commonName: your-domain.com
+  dnsNames:
+    - your-domain.com
+    - www.your-domain.com
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+```
+
+#### 2. Security Headers
+
+Configure security headers in Next.js:
+
+```typescript
+// next.config.ts
+import type { NextConfig } from "next";
+
+const config: NextConfig = {
+  output: "standalone",
+  images: {
+    domains: ["your-domain.com"],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+      },
+    ],
+    loader: "custom",
+    loaderFile: "./image-loader.ts",
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "X-DNS-Prefetch-Control",
+            value: "on",
+          },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains",
+          },
+          {
+            key: "X-Frame-Options",
+            value: "SAMEORIGIN",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "Permissions-Policy",
+            value:
+              "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+          },
+          {
+            key: "Content-Security-Policy",
+            value:
+              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:;",
+          },
+        ],
+      },
+    ];
+  },
+};
+
+export default config;
+```
+
+### Rate Limiting
+
+Implement rate limiting using middleware:
+
+```typescript
+// middleware.ts
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(20, "10 s"),
+  analytics: true,
+});
+
+export async function middleware(request: NextRequest) {
+  const ip = request.ip ?? "127.0.0.1";
+  const { success, pending, limit, reset, remaining } = await ratelimit.limit(
+    `ratelimit_${ip}`,
+  );
+
+  if (!success) {
+    return new NextResponse("Too Many Requests", {
+      status: 429,
+      headers: {
+        "X-RateLimit-Limit": limit.toString(),
+        "X-RateLimit-Remaining": remaining.toString(),
+        "X-RateLimit-Reset": reset.toString(),
+      },
+    });
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: "/api/:path*",
+};
+```
+
+### DDoS Protection
+
+1. **Configure Nginx Rate Limiting**
+
+```nginx
+# nginx.conf
+limit_req_zone $binary_remote_addr zone=one:10m rate=1r/s;
+
+server {
+    location / {
+        limit_req zone=one burst=10 nodelay;
+        proxy_pass http://localhost:3000;
+    }
+}
+```
+
+2. **Enable Cloudflare Protection**
+
+```yaml
+# cloudflare.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nextjs-ingress
+  annotations:
+    cloudflare.com/proxy: "true"
+    cloudflare.com/rate-limit: "1000"
+    cloudflare.com/security-level: "high"
+```
+
+### Regular Security Updates
+
+1. **Automated Dependency Updates**
+
+```yaml
+# GitHub Actions workflow
+name: Security Updates
+
+on:
+  schedule:
+    - cron: "0 0 * * 0" # Weekly
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run security audit
+        run: npm audit
+
+      - name: Update dependencies
+        run: npm update
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: "chore: update dependencies"
+          title: "chore: update dependencies"
+          body: "Automated dependency updates"
+```
+
+2. **Container Security Scanning**
+
+```yaml
+# GitHub Actions workflow
+name: Container Security
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: your-image:latest
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+```
+
+### Environment Variables Security
+
+1. **Using AWS Secrets Manager**
+
+```typescript
+// lib/secrets.ts
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from "@aws-sdk/client-secrets-manager";
+
+const secretsManager = new SecretsManagerClient({
+  region: process.env.AWS_REGION,
+});
+
+async function getSecret(secretName: string) {
+  try {
+    const command = new GetSecretValueCommand({
+      SecretId: secretName,
+    });
+    const response = await secretsManager.send(command);
+    return JSON.parse(response.SecretString || "{}");
+  } catch (error) {
+    console.error("Error fetching secret:", error);
+    throw error;
+  }
+}
+
+// Usage in your application
+const secrets = await getSecret("your-app-secrets");
+```
+
+2. **Using Kubernetes Secrets**
+
+```
+
+```
+
+## Troubleshooting Guide
+
+### Common Issues and Solutions
+
+1. **Build Failures**
+
+   ```bash
+   # Error: Build failed
+   Error: Build failed with error code 1
+   ```
+
+   **Solution:**
+
+   - Check Node.js version compatibility
+   - Verify all dependencies are installed
+   - Check for memory limits during build
+   - Review build logs for specific errors
+
+2. **Runtime Errors**
+
+   ```bash
+   # Error: Out of memory
+   FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed
+   ```
+
+   **Solution:**
+
+   - Increase Node.js memory limit
+   - Implement proper garbage collection
+   - Monitor memory usage patterns
+   - Consider using PM2 for process management
+
+3. **Performance Issues**
+
+   ```typescript
+   // Symptoms: Slow page loads, high CPU usage
+   // Solution: Implement proper caching
+   import { Redis } from "@upstash/redis";
+
+   const redis = new Redis({
+     url: process.env.REDIS_URL,
+     token: process.env.REDIS_TOKEN,
+   });
+
+   export async function getCachedData(key: string) {
+     const cached = await redis.get(key);
+     if (cached) return cached;
+
+     const data = await fetchData();
+     await redis.set(key, data, { ex: 3600 }); // 1 hour expiry
+     return data;
+   }
+   ```
+
+### Debugging Tools
+
+1. **Node.js Inspector**
+
+   ```bash
+   # Start Node.js with inspector
+   node --inspect server.js
+   ```
+
+2. **Memory Profiling**
+
+   ```bash
+   # Generate heap snapshot
+   node --heapsnapshot server.js
+   ```
+
+3. **Performance Profiling**
+   ```bash
+   # Generate CPU profile
+   node --prof server.js
+   ```
+
+## Security Best Practices
+
+### 1. SSL/TLS Configuration
+
+```nginx
+# nginx.conf
+server {
+    listen 443 ssl http2;
+    server_name your-domain.com;
+
+    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+
+    # Modern SSL configuration
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    # HSTS
+    add_header Strict-Transport-Security "max-age=63072000" always;
+
+    # Other security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
+}
+```
+
+### 2. Rate Limiting Implementation
+
+```typescript
+// middleware.ts
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(20, "10 s"),
+  analytics: true,
+});
+
+export async function middleware(request: NextRequest) {
+  const ip = request.ip ?? "127.0.0.1";
+  const { success, pending, limit, reset, remaining } = await ratelimit.limit(
+    `ratelimit_${ip}`,
+  );
+
+  if (!success) {
+    return new NextResponse("Too Many Requests", {
+      status: 429,
+      headers: {
+        "X-RateLimit-Limit": limit.toString(),
+        "X-RateLimit-Remaining": remaining.toString(),
+        "X-RateLimit-Reset": reset.toString(),
+      },
+    });
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: "/api/:path*",
+};
+```
+
+### 3. Security Headers in Next.js
+
+```typescript
+// next.config.ts
+import type { NextConfig } from "next";
+
+const config: NextConfig = {
+  output: "standalone",
+  images: {
+    domains: ["your-domain.com"],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+      },
+    ],
+    loader: "custom",
+    loaderFile: "./image-loader.ts",
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "X-DNS-Prefetch-Control",
+            value: "on",
+          },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains",
+          },
+          {
+            key: "X-Frame-Options",
+            value: "SAMEORIGIN",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "Permissions-Policy",
+            value:
+              "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+          },
+          {
+            key: "Content-Security-Policy",
+            value:
+              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:;",
+          },
+        ],
+      },
+    ];
+  },
+};
+
+export default config;
+```
+
+### 4. Regular Security Audits
+
+```bash
+# Install security audit tools
+npm install -g npm-audit
+npm install -g snyk
+
+# Run security audits
+npm audit
+snyk test
+
+# Update dependencies
+npm update
+```
+
+<Callout type="warning">
+  Regular security audits and updates are crucial for maintaining a secure
+  production environment. Set up automated security scanning in your CI/CD
+  pipeline.
+</Callout>

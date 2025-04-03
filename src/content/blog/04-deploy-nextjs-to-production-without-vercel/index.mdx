@@ -2,7 +2,7 @@
 title: "Deploying a Next.js App to Production in any server"
 description: "Build a docker image of your nextjs app that can be deployed to any server, without any propreitary cloud provider lock-in."
 date: "2024-09-06"
-updated: "2025-03-25"
+updated: "2025-04-03"
 tags:
   - "nextjs"
   - "ssr"
@@ -104,7 +104,7 @@ npm run build
 4. Create a Dockerfile
 
 ```dockerfile
-FROM node:24-alpine
+FROM node:23-alpine
 
 RUN npm install -g pnpm
 
@@ -113,6 +113,8 @@ COPY . .
 RUN pnpm install
 
 RUN pnpm run build
+
+EXPOSE 3000
 
 CMD ["pnpm", "run", "start"]
 ```
@@ -177,7 +179,7 @@ and everything seems to be working fine, but we are not done yet.
 1. Now let's add multi-stage build to the Dockerfile
 
 ```dockerfile
-FROM node:24-alpine AS base
+FROM node:23-alpine AS base
 
 # Install pnpm globally
 RUN npm install -g pnpm
@@ -196,7 +198,7 @@ FROM base AS builder
 # Build the application
 RUN pnpm run build
 
-FROM node:24-alpine AS runner
+FROM node:23-alpine AS runner
 
 # Install pnpm in the runner stage
 RUN npm install -g pnpm
@@ -212,6 +214,8 @@ COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
 
 # Install only production dependencies
 RUN pnpm install --prod
+
+EXPOSE 3000
 
 # Start the application
 CMD ["pnpm", "run", "start"]
@@ -255,11 +259,13 @@ and everything seems to be working fine, but we are not done yet.
 
 ## More optimizations
 
-1. Update your next.config.js to use the standalone build
+1. Update your next.config.ts to use the standalone build
 
 ```javascript
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
   output: "standalone",
 };
 
@@ -274,7 +280,7 @@ export default nextConfig;
 2. Update the Dockerfile to use the standalone build
 
 ```dockerfile
-FROM node:24-alpine AS base
+FROM node:23-alpine AS base
 
 # Install pnpm globally
 RUN npm install -g pnpm
@@ -293,7 +299,7 @@ FROM base AS builder
 # Build the application
 RUN pnpm run build
 
-FROM node:24-alpine AS runner
+FROM node:23-alpine AS runner
 
 # Install pnpm in the runner stage
 RUN npm install -g pnpm
@@ -303,6 +309,9 @@ WORKDIR /app
 
 # Copy the necessary files from the builder stage for the standalone build
 COPY --from=builder /app/.next/standalone ./
+
+# Expose the port
+EXPOSE 3000
 
 # Start the application
 CMD ["node", "server.js"]
@@ -362,7 +371,7 @@ Now it's time to fix it.
 6. Update the Dockerfile to copy assets correctly
 
 ```dockerfile
-FROM node:24-alpine AS base
+FROM node:23-alpine AS base
 
 # Install pnpm globally
 RUN npm install -g pnpm
@@ -381,7 +390,7 @@ FROM base AS builder
 # Build the application
 RUN pnpm run build
 
-FROM node:24-alpine AS runner
+FROM node:23-alpine AS runner
 
 # Install pnpm in the runner stage
 RUN npm install -g pnpm
@@ -393,6 +402,9 @@ WORKDIR /app
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/static .next/static
+
+# Expose the port
+EXPOSE 3000
 
 # Start the application
 CMD ["node", "server.js"]
@@ -458,7 +470,7 @@ Now you can just push this image to your favorite registry, and you are done.
    > Currently we are running it as root, which is not a good practice, so let's run it as a non-root user.
 
 ```dockerfile
-FROM node:24-alpine AS base
+FROM node:23-alpine AS base
 
 # Install pnpm globally
 RUN npm install -g pnpm
@@ -481,7 +493,7 @@ COPY . .
 # Build the application
 RUN pnpm run build
 
-FROM node:24-alpine AS runner
+FROM node:23-alpine AS runner
 
 # Install pnpm in the runner stage
 RUN npm install -g pnpm
@@ -527,6 +539,15 @@ CMD ["node", "server.js"]
   will work.
 </Callout>
 
+- This is a sample healthcheck endpoint in nextjs 15 api routes, you can use it in your own application.
+
+```javascript
+// app/api/health/route.ts
+export async function GET(request: Request) {
+  return new Response("OK");
+}
+```
+
 Healthcheck is a good practice, it's not only for the container orchestrators, but also for the load balancers, so they can know if the container is healthy or not. Docker etc, can also use it to know if the container is healthy or not.
 
 ## Using Github actions
@@ -558,7 +579,7 @@ jobs:
           version: 10
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 23
           cache: "pnpm"
       - name: Cache node_modules and Nextjs build files
         uses: actions/cache@v4
@@ -585,7 +606,7 @@ jobs:
 ```
 
 ```dockerfile
-FROM node:24-slim AS runner
+FROM node:23-slim AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production
@@ -611,7 +632,7 @@ CMD ["node", "server.js"]
 ```
 
 <Callout type="info">
-  We are using docker image node:24-slim, because it's based on Debian, and the
+  We are using docker image node:23-slim, because it's based on Debian, and the
   github actions runner is based on Ubuntu, so we need to use the same base
   image.
 </Callout>
@@ -622,12 +643,15 @@ Generally it's safer to use the debian based image, because it's more compatible
 
 Currently, it won't have any caching, so the RSC, SSR etc, won't be as fast as how it's in vercel. But it's not all dark, we can still get similar behaviour on our own.
 
-1. Update the next.config.js to use the cache handler
+1. Update the next.config.ts to use the cache handler
 
 ```javascript
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  cacheHandler:
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+  output: "standalone",
+   cacheHandler:
     process.env.NODE_ENV === "production"
       ? require.resolve("./cache-handler.js")
       : undefined,
@@ -635,7 +659,6 @@ const nextConfig = {
     NEXT_PUBLIC_REDIS_INSIGHT_URL:
       process.env.REDIS_INSIGHT_URL ?? "http://localhost:8001",
   },
-  output: "standalone",
 };
 
 export default nextConfig;
@@ -738,17 +761,20 @@ Update the ENV variables accordingly, now when you horizontally scale your app, 
 When self-hosting your Next.js application, there are several key features you won't get compared to using Vercel:
 
 1. **Edge Functions and Global Distribution**
+
    - No automatic edge function deployment
    - No built-in global CDN distribution
    - You'll need to set up your own CDN (e.g., Cloudflare, AWS CloudFront)
 
 2. **Infrastructure Management**
+
    - No automatic SSL/HTTPS management
    - No automatic scaling and load balancing
    - No built-in monitoring and analytics
    - You'll need to manage your own infrastructure
 
 3. **Development Experience**
+
    - No automatic preview deployments
    - No built-in environment variable management
    - No automatic branch deployments
@@ -761,7 +787,10 @@ When self-hosting your Next.js application, there are several key features you w
    - You'll need to optimize performance manually
 
 <Callout type="info">
-  While these limitations exist, self-hosting gives you more control over your infrastructure and can be more cost-effective for certain use cases. You can also implement many of these features yourself using third-party services or custom solutions.
+  While these limitations exist, self-hosting gives you more control over your
+  infrastructure and can be more cost-effective for certain use cases. You can
+  also implement many of these features yourself using third-party services or
+  custom solutions.
 </Callout>
 
 ### Middleware Support
@@ -780,7 +809,7 @@ The only difference is that middleware runs on your own infrastructure rather th
 
 In this article, we learned how to deploy a Next.js app to production without using Vercel, and we also learned how to optimize the image size and the build time.
 
-We also learned how to use the cache handler to get similar behaviour to Vercel.
+We also saw how to use the cache handler to get similar behaviour to Vercel.
 
 I hope you enjoyed reading this article as much as I enjoyed writing it.
 
