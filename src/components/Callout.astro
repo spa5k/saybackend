@@ -19,6 +19,13 @@ const { type = "default", title } = Astro.props;
     padding: 1rem;
     border-radius: 0.5rem;
     margin: 1.5rem 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+  }
+
+  .callout:hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
   }
 
   .callout-info {
@@ -41,17 +48,84 @@ const { type = "default", title } = Astro.props;
     margin-bottom: 0.5rem;
     font-size: 1.1rem;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .callout-info .callout-title {
+    color: var(--color-info);
+  }
+
+  .callout-warning .callout-title {
+    color: var(--color-warning);
+  }
+
+  .callout-default .callout-title {
+    color: var(--color-default);
+  }
+
+  .callout-info .callout-title::before {
+    content: "ℹ️";
+  }
+
+  .callout-warning .callout-title::before {
+    content: "⚠️";
+  }
+
+  .callout-default .callout-title::before {
+    content: "💡";
   }
 
   .callout-content {
     font-size: 0.95rem;
+    line-height: 1.6;
   }
 
   .callout-content :global(p) {
     margin: 0;
+    color: var(--color-text-primary);
   }
 
   .callout-content :global(p + p) {
     margin-top: 0.5rem;
+  }
+
+  .callout-content :global(a) {
+    color: inherit;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid transparent;
+  }
+
+  .callout-content :global(a:hover) {
+    border-bottom-color: currentColor;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .callout {
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .callout:hover {
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .callout-info {
+      background-color: var(--color-info-bg-dark);
+    }
+
+    .callout-warning {
+      background-color: var(--color-warning-bg-dark);
+    }
+
+    .callout-default {
+      background-color: var(--color-default-bg-dark);
+    }
+
+    .callout-content :global(p) {
+      color: var(--color-text-primary-dark);
+    }
   }
 </style>

@@ -3,7 +3,7 @@ interface Props {
   title?: string;
 }
 
-const { title = "Professional Software Development Services" } = Astro.props;
+const { title = "End-to-End Software Development Solutions" } = Astro.props;
 ---
 
 <div class="advertise">
@@ -63,6 +63,13 @@ const { title = "Professional Software Development Services" } = Astro.props;
     margin: 2rem 0;
     background-color: var(--color-info-bg);
     border-left: 4px solid var(--color-info);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+  }
+
+  .advertise:hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
   }
 
   .advertise-title {
@@ -71,14 +78,24 @@ const { title = "Professional Software Development Services" } = Astro.props;
     font-size: 1.2rem;
     font-weight: 600;
     color: var(--color-info);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .advertise-title::before {
+    content: "💡";
+    font-size: 1.1em;
   }
 
   .advertise-content {
     font-size: 0.95rem;
+    line-height: 1.6;
   }
 
   .advertise-content :global(p) {
     margin: 0;
+    color: var(--color-text-primary);
   }
 
   .advertise-content :global(p + p) {
@@ -89,9 +106,26 @@ const { title = "Professional Software Development Services" } = Astro.props;
     color: var(--color-info);
     text-decoration: none;
     font-weight: 500;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid transparent;
   }
 
   .advertise-content :global(a:hover) {
-    text-decoration: underline;
+    border-bottom-color: var(--color-info);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .advertise {
+      background-color: var(--color-info-bg-dark);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .advertise:hover {
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .advertise-content :global(p) {
+      color: var(--color-text-primary-dark);
+    }
   }
 </style>

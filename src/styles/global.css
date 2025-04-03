@@ -173,5 +173,11 @@ pre {
     --color-bg-hover: rgba(255, 255, 255, 0.05);
     --color-text-primary: #fff;
     --color-text-secondary: #999;
+
+    /* Callout and Advertise Dark Mode Colors */
+    --color-info-bg-dark: rgba(37, 99, 235, 0.1);
+    --color-warning-bg-dark: rgba(217, 119, 6, 0.1);
+    --color-default-bg-dark: rgba(107, 114, 128, 0.1);
+    --color-text-primary-dark: #e5e7eb;
   }
 }
