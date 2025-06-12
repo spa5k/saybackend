@@ -1,5 +1,3 @@
-import React from "react";
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   Card,
   CardContent,
@@ -13,6 +11,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/react/ui/chart";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 const chartData = [
   {

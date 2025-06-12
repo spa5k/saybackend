@@ -1,5 +1,3 @@
-import React from "react";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   Card,
   CardContent,
@@ -13,6 +11,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/react/ui/chart";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 // Import benchmark data from the repository
 import benchmarkData from "../../../data/benchmark_data/chart_data.json";
@@ -38,13 +37,14 @@ interface BenchmarkChartProps {
   description?: string;
 }
 
-export function BenchmarkChart({ 
-  type = "performance", 
+export function BenchmarkChart({
+  type = "performance",
   title = "UUID Implementation Performance",
-  description = "Comparison of different UUID implementations"
+  description = "Comparison of different UUID implementations",
 }: BenchmarkChartProps) {
-  const data = type === "throughput" ? benchmarkData.area_chart : benchmarkData.bar_chart;
-  
+  const data =
+    type === "throughput" ? benchmarkData.area_chart : benchmarkData.bar_chart;
+
   if (type === "performance") {
     return (
       <Card className="w-full">
@@ -74,7 +74,11 @@ export function BenchmarkChart({
                 textAnchor="end"
                 height={80}
               />
-              <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 10 }}
+              />
               <ChartTooltip
                 cursor={false}
                 content={<ChartTooltipContent indicator="dashed" />}
@@ -121,7 +125,11 @@ export function BenchmarkChart({
               cursor={false}
               content={<ChartTooltipContent indicator="dashed" />}
             />
-            <Bar dataKey="throughput" fill="var(--color-throughput)" radius={4} />
+            <Bar
+              dataKey="throughput"
+              fill="var(--color-throughput)"
+              radius={4}
+            />
           </BarChart>
         </ChartContainer>
       </CardContent>

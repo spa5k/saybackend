@@ -8,8 +8,8 @@ import {
   Title,
   Tooltip,
 } from "chart.js";
-import { Radar } from "solid-chartjs";
-import { createSignal, onMount } from "solid-js";
+import { useEffect, useState } from "react";
+import { Radar } from "react-chartjs-2";
 
 Chart.register(
   RadialLinearScale,
@@ -32,7 +32,7 @@ interface RadarDataPoint {
 import benchmarkData from "../../../data/benchmark_data/chart_data.json";
 
 // Normalized scores (0-100, higher is better)
-const defaultData: RadarDataPoint[] = benchmarkData.radar_chart.map(item => ({
+const defaultData: RadarDataPoint[] = benchmarkData.radar_chart.map((item) => ({
   implementation: item.implementation,
   performance: item.performance,
   throughput: item.throughput,
@@ -46,10 +46,10 @@ interface Props {
 }
 
 export default function RadarChart(props: Props) {
-  const [chartData, setChartData] = createSignal({});
+  const [chartData, setChartData] = useState({});
   const data = props.data || defaultData;
 
-  onMount(() => {
+  useEffect(() => {
     const colors = [
       "rgba(46, 204, 113, 0.6)", // Native uuidv7() (bright green)
       "rgba(54, 162, 235, 0.6)", // UUIDv7 PL/pgSQL
@@ -86,7 +86,7 @@ export default function RadarChart(props: Props) {
       ],
       datasets,
     });
-  });
+  }, [data, props.selectedImplementations]);
 
   const options = {
     responsive: true,
@@ -143,8 +143,8 @@ export default function RadarChart(props: Props) {
   };
 
   return (
-    <div class="mb-6 h-96 w-full">
-      <Radar data={chartData()} options={options} />
+    <div className="mb-6 h-96 w-full">
+      <Radar data={chartData} options={options} />
     </div>
   );
 }

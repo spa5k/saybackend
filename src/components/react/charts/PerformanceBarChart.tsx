@@ -8,8 +8,8 @@ import {
   Title,
   Tooltip,
 } from "chart.js";
-import { Bar } from "solid-chartjs";
-import { createSignal, onMount } from "solid-js";
+import { useEffect, useState } from "react";
+import { Bar } from "react-chartjs-2";
 
 Chart.register(
   CategoryScale,
@@ -31,7 +31,7 @@ interface PerformanceData {
 // Import benchmark data
 import benchmarkData from "../../../data/benchmark_data/chart_data.json";
 
-const defaultData: PerformanceData[] = benchmarkData.bar_chart.map(item => ({
+const defaultData: PerformanceData[] = benchmarkData.bar_chart.map((item) => ({
   implementation: item.implementation,
   avgTime: item.avg_time,
   throughput: item.throughput,
@@ -45,10 +45,10 @@ interface Props {
 }
 
 export default function PerformanceBarChart(props: Props) {
-  const [chartData, setChartData] = createSignal({});
+  const [chartData, setChartData] = useState({});
   const data = props.data || defaultData;
 
-  onMount(() => {
+  useEffect(() => {
     const labels = data.map((d) => d.implementation);
     let values: number[];
     let label: string;
@@ -84,7 +84,7 @@ export default function PerformanceBarChart(props: Props) {
         },
       ],
     });
-  });
+  }, [props.type, data]);
 
   const options = {
     responsive: true,
@@ -147,8 +147,8 @@ export default function PerformanceBarChart(props: Props) {
   };
 
   return (
-    <div class="mb-6 h-80 w-full">
-      <Bar data={chartData()} options={options} />
+    <div className="mb-6 h-80 w-full">
+      <Bar data={chartData} options={options} />
     </div>
   );
 }

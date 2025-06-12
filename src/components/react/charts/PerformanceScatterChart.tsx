@@ -6,8 +6,8 @@ import {
   Title,
   Tooltip,
 } from "chart.js";
-import { Scatter } from "solid-chartjs";
-import { createSignal, onMount } from "solid-js";
+import { useEffect, useState } from "react";
+import { Scatter } from "react-chartjs-2";
 
 Chart.register(LinearScale, PointElement, Title, Tooltip, Legend);
 
@@ -20,7 +20,7 @@ interface ScatterDataPoint {
 // Import benchmark data
 import benchmarkData from "../../../data/benchmark_data/chart_data.json";
 
-const defaultData: ScatterDataPoint[] = benchmarkData.bar_chart.map(item => ({
+const defaultData: ScatterDataPoint[] = benchmarkData.bar_chart.map((item) => ({
   x: item.storage,
   y: item.avg_time,
   label: item.implementation,
@@ -32,10 +32,10 @@ interface Props {
 }
 
 export default function PerformanceScatterChart(props: Props) {
-  const [chartData, setChartData] = createSignal({});
+  const [chartData, setChartData] = useState({});
   const data = props.data || defaultData;
 
-  onMount(() => {
+  useEffect(() => {
     const colors = [
       "rgba(46, 204, 113, 0.8)", // Native uuidv7() (bright green)
       "rgba(54, 162, 235, 0.8)", // UUIDv7 PL/pgSQL
@@ -63,7 +63,7 @@ export default function PerformanceScatterChart(props: Props) {
         },
       ],
     });
-  });
+  }, [data]);
 
   const options = {
     responsive: true,
@@ -126,8 +126,8 @@ export default function PerformanceScatterChart(props: Props) {
   };
 
   return (
-    <div class="mb-6 h-80 w-full">
-      <Scatter data={chartData()} options={options} />
+    <div className="mb-6 h-80 w-full">
+      <Scatter data={chartData} options={options} />
     </div>
   );
 }
