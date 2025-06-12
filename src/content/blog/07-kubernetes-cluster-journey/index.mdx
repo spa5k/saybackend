@@ -1,0 +1,631 @@
+---
+title: "Building a Production Kubernetes Cluster: From k3s Chaos to RKE2 Success"
+description: "My complete journey from k3s + external WireGuard nightmare to RKE2 + Cilium perfection - achieving infinite scaling with zero manual intervention through automation and proper architecture."
+date: "2025-12-06"
+tags:
+  - "kubernetes"
+  - "k3s"
+  - "rke2"
+  - "wireguard"
+  - "terraform"
+  - "infrastructure"
+  - "devops"
+  - "hetzner"
+  - "postgresql"
+  - "automation"
+  - "gitops"
+  - "github-actions"
+  - "cloud-init"
+  - "cilium"
+  - "flannel"
+  - "production-deployment"
+  - "kubernetes-cluster"
+  - "infrastructure-as-code"
+  - "container-orchestration"
+  - "cluster-setup"
+  - "kubernetes-networking"
+  - "worker-nodes"
+  - "master-node"
+  - "kubernetes-automation"
+  - "k3s-cluster"
+  - "rke2-cluster"
+  - "kubernetes-production"
+  - "kubernetes-scaling"
+  - "kubernetes-security"
+  - "kubernetes-infrastructure"
+ogImage: "/images/7-kubernetes-journey/kubernetes_cluster_og.png"
+draft: false
+---
+
+import Advertise from "@/components/Advertise.astro";
+import Callout from "@/components/Callout.astro";
+import { Picture } from "astro:assets";
+
+
+
+{/* <!-- TODO: Add OG image showing Kubernetes cluster architecture --> */}
+
+## Introduction
+
+Setting up a production-ready Kubernetes cluster is like building a house - you think you know what you want, but you end up rebuilding it three times before getting it right. This is the story of my journey building a scalable, secure Kubernetes cluster that went from manual hell to infinite automation.
+
+**Spoiler alert:** I started with k3s + external WireGuard (manual hell), experimented with multiple architectures, and finally settled on RKE2 + Cilium CNI with WireGuard encryption. The final result? Zero manual intervention, infinite scaling, GitOps automation, and workers that join automatically via cloud-init.
+
+If you're thinking "this sounds like chaos," you're absolutely right. But sometimes chaos leads to clarity, and the final architecture is beautifully simple.
+
+## The Requirements
+
+Before diving into the chaos, let me set the stage. I needed:
+
+- **Secure pod-to-pod communication** (WireGuard encryption)
+- **External PostgreSQL datastore** for high availability (using Neon)
+- **Infinite scaling** capability with zero manual steps
+- **Infrastructure as Code** with Terraform
+- **GitOps deployment** with GitHub Actions
+- **IPv4-only** for simplicity and reliability
+
+Pretty straightforward, right? *Narrator: It was not straightforward.*
+
+## Phase 1: The k3s Experiment (June 2024)
+
+I started with k3s because it seemed perfect for my needs - lightweight, simple, and supposedly "just works." Here's how the initial setup looked:
+
+{/* <!-- TODO: Add screenshot of initial k3s cluster status --> */}
+
+### The Good Times
+
+The initial k3s setup was actually promising:
+
+```bash
+# Simple k3s installation with PostgreSQL backend
+curl -sfL https://get.k3s.io | sh -s - server \
+  --datastore-endpoint="postgresql://user:pass@host/db?sslmode=require" \
+  --disable=traefik \
+  --disable=servicelb \
+  --cluster-cidr=10.42.0.0/16,fd42::/56 \
+  --service-cidr=10.43.0.0/16,fd43::/112
+```
+
+The master node came up beautifully. PostgreSQL integration worked flawlessly. I was feeling pretty confident.
+
+### Enter WireGuard Complexity
+
+Then came the networking requirements. I needed secure pod-to-pod communication, so I set up external WireGuard on all nodes:
+
+```bash
+# Master WireGuard config
+[Interface]
+PrivateKey = <master-key>
+Address = 10.0.1.1/24
+ListenPort = 51820
+
+[Peer] # Worker 1
+PublicKey = <worker1-pubkey>
+AllowedIPs = 10.0.1.2/32
+
+[Peer] # Worker 2  
+PublicKey = <worker2-pubkey>
+AllowedIPs = 10.0.1.3/32
+```
+
+This is where things got messy. Each new worker required:
+
+1. Generate WireGuard keypair
+2. SSH to master and add peer configuration
+3. Restart WireGuard service
+4. Update cloud-init with the new keys
+5. Deploy the worker
+
+**Manual steps? In 2024?** I knew this had to change.
+
+### The IPv6 Disaster
+
+Because I thought I was clever, I initially configured dual-stack IPv4/IPv6. Big mistake. The networking became a nightmare:
+
+- Route conflicts between interfaces
+- Workers sometimes picked IPv6 for cluster communication
+- Debugging became nearly impossible
+- Random connectivity issues
+
+<Callout type="warning">
+  Learn from my mistakes: Start with IPv4-only unless you specifically need IPv6. You can always add complexity later, but removing it is painful.
+</Callout>
+
+After fighting this for weeks, I made the smart decision to go IPv4-only. Suddenly, everything became predictable again.
+
+## Phase 2: The RKE2 Migration (November 2024)
+
+Frustrated with the manual WireGuard management in k3s, I decided to try RKE2. The promise of better enterprise features and built-in security sounded appealing.
+
+{/* <!-- TODO: Add screenshot of RKE2 cluster architecture diagram --> */}
+
+### RKE2 Setup
+
+RKE2 installation was more involved but felt more "enterprise-y":
+
+```bash
+# RKE2 server installation
+curl -sfL https://get.rke2.io | sh -s - server
+
+# RKE2 agent installation
+curl -sfL https://get.rke2.io | sh -s - agent
+```
+
+The configuration was more explicit, which I actually liked:
+
+```yaml
+# /etc/rancher/rke2/config.yaml
+server: https://master-ip:9345
+token: super-secret-token
+node-ip: 10.0.1.2
+```
+
+### Cilium CNI Adventure
+
+With RKE2, I decided to get fancy and use Cilium CNI with WireGuard instead of the default Flannel. Cilium promised:
+
+- Better observability
+- Advanced network policies  
+- Native WireGuard support
+- eBPF-based networking
+
+The setup was more complex:
+
+```bash
+# Install Cilium CLI
+CILIUM_CLI_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/cilium-cli/master/stable.txt)
+curl -L --remote-name-silent https://github.com/cilium/cilium-cli/releases/download/${CILIUM_CLI_VERSION}/cilium-linux-amd64.tar.gz
+
+# Install Cilium with WireGuard
+cilium install --config cluster-pool-ipv4-cidr=10.42.0.0/16 \
+  --config enable-wireguard=true \
+  --config enable-l7-proxy=false
+```
+
+### The Reality Check
+
+While RKE2 + Cilium worked beautifully in terms of functionality, it introduced new complexities:
+
+- **Slower startup times** - RKE2 took longer to initialize
+- **More resource usage** - Higher memory footprint
+- **Complex troubleshooting** - More layers to debug
+- **Still manual WireGuard peer management** for external connectivity
+
+The worker node cloud-init became a 67-line monster with retry logic, health checks, and error handling. It worked, but felt over-engineered for my use case.
+
+{/* <!-- TODO: Add screenshot of complex cloud-init configuration --> */}
+
+## Phase 3: Terraform Automation (November 2024)
+
+Regardless of the Kubernetes distribution, I knew I needed proper Infrastructure as Code. Enter Terraform:
+
+```hcl
+resource "hcloud_server" "workers" {
+  count       = var.worker_count
+  name        = "worker-node-prod-${count.index}"
+  image       = "ubuntu-24.04"
+  server_type = "cx22"
+  datacenter  = "ash-dc1"
+  
+  user_data = templatefile("${path.module}/cloud-init-worker.yaml", {
+    ssh_public_key = var.ssh_public_key
+    rke2_token     = var.rke2_token
+  })
+}
+```
+
+The Terraform setup included:
+
+- **HTTP backend** for remote state storage
+- **Variable templating** for cloud-init
+- **Output values** for debugging
+- **Modular configuration** for different environments
+
+This was a game-changer. Instead of manually creating servers, I could just run:
+
+```bash
+# Scale from 1 to 5 workers
+worker_count = 5
+terraform apply
+```
+
+But there was still that nagging manual WireGuard peer management issue.
+
+## Phase 4: GitHub Actions GitOps (December 2024)
+
+Next came the GitOps implementation. I set up GitHub Actions to automatically deploy infrastructure changes:
+
+```yaml
+name: Terraform Infrastructure
+
+on:
+  pull_request:
+    paths: ['hetzner-terraform/**']
+  push:
+    branches: [main]
+    paths: ['hetzner-terraform/**']
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Terraform Plan
+        if: github.event_name == 'pull_request'
+        run: terraform plan
+        
+      - name: Terraform Apply  
+        if: github.ref == 'refs/heads/main'
+        run: terraform apply -auto-approve
+```
+
+The workflow included:
+
+- **Pull request validation** with `terraform plan`
+- **Security scanning** with Checkov
+- **Automatic deployment** on merge to main
+- **Secret management** via GitHub Secrets
+
+{/* <!-- TODO: Add screenshot of GitHub Actions workflow success --> */}
+
+This eliminated the need to run Terraform locally, but I still had the fundamental scaling problem.
+
+## Phase 5: The Scaling Problem Deep Dive
+
+Let me show you exactly why the scaling was problematic. Here's what had to happen for each new worker:
+
+### Manual WireGuard Peer Registration
+```bash
+# Step 1: Worker generates keys during cloud-init
+wg genkey | tee privatekey | wg pubkey > publickey
+
+# Step 2: Get the public key (manual SSH)
+ssh ubuntu@worker-ip "cat /etc/wireguard/publickey"
+
+# Step 3: SSH to master and add peer (manual)
+ssh master "sudo wg set wg0 peer WORKER_PUBKEY allowed-ips WORKER_IP/32"
+
+# Step 4: Save to persistent config (manual)
+ssh master "echo '[Peer]' >> /etc/wireguard/wg0.conf"
+ssh master "echo 'PublicKey = WORKER_PUBKEY' >> /etc/wireguard/wg0.conf"  
+ssh master "echo 'AllowedIPs = WORKER_IP/32' >> /etc/wireguard/wg0.conf"
+```
+
+**This was insane.** Every single worker required 4-5 manual commands. Scaling to 10 workers? 50 commands. Scaling to 100? You get the picture.
+
+### Attempted Solutions
+
+I tried several approaches to automate this:
+
+1. **Pre-generated static keys** - Worked but limited to predefined worker count
+2. **SSH-based auto-registration** - Added complexity and security concerns
+3. **API-based peer management** - Overkill for the problem
+
+None of these felt elegant. I was solving the wrong problem.
+
+## Phase 6: The Pure k3s Revelation (December 2024)
+
+Then I had an epiphany while reading the k3s documentation. Buried in the networking section was a mention of `flannel-backend: wireguard-native`.
+
+**Wait, what?**
+
+k3s has built-in WireGuard support that I completely missed in my initial setup. I had been setting up external WireGuard when k3s could handle it natively!
+
+### The Lightbulb Moment
+
+Here's what I realized:
+- k3s Flannel has a native WireGuard backend
+- It automatically manages peer relationships
+- No external WireGuard configuration needed
+- Pod-to-pod traffic encrypted automatically
+- Zero manual peer management
+
+**This was it.** This was the solution I'd been looking for.
+
+### Master Node Reconfiguration
+
+I completely rebuilt the master with pure k3s WireGuard-native:
+
+```bash
+# 1. Clean up external WireGuard
+sudo systemctl stop wg-quick@wg0
+sudo systemctl disable wg-quick@wg0
+sudo rm -rf /etc/wireguard/
+
+# 2. Uninstall old k3s/RKE2
+sudo /usr/local/bin/k3s-uninstall.sh
+
+# 3. Install k3s with native WireGuard
+curl -sfL https://get.k3s.io | sh -s - server \
+  --datastore-endpoint='postgresql://...' \
+  --flannel-backend=wireguard-native \
+  --cluster-cidr=10.42.0.0/16 \
+  --service-cidr=10.43.0.0/16 \
+  --disable=traefik
+```
+
+The persistent configuration was beautifully simple:
+
+```yaml
+# /etc/rancher/k3s/config.yaml
+datastore-endpoint: postgresql://user:pass@host/db?sslmode=require
+flannel-backend: wireguard-native
+cluster-cidr: 10.42.0.0/16
+service-cidr: 10.43.0.0/16
+disable: traefik
+token: K10b469d2d64fdda33caa206e0c07284309672231fbb213faa0ad382a00b3bbbec2::server:496905490185c4d0a73e60f0a59d0ada
+tls-san:
+  - 144.76.37.198
+  - shark
+```
+
+### Worker Cloud-Init Simplification
+
+The worker cloud-init went from 67 lines down to 49 lines by removing all WireGuard setup:
+
+```yaml
+#cloud-config
+package_update: true
+packages:
+  - curl
+
+users:
+  - name: ubuntu
+    ssh-authorized-keys:
+      - ${ssh_public_key}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+
+runcmd:
+  # Wait for master API to be available
+  - |
+    echo "Waiting for k3s master API..."
+    for i in {1..60}; do
+      if curl -k --connect-timeout 5 https://144.76.37.198:6443 >/dev/null 2>&1; then
+        echo "k3s API is ready"
+        break
+      fi
+      echo "Attempt $i: Waiting for k3s API..."
+      sleep 5
+    done
+  
+  # Install k3s agent - that's it!
+  - |
+    echo "Installing k3s agent..."
+    for i in {1..5}; do
+      if curl -sfL https://get.k3s.io | K3S_URL=https://144.76.37.198:6443 K3S_TOKEN=${k3s_token} sh -; then
+        echo "k3s agent installed successfully"
+        break
+      fi
+      echo "Attempt $i: k3s installation failed, retrying..."
+      sleep 10
+    done
+```
+
+**That's it.** No WireGuard configuration, no peer management, no manual steps. k3s handles everything.
+
+## Phase 7: The Infinite Scaling Test
+
+Time for the moment of truth. Could I actually scale infinitely with zero manual intervention?
+
+### The Test
+
+```bash
+# Start with 1 worker
+worker_count = 1
+terraform apply
+
+# Scale to 3 workers  
+worker_count = 3
+terraform apply
+
+# Scale to 5 workers
+worker_count = 5
+terraform apply
+```
+
+Every single worker joined automatically. No SSH commands, no peer management, no manual intervention whatsoever.
+
+{/* <!-- TODO: Add screenshot of kubectl get nodes showing all workers --> */}
+
+### Verification Commands
+
+```bash
+# Check all nodes joined automatically
+ssh shark "sudo kubectl get nodes -o wide"
+
+# Verify Flannel WireGuard interfaces
+ssh shark "ip link show | grep flannel"
+ssh ubuntu@worker-ip "ip link show | grep flannel"
+
+# Check system pods
+ssh shark "sudo kubectl get pods -A"
+```
+
+**Result:** RKE2 cluster with Cilium CNI and infinite scaling capability achieved.
+
+<Callout type="success">
+  The final architecture delivers on all requirements: secure node-to-node communication via Cilium WireGuard, infinite scaling with zero manual steps, modern CNI features, and complete automation via Terraform + GitHub Actions.
+</Callout>
+
+## The Final Architecture
+
+Here's what the final production architecture looks like:
+
+### Master Node (Shark - 144.76.37.198)
+- **RKE2 v1.32.5+rke2r1** with Cilium CNI
+- **Embedded etcd** for high availability (no external database dependency)
+- **Cilium WireGuard encryption** for node-to-node security
+- **Dual-stack networking** (IPv4/IPv6) for modern compatibility
+
+### Worker Nodes (Infinitely Scalable)
+- **Automated deployment** via Terraform + cloud-init
+- **Zero manual intervention** - workers join automatically via RKE2 supervisor
+- **61-line cloud-init script** with comprehensive error handling
+- **No WireGuard setup required** - Cilium handles everything
+
+### Infrastructure as Code
+- **Terraform** for server provisioning with HTTP backend
+- **GitHub Actions** for full GitOps deployment automation
+- **Secret management** via GitHub Secrets (never in code)
+- **Multi-location support** for geographic distribution
+
+### Networking (Cilium CNI)
+- **Cluster CIDR:** 10.42.0.0/16,2001:cafe:42::/56 (dual-stack)
+- **Service CIDR:** 10.43.0.0/16,2001:cafe:43::/112 (dual-stack)
+- **WireGuard encryption:** Node-to-node via Cilium
+- **Hubble observability** enabled for network visibility
+- **kube-proxy replacement** for better performance
+
+## Key Lessons Learned
+
+### 1. Don't Fight Change - Embrace Evolution
+Started with k3s + external WireGuard, experimented with RKE2 + Cilium, and found the sweet spot. Each iteration taught valuable lessons.
+
+### 2. Modern CNI Solutions Are Worth It
+Cilium's advanced networking features, WireGuard integration, and observability tools provide significant value over basic CNI options.
+
+### 3. Embedded etcd Beats External Databases
+Eliminating the external PostgreSQL dependency simplified operations while maintaining high availability through embedded etcd.
+
+### 4. Automation is Non-Negotiable
+Any manual step becomes a scaling bottleneck. If you can't automate it completely, redesign the approach.
+
+### 5. GitOps from Day One
+GitHub Actions + Terraform eliminated operational headaches and made experimentation much safer with automated validation.
+
+## Performance and Security Benefits
+
+### Security
+- **Node-to-node encryption:** All cluster traffic encrypted via Cilium WireGuard
+- **Embedded etcd:** Database isolation within the cluster (no external attack surface)
+- **No exposed services:** Traefik disabled, minimal external access points
+- **Automated patching:** Workers rebuilt regularly via Terraform
+- **Network policies:** Cilium enables fine-grained network security controls
+
+### Performance
+- **Modern CNI:** Cilium provides eBPF-based networking with better performance
+- **Fast startup:** Workers join via RKE2 supervisor in under 2 minutes
+- **Dual-stack ready:** IPv4/IPv6 support for future networking requirements
+- **kube-proxy replacement:** Cilium eliminates kube-proxy overhead
+
+### Operational
+- **Zero manual scaling:** `worker_count++` and `terraform apply`
+- **GitOps deployment:** All changes via pull requests
+- **Comprehensive logging:** Cloud-init and systemd logs for debugging
+- **Health checks:** Automatic verification of all components
+
+## Challenges and Solutions
+
+### Challenge 1: PostgreSQL Token Rotation
+When switching between Kubernetes distributions, the cluster tokens changed, requiring database cleanup.
+
+**Solution:** Automated token rotation via Terraform variables and database reset procedures.
+
+### Challenge 2: Cloud-Init Debugging
+Worker nodes would sometimes fail during initialization with limited visibility.
+
+**Solution:** Comprehensive logging and retry logic in cloud-init scripts, plus SSH access for debugging.
+
+### Challenge 3: Database Dependency Management
+External PostgreSQL created additional operational complexity and potential failure points.
+
+**Solution:** Migrated to RKE2 with embedded etcd, eliminating external database dependency while maintaining high availability.
+
+### Challenge 4: Manual Peer Management
+External WireGuard required manual peer registration for each worker, blocking automation.
+
+**Solution:** Adopted Cilium CNI with integrated WireGuard encryption, providing automatic peer management and advanced networking features.
+
+## Cost Analysis
+
+### Before: Manual Management
+- **Time per worker:** 15-20 minutes of manual setup
+- **Scaling friction:** High - each worker required manual intervention
+- **Error rate:** High - manual steps are error-prone
+- **Operational overhead:** Significant ongoing maintenance
+
+### After: Full Automation
+- **Time per worker:** 0 minutes manual work, 2 minutes automated deployment
+- **Scaling friction:** Zero - purely declarative
+- **Error rate:** Very low - automated and tested
+- **Operational overhead:** Minimal - just code reviews
+
+**The ROI on automation was immediate.** Even with just 3 workers, the time savings were substantial.
+
+## Future Improvements
+
+### Monitoring and Observability
+- Add Prometheus and Grafana for cluster monitoring
+- Implement log aggregation with Loki
+- Set up alerting for cluster health
+
+### Security Enhancements
+- Implement Network Policies for pod-to-pod security
+- Add admission controllers for security scanning
+- Set up automated certificate rotation
+
+### Application Deployment
+- Implement ArgoCD for application GitOps
+- Add Helm chart management
+- Set up staging and production environments
+
+### Backup and Disaster Recovery
+- Automate PostgreSQL database backups
+- Implement cluster state backup procedures
+- Test disaster recovery scenarios
+
+## When to Use This Architecture
+
+### Great For:
+- **Small to medium teams** who need production-ready Kubernetes
+- **Cost-conscious projects** that can't afford managed Kubernetes
+- **High security requirements** with encrypted pod-to-pod communication
+- **Infrastructure as Code enthusiasts** who want full control
+- **Learning environments** where you want to understand the internals
+
+### Not Great For:
+- **Large enterprise environments** that need commercial support
+- **Teams without Kubernetes expertise** who prefer managed solutions
+- **Compliance requirements** that mandate specific distributions
+- **High availability requirements** beyond what single-master provides
+
+## Conclusion
+
+This journey taught me that evolution beats revolution in infrastructure. After experimenting with k3s + external WireGuard, exploring various networking solutions, and eventually settling on RKE2 + Cilium, the final architecture strikes the perfect balance between features and simplicity:
+
+- **RKE2** with embedded etcd for enterprise-grade reliability
+- **Cilium CNI** with integrated WireGuard for modern networking
+- **61-line cloud-init** with comprehensive error handling
+- **Zero manual intervention** for infinite scaling
+- **Full GitOps automation** via Terraform and GitHub Actions
+
+The cluster now delivers on all the evolved requirements:
+- ✅ Secure node-to-node communication via Cilium WireGuard
+- ✅ Embedded etcd for high availability (no external dependencies)
+- ✅ Infinite scaling capability with multi-location support
+- ✅ Infrastructure as Code with comprehensive automation
+- ✅ GitOps deployment with automated validation
+- ✅ Modern dual-stack networking (IPv4/IPv6 ready)
+- ✅ Advanced observability with Hubble
+
+**Most importantly, it scales infinitely with zero manual steps.** Want 10 more workers across multiple regions? Change two numbers and push to main - GitHub Actions handles the rest. Want to experiment with different configurations? Create a pull request and get automated validation before deployment.
+
+Building production infrastructure is about finding the right balance for your needs. Sometimes you need to try multiple approaches to discover what "right" means for your specific requirements. The key is to keep iterating, learning from each experiment, and not being afraid to evolve your architecture when you discover better solutions.
+
+If you're building your own Kubernetes cluster, embrace the journey. Start with your best understanding, automate everything you can, and be ready to evolve as you learn. Modern tools like RKE2 and Cilium provide enterprise-grade capabilities without enterprise-grade complexity - you just need to give them a chance.
+
+<Advertise />
+
+## Resources and Further Reading
+
+- [RKE2 Documentation](https://docs.rke2.io/)
+- [Cilium CNI Documentation](https://docs.cilium.io/)
+- [Terraform Hetzner Provider](https://registry.terraform.io/providers/hetznercloud/hcloud/latest)
+- [GitHub Actions for Terraform](https://learn.hashicorp.com/tutorials/terraform/github-actions)
+- [WireGuard Protocol](https://www.wireguard.com/)
+- [Hubble Observability](https://github.com/cilium/hubble)
+- [etcd Documentation](https://etcd.io/docs/)
+
+The complete infrastructure code is available in my [infrastructure repository](https://github.com/spa5k/infra) if you want to see the full implementation details.
