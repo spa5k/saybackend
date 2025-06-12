@@ -6,6 +6,7 @@ import pagefind from "astro-pagefind";
 import { defineConfig } from "astro/config";
 import rehypeMermaid from "rehype-mermaid";
 
+import react from "@astrojs/react";
 import solidJs from "@astrojs/solid-js";
 import compress from "astro-compress";
 
@@ -24,7 +25,13 @@ export default defineConfig({
         forward: ["dataLayer.push", "gtag"],
       },
     }),
-    solidJs(),
+    solidJs({
+      include: ["**/solid/**/*"],
+    }),
+    react({
+      include: ["**/react/**/*"],
+      experimentalReactChildren: true,
+    }),
   ],
   vite: {
     plugins: [tailwindcss()],

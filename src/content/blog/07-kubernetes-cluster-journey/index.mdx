@@ -867,12 +867,12 @@ flowchart TD
     L2["Technology Tradeoffs<br/>k3s was simple but limited<br/>RKE2 was complex but powerful<br/>Cilium provided modern networking"]
     L3["Automation First<br/>Manual steps create bottlenecks<br/>Infrastructure as Code essential<br/>GitOps from Day 1"]
     L4["Iteration Drives Excellence<br/>Phase 1 revealed constraints<br/>Phase 2-3 solved problems<br/>Phase 4 optimized solution"]
-    
+
     L1 --> L2
     L2 --> L3
     L3 --> L4
     L4 -.-> L1
-    
+
     style L1 fill:#e3f2fd
     style L2 fill:#f3e5f5
     style L3 fill:#e8f5e8
@@ -892,18 +892,18 @@ graph LR
             Flannel["Flannel<br/>Simple VXLAN<br/>Basic networking<br/>Limited features"]
             Canal["Canal<br/>Flannel + Calico<br/>Network policies<br/>More complex"]
         end
-        
+
         subgraph "Modern CNI"
             Cilium["Cilium<br/>eBPF performance<br/>WireGuard built-in<br/>Hubble observability<br/>kube-proxy replacement<br/>Advanced policies"]
         end
-        
+
         subgraph "Capabilities"
             Perf["Performance<br/>eBPF acceleration"]
             Sec["Security<br/>Encryption + Policies"]
             Obs["Observability<br/>Network visibility"]
             Auto["Automation<br/>WireGuard management"]
         end
-        
+
         Flannel -.-> Perf
         Canal -.-> Sec
         Cilium --> Perf
@@ -911,7 +911,7 @@ graph LR
         Cilium --> Obs
         Cilium --> Auto
     end
-    
+
     style Cilium fill:#c8e6c9
     style Perf fill:#e3f2fd
     style Sec fill:#fff8e1
@@ -1060,27 +1060,27 @@ graph LR
 ```mermaid
 flowchart TD
     Start["Need Kubernetes?"] --> TeamSize{"Team Size?"}
-    
+
     TeamSize -->|"1-20 people"| Budget{"Budget Conscious?"}
     TeamSize -->|"20+ people"| Managed["Consider Managed<br/>EKS, GKE, AKS"]
-    
+
     Budget -->|"Yes"| Expertise{"K8s Expertise?"}
     Budget -->|"No"| Managed
-    
+
     Expertise -->|"High"| Security{"Security Requirements?"}
     Expertise -->|"Low"| Learning{"Learning Goal?"}
-    
+
     Learning -->|"Yes"| ThisArch["✅ This Architecture<br/>Great for learning"]
     Learning -->|"No"| Managed
-    
+
     Security -->|"High"| HA{"HA Requirements?"}
     Security -->|"Standard"| ThisArch
-    
+
     HA -->|"Single master OK"| ThisArch
     HA -->|"Multi-master required"| Enterprise["Enterprise Solution<br/>Rancher, OpenShift"]
-    
+
     ThisArch -->|"Ideal Use Cases"| UseCases["5-50 node clusters<br/>Cost optimization<br/>Full infrastructure control<br/>GitOps workflows<br/>Security compliance"]
-    
+
     style ThisArch fill:#c8e6c9
     style UseCases fill:#e8f5e8
     style Managed fill:#fff3e0

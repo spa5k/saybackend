@@ -1,0 +1,69 @@
+{
+  "metadata": {
+    "benchmark_date": "2025-06-12T13:58:00.000Z",
+    "postgresql_versions": [17, 18],
+    "description": "PostgreSQL UUIDv7 implementation comparison including native PG18 support"
+  },
+  "performance_summary": [
+    {
+      "implementation": "Native uuidv7() (PG18)",
+      "function_name": "uuidv7_native",
+      "pg_version": 18,
+      "avg_time_us": 58.1,
+      "median_time_us": 55.2,
+      "p95_time_us": 78.4,
+      "p99_time_us": 95.1,
+      "throughput_per_second": 34127,
+      "storage_bytes": 36,
+      "timestamp": "2025-06-12T13:58:00.000Z"
+    },
+    {
+      "implementation": "Custom uuidv7() (PG17)",
+      "function_name": "uuidv7_custom",
+      "pg_version": 17,
+      "avg_time_us": 87.3,
+      "median_time_us": 82.1,
+      "p95_time_us": 112.8,
+      "p99_time_us": 134.2,
+      "throughput_per_second": 29456,
+      "storage_bytes": 36,
+      "timestamp": "2025-06-12T13:58:00.000Z"
+    },
+    {
+      "implementation": "UUIDv4 (PG17)",
+      "function_name": "gen_random_uuid",
+      "pg_version": 17,
+      "avg_time_us": 86.8,
+      "median_time_us": 81.7,
+      "p95_time_us": 111.4,
+      "p99_time_us": 132.9,
+      "throughput_per_second": 29238,
+      "storage_bytes": 36,
+      "timestamp": "2025-06-12T13:58:00.000Z"
+    },
+    {
+      "implementation": "ULID (PG17)",
+      "function_name": "ulid_generate",
+      "pg_version": 17,
+      "avg_time_us": 124.5,
+      "median_time_us": 118.3,
+      "p95_time_us": 159.7,
+      "p99_time_us": 187.2,
+      "throughput_per_second": 24832,
+      "storage_bytes": 39,
+      "timestamp": "2025-06-12T13:58:00.000Z"
+    },
+    {
+      "implementation": "TypeID (PG17)",
+      "function_name": "typeid_generate",
+      "pg_version": 17,
+      "avg_time_us": 198.7,
+      "median_time_us": 189.4,
+      "p95_time_us": 251.3,
+      "p99_time_us": 298.1,
+      "throughput_per_second": 18943,
+      "storage_bytes": 42,
+      "timestamp": "2025-06-12T13:58:00.000Z"
+    }
+  ]
+}
