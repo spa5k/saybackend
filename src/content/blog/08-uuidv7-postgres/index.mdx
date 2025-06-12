@@ -196,39 +196,38 @@ This implementation builds the UUID from scratch:
 
 ### Implementation Flow Overview
 
-```mermaid
-flowchart TD
-    A[Start UUID Generation] --> B{Choose Implementation}
-
-    B -->|PostgreSQL 18+| PG18[Native uuidv7]
-    B -->|Custom 1| C[Generate UUIDv4 Base]
-    B -->|Custom 2| D[Generate UUIDv4 Base]
-    B -->|Custom 3| E[Extract Current Timestamp]
-
-    PG18 --> PG18_PROC[C-level Processing]
-    C --> F[Extract Timestamp]
-    D --> G[Extract Timestamp]
-    E --> H[Split into Integer & Fractional]
-
-    PG18_PROC --> PG18_TIME[12-bit Sub-ms Precision]
-    F --> I[Overlay on First 48 bits]
-    G --> J[Overlay on First 48 bits]
-    H --> K[Build UUID from Components]
-
-    PG18_TIME --> PG18_MONO[Ensure Monotonicity]
-    I --> L[Set Version Bits to 7]
-    J --> M[Set Version Bits to 7]
-    K --> N[Include Sub-ms Precision]
-
-    PG18_MONO --> PG18_OUT[Return Native UUIDv7]
-    L --> O[Return PL/pgSQL UUID]
-    M --> P[Return SQL UUID]
-    N --> Q[Return Sub-ms UUID]
-
-    PG18_OUT --> R[Final UUIDv7]
-    O --> R
-    P --> R
-    Q --> R
+```
+Start UUID Generation
+        ↓
+  Choose Implementation
+        ↓
+    ┌───────────────────────────────────────┐
+    │                                       │
+    ↓                                       ↓
+PostgreSQL 18+                    Custom Implementations
+    ↓                                       ↓
+Native uuidv7                      ┌───────┼───────┐
+    ↓                              ↓       ↓       ↓
+C-level Processing           Custom 1  Custom 2  Custom 3
+    ↓                              ↓       ↓       ↓
+12-bit Sub-ms Precision      Generate  Generate  Extract
+    ↓                        UUIDv4    UUIDv4    Timestamp
+Ensure Monotonicity          Base      Base         ↓
+    ↓                          ↓       ↓       Split Integer
+Return Native UUIDv7      Extract  Extract    & Fractional
+    ↓                     Timestamp Timestamp      ↓
+    └───────────────────────────┼───────┼─────────┘
+                                ↓       ↓
+                          Overlay on   Overlay on
+                          48 bits     48 bits
+                                ↓       ↓
+                          Set Version Set Version
+                          Bits to 7   Bits to 7
+                                ↓       ↓
+                          Return UUID Return UUID
+                                └───┬───┘
+                                    ↓
+                               Final UUIDv7
 ```
 
 ## Bit Manipulation Visualization
@@ -483,32 +482,46 @@ Our enhanced benchmarks with 5,000 iterations reveal interesting patterns:
 
 Understanding the architectural differences helps explain the performance characteristics:
 
-```mermaid
-graph TB
-    subgraph "UUID Family"
-        UUIDv4["🔴 UUIDv4\n(Baseline)\n• Pure random\n• No time info\n• PostgreSQL native"]
+```
+UUID Family
+├── 🔴 UUIDv4 (Baseline)
+│   ├── Pure random
+│   ├── No time info
+│   └── PostgreSQL native
+│
+├── UUIDv7 Implementations
+│   ├── 🔵 UUIDv7 (PL/pgSQL)
+│   │   ├── Overlay method
+│   │   ├── Best single-thread
+│   │   └── Readable code
+│   │
+│   ├── 🟢 UUIDv7 (Pure SQL)
+│   │   ├── Bit operations
+│   │   ├── No PL/pgSQL overhead
+│   │   └── Balanced performance
+│   │
+│   └── 🟡 UUIDv7 (Sub-ms)
+│       ├── Custom precision
+│       ├── Manual construction
+│       └── Best time ordering
+│
+└── Alternative Formats
+    ├── 🟠 ULID
+    │   ├── Base32 encoded
+    │   ├── Human readable
+    │   ├── Lexicographic sort
+    │   └── Compact storage
+    │
+    └── 🟣 TypeID
+        ├── Prefixed identifiers
+        ├── Type safety
+        ├── Based on UUIDv7
+        └── Self-documenting
 
-        subgraph "UUIDv7 Implementations"
-            UUIDv7_PL["🔵 UUIDv7 (PL/pgSQL)\n• Overlay method\n• Best single-thread\n• Readable code"]
-            UUIDv7_SQL["🟢 UUIDv7 (Pure SQL)\n• Bit operations\n• No PL/pgSQL overhead\n• Balanced performance"]
-            UUIDv7_SUB["🟡 UUIDv7 (Sub-ms)\n• Custom precision\n• Manual construction\n• Best time ordering"]
-        end
-    end
-
-    subgraph "Alternative Formats"
-        ULID["🟠 ULID\n• Base32 encoded\n• Human readable\n• Lexicographic sort\n• Compact storage"]
-        TypeID["🟣 TypeID\n• Prefixed identifiers\n• Type safety\n• Based on UUIDv7\n• Self-documenting"]
-    end
-
-    subgraph "Performance Characteristics"
-        PERF_SINGLE["📈 Single-threaded\nUUIDv7 (PL/pgSQL) fastest\n72.3 μs"]
-        PERF_CONCURRENT["⚡ Concurrent\nUUIDv4 fastest\n29,492 IDs/sec"]
-        PERF_STORAGE["💾 Storage\nULID most compact\n26 bytes text"]
-    end
-
-    UUIDv7_PL -.-> PERF_SINGLE
-    UUIDv4 -.-> PERF_CONCURRENT
-    ULID -.-> PERF_STORAGE
+Performance Characteristics:
+📈 Single-threaded:    UUIDv7 (PL/pgSQL) fastest → 72.3 μs
+⚡ Concurrent:         UUIDv4 fastest → 29,492 IDs/sec
+💾 Storage:           ULID most compact → 26 bytes text
 ```
 
 The architecture diagram reveals why certain implementations perform differently:
@@ -817,89 +830,55 @@ Modern applications have excellent choices for time-ordered identifiers in Postg
 
 ### Decision Guide
 
-```mermaid
-flowchart TD
-    %% Node Definitions
-    START[Choose ID Generation Method]
-    Q1{Primary Requirement?}
-    Q2{Need Sub-millisecond Precision?}
-    Q3{PostgreSQL Version?}
-    Q4{Performance Priority?}
-    RESULT[✅ Implementation Selected]
-
-    UUIDv4_CHOICE[🔴 UUIDv4<br>29,492 IDs/sec<br>Battle-tested]
-    ULID_CHOICE[🟠 ULID<br>Base32 encoded<br>Lexicographic sort]
-    TYPEID_CHOICE[🟣 TypeID<br>Prefixed identifiers<br>Self-documenting]
-    PG18_CHOICE[🟢 PostgreSQL 18<br>native uuidv7<br>C-level performance]
-    SUBMS_CHOICE[🟡 UUIDv7 Sub-ms<br>Custom precision<br>Best time ordering]
-    PLPGSQL_CHOICE[🔵 UUIDv7 PL/pgSQL<br>72.3 μs<br>16% faster than UUIDv4]
-    SQL_CHOICE[🟢 UUIDv7 Pure SQL<br>No PL/pgSQL overhead<br>Good all-around]
-
-    %% Connections
-    START --> Q1
-
-    Q1 -->|Maximum Concurrent Performance| UUIDv4_CHOICE
-    Q1 -->|Time Ordering| Q2
-    Q1 -->|Human Readability| ULID_CHOICE
-    Q1 -->|Type Safety| TYPEID_CHOICE
-
-    Q2 -->|Yes| Q3
-    Q2 -->|No| Q4
-
-    Q3 -->|"18+"| PG18_CHOICE
-    Q3 -->|"< 18"| SUBMS_CHOICE
-
-    Q4 -->|Single-threaded Speed| PLPGSQL_CHOICE
-    Q4 -->|Balanced Approach| SQL_CHOICE
-
-    UUIDv4_CHOICE --> RESULT
-    ULID_CHOICE --> RESULT
-    TYPEID_CHOICE --> RESULT
-    PG18_CHOICE --> RESULT
-    SUBMS_CHOICE --> RESULT
-    PLPGSQL_CHOICE --> RESULT
-    SQL_CHOICE --> RESULT
-
-    %% Styling
-    style START fill:#e1f5fe
-    style RESULT fill:#e8f5e8
-    style UUIDv4_CHOICE fill:#ffebee
-    style ULID_CHOICE fill:#fff3e0
-    style TYPEID_CHOICE fill:#f3e5f5
-    style PG18_CHOICE fill:#e8f5e8
-    style SUBMS_CHOICE fill:#fffde7
-    style PLPGSQL_CHOICE fill:#e3f2fd
-    style SQL_CHOICE fill:#e8f5e8
+```
+Choose ID Generation Method
+         ↓
+  Primary Requirement?
+         ↓
+    ┌────┼────┬────────────────┬──────────────┐
+    ↓         ↓                ↓              ↓
+Maximum    Time           Human        Type
+Concurrent Ordering      Readability   Safety
+Performance   ↓              ↓          ↓
+    ↓         ↓              ↓          ↓
+🔴 UUIDv4   Need Sub-ms  🟠 ULID    🟣 TypeID
+29,492      Precision?      Base32     Prefixed
+IDs/sec        ↓            encoded    identifiers
+Battle-        ↓            Lexicographic Self-documenting
+tested      ┌──┴──┐         sort
+           Yes   No
+            ↓     ↓
+       PostgreSQL Performance
+       Version?   Priority?
+          ↓         ↓
+       ┌──┴──┐  ┌──┴──┐
+      18+   <18 Single- Balanced
+       ↓     ↓  threaded Approach
+   🟢 PostgreSQL 🟡 UUIDv7    ↓        ↓
+   18 native     Sub-ms   🔵 UUIDv7  🟢 UUIDv7
+   uuidv7        Custom    PL/pgSQL   Pure SQL
+   C-level       precision 72.3 μs    No PL/pgSQL
+   performance   Best time 16% faster overhead
+                 ordering  than UUIDv4 Good all-around
 ```
 
 ### Performance Summary
 
-```mermaid
-graph LR
-    subgraph "🏁 Performance Champions"
-        SINGLE["🥇 Single-threaded\nUUIDv7 (PL/pgSQL)\n72.3 μs\n16% faster than UUIDv4"]
-        CONCURRENT["🥇 Concurrent\nUUIDv4\n29,492 IDs/sec\n38% faster than best UUIDv7"]
-        STORAGE["🥇 Storage Efficient\nULID\n26 bytes\nMost compact text"]
-    end
+**🏁 Performance Champions**
 
-    subgraph "🎯 Specialized Features"
-        READABLE["👁️ Human Readable\nULID\nBase32 encoding\nNo special characters"]
-        TYPESAFE["🛡️ Type Safe\nTypeID\nPrefixed identifiers\nSelf-documenting"]
-        PRECISION["⏱️ Time Precision\nUUIDv7 (Sub-ms)\nSub-millisecond\nBest ordering"]
-    end
+- 🥇 **Single-threaded**: UUIDv7 (PL/pgSQL) → 72.3 μs (16% faster than UUIDv4)
+- 🥇 **Concurrent**: UUIDv4 → 29,492 IDs/sec (38% faster than best UUIDv7)
+- 🥇 **Storage Efficient**: ULID → 26 bytes (Most compact text)
 
-    subgraph "🔮 Future Ready"
-        NATIVE["🚀 PostgreSQL 18+\nnative uuidv7\nC-level implementation\nExpected performance leader"]
-    end
+**🎯 Specialized Features**
 
-    style SINGLE fill:#e8f5e8
-    style CONCURRENT fill:#ffebee
-    style STORAGE fill:#fff3e0
-    style READABLE fill:#f3e5f5
-    style TYPESAFE fill:#e3f2fd
-    style PRECISION fill:#fffde7
-    style NATIVE fill:#e1f5fe
-```
+- 👁️ **Human Readable**: ULID → Base32 encoding, no special characters
+- 🛡️ **Type Safe**: TypeID → Prefixed identifiers, self-documenting
+- ⏱️ **Time Precision**: UUIDv7 (Sub-ms) → Sub-millisecond, best ordering
+
+**🔮 Future Ready**
+
+- 🚀 **PostgreSQL 18+**: native uuidv7() → C-level implementation, expected performance leader
 
 The modern identifier landscape offers powerful options beyond traditional UUIDs. Choose based on your application's specific requirements for readability, type safety, storage efficiency, and compatibility needs.
 
