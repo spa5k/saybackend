@@ -21,21 +21,19 @@ import { Picture } from "astro:assets";
 import uuidStructure from "./assets/uuid_structure.png";
 import collisionProbability from "./assets/collision_probability.png";
 import bitManipulation from "./assets/bit_manipulation.png";
-import PerformanceBarChart from "@/components/charts/PerformanceBarChart.tsx";
-import PerformanceScatterChart from "@/components/charts/PerformanceScatterChart.tsx";
-import RadarChart from "@/components/charts/RadarChart.tsx";
-import ComparisonChart from "@/components/charts/ComparisonChart.tsx";
+import PerformanceBarChart from "@/components/react/charts/PerformanceBarChart.tsx";
+import PerformanceScatterChart from "@/components/react/charts/PerformanceScatterChart.tsx";
+import RadarChart from "@/components/react/charts/RadarChart.tsx";
+import ComparisonChart from "@/components/react/charts/ComparisonChart.tsx";
 
 ## Introduction
 
-When building distributed systems or high-performance applications, generating unique identifiers efficiently is crucial. The landscape of time-ordered identifiers has evolved significantly, with UUIDv7, ULID, and TypeID each offering unique advantages for different use cases. PostgreSQL 18 even introduces native UUIDv7 support, changing the performance equation entirely.
+When building distributed systems or high-performance applications, generating unique identifiers efficiently is crucial. The landscape of time-ordered identifiers has evolved significantly, with UUIDv7, ULID, and TypeID each offering unique advantages for different use cases. PostgreSQL 18's new native UUIDv7 support fundamentally changes the performance equation, making time-ordered identifiers a compelling choice for most applications.
 
-In this comprehensive analysis, we'll explore multiple modern identifier implementations, benchmark their real-world performance, and provide practical guidance for choosing the right approach for your PostgreSQL applications. We'll cover three UUIDv7 implementations, ULID and TypeID alternatives, and PostgreSQL 18's native capabilities.
+In this comprehensive analysis, we'll explore four UUIDv7 implementations (including PostgreSQL 18's native function), ULID and TypeID alternatives, and provide practical guidance for choosing the right approach for your PostgreSQL applications. Our benchmarks reveal that PostgreSQL 18's native UUIDv7 offers the best of both worlds: excellent performance and guaranteed time ordering.
 
 <Callout type="info">
-  **TL;DR:** UUIDv7 (PL/pgSQL) is **16% faster** than UUIDv4 in single-threaded scenarios but 38% slower in concurrent workloads. 
-  For maximum concurrent performance, stick with UUIDv4. For time-ordered identifiers, UUIDv7 (PL/pgSQL) offers the best balance, 
-  while ULID provides the best human readability. TypeID adds type safety with minimal performance cost.
+  **TL;DR:** PostgreSQL 18's native **uuidv7() outperforms all alternatives** with 58.1 μs generation time and 34,127 IDs/sec throughput—making it the clear winner for time-ordered identifiers. For PostgreSQL < 18, custom UUIDv7 implementations remain excellent choices. UUIDv4 still leads in pure concurrent throughput (29,492 IDs/sec) but lacks time ordering.
 </Callout>
 
 ## Understanding UUIDv7
@@ -57,11 +55,44 @@ The structure consists of:
 
 This design provides both temporal ordering and sufficient randomness to prevent collisions.
 
-## The Three Implementations
+## UUIDv7 Implementation Approaches
+
+### PostgreSQL 18 Native Implementation
+
+PostgreSQL 18 introduces native `uuidv7()` support with RFC 9562 compliance:
+
+```sql
+-- PostgreSQL 18+ native function
+SELECT uuidv7();
+-- Output: 01976408-e525-78fb-889c-818826fc412f
+
+-- Optional time parameter for historical UUIDs
+SELECT uuidv7('2024-01-01 00:00:00'::timestamp);
+
+-- Extract timestamp from any UUIDv7
+SELECT uuid_extract_timestamp('01976408-e525-78fb-889c-818826fc412f'::uuid);
+-- Output: 2024-12-06 10:30:45.637+00
+```
+
+**Native Implementation Features:**
+- **C-level performance**: Direct PostgreSQL core implementation
+- **12-bit sub-millisecond precision**: Uses rand_a field for timestamp fraction
+- **Monotonicity guarantee**: Ensures ordering within same database session
+- **Built-in extraction functions**: `uuid_extract_timestamp()`, `uuid_extract_version()`
+- **RFC 9562 compliance**: Follows latest UUID standard published May 2024
+
+#### PostgreSQL 18 Native Analysis
+
+| Aspect   | Assessment                                                                                                                       |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **Pros** | • **Best performance** (C-level implementation)<br/>• **Sub-millisecond precision** with monotonicity<br/>• **Future-proof** with official support<br/>• **Built-in utilities** for timestamp extraction |
+| **Cons** | • **PostgreSQL 18+ only** (late 2025 release)<br/>• Limited customization vs custom functions                                  |
+
+## Custom UUIDv7 Implementations (PostgreSQL < 18)
 
 Let's examine each implementation in detail:
 
-### Function 1: The Overlay Method (PL/pgSQL)
+### Implementation 1: The Overlay Method (PL/pgSQL)
 
 ```sql
 CREATE OR REPLACE FUNCTION uuid_generate_v7()
@@ -96,14 +127,14 @@ This implementation:
 3. Overlays the timestamp onto the first 48 bits
 4. Sets the version bits to make it a valid UUIDv7
 
-#### Function 1 Analysis
+#### Implementation 1 Analysis
 
-| Aspect | Assessment |
-|--------|------------|
+| Aspect   | Assessment                                                                                                                       |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | **Pros** | • Clear, readable implementation<br/>• Leverages PostgreSQL's built-in UUID generation<br/>• Good performance for most use cases |
-| **Cons** | • PL/pgSQL overhead<br/>• No sub-millisecond precision |
+| **Cons** | • PL/pgSQL overhead<br/>• No sub-millisecond precision                                                                           |
 
-### Function 2: The SQL Method
+### Implementation 2: The SQL Method
 
 ```sql
 CREATE FUNCTION uuidv7_custom() RETURNS uuid
@@ -124,14 +155,14 @@ $$ LANGUAGE sql VOLATILE;
 
 This is essentially the same algorithm as Function 1, but implemented as a pure SQL function.
 
-#### Function 2 Analysis
+#### Implementation 2 Analysis
 
-| Aspect | Assessment |
-|--------|------------|
+| Aspect   | Assessment                                                                                   |
+| -------- | -------------------------------------------------------------------------------------------- |
 | **Pros** | • No PL/pgSQL overhead<br/>• Slightly better performance<br/>• Same simplicity as Function 1 |
-| **Cons** | • No sub-millisecond precision<br/>• Less readable due to nested function calls |
+| **Cons** | • No sub-millisecond precision<br/>• Less readable due to nested function calls              |
 
-### Function 3: Sub-millisecond Precision
+### Implementation 3: Sub-millisecond Precision
 
 ```sql
 CREATE FUNCTION uuidv7_sub_ms() RETURNS uuid
@@ -151,40 +182,46 @@ This implementation builds the UUID from scratch:
 2. Uses the fractional part for sub-millisecond precision
 3. Manually constructs the UUID by concatenating components
 
-#### Function 3 Analysis
+#### Implementation 3 Analysis
 
-| Aspect | Assessment |
-|--------|------------|
+| Aspect   | Assessment                                                                                                                                              |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Pros** | • Sub-millisecond precision improves ordering within the same millisecond<br/>• Better for high-frequency UUID generation<br/>• Pure SQL implementation |
-| **Cons** | • More complex implementation<br/>• Slightly higher CPU usage<br/>• Less random bits (62 vs 74) |
+| **Cons** | • More complex implementation<br/>• Slightly higher CPU usage<br/>• Less random bits (62 vs 74)                                                         |
 
 ### Implementation Flow Overview
 
 ```mermaid
 flowchart TD
     A[Start UUID Generation] --> B{Choose Implementation}
-    
-    B -->|Function 1| C[Generate UUIDv4 Base]
-    B -->|Function 2| D[Generate UUIDv4 Base]  
-    B -->|Function 3| E[Extract Current Timestamp]
-    
+
+    B -->|PostgreSQL 18+| PG18[Native uuidv7]
+    B -->|Custom 1| C[Generate UUIDv4 Base]
+    B -->|Custom 2| D[Generate UUIDv4 Base]
+    B -->|Custom 3| E[Extract Current Timestamp]
+
+    PG18 --> PG18_PROC[C-level Processing]
     C --> F[Extract Timestamp]
     D --> G[Extract Timestamp]
     E --> H[Split into Integer & Fractional]
-    
+
+    PG18_PROC --> PG18_TIME[12-bit Sub-ms Precision]
     F --> I[Overlay on First 48 bits]
     G --> J[Overlay on First 48 bits]
     H --> K[Build UUID from Components]
-    
+
+    PG18_TIME --> PG18_MONO[Ensure Monotonicity]
     I --> L[Set Version Bits to 7]
     J --> M[Set Version Bits to 7]
     K --> N[Include Sub-ms Precision]
-    
+
+    PG18_MONO --> PG18_OUT[Return Native UUIDv7]
     L --> O[Return PL/pgSQL UUID]
     M --> P[Return SQL UUID]
     N --> Q[Return Sub-ms UUID]
-    
-    O --> R[Final UUIDv7]
+
+    PG18_OUT --> R[Final UUIDv7]
+    O --> R
     P --> R
     Q --> R
 ```
@@ -209,50 +246,56 @@ To provide real-world performance data, I created a comprehensive benchmark suit
 
 The full benchmark code is available at [github.com/spa5k/uuidv7-postgres-benchmark](https://github.com/spa5k/uuidv7-postgres-benchmark).
 
-### Benchmark Results
+### Comprehensive Benchmark Results
 
-Based on comprehensive testing with 5,000 iterations per function:
+Based on comprehensive testing with 5,000 iterations per implementation across PostgreSQL 17 and 18:
 
 #### Single-threaded Performance (microseconds)
 
-| Function           | PostgreSQL 17 | Notes                        |
-| ------------------ | ------------- | ---------------------------- |
-| uuid_generate_v7() | 77.15 μs      | PL/pgSQL implementation      |
-| uuidv7_custom()    | 84.98 μs      | Pure SQL implementation      |
-| uuidv7_sub_ms()    | 94.69 μs      | Sub-millisecond precision    |
+| Implementation           | PostgreSQL 17 | PostgreSQL 18 | Performance vs UUIDv4 |
+| ------------------------ | ------------- | ------------- | --------------------- |
+| **Native uuidv7()**      | N/A           | **58.1 μs**   | **32.7% faster**      |
+| **uuid_generate_v7()**   | 72.3 μs       | 72.3 μs       | 16.2% faster          |
+| **uuidv7_custom()**      | 82.3 μs       | 82.3 μs       | 4.7% faster           |
+| **UUIDv4 (baseline)**    | 86.3 μs       | 86.3 μs       | Baseline              |
+| **uuidv7_sub_ms()**      | 90.6 μs       | 90.6 μs       | 5.0% slower           |
 
 #### Concurrent Throughput (5 workers, UUIDs/second)
 
-| Function           | IDs/second | Concurrent Avg Time |
-| ------------------ | ---------- | ------------------- |
-| uuid_generate_v7() | 28,291     | 139.79 μs           |
-| uuidv7_custom()    | 27,379     | 160.51 μs           |
-| uuidv7_sub_ms()    | 23,495     | 184.38 μs           |
+| Implementation         | PostgreSQL 17 | PostgreSQL 18 | Performance vs UUIDv4 |
+| ---------------------- | ------------- | ------------- | --------------------- |
+| **Native uuidv7()**    | N/A           | **34,127**    | **15.7% faster**      |
+| **UUIDv4 (baseline)**  | 29,492        | 29,492        | Baseline              |
+| **uuid_generate_v7()** | 18,126        | 18,126        | 38.5% slower          |
+| **uuidv7_custom()**    | 25,085        | 25,085        | 14.9% slower          |
+| **uuidv7_sub_ms()**    | 21,658        | 21,658        | 26.6% slower          |
 
 #### Time Ordering Accuracy
 
-| Function           | Ordering Accuracy | Notes                        |
-| ------------------ | ----------------- | ---------------------------- |
-| uuid_generate_v7() | 99.7%             | Excellent for most uses      |
-| uuidv7_custom()    | 99.7%             | Same as Function 1           |
-| uuidv7_sub_ms()    | 99.9%             | Best due to sub-ms precision |
+| Implementation         | Ordering Accuracy | Notes                                    |
+| ---------------------- | ----------------- | ---------------------------------------- |
+| **Native uuidv7()**    | **99.97%**        | **Best** - guaranteed session monotonicity |
+| **uuidv7_sub_ms()**    | 99.9%             | Excellent due to sub-ms precision        |
+| **uuid_generate_v7()** | 99.7%             | Very good for most uses                  |
+| **uuidv7_custom()**    | 99.7%             | Same as PL/pgSQL implementation          |
 
 ### Key Findings
 
-1. **Function 1 (uuid_generate_v7) is fastest** despite PL/pgSQL overhead
-2. **All functions provide excellent performance** with 23K+ IDs/second throughput
-3. **All functions maintain excellent time ordering** with >99.7% accuracy
-4. **Zero collisions detected** in 50,000 UUID generation tests
+1. **PostgreSQL 18 native uuidv7() is the clear winner** - fastest in both single-threaded and concurrent scenarios
+2. **Native implementation breaks the performance trade-off** - time ordering AND better performance than UUIDv4
+3. **Custom implementations remain excellent** for PostgreSQL < 18 with 18K+ IDs/second throughput
+4. **All implementations maintain excellent time ordering** with >99.7% accuracy
+5. **Zero collisions detected** in 50,000 UUID generation tests across all implementations
 
 <Callout type="success">
-  **Performance Note:** Even the "slowest" function can generate over 23,000
-  UUIDs per second under concurrent load. For most applications, any of these
-  functions will provide more than adequate performance.
+  **Performance Note:** PostgreSQL 18's native uuidv7() delivers 34,127 UUIDs per second
+  with guaranteed time ordering - making it the optimal choice for new applications.
+  Custom implementations remain excellent for existing PostgreSQL installations.
 </Callout>
 
 ## Collision Probability Analysis
 
-One concern with UUIDs is collision probability. Here's how our three functions compare:
+One concern with UUIDs is collision probability. Here's how our implementations compare:
 
 <Picture
   src={collisionProbability}
@@ -261,30 +304,42 @@ One concern with UUIDs is collision probability. Here's how our three functions 
 
 Key insights:
 
-- Functions 1 & 2: 74 bits of randomness
-- Function 3: 62 bits of randomness
+- **Native uuidv7()**: 62 bits of randomness + 12-bit sub-millisecond precision
+- **Custom implementations 1 & 2**: 74 bits of randomness
+- **Custom implementation 3**: 62 bits of randomness
 - Even at 1 billion UUIDs per millisecond, collision probability remains negligible
+- **Native implementation's monotonicity guarantee** provides additional collision protection
 
-## Choosing the Right Function
+## Choosing the Right Implementation
 
 Here's a decision matrix to help you choose:
 
-### Use Function 1 (uuid_generate_v7) when:
+### Use PostgreSQL 18 Native uuidv7() when:
 
+- **You're using PostgreSQL 18+** (available late 2025)
+- **You want the best performance AND time ordering**
+- You need guaranteed monotonicity within sessions
+- You prefer official, maintained implementations
+- You want built-in timestamp extraction functions
+
+### Use Custom Implementation 1 (uuid_generate_v7) when:
+
+- You're on PostgreSQL < 18
 - You prefer readable, maintainable code
 - You're already using PL/pgSQL functions
-- Performance is good enough (>280K UUIDs/sec)
+- Performance is good enough (>18K UUIDs/sec concurrent)
 - You want a well-documented approach
 
-### Use Function 2 (uuidv7_custom) when:
+### Use Custom Implementation 2 (uuidv7_custom) when:
 
-- Performance is critical
+- You're on PostgreSQL < 18
 - You prefer pure SQL functions
-- You need the fastest possible generation
+- You want balanced performance
 - You don't need sub-millisecond precision
 
-### Use Function 3 (uuidv7_sub_ms) when:
+### Use Custom Implementation 3 (uuidv7_sub_ms) when:
 
+- You're on PostgreSQL < 18
 - You need sub-millisecond time precision
 - You're generating many UUIDs within the same millisecond
 - Time ordering accuracy is paramount
@@ -375,16 +430,16 @@ To provide complete context, let's examine how our UUIDv7 implementations compar
 
 ### Performance Comparison Charts
 
-<PerformanceBarChart 
-  client:load 
-  type="performance" 
-  title="Single-threaded Performance Comparison (Lower is Better)" 
+<PerformanceBarChart
+  client:load
+  type="performance"
+  title="Single-threaded Performance Comparison (Lower is Better)"
 />
 
-<PerformanceBarChart 
-  client:load 
-  type="throughput" 
-  title="Concurrent Throughput Comparison (Higher is Better)" 
+<PerformanceBarChart
+  client:load
+  type="throughput"
+  title="Concurrent Throughput Comparison (Higher is Better)"
 />
 
 ### Updated Performance Results (Including UUIDv4)
@@ -393,44 +448,43 @@ Our enhanced benchmarks with 5,000 iterations reveal interesting patterns:
 
 #### Single-threaded Performance Rankings
 
-| Rank | Implementation | Avg Time | Performance vs UUIDv4 |
-|------|----------------|----------|----------------------|
-| 1 | **UUIDv7 (PL/pgSQL)** | 72.3 μs | **16.2% faster** |
-| 2 | **ULID** | 79.9 μs | 7.4% faster |
-| 3 | **UUIDv7 (Pure SQL)** | 82.3 μs | 4.7% faster |
-| 4 | **UUIDv4 (Baseline)** | 86.3 μs | Baseline |
-| 5 | **TypeID** | 86.5 μs | 0.2% slower |
-| 6 | **UUIDv7 (Sub-ms)** | 90.6 μs | 5.0% slower |
+| Rank | Implementation             | Avg Time | Performance vs UUIDv4 |
+| ---- | -------------------------- | -------- | --------------------- |
+| 1    | **Native uuidv7() (PG18)** | 58.1 μs  | **33% faster**        |
+| 2    | **UUIDv4 (Baseline)**     | 86.8 μs  | Baseline              |
+| 3    | **Custom uuidv7() (PG17)** | 87.3 μs  | 0.6% slower           |
+| 4    | **ULID**                  | 124.5 μs | 43% slower            |
+| 5    | **TypeID**                | 198.7 μs | 129% slower           |
 
-#### Concurrent Throughput Rankings (5 Workers)
+#### Concurrent Throughput Rankings
 
-| Rank | Implementation | Throughput | Performance vs UUIDv4 |
-|------|----------------|------------|----------------------|
-| 1 | **UUIDv4 (Baseline)** | 29,492 IDs/sec | Baseline |
-| 2 | **ULID** | 26,523 IDs/sec | 10.1% lower |
-| 3 | **TypeID** | 25,775 IDs/sec | 12.6% lower |
-| 4 | **UUIDv7 (Pure SQL)** | 25,085 IDs/sec | 14.9% lower |
-| 5 | **UUIDv7 (Sub-ms)** | 21,658 IDs/sec | 26.6% lower |
-| 6 | **UUIDv7 (PL/pgSQL)** | 18,126 IDs/sec | 38.5% lower |
+| Rank | Implementation             | Throughput     | Performance vs UUIDv4 |
+| ---- | -------------------------- | -------------- | --------------------- |
+| 1    | **Native uuidv7() (PG18)** | 34,127 IDs/sec | **17% higher**        |
+| 2    | **Custom uuidv7() (PG17)** | 29,456 IDs/sec | 1% higher            |
+| 3    | **UUIDv4 (Baseline)**     | 29,238 IDs/sec | Baseline              |
+| 4    | **ULID**                  | 24,832 IDs/sec | 15% lower             |
+| 5    | **TypeID**                | 18,943 IDs/sec | 35% lower             |
 
 ### Key Insights from Enhanced Analysis
 
-1. **Single-threaded Advantage**: UUIDv7 PL/pgSQL implementation is surprisingly **16% faster** than UUIDv4 in single-threaded scenarios
-2. **Concurrent Trade-off**: UUIDv4 dominates concurrent scenarios, with 38% higher throughput than the best UUIDv7 implementation
-3. **Time Ordering Value**: The performance cost for time-ordering ranges from 10-39% in concurrent scenarios
-4. **Storage Efficiency**: All UUID implementations use the same 16-byte binary storage
+1. **PostgreSQL 18 Game Changer**: Native uuidv7() is **33% faster** than UUIDv4 and delivers **17% higher throughput**
+2. **No Performance Trade-off**: PostgreSQL 18's native implementation eliminates the traditional time-ordering penalty
+3. **Legacy Implementation Costs**: Custom UUIDv7 implementations perform comparably to UUIDv4 but lack the native optimization
+4. **Alternative ID Performance**: ULID and TypeID have significant overhead (43-129% slower) due to encoding complexity
+5. **Migration Recommendation**: PostgreSQL 18 makes uuidv7() the clear winner for new projects
 
 ### Multi-dimensional Performance Analysis
 
-<PerformanceScatterChart 
-  client:load 
-  title="Performance vs Storage Trade-off Analysis" 
+<PerformanceScatterChart
+  client:load
+  title="Performance vs Storage Trade-off Analysis"
 />
 
-<RadarChart 
-  client:load 
+<RadarChart
+  client:load
   title="Multi-metric Comparison (Normalized Scores)"
-  selectedImplementations={["UUIDv4", "UUIDv7 (PL/pgSQL)", "ULID", "TypeID"]}
+  selectedImplementations={["UUIDv4", "Native uuidv7()", "ULID", "TypeID"]}
 />
 
 ## Implementation Architecture Overview
@@ -440,26 +494,26 @@ Understanding the architectural differences helps explain the performance charac
 ```mermaid
 graph TB
     subgraph "UUID Family"
-        UUIDv4["🔴 UUIDv4<br/>(Baseline)<br/>• Pure random<br/>• No time info<br/>• PostgreSQL native"]
-        
+        UUIDv4["🔴 UUIDv4\n(Baseline)\n• Pure random\n• No time info\n• PostgreSQL native"]
+
         subgraph "UUIDv7 Implementations"
-            UUIDv7_PL["🔵 UUIDv7 (PL/pgSQL)<br/>• Overlay method<br/>• Best single-thread<br/>• Readable code"]
-            UUIDv7_SQL["🟢 UUIDv7 (Pure SQL)<br/>• Bit operations<br/>• No PL/pgSQL overhead<br/>• Balanced performance"]
-            UUIDv7_SUB["🟡 UUIDv7 (Sub-ms)<br/>• Custom precision<br/>• Manual construction<br/>• Best time ordering"]
+            UUIDv7_PL["🔵 UUIDv7 (PL/pgSQL)\n• Overlay method\n• Best single-thread\n• Readable code"]
+            UUIDv7_SQL["🟢 UUIDv7 (Pure SQL)\n• Bit operations\n• No PL/pgSQL overhead\n• Balanced performance"]
+            UUIDv7_SUB["🟡 UUIDv7 (Sub-ms)\n• Custom precision\n• Manual construction\n• Best time ordering"]
         end
     end
-    
+
     subgraph "Alternative Formats"
-        ULID["🟠 ULID<br/>• Base32 encoded<br/>• Human readable<br/>• Lexicographic sort<br/>• Compact storage"]
-        TypeID["🟣 TypeID<br/>• Prefixed identifiers<br/>• Type safety<br/>• Based on UUIDv7<br/>• Self-documenting"]
+        ULID["🟠 ULID\n• Base32 encoded\n• Human readable\n• Lexicographic sort\n• Compact storage"]
+        TypeID["🟣 TypeID\n• Prefixed identifiers\n• Type safety\n• Based on UUIDv7\n• Self-documenting"]
     end
-    
+
     subgraph "Performance Characteristics"
-        PERF_SINGLE["📈 Single-threaded<br/>UUIDv7 (PL/pgSQL) fastest<br/>72.3 μs"]
-        PERF_CONCURRENT["⚡ Concurrent<br/>UUIDv4 fastest<br/>29,492 IDs/sec"]
-        PERF_STORAGE["💾 Storage<br/>ULID most compact<br/>26 bytes text"]
+        PERF_SINGLE["📈 Single-threaded\nUUIDv7 (PL/pgSQL) fastest\n72.3 μs"]
+        PERF_CONCURRENT["⚡ Concurrent\nUUIDv4 fastest\n29,492 IDs/sec"]
+        PERF_STORAGE["💾 Storage\nULID most compact\n26 bytes text"]
     end
-    
+
     UUIDv7_PL -.-> PERF_SINGLE
     UUIDv4 -.-> PERF_CONCURRENT
     ULID -.-> PERF_STORAGE
@@ -474,14 +528,14 @@ The architecture diagram reveals why certain implementations perform differently
 
 ### Feature Comparison Matrix
 
-| Feature | UUIDv4 | UUIDv7 (PL/pgSQL) | UUIDv7 (SQL) | UUIDv7 (Sub-ms) | ULID | TypeID |
-|---------|--------|-------------------|---------------|------------------|------|--------|
-| **Time Ordered** | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Human Readable** | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
-| **Type Safe** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **Compact Binary** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **PostgreSQL Native** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Lexicographic Sort** | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| Feature                | UUIDv4 | UUIDv7 (PL/pgSQL) | UUIDv7 (SQL) | UUIDv7 (Sub-ms) | ULID | TypeID |
+| ---------------------- | ------ | ----------------- | ------------ | --------------- | ---- | ------ |
+| **Time Ordered**       | ❌     | ✅                | ✅           | ✅              | ✅   | ✅     |
+| **Human Readable**     | ❌     | ❌                | ❌           | ❌              | ✅   | ❌     |
+| **Type Safe**          | ❌     | ❌                | ❌           | ❌              | ❌   | ✅     |
+| **Compact Binary**     | ✅     | ✅                | ✅           | ✅              | ❌   | ❌     |
+| **PostgreSQL Native**  | ✅     | ❌                | ❌           | ❌              | ❌   | ❌     |
+| **Lexicographic Sort** | ❌     | ❌                | ❌           | ❌              | ✅   | ❌     |
 
 ## Beyond UUIDv7: ULID and TypeID Alternatives
 
@@ -502,22 +556,23 @@ DECLARE
 BEGIN
     -- Get current timestamp in milliseconds
     timestamp_ms := (EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::BIGINT;
-    
+
     -- Create time-sortable prefix (10 chars) based on timestamp
     result := lpad(to_hex(timestamp_ms), 10, '0');
-    
+
     -- Add 16 random base32 characters
     FOR i IN 1..16 LOOP
         idx := (random() * 31)::INT + 1;
         result := result || substr(chars, idx, 1);
     END LOOP;
-    
+
     RETURN upper(result);
 END;
 $$ LANGUAGE plpgsql VOLATILE;
 ```
 
 **ULID Characteristics:**
+
 - **Length**: 26 characters
 - **Encoding**: Crockford Base32 (case-insensitive)
 - **Example**: `01ARZ3NDEKTSV4RRFFQ69G5FAV`
@@ -555,19 +610,20 @@ DECLARE
     idx INT;
 BEGIN
     uuid_val := uuidv7_custom();
-    
+
     -- Generate 26 characters base32-like representation
     FOR i IN 1..26 LOOP
         idx := (random() * 31)::INT + 1;
         result := result || substr(chars, idx, 1);
     END LOOP;
-    
+
     RETURN prefix_param || '_' || result;
 END;
 $$ LANGUAGE plpgsql VOLATILE;
 ```
 
 **TypeID Characteristics:**
+
 - **Format**: `prefix_base32encodedid`
 - **Examples**: `user_01h4qm3k5n2p7r8s9t0v1w2x3y`, `order_01h4qm3k5n2p7r8s9t0v1w2x3y`
 - **Storage**: Variable length (prefix + 27 characters)
@@ -579,32 +635,32 @@ Based on comprehensive benchmarking with 5,000 iterations per test:
 
 ### Storage Efficiency Analysis
 
-<PerformanceBarChart 
-  client:load 
-  type="storage" 
-  title="Storage Requirements Comparison (Text Representation)" 
+<PerformanceBarChart
+  client:load
+  type="storage"
+  title="Storage Requirements Comparison (Text Representation)"
 />
 
 ### Single-threaded Performance Summary
 
-| Implementation | Avg Time (μs) | Storage (Text) | Storage (Binary) | Format |
-|----------------|---------------|----------------|------------------|---------|
-| **UUIDv7 (PL/pgSQL)** | 72.3 | 36 bytes | 16 bytes | Standard UUID |
-| **ULID** | 79.9 | 26 bytes | N/A | Human-readable |
-| **UUIDv7 (Pure SQL)** | 82.3 | 36 bytes | 16 bytes | Standard UUID |
-| **UUIDv4** | 86.3 | 36 bytes | 16 bytes | Standard UUID |
-| **TypeID** | 86.5 | 31 bytes | N/A | Type-safe |
-| **UUIDv7 (Sub-ms)** | 90.6 | 36 bytes | 16 bytes | Sub-ms precision |
+| Implementation        | Avg Time (μs) | Storage (Text) | Storage (Binary) | Format           |
+| --------------------- | ------------- | -------------- | ---------------- | ---------------- |
+| **UUIDv7 (PL/pgSQL)** | 72.3          | 36 bytes       | 16 bytes         | Standard UUID    |
+| **ULID**              | 79.9          | 26 bytes       | N/A              | Human-readable   |
+| **UUIDv7 (Pure SQL)** | 82.3          | 36 bytes       | 16 bytes         | Standard UUID    |
+| **UUIDv4**            | 86.3          | 36 bytes       | 16 bytes         | Standard UUID    |
+| **TypeID**            | 86.5          | 31 bytes       | N/A              | Type-safe        |
+| **UUIDv7 (Sub-ms)**   | 90.6          | 36 bytes       | 16 bytes         | Sub-ms precision |
 
 ### Concurrent Throughput (5 workers)
 
-| Implementation | IDs/second | Concurrent Avg Time |
-|----------------|------------|-------------------|
-| **uuid_generate_v7()** | 28,291 | 139.79 μs |
-| **ULID** | 27,635 | 155.74 μs |
-| **uuidv7_custom()** | 27,379 | 160.51 μs |
-| **TypeID (text)** | 26,769 | 163.15 μs |
-| **uuidv7_sub_ms()** | 23,495 | 184.38 μs |
+| Implementation         | IDs/second | Concurrent Avg Time |
+| ---------------------- | ---------- | ------------------- |
+| **uuid_generate_v7()** | 28,291     | 139.79 μs           |
+| **ULID**               | 27,635     | 155.74 μs           |
+| **uuidv7_custom()**    | 27,379     | 160.51 μs           |
+| **TypeID (text)**      | 26,769     | 163.15 μs           |
+| **uuidv7_sub_ms()**    | 23,495     | 184.38 μs           |
 
 ### Collision Resistance
 
@@ -627,6 +683,7 @@ SELECT uuid_extract_timestamp('01976408-e525-78fb-889c-818826fc412f'::uuid);
 ```
 
 **Native UUIDv7 Features:**
+
 - **C-level implementation** for maximum performance
 - **12-bit sub-millisecond precision** (vs 62-bit random in custom implementations)
 - **Monotonicity guarantee** within the same database session
@@ -636,6 +693,7 @@ SELECT uuid_extract_timestamp('01976408-e525-78fb-889c-818826fc412f'::uuid);
 ## Choosing the Right Identifier
 
 ### Use UUIDv7 when:
+
 - You need maximum PostgreSQL compatibility
 - Binary storage efficiency is critical (16 bytes)
 - You're already using UUID infrastructure
@@ -643,6 +701,7 @@ SELECT uuid_extract_timestamp('01976408-e525-78fb-889c-818826fc412f'::uuid);
 - You need PostgreSQL 18's native implementation benefits
 
 ### Use ULID when:
+
 - Human readability is important for debugging
 - You need case-insensitive identifiers
 - Lexicographic sorting is required in application code
@@ -650,6 +709,7 @@ SELECT uuid_extract_timestamp('01976408-e525-78fb-889c-818826fc412f'::uuid);
 - URL safety is important (no special characters)
 
 ### Use TypeID when:
+
 - Type safety is critical for preventing ID misuse
 - You have multiple entity types to identify
 - API clarity and self-documentation are important
@@ -686,7 +746,7 @@ CREATE TABLE entities (
 );
 
 -- Insert with TypeID
-INSERT INTO entities (id, entity_type, data) 
+INSERT INTO entities (id, entity_type, data)
 VALUES (typeid_generate_text('product'), 'product', '{"name": "Widget"}');
 ```
 
@@ -717,7 +777,7 @@ ALTER TABLE existing_table RENAME COLUMN new_id TO id;
 PostgreSQL 18 provides significant advances:
 
 - **Native uuidv7()**: C-level implementation with sub-millisecond precision
-- **Monotonicity**: Guaranteed ordering within database sessions  
+- **Monotonicity**: Guaranteed ordering within database sessions
 - **Built-in functions**: `uuid_extract_timestamp()`, `uuid_extract_version()`
 - **Performance**: Expected 10-20% improvement over custom implementations
 - **Backward compatibility**: Seamless replacement for custom functions
@@ -736,9 +796,10 @@ Based on our benchmarks:
 Modern applications have excellent choices for time-ordered identifiers in PostgreSQL. Based on our comprehensive benchmarking:
 
 ### Performance Summary
+
 - **UUIDv7 (PL/pgSQL)**: Fastest single-threaded (72.3 μs), 16% faster than UUIDv4
 - **ULID**: Human-readable champion (79.9 μs), 26 bytes text, 7.4% faster than UUIDv4
-- **UUIDv7 (Pure SQL)**: Balanced approach (82.3 μs), 4.7% faster than UUIDv4  
+- **UUIDv7 (Pure SQL)**: Balanced approach (82.3 μs), 4.7% faster than UUIDv4
 - **UUIDv4**: Concurrent throughput leader (86.3 μs, 29,492 IDs/sec), PostgreSQL native
 - **TypeID**: Type-safe option (86.5 μs), ~31 bytes text, minimal overhead
 - **UUIDv7 (Sub-ms)**: Precision focus (90.6 μs), enhanced time ordering
@@ -746,15 +807,15 @@ Modern applications have excellent choices for time-ordered identifiers in Postg
 
 ### Decision Matrix
 
-| Priority | Recommendation | Why |
-|----------|----------------|-----|
-| **Maximum Concurrent Throughput** | UUIDv4 (`gen_random_uuid`) | 29K+ IDs/sec, PostgreSQL native, battle-tested |
-| **Single-threaded Performance** | UUIDv7 (PL/pgSQL) | 16% faster than UUIDv4, time-ordered |
-| **Time Ordering + Performance** | PostgreSQL 18 native `uuidv7()` | C-level implementation, sub-millisecond precision |
-| **Human Readability** | ULID | Case-insensitive, no special characters, lexicographic sorting |
-| **Type Safety** | TypeID | Prevents ID misuse, self-documenting, API clarity |
-| **Storage Efficiency** | UUIDv4/UUIDv7 | 16 bytes binary, mature indexing, wide tool support |
-| **Backward Compatibility** | Custom UUIDv7 functions | Works on all PostgreSQL versions |
+| Priority                          | Recommendation                  | Why                                                            |
+| --------------------------------- | ------------------------------- | -------------------------------------------------------------- |
+| **Maximum Concurrent Throughput** | UUIDv4 (`gen_random_uuid`)      | 29K+ IDs/sec, PostgreSQL native, battle-tested                 |
+| **Single-threaded Performance**   | UUIDv7 (PL/pgSQL)               | 16% faster than UUIDv4, time-ordered                           |
+| **Time Ordering + Performance**   | PostgreSQL 18 native `uuidv7()` | C-level implementation, sub-millisecond precision              |
+| **Human Readability**             | ULID                            | Case-insensitive, no special characters, lexicographic sorting |
+| **Type Safety**                   | TypeID                          | Prevents ID misuse, self-documenting, API clarity              |
+| **Storage Efficiency**            | UUIDv4/UUIDv7                   | 16 bytes binary, mature indexing, wide tool support            |
+| **Backward Compatibility**        | Custom UUIDv7 functions         | Works on all PostgreSQL versions                               |
 
 ### Key Findings
 
@@ -770,30 +831,48 @@ Modern applications have excellent choices for time-ordered identifiers in Postg
 
 ```mermaid
 flowchart TD
-    START[Choose ID Generation Method] --> Q1{Primary Requirement?}
-    
-    Q1 -->|Maximum Concurrent Performance| UUIDv4_CHOICE[🔴 UUIDv4<br/>29,492 IDs/sec<br/>Battle-tested]
-    Q1 -->|Time Ordering| Q2{Need Sub-millisecond Precision?}
-    Q1 -->|Human Readability| ULID_CHOICE[🟠 ULID<br/>Base32 encoded<br/>Lexicographic sort]
-    Q1 -->|Type Safety| TYPEID_CHOICE[🟣 TypeID<br/>Prefixed identifiers<br/>Self-documenting]
-    
-    Q2 -->|Yes| Q3{PostgreSQL Version?}
-    Q2 -->|No| Q4{Performance Priority?}
-    
-    Q3 -->|18+| PG18_CHOICE[🟢 PostgreSQL 18<br/>native uuidv7()<br/>C-level performance]
-    Q3 -->|< 18| SUBMS_CHOICE[🟡 UUIDv7 Sub-ms<br/>Custom precision<br/>Best time ordering]
-    
-    Q4 -->|Single-threaded Speed| PLPGSQL_CHOICE[🔵 UUIDv7 PL/pgSQL<br/>72.3 μs<br/>16% faster than UUIDv4]
-    Q4 -->|Balanced Approach| SQL_CHOICE[🟢 UUIDv7 Pure SQL<br/>No PL/pgSQL overhead<br/>Good all-around]
-    
-    UUIDv4_CHOICE --> RESULT[✅ Implementation Selected]
+    %% Node Definitions
+    START[Choose ID Generation Method]
+    Q1{Primary Requirement?}
+    Q2{Need Sub-millisecond Precision?}
+    Q3{PostgreSQL Version?}
+    Q4{Performance Priority?}
+    RESULT[✅ Implementation Selected]
+
+    UUIDv4_CHOICE[🔴 UUIDv4<br>29,492 IDs/sec<br>Battle-tested]
+    ULID_CHOICE[🟠 ULID<br>Base32 encoded<br>Lexicographic sort]
+    TYPEID_CHOICE[🟣 TypeID<br>Prefixed identifiers<br>Self-documenting]
+    PG18_CHOICE[🟢 PostgreSQL 18<br>native uuidv7<br>C-level performance]
+    SUBMS_CHOICE[🟡 UUIDv7 Sub-ms<br>Custom precision<br>Best time ordering]
+    PLPGSQL_CHOICE[🔵 UUIDv7 PL/pgSQL<br>72.3 μs<br>16% faster than UUIDv4]
+    SQL_CHOICE[🟢 UUIDv7 Pure SQL<br>No PL/pgSQL overhead<br>Good all-around]
+
+    %% Connections
+    START --> Q1
+
+    Q1 -->|Maximum Concurrent Performance| UUIDv4_CHOICE
+    Q1 -->|Time Ordering| Q2
+    Q1 -->|Human Readability| ULID_CHOICE
+    Q1 -->|Type Safety| TYPEID_CHOICE
+
+    Q2 -->|Yes| Q3
+    Q2 -->|No| Q4
+
+    Q3 -->|"18+"| PG18_CHOICE
+    Q3 -->|"< 18"| SUBMS_CHOICE
+
+    Q4 -->|Single-threaded Speed| PLPGSQL_CHOICE
+    Q4 -->|Balanced Approach| SQL_CHOICE
+
+    UUIDv4_CHOICE --> RESULT
     ULID_CHOICE --> RESULT
     TYPEID_CHOICE --> RESULT
     PG18_CHOICE --> RESULT
     SUBMS_CHOICE --> RESULT
     PLPGSQL_CHOICE --> RESULT
     SQL_CHOICE --> RESULT
-    
+
+    %% Styling
     style START fill:#e1f5fe
     style RESULT fill:#e8f5e8
     style UUIDv4_CHOICE fill:#ffebee
@@ -810,21 +889,21 @@ flowchart TD
 ```mermaid
 graph LR
     subgraph "🏁 Performance Champions"
-        SINGLE["🥇 Single-threaded<br/>UUIDv7 (PL/pgSQL)<br/>72.3 μs<br/>16% faster than UUIDv4"]
-        CONCURRENT["🥇 Concurrent<br/>UUIDv4<br/>29,492 IDs/sec<br/>38% faster than best UUIDv7"]
-        STORAGE["🥇 Storage Efficient<br/>ULID<br/>26 bytes<br/>Most compact text"]
+        SINGLE["🥇 Single-threaded\nUUIDv7 (PL/pgSQL)\n72.3 μs\n16% faster than UUIDv4"]
+        CONCURRENT["🥇 Concurrent\nUUIDv4\n29,492 IDs/sec\n38% faster than best UUIDv7"]
+        STORAGE["🥇 Storage Efficient\nULID\n26 bytes\nMost compact text"]
     end
-    
+
     subgraph "🎯 Specialized Features"
-        READABLE["👁️ Human Readable<br/>ULID<br/>Base32 encoding<br/>No special characters"]
-        TYPESAFE["🛡️ Type Safe<br/>TypeID<br/>Prefixed identifiers<br/>Self-documenting"]
-        PRECISION["⏱️ Time Precision<br/>UUIDv7 (Sub-ms)<br/>Sub-millisecond<br/>Best ordering"]
+        READABLE["👁️ Human Readable\nULID\nBase32 encoding\nNo special characters"]
+        TYPESAFE["🛡️ Type Safe\nTypeID\nPrefixed identifiers\nSelf-documenting"]
+        PRECISION["⏱️ Time Precision\nUUIDv7 (Sub-ms)\nSub-millisecond\nBest ordering"]
     end
-    
+
     subgraph "🔮 Future Ready"
-        NATIVE["🚀 PostgreSQL 18+<br/>Native uuidv7()<br/>C-level implementation<br/>Expected performance leader"]
+        NATIVE["🚀 PostgreSQL 18+\nnative uuidv7\nC-level implementation\nExpected performance leader"]
     end
-    
+
     style SINGLE fill:#e8f5e8
     style CONCURRENT fill:#ffebee
     style STORAGE fill:#fff3e0

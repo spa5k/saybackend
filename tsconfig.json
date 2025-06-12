@@ -4,9 +4,31 @@
     "strictNullChecks": true,
     "baseUrl": ".",
     "jsx": "preserve",
-    "jsxImportSource": "solid-js",
+    // "jsxImportSource": "solid-js",
     "paths": {
-      "@*": ["./src/*"]
+      "@*": [
+        "./src/*"
+      ]
     }
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/components/react/**/*"
+      ],
+      "compilerOptions": {
+        "jsx": "preserve",
+        "jsxImportSource": "react"
+      }
+    },
+    {
+      "files": [
+        "src/components/solid/**/*"
+      ],
+      "compilerOptions": {
+        "jsx": "preserve",
+        "jsxImportSource": "solid-js"
+      }
+    }
+  ]
 }
