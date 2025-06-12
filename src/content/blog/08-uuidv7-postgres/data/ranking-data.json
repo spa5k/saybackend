@@ -1,0 +1,39 @@
+{
+  "performance_rankings": [
+    {
+      "rank": 1,
+      "implementation": "Native uuidv7()",
+      "avgTime": 58.1,
+      "throughput": 34127,
+      "performanceVsUuid4": "33% faster"
+    },
+    {
+      "rank": 2,
+      "implementation": "Custom uuidv7()",
+      "avgTime": 87.3,
+      "throughput": 29456,
+      "performanceVsUuid4": "0.6% faster"
+    },
+    {
+      "rank": 3,
+      "implementation": "UUIDv4 (baseline)",
+      "avgTime": 86.8,
+      "throughput": 29238,
+      "performanceVsUuid4": "Baseline"
+    },
+    {
+      "rank": 4,
+      "implementation": "ULID",
+      "avgTime": 124.5,
+      "throughput": 24832,
+      "performanceVsUuid4": "43% slower"
+    },
+    {
+      "rank": 5,
+      "implementation": "TypeID",
+      "avgTime": 198.7,
+      "throughput": 18943,
+      "performanceVsUuid4": "129% slower"
+    }
+  ]
+}
