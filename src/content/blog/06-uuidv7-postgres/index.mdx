@@ -100,8 +100,8 @@ This implementation:
 
 | Aspect | Assessment |
 |--------|------------|
-| **Pros** | • Clear, readable implementation<br>• Leverages PostgreSQL's built-in UUID generation<br>• Good performance for most use cases |
-| **Cons** | • PL/pgSQL overhead<br>• No sub-millisecond precision |
+| **Pros** | • Clear, readable implementation<br/>• Leverages PostgreSQL's built-in UUID generation<br/>• Good performance for most use cases |
+| **Cons** | • PL/pgSQL overhead<br/>• No sub-millisecond precision |
 
 ### Function 2: The SQL Method
 
@@ -128,8 +128,8 @@ This is essentially the same algorithm as Function 1, but implemented as a pure 
 
 | Aspect | Assessment |
 |--------|------------|
-| **Pros** | • No PL/pgSQL overhead<br>• Slightly better performance<br>• Same simplicity as Function 1 |
-| **Cons** | • No sub-millisecond precision<br>• Less readable due to nested function calls |
+| **Pros** | • No PL/pgSQL overhead<br/>• Slightly better performance<br/>• Same simplicity as Function 1 |
+| **Cons** | • No sub-millisecond precision<br/>• Less readable due to nested function calls |
 
 ### Function 3: Sub-millisecond Precision
 
@@ -155,8 +155,8 @@ This implementation builds the UUID from scratch:
 
 | Aspect | Assessment |
 |--------|------------|
-| **Pros** | • Sub-millisecond precision improves ordering within the same millisecond<br>• Better for high-frequency UUID generation<br>• Pure SQL implementation |
-| **Cons** | • More complex implementation<br>• Slightly higher CPU usage<br>• Less random bits (62 vs 74) |
+| **Pros** | • Sub-millisecond precision improves ordering within the same millisecond<br/>• Better for high-frequency UUID generation<br/>• Pure SQL implementation |
+| **Cons** | • More complex implementation<br/>• Slightly higher CPU usage<br/>• Less random bits (62 vs 74) |
 
 ### Implementation Flow Overview
 
