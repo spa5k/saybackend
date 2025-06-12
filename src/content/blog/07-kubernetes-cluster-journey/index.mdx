@@ -41,8 +41,6 @@ import Advertise from "@/components/Advertise.astro";
 import Callout from "@/components/Callout.astro";
 import { Picture } from "astro:assets";
 
-
-
 {/* <!-- TODO: Add OG image showing Kubernetes cluster architecture --> */}
 
 ## Introduction
@@ -55,368 +53,256 @@ If you're thinking "this sounds like chaos," you're absolutely right. But someti
 
 ## The Requirements
 
-Before diving into the chaos, let me set the stage. I needed:
+Before diving into the journey, let me set the stage. My initial requirements were:
 
 - **Secure pod-to-pod communication** (WireGuard encryption)
-- **External PostgreSQL datastore** for high availability (using Neon)
-- **Infinite scaling** capability with zero manual steps
+- **High availability datastore** (initially targeting external PostgreSQL)
+- **Scalable infrastructure** with zero manual intervention
 - **Infrastructure as Code** with Terraform
 - **GitOps deployment** with GitHub Actions
-- **IPv4-only** for simplicity and reliability
+- **Cost-effective networking** (initially targeting internal networking only)
 
-Pretty straightforward, right? *Narrator: It was not straightforward.*
+These requirements evolved significantly throughout the project as I encountered practical limitations and discovered better approaches.
 
-## Phase 1: The k3s Experiment (June 2024)
+## Phase 1: The RKE2 vSwitch Experiment (June 2024)
 
-I started with k3s because it seemed perfect for my needs - lightweight, simple, and supposedly "just works." Here's how the initial setup looked:
+I started with RKE2, attracted by its "enterprise-grade" reputation and the promise of better security features out of the box. My initial plan was cost-optimized: use Hetzner's vSwitch for internal networking and disable external connectivity on worker nodes to reduce costs and improve security.
 
-{/* <!-- TODO: Add screenshot of initial k3s cluster status --> */}
+### The vSwitch Dream
 
-### The Good Times
+The architecture looked perfect on paper:
 
-The initial k3s setup was actually promising:
+```mermaid
+graph TB
+    subgraph "Hetzner Cloud"
+        subgraph "vSwitch Network (10.0.0.0/24)"
+            Master["🎯 Master Node<br/>master-node<br/>Public: 203.0.113.10<br/>vSwitch: 10.0.0.1"]
+            Worker1["⚙️ Worker Node 1<br/>vSwitch: 10.0.0.2<br/>No Public IP"]
+            Worker2["⚙️ Worker Node 2<br/>vSwitch: 10.0.0.3<br/>No Public IP"]
+        end
 
-```bash
-# Simple k3s installation with PostgreSQL backend
-curl -sfL https://get.k3s.io | sh -s - server \
-  --datastore-endpoint="postgresql://user:pass@host/db?sslmode=require" \
-  --disable=traefik \
-  --disable=servicelb \
-  --cluster-cidr=10.42.0.0/16,fd42::/56 \
-  --service-cidr=10.43.0.0/16,fd43::/112
+        Internet["🌐 Internet"]
+
+        Master -.->|"Public IP"| Internet
+        Master <-->|"Internal Communication"| Worker1
+        Master <-->|"Internal Communication"| Worker2
+        Worker1 <-.->|"❌ No External Access"| Internet
+        Worker2 <-.->|"❌ No External Access"| Internet
+    end
+
+    style Master fill:#e1f5fe
+    style Worker1 fill:#fff3e0
+    style Worker2 fill:#fff3e0
+    style Internet fill:#f3e5f5
 ```
 
-The master node came up beautifully. PostgreSQL integration worked flawlessly. I was feeling pretty confident.
-
-### Enter WireGuard Complexity
-
-Then came the networking requirements. I needed secure pod-to-pod communication, so I set up external WireGuard on all nodes:
-
-```bash
-# Master WireGuard config
-[Interface]
-PrivateKey = <master-key>
-Address = 10.0.1.1/24
-ListenPort = 51820
-
-[Peer] # Worker 1
-PublicKey = <worker1-pubkey>
-AllowedIPs = 10.0.1.2/32
-
-[Peer] # Worker 2  
-PublicKey = <worker2-pubkey>
-AllowedIPs = 10.0.1.3/32
-```
-
-This is where things got messy. Each new worker required:
-
-1. Generate WireGuard keypair
-2. SSH to master and add peer configuration
-3. Restart WireGuard service
-4. Update cloud-init with the new keys
-5. Deploy the worker
-
-**Manual steps? In 2024?** I knew this had to change.
-
-### The IPv6 Disaster
-
-Because I thought I was clever, I initially configured dual-stack IPv4/IPv6. Big mistake. The networking became a nightmare:
-
-- Route conflicts between interfaces
-- Workers sometimes picked IPv6 for cluster communication
-- Debugging became nearly impossible
-- Random connectivity issues
-
-<Callout type="warning">
-  Learn from my mistakes: Start with IPv4-only unless you specifically need IPv6. You can always add complexity later, but removing it is painful.
-</Callout>
-
-After fighting this for weeks, I made the smart decision to go IPv4-only. Suddenly, everything became predictable again.
-
-## Phase 2: The RKE2 Migration (November 2024)
-
-Frustrated with the manual WireGuard management in k3s, I decided to try RKE2. The promise of better enterprise features and built-in security sounded appealing.
-
-{/* <!-- TODO: Add screenshot of RKE2 cluster architecture diagram --> */}
-
-### RKE2 Setup
-
-RKE2 installation was more involved but felt more "enterprise-y":
-
-```bash
-# RKE2 server installation
-curl -sfL https://get.rke2.io | sh -s - server
-
-# RKE2 agent installation
-curl -sfL https://get.rke2.io | sh -s - agent
-```
-
-The configuration was more explicit, which I actually liked:
+**The Fatal Flaw:** RKE2 certificate bootstrap needed external connectivity even for internal-only workers.
 
 ```yaml
-# /etc/rancher/rke2/config.yaml
-server: https://master-ip:9345
-token: super-secret-token
-node-ip: 10.0.1.2
+# /etc/rancher/rke2/config.yaml (master)
+cni: canal
+cluster-cidr: 10.42.0.0/16
+service-cidr: 10.43.0.0/16
+node-ip: 10.0.0.1 # vSwitch internal IP
+advertise-address: 10.0.0.1
+disable: traefik
 ```
 
-### Cilium CNI Adventure
+The plan was simple:
 
-With RKE2, I decided to get fancy and use Cilium CNI with WireGuard instead of the default Flannel. Cilium promised:
+- Master node: Public IP (203.0.113.10) + vSwitch IP (10.0.0.1)
+- Worker nodes: vSwitch IP only (10.0.0.2, 10.0.0.3, etc.)
+- All cluster communication via vSwitch (encrypted and isolated)
+- Cost savings by disabling public IPs on workers
 
-- Better observability
-- Advanced network policies  
-- Native WireGuard support
-- eBPF-based networking
+### The Certificate Reality Check
 
-The setup was more complex:
+But reality had other plans. When I disabled external IPv4 connectivity on worker nodes (for security and cost), RKE2 threw certificate errors:
 
 ```bash
-# Install Cilium CLI
-CILIUM_CLI_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/cilium-cli/master/stable.txt)
-curl -L --remote-name-silent https://github.com/cilium/cilium-cli/releases/download/${CILIUM_CLI_VERSION}/cilium-linux-amd64.tar.gz
-
-# Install Cilium with WireGuard
-cilium install --config cluster-pool-ipv4-cidr=10.42.0.0/16 \
-  --config enable-wireguard=true \
-  --config enable-l7-proxy=false
+# RKE2 agent logs showing the problem
+ERRO[2024-06-15] Failed to connect to supervisor: x509: certificate signed by unknown authority
+ERRO[2024-06-15] Unable to connect to supervisor: certificate verify failed
+FATA[2024-06-15] k8s.io/client-go@v0.28.2: authentication.k8s.io/v1, Kind=TokenReview
 ```
 
-### The Reality Check
+The issue was that RKE2's certificate bootstrap process needed to reach external endpoints even when using internal networking. The certificate validation required internet connectivity that I had specifically disabled.
 
-While RKE2 + Cilium worked beautifully in terms of functionality, it introduced new complexities:
+After weeks of debugging TLS handshakes and certificate chains, I realized I was fighting RKE2's design rather than working with it.
 
-- **Slower startup times** - RKE2 took longer to initialize
-- **More resource usage** - Higher memory footprint
-- **Complex troubleshooting** - More layers to debug
-- **Still manual WireGuard peer management** for external connectivity
+### Pivot to External WireGuard
 
-The worker node cloud-init became a 67-line monster with retry logic, health checks, and error handling. It worked, but felt over-engineered for my use case.
+The vSwitch approach failed due to RKE2's certificate bootstrap requirements. This forced a fundamental architecture change: move to public IPv4 addresses for all nodes to ensure reliable external connectivity. While this increased costs, it eliminated the certificate bootstrap issues.
 
-{/* <!-- TODO: Add screenshot of complex cloud-init configuration --> */}
+```mermaid
+graph TB
+    subgraph "Hetzner Cloud"
+        Master["🎯 Master Node<br/>master-node<br/>Public: 203.0.113.10<br/>WireGuard: 10.0.1.1"]
+        Worker1["⚙️ Worker Node 1<br/>Public: 203.0.113.20<br/>WireGuard: 10.0.1.2"]
+        Worker2["⚙️ Worker Node 2<br/>Public: 203.0.113.21<br/>WireGuard: 10.0.1.3"]
 
-## Phase 3: Terraform Automation (November 2024)
+        Internet["🌐 Internet"]
 
-Regardless of the Kubernetes distribution, I knew I needed proper Infrastructure as Code. Enter Terraform:
+        Master <-->|"RKE2 API (6443)"| Internet
+        Worker1 <-->|"Certificate Bootstrap"| Internet
+        Worker2 <-->|"Certificate Bootstrap"| Internet
 
-```hcl
-resource "hcloud_server" "workers" {
-  count       = var.worker_count
-  name        = "worker-node-prod-${count.index}"
-  image       = "ubuntu-24.04"
-  server_type = "cx22"
-  datacenter  = "ash-dc1"
-  
-  user_data = templatefile("${path.module}/cloud-init-worker.yaml", {
-    ssh_public_key = var.ssh_public_key
-    rke2_token     = var.rke2_token
-  })
-}
+        Master <-.->|"WireGuard Tunnel<br/>Port 51820"| Worker1
+        Master <-.->|"WireGuard Tunnel<br/>Port 51820"| Worker2
+    end
+
+    subgraph "Manual Management Hell"
+        Admin["👨‍💻 Admin"]
+        Admin -->|"SSH + wg set peer..."| Master
+        Admin -->|"Manual peer registration"| Worker1
+        Admin -->|"For EVERY new worker"| Worker2
+    end
+
+    style Master fill:#e1f5fe
+    style Worker1 fill:#fff3e0
+    style Worker2 fill:#fff3e0
+    style Internet fill:#f3e5f5
+    style Admin fill:#ffebee
 ```
 
-The Terraform setup included:
-
-- **HTTP backend** for remote state storage
-- **Variable templating** for cloud-init
-- **Output values** for debugging
-- **Modular configuration** for different environments
-
-This was a game-changer. Instead of manually creating servers, I could just run:
-
-```bash
-# Scale from 1 to 5 workers
-worker_count = 5
-terraform apply
-```
-
-But there was still that nagging manual WireGuard peer management issue.
-
-## Phase 4: GitHub Actions GitOps (December 2024)
-
-Next came the GitOps implementation. I set up GitHub Actions to automatically deploy infrastructure changes:
+**The Scaling Problem:** Every new worker required manual WireGuard peer registration.
 
 ```yaml
-name: Terraform Infrastructure
+# cloud-init-worker.yaml (manual WireGuard configuration)
+runcmd:
+  # Generate WireGuard keys (unique per worker)
+  - wg genkey | tee /etc/wireguard/privatekey | wg pubkey > /etc/wireguard/publickey
 
-on:
-  pull_request:
-    paths: ['hetzner-terraform/**']
-  push:
-    branches: [main]
-    paths: ['hetzner-terraform/**']
+  # Configure WireGuard peer (manual network config)
+  - |
+    cat > /etc/wireguard/wg0.conf << EOF
+    [Interface]
+    PrivateKey = $(cat /etc/wireguard/privatekey)
+    Address = 10.0.1.${worker_ip}/24    # Each worker needs unique IP
 
-jobs:
-  terraform:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Terraform Plan
-        if: github.event_name == 'pull_request'
-        run: terraform plan
-        
-      - name: Terraform Apply  
-        if: github.ref == 'refs/heads/main'
-        run: terraform apply -auto-approve
+    [Peer]
+    PublicKey = ${master_public_key}    # Master's public key
+    Endpoint = 203.0.113.10:51820      # Master's WireGuard endpoint
+    AllowedIPs = 10.0.1.0/24           # Allowed traffic range
+    EOF
+
+  # Start WireGuard, then RKE2 agent
+  - systemctl enable wg-quick@wg0 # Enable WireGuard service
+  - curl -sfL https://get.rke2.io | INSTALL_RKE2_TYPE="agent" sh -
+
+  # CRITICAL MISSING STEP: Manual peer registration on master!
+  # Required: ssh master-node "sudo wg set wg0 peer NEW_PUBLIC_KEY allowed-ips 10.0.1.X/32"
 ```
 
-The workflow included:
+This worked, but created the fatal scaling problem.
 
-- **Pull request validation** with `terraform plan`
-- **Security scanning** with Checkov
-- **Automatic deployment** on merge to main
-- **Secret management** via GitHub Secrets
+### The Manual Key Management Hell
 
-{/* <!-- TODO: Add screenshot of GitHub Actions workflow success --> */}
+Here's the killer: **Every new worker required manual WireGuard peer registration.**
 
-This eliminated the need to run Terraform locally, but I still had the fundamental scaling problem.
-
-## Phase 5: The Scaling Problem Deep Dive
-
-Let me show you exactly why the scaling was problematic. Here's what had to happen for each new worker:
-
-### Manual WireGuard Peer Registration
 ```bash
-# Step 1: Worker generates keys during cloud-init
-wg genkey | tee privatekey | wg pubkey > publickey
-
-# Step 2: Get the public key (manual SSH)
-ssh ubuntu@worker-ip "cat /etc/wireguard/publickey"
-
-# Step 3: SSH to master and add peer (manual)
-ssh master "sudo wg set wg0 peer WORKER_PUBKEY allowed-ips WORKER_IP/32"
-
-# Step 4: Save to persistent config (manual)
-ssh master "echo '[Peer]' >> /etc/wireguard/wg0.conf"
-ssh master "echo 'PublicKey = WORKER_PUBKEY' >> /etc/wireguard/wg0.conf"  
-ssh master "echo 'AllowedIPs = WORKER_IP/32' >> /etc/wireguard/wg0.conf"
+# SSH dance required for EVERY new worker
+ssh master-node "sudo wg set wg0 peer NEW_WORKER_PUBLIC_KEY allowed-ips 10.0.1.X/32"
+ssh master-node "sudo systemctl restart wg-quick@wg0"
 ```
 
-**This was insane.** Every single worker required 4-5 manual commands. Scaling to 10 workers? 50 commands. Scaling to 100? You get the picture.
+Want to scale from 3 to 10 workers? That's 7 manual SSH commands. Want automated scaling? Impossible.
 
-### Attempted Solutions
+I spent months in this manual hell, knowing there had to be a better way.
 
-I tried several approaches to automate this:
+## Phase 2: The k3s Discovery (August 2024)
 
-1. **Pre-generated static keys** - Worked but limited to predefined worker count
-2. **SSH-based auto-registration** - Added complexity and security concerns
-3. **API-based peer management** - Overkill for the problem
+After months of RKE2 + external WireGuard pain, I discovered something that changed everything: k3s had native WireGuard support. The `--flannel-backend=wireguard-native` flag promised to eliminate all the manual peer management.
 
-None of these felt elegant. I was solving the wrong problem.
+### The k3s WireGuard-Native Revelation
 
-## Phase 6: The Pure k3s Revelation (December 2024)
+k3s supports several flannel backends, but this one caught my eye:
 
-Then I had an epiphany while reading the k3s documentation. Buried in the networking section was a mention of `flannel-backend: wireguard-native`.
+```mermaid
+graph LR
+    subgraph "k3s Flannel Backend Options"
+        VXLAN["🔧 vxlan<br/>Standard overlay"]
+        HostGW["🔧 host-gw<br/>Direct routing"]
+        IPSEC["🔧 ipsec<br/>IPSec encryption"]
+        WG["✨ wireguard-native<br/>🎯 AUTOMATIC WireGuard"]
+    end
 
-**Wait, what?**
+    Problem["❌ Manual WireGuard<br/>Management Hell"]
+    Solution["✅ Automatic Peer<br/>Management"]
 
-k3s has built-in WireGuard support that I completely missed in my initial setup. I had been setting up external WireGuard when k3s could handle it natively!
+    Problem -.-> WG
+    WG --> Solution
 
-### The Lightbulb Moment
+    style WG fill:#c8e6c9
+    style Problem fill:#ffebee
+    style Solution fill:#e8f5e8
+```
 
-Here's what I realized:
-- k3s Flannel has a native WireGuard backend
-- It automatically manages peer relationships
-- No external WireGuard configuration needed
-- Pod-to-pod traffic encrypted automatically
-- Zero manual peer management
-
-**This was it.** This was the solution I'd been looking for.
-
-### Master Node Reconfiguration
-
-I completely rebuilt the master with pure k3s WireGuard-native:
+**The Game Changer:** Native WireGuard backend with automatic peer management.
 
 ```bash
-# 1. Clean up external WireGuard
-sudo systemctl stop wg-quick@wg0
-sudo systemctl disable wg-quick@wg0
-sudo rm -rf /etc/wireguard/
+# The holy grail of networking flags
+--flannel-backend=wireguard-native    # Use WireGuard to encapsulate and encrypt network traffic
+```
 
-# 2. Uninstall old k3s/RKE2
-sudo /usr/local/bin/k3s-uninstall.sh
+No external WireGuard configuration. No manual peer management. Just native, automatic WireGuard encryption between all pods.
 
-# 3. Install k3s with native WireGuard
+### The Simple Setup
+
+The k3s installation was refreshingly simple:
+
+```bash
+# k3s server with native WireGuard and external PostgreSQL
 curl -sfL https://get.k3s.io | sh -s - server \
-  --datastore-endpoint='postgresql://...' \
+  --datastore-endpoint="postgresql://username:password@db-host.example.com/database?sslmode=require" \
   --flannel-backend=wireguard-native \
   --cluster-cidr=10.42.0.0/16 \
   --service-cidr=10.43.0.0/16 \
   --disable=traefik
 ```
 
-The persistent configuration was beautifully simple:
+This worked beautifully for scaling, but I quickly hit a practical limitation: the Neon PostgreSQL free tier (0.5GB storage) filled up within 12 hours. The etcd data grew faster than expected, and debugging storage optimization wasn't worth the effort for this experimental setup.
+
+And the cloud-init for workers became beautifully simple:
 
 ```yaml
-# /etc/rancher/k3s/config.yaml
-datastore-endpoint: postgresql://user:pass@host/db?sslmode=require
-flannel-backend: wireguard-native
-cluster-cidr: 10.42.0.0/16
-service-cidr: 10.43.0.0/16
-disable: traefik
-token: K10b469d2d64fdda33caa206e0c07284309672231fbb213faa0ad382a00b3bbbec2::server:496905490185c4d0a73e60f0a59d0ada
-tls-san:
-  - 144.76.37.198
-  - shark
-```
-
-### Worker Cloud-Init Simplification
-
-The worker cloud-init went from 67 lines down to 49 lines by removing all WireGuard setup:
-
-```yaml
-#cloud-config
-package_update: true
-packages:
-  - curl
-
-users:
-  - name: ubuntu
-    ssh-authorized-keys:
-      - ${ssh_public_key}
-    sudo: ALL=(ALL) NOPASSWD:ALL
-    shell: /bin/bash
-
+# cloud-init-worker.yaml (k3s automated version)
 runcmd:
-  # Wait for master API to be available
+  # Wait for k3s API to be ready
   - |
-    echo "Waiting for k3s master API..."
+    echo "Waiting for k3s API server..."
     for i in {1..60}; do
-      if curl -k --connect-timeout 5 https://144.76.37.198:6443 >/dev/null 2>&1; then
-        echo "k3s API is ready"
+      if curl -k https://203.0.113.10:6443 >/dev/null 2>&1; then
+        echo "API server is ready!"
         break
       fi
-      echo "Attempt $i: Waiting for k3s API..."
+      echo "Attempt $i/60: API not ready, waiting 5 seconds..."
       sleep 5
     done
-  
-  # Install k3s agent - that's it!
-  - |
-    echo "Installing k3s agent..."
-    for i in {1..5}; do
-      if curl -sfL https://get.k3s.io | K3S_URL=https://144.76.37.198:6443 K3S_TOKEN=${k3s_token} sh -; then
-        echo "k3s agent installed successfully"
-        break
-      fi
-      echo "Attempt $i: k3s installation failed, retrying..."
-      sleep 10
-    done
+
+  # Install k3s agent with automatic WireGuard
+  - curl -sfL https://get.k3s.io | \
+    K3S_URL=https://203.0.113.10:6443 \
+    K3S_TOKEN=${k3s_token} \
+    sh -s - agent
+
+  # WireGuard encryption handled automatically by flannel-backend
+  # No manual peer management required
+  # Workers join automatically with encrypted communication
 ```
 
-**That's it.** No WireGuard configuration, no peer management, no manual steps. k3s handles everything.
+This eliminated all manual WireGuard configuration and peer management.
 
-## Phase 7: The Infinite Scaling Test
+### The Scaling Test
 
-Time for the moment of truth. Could I actually scale infinitely with zero manual intervention?
-
-### The Test
+Now for the moment of truth - infinite scaling with zero manual intervention:
 
 ```bash
 # Start with 1 worker
 worker_count = 1
 terraform apply
 
-# Scale to 3 workers  
+# Scale to 3 workers
 worker_count = 3
 terraform apply
 
@@ -425,53 +311,548 @@ worker_count = 5
 terraform apply
 ```
 
-Every single worker joined automatically. No SSH commands, no peer management, no manual intervention whatsoever.
+Every worker joined automatically. No SSH commands, no peer management, **no manual intervention whatsoever.**
 
-{/* <!-- TODO: Add screenshot of kubectl get nodes showing all workers --> */}
+This was the breakthrough I'd been searching for!
 
-### Verification Commands
+## Phase 3: Terraform State Management Evolution (September 2024)
 
-```bash
-# Check all nodes joined automatically
-ssh shark "sudo kubectl get nodes -o wide"
+While k3s solved my scaling problem, I had another issue: Terraform state management. Initially, I was storing state files locally in the repository - no locking, prone to conflicts, and definitely not production-ready.
 
-# Verify Flannel WireGuard interfaces
-ssh shark "ip link show | grep flannel"
-ssh ubuntu@worker-ip "ip link show | grep flannel"
+### The Local State Problem
 
-# Check system pods
-ssh shark "sudo kubectl get pods -A"
+Local state meant:
+
+```mermaid
+graph TB
+    subgraph "Local State Problems"
+        LocalState["📁 Local State<br/>terraform.tfstate"]
+        Git["📦 Git Repository"]
+        Dev1["👨‍💻 Developer 1"]
+        Dev2["👨‍💻 Developer 2"]
+
+        LocalState --> Git
+        Git --> Dev1
+        Git --> Dev2
+
+        Conflicts["⚠️ State Conflicts"]
+        Security["🔒 Security Risk"]
+        NoLock["❌ No Locking"]
+
+        Dev1 -.-> Conflicts
+        Dev2 -.-> Conflicts
+        Git -.-> Security
+        LocalState -.-> NoLock
+    end
+
+    style LocalState fill:#ffebee
+    style Conflicts fill:#ffcdd2
+    style Security fill:#ffcdd2
+    style NoLock fill:#ffcdd2
 ```
 
-**Result:** RKE2 cluster with Cilium CNI and infinite scaling capability achieved.
+- ❌ No concurrent collaboration
+- ❌ No state locking
+- ❌ State files in git (security risk)
+- ❌ Manual backup management
+
+### Cloudflare Workers to the Rescue
+
+I discovered I could build a custom Terraform HTTP backend using Cloudflare Workers and R2 storage. This would give me:
+
+```mermaid
+graph TB
+    subgraph "Cloudflare Workers Backend"
+        TF["🏗️ Terraform"]
+        Worker["⚡ Cloudflare Worker<br/>HTTP Backend"]
+        R2["💾 R2 Storage<br/>State Files"]
+        DurableObj["🔒 Durable Objects<br/>State Locking"]
+
+        TF <-->|"HTTP API"| Worker
+        Worker <-->|"Store/Retrieve"| R2
+        Worker <-->|"Lock/Unlock"| DurableObj
+
+        Benefits["✅ Benefits:<br/>• Remote state<br/>• State locking<br/>• Cost effective<br/>• Custom control"]
+
+        Worker -.-> Benefits
+    end
+
+    style Worker fill:#e3f2fd
+    style R2 fill:#f3e5f5
+    style DurableObj fill:#fff8e1
+    style Benefits fill:#e8f5e8
+```
+
+- ✅ Remote state storage
+- ✅ State locking via Durable Objects
+- ✅ Cost-effective (Cloudflare's generous free tier)
+- ✅ Custom control over the backend
+
+```typescript
+// Cloudflare Worker for Terraform HTTP backend
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+
+    // GET /states/project-name - retrieve state
+    if (request.method === "GET") {
+      const state = await env.R2_BUCKET.get(`${projectName}.tfstate`);
+      return new Response(state?.body || null);
+    }
+
+    // POST /states/project-name - update state (with locking)
+    if (request.method === "POST") {
+      const lockId = url.searchParams.get("ID");
+      const lock = await env.LOCK_STORAGE.get(projectName);
+
+      if (lock && lock.ID !== lockId) {
+        return new Response(JSON.stringify(lock), { status: 423 }); // Locked
+      }
+
+      await env.R2_BUCKET.put(`${projectName}.tfstate`, request.body);
+      return new Response(null, { status: 204 });
+    }
+
+    // LOCK/UNLOCK operations using Durable Objects...
+  },
+};
+```
+
+The backend supported:
+
+- **State storage** in Cloudflare R2
+- **State locking** via Durable Objects
+- **Basic auth** for security
+- **Full Terraform HTTP backend compatibility**
+
+### Integration with Terraform
+
+```hcl
+terraform {
+  backend "http" {
+    address        = "https://tfstate.example.com/states/kubernetes-cluster"
+    lock_address   = "https://tfstate.example.com/states/kubernetes-cluster/lock"
+    lock_method    = "LOCK"
+    unlock_address = "https://tfstate.example.com/states/kubernetes-cluster/lock"
+    unlock_method  = "UNLOCK"
+    username       = "admin"
+    password       = "secure-password"
+  }
+}
+```
+
+This eliminated all the local state headaches and gave me proper state management at near-zero cost.
+
+## Phase 4: The Return to RKE2 (November 2024)
+
+k3s with `flannel-backend=wireguard-native` had solved the scaling automation problem, but two factors pushed me back to RKE2:
+
+1. **Storage limitations**: The PostgreSQL dependency was problematic for a free-tier setup, and I needed a solution that could work without external dependencies.
+
+2. **Completing the circle**: Having started with RKE2, I wanted to apply the automation lessons learned from k3s to create the RKE2 setup I originally envisioned.
+
+RKE2 with embedded etcd would eliminate the PostgreSQL dependency while providing the enterprise-grade features I wanted:
+
+- **Embedded etcd** - No external database dependency
+- **Advanced networking** - Cilium CNI with eBPF performance
+- **Better observability** - Hubble for network monitoring
+- **Cleaner component model** - More optional components than k3s
+
+The plan was to combine RKE2's robustness with the automation lessons from the k3s experiment.
+
+### RKE2 + Cilium Setup
+
+The RKE2 master configuration was more involved:
+
+```mermaid
+graph TB
+    subgraph "Final Architecture: RKE2 + Cilium + Embedded etcd"
+        Master["🎯 Master Node (master)<br/>• RKE2 v1.32.5<br/>• Embedded etcd<br/>• Cilium CNI<br/>• Public: 203.0.113.10"]
+
+        Worker1["⚙️ Worker (Location A)<br/>• Auto-join via RKE2<br/>• Cilium WireGuard<br/>• Public: 203.0.113.20"]
+
+        Worker2["⚙️ Worker (Location B)<br/>• Auto-join via RKE2<br/>• Cilium WireGuard<br/>• Public: 203.0.113.21"]
+
+        subgraph "Cilium CNI Features"
+            WG["🔒 WireGuard Encryption<br/>Node-to-node"]
+            Hubble["👁️ Hubble Observability<br/>Network monitoring"]
+            eBPF["⚡ eBPF Networking<br/>High performance"]
+            Policies["🛡️ Network Policies<br/>Security controls"]
+        end
+
+        subgraph "Zero Manual Steps"
+            CloudInit["☁️ Cloud-Init<br/>61 lines"]
+            Terraform["🏗️ Terraform<br/>Infrastructure"]
+            GitHub["🔄 GitHub Actions<br/>GitOps"]
+        end
+
+        Master <-->|"RKE2 Supervisor<br/>Port 9345"| Worker1
+        Master <-->|"RKE2 Supervisor<br/>Port 9345"| Worker2
+        Master -.->|"Cilium WireGuard"| Worker1
+        Master -.->|"Cilium WireGuard"| Worker2
+
+        CloudInit --> Worker1
+        CloudInit --> Worker2
+        Terraform --> CloudInit
+        GitHub --> Terraform
+    end
+
+    style Master fill:#e1f5fe
+    style Worker1 fill:#fff3e0
+    style Worker2 fill:#fff3e0
+    style WG fill:#c8e6c9
+    style Hubble fill:#e3f2fd
+    style eBPF fill:#f3e5f5
+    style Policies fill:#fff8e1
+```
+
+```yaml
+# /etc/rancher/rke2/config.yaml
+cni: cilium
+disable-kube-proxy: true
+cluster-cidr: 10.42.0.0/16,2001:cafe:42::/56 # Dual-stack IPv4/IPv6
+service-cidr: 10.43.0.0/16,2001:cafe:43::/112
+write-kubeconfig-mode: 0644
+disable: traefik
+tls-san:
+  - 203.0.113.10
+  - master-node
+```
+
+Having learned from the vSwitch limitations, this configuration uses public IPs for all nodes while adding dual-stack IPv4/IPv6 support for future-proofing. The dual-stack configuration ensures the cluster can handle both current IPv4 requirements and future IPv6 adoption without architectural changes.
+
+And Cilium configuration with WireGuard encryption:
+
+```yaml
+# /var/lib/rancher/rke2/server/manifests/rke2-cilium-config.yaml
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: rke2-cilium
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    kubeProxyReplacement: true
+    encryption:
+      enabled: true
+      type: wireguard  # Cilium-managed WireGuard!
+    hubble:
+      enabled: true
+      relay:
+        enabled: true
+      ui:
+        enabled: true
+```
+
+### The Key Insight: Embedded etcd
+
+The biggest improvement was dropping the external PostgreSQL dependency. RKE2's embedded etcd provided:
+
+- ✅ **No external database** to manage
+- ✅ **High availability** out of the box
+- ✅ **Simpler architecture** with fewer failure points
+- ✅ **Better performance** with local storage
+
+### Automated Worker Deployment
+
+The cloud-init remained beautifully simple:
+
+```yaml
+# cloud-init-worker.yaml (RKE2 with Cilium automation)
+runcmd:
+  # Wait for RKE2 supervisor API
+  - |
+    echo "Waiting for RKE2 supervisor API..."
+    for i in {1..60}; do
+      if curl -k https://203.0.113.10:9345 >/dev/null 2>&1; then
+        echo "RKE2 supervisor is ready!"
+        break
+      fi
+      echo "Attempt $i/60: Supervisor not ready, waiting 5 seconds..."
+      sleep 5
+    done
+
+  # Install RKE2 agent
+  - curl -sfL https://get.rke2.io | sh -
+
+  # Configure RKE2 agent
+  - |
+    mkdir -p /etc/rancher/rke2
+    cat > /etc/rancher/rke2/config.yaml << EOF
+    server: https://203.0.113.10:9345    # RKE2 supervisor endpoint
+    token: ${rke2_token}                  # Cluster join token
+    EOF
+
+  # Enable and start RKE2 agent service
+  - systemctl enable rke2-agent.service
+  - systemctl start rke2-agent.service
+
+  # Worker automatically joins with:
+  # - Cilium CNI networking
+  # - WireGuard node-to-node encryption (managed by Cilium)
+  # - Hubble observability
+  # - eBPF-based performance
+  # - Zero manual WireGuard configuration
+```
+
+Cilium handles all WireGuard encryption automatically, eliminating manual configuration.
+
+## Phase 5: GitHub Actions GitOps (November 2024)
+
+With the infrastructure working perfectly, I wanted to eliminate manual Terraform operations entirely. Enter GitHub Actions for full GitOps automation.
+
+### The GitOps Workflow
+
+```mermaid
+sequenceDiagram
+    participant Dev as 👨‍💻 Developer
+    participant PR as 📝 Pull Request
+    participant GH as 🔄 GitHub Actions
+    participant TF as 🏗️ Terraform
+    participant HC as ☁️ Hetzner Cloud
+    participant RKE2 as ⚙️ RKE2 Workers
+
+    Dev->>PR: Update worker_count = 5
+    PR->>GH: Trigger on PR
+    GH->>TF: terraform plan
+    TF-->>GH: Show planned changes
+    GH-->>PR: Comment with plan
+
+    Dev->>PR: Review & merge
+    PR->>GH: Trigger on main push
+    GH->>TF: terraform apply -auto-approve
+    TF->>HC: Create/destroy workers
+    HC->>RKE2: Boot with cloud-init
+    RKE2->>RKE2: Auto-join cluster
+
+    Note over Dev,RKE2: Zero manual intervention!
+```
+
+This GitOps workflow reduces deployment time to under 5 minutes from code change to running workers.
+
+```yaml
+# .github/workflows/terraform.yml
+name: "Terraform"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Plan
+        if: github.event_name == 'pull_request'
+        run: |
+          cd hetzner-terraform
+          terraform init
+          terraform plan
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd hetzner-terraform
+          terraform init
+          terraform apply -auto-approve
+        env:
+          TF_VAR_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
+          TF_VAR_rke2_token: ${{ secrets.RKE2_TOKEN }}
+          TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
+```
+
+### Security with GitHub Secrets
+
+All sensitive data moved to GitHub Secrets:
+
+- `HCLOUD_TOKEN` - Hetzner Cloud API access
+- `RKE2_TOKEN` - Cluster join token
+- `SSH_PUBLIC_KEY` - SSH access for debugging
+
+**No secrets in code, ever.**
+
+### The Perfect Workflow
+
+Now scaling the cluster became:
+
+1. **Update terraform.tfvars**: `worker_count = 5`
+2. **Create pull request**: Automatic `terraform plan`
+3. **Review and merge**: Automatic `terraform apply`
+4. **Workers join automatically**: Zero manual intervention
+
+This was infrastructure deployment nirvana.
+
+## The Current Architecture Success
+
+The final RKE2 + Cilium + GitHub Actions setup delivers everything I wanted:
+
+```mermaid
+graph TB
+    subgraph "Network Evolution Journey"
+        subgraph "Phase 1: RKE2 vSwitch"
+            P1M["Master<br/>vSwitch + Public"]
+            P1W1["Worker 1<br/>vSwitch only"]
+            P1W2["Worker 2<br/>vSwitch only"]
+            P1Issue["❌ Certificate Issues"]
+
+            P1M -.-> P1W1
+            P1M -.-> P1W2
+            P1W1 -.-> P1Issue
+            P1W2 -.-> P1Issue
+        end
+
+        subgraph "Phase 2: External WireGuard"
+            P2M["Master<br/>WireGuard + RKE2"]
+            P2W1["Worker 1<br/>Manual WireGuard"]
+            P2W2["Worker 2<br/>Manual WireGuard"]
+            P2Issue["❌ Manual Scaling Hell"]
+
+            P2M <-.-> P2W1
+            P2M <-.-> P2W2
+            P2W1 -.-> P2Issue
+            P2W2 -.-> P2Issue
+        end
+
+        subgraph "Phase 3: k3s Native WireGuard"
+            P3M["Master<br/>k3s + Flannel WG"]
+            P3W1["Worker 1<br/>Auto WireGuard"]
+            P3W2["Worker 2<br/>Auto WireGuard"]
+            P3Success["✅ Infinite Scaling"]
+
+            P3M <-.-> P3W1
+            P3M <-.-> P3W2
+            P3W1 -.-> P3Success
+            P3W2 -.-> P3Success
+        end
+
+        subgraph "Phase 4: RKE2 + Cilium (Final)"
+            P4M["Master<br/>RKE2 + Embedded etcd"]
+            P4W1["Worker 1<br/>Cilium WireGuard"]
+            P4W2["Worker 2<br/>Cilium WireGuard"]
+            P4Features["✅ Enterprise Features<br/>✅ Advanced Networking<br/>✅ Observability"]
+
+            P4M <-.-> P4W1
+            P4M <-.-> P4W2
+            P4W1 -.-> P4Features
+            P4W2 -.-> P4Features
+        end
+    end
+
+    style P1M fill:#ffebee
+    style P1W1 fill:#ffebee
+    style P1W2 fill:#ffebee
+    style P1Issue fill:#f44336,color:#fff
+
+    style P2M fill:#fff3e0
+    style P2W1 fill:#fff3e0
+    style P2W2 fill:#fff3e0
+    style P2Issue fill:#ff9800,color:#fff
+
+    style P3M fill:#e8f5e8
+    style P3W1 fill:#e8f5e8
+    style P3W2 fill:#e8f5e8
+    style P3Success fill:#4caf50,color:#fff
+
+    style P4M fill:#e3f2fd
+    style P4W1 fill:#e3f2fd
+    style P4W2 fill:#e3f2fd
+    style P4Features fill:#2196f3,color:#fff
+```
+
+```bash
+# Current cluster status
+$ kubectl get nodes -o wide
+NAME                    STATUS   ROLES                       AGE    VERSION
+master-node             Ready    control-plane,etcd,master   153m   v1.32.5+rke2r1
+worker-location-a-0     Ready    <none>                      141m   v1.32.5+rke2r1
+worker-location-b-0     Ready    <none>                      125m   v1.32.5+rke2r1
+worker-location-a-1     Ready    <none>                      85m    v1.32.5+rke2r1
+```
+
+Four nodes across two locations, all managed by GitOps with zero manual intervention.
+
+### Multi-Location Support
+
+I even added support for deploying workers in different locations:
+
+```hcl
+# terraform.tfvars
+worker_count = 1                    # Location A workers
+worker_count_new_location = 1       # Location B workers
+```
+
+This allows for geographic distribution and better fault tolerance.
+
+The infrastructure now scales seamlessly:
+
+```bash
+# Want 10 workers across 2 locations?
+# Edit terraform.tfvars:
+worker_count = 7
+worker_count_new_location = 3
+
+# Create PR → Automatic terraform plan
+# Merge PR → Automatic terraform apply
+# Result: 10 workers join automatically, zero manual steps
+```
 
 <Callout type="success">
-  The final architecture delivers on all requirements: secure node-to-node communication via Cilium WireGuard, infinite scaling with zero manual steps, modern CNI features, and complete automation via Terraform + GitHub Actions.
+  The final architecture delivers on all evolved requirements: secure
+  node-to-node communication via Cilium WireGuard, infinite scaling with
+  multi-location support, modern CNI features, embedded etcd reliability, and
+  complete GitOps automation.
 </Callout>
 
-## The Final Architecture
+## Verifying the Final Setup
 
-Here's what the final production architecture looks like:
+Let me verify that everything works as expected:
 
-### Master Node (Shark - 144.76.37.198)
-- **RKE2 v1.32.5+rke2r1** with Cilium CNI
-- **Embedded etcd** for high availability (no external database dependency)
-- **Cilium WireGuard encryption** for node-to-node security
-- **Dual-stack networking** (IPv4/IPv6) for modern compatibility
+### Cluster Status Check
 
-### Worker Nodes (Infinitely Scalable)
-- **Automated deployment** via Terraform + cloud-init
-- **Zero manual intervention** - workers join automatically via RKE2 supervisor
-- **61-line cloud-init script** with comprehensive error handling
-- **No WireGuard setup required** - Cilium handles everything
+```bash
+# Check all nodes
+$ kubectl get nodes -o wide
+NAME                    STATUS   ROLES                       AGE    VERSION
+master-node             Ready    control-plane,etcd,master   153m   v1.32.5+rke2r1
+worker-location-a-0     Ready    <none>                      141m   v1.32.5+rke2r1
+worker-location-b-0     Ready    <none>                      125m   v1.32.5+rke2r1
+worker-location-a-1     Ready    <none>                      85m    v1.32.5+rke2r1
 
-### Infrastructure as Code
-- **Terraform** for server provisioning with HTTP backend
-- **GitHub Actions** for full GitOps deployment automation
-- **Secret management** via GitHub Secrets (never in code)
-- **Multi-location support** for geographic distribution
+# Check Cilium status
+$ kubectl exec -n kube-system ds/cilium -- cilium status
+    /¯¯\
+ /¯¯\__/¯¯\    Cilium:         OK
+ \__/¯¯\__/    Operator:       OK
+ /¯¯\__/¯¯\    Hubble:         OK
+ \__/¯¯\__/    ClusterMesh:    disabled
+    \__/
 
-### Networking (Cilium CNI)
+Encryption:             Wireguard    [node-to-node: Enabled]
+```
+
+### Testing the Scaling
+
+The ultimate test - scaling with zero manual intervention:
+
+```bash
+# Edit terraform.tfvars
+worker_count = 2
+worker_count_new_location = 2
+
+# Create pull request → triggers terraform plan
+# Merge pull request → triggers terraform apply
+# Result: 4 workers total, all join automatically
+```
+
+Perfect! The GitOps workflow handles everything automatically.
+
 - **Cluster CIDR:** 10.42.0.0/16,2001:cafe:42::/56 (dual-stack)
 - **Service CIDR:** 10.43.0.0/16,2001:cafe:43::/112 (dual-stack)
 - **WireGuard encryption:** Node-to-node via Cilium
@@ -480,24 +861,82 @@ Here's what the final production architecture looks like:
 
 ## Key Lessons Learned
 
+```mermaid
+flowchart TD
+    L1["Requirements Evolution<br/>PostgreSQL became Embedded etcd<br/>Internal IPs became Public IPs<br/>IPv4 became Dual-stack"]
+    L2["Technology Tradeoffs<br/>k3s was simple but limited<br/>RKE2 was complex but powerful<br/>Cilium provided modern networking"]
+    L3["Automation First<br/>Manual steps create bottlenecks<br/>Infrastructure as Code essential<br/>GitOps from Day 1"]
+    L4["Iteration Drives Excellence<br/>Phase 1 revealed constraints<br/>Phase 2-3 solved problems<br/>Phase 4 optimized solution"]
+    
+    L1 --> L2
+    L2 --> L3
+    L3 --> L4
+    L4 -.-> L1
+    
+    style L1 fill:#e3f2fd
+    style L2 fill:#f3e5f5
+    style L3 fill:#e8f5e8
+    style L4 fill:#fff8e1
+```
+
 ### 1. Don't Fight Change - Embrace Evolution
+
 Started with k3s + external WireGuard, experimented with RKE2 + Cilium, and found the sweet spot. Each iteration taught valuable lessons.
 
 ### 2. Modern CNI Solutions Are Worth It
+
+```mermaid
+graph LR
+    subgraph "CNI Comparison"
+        subgraph "Traditional CNI"
+            Flannel["Flannel<br/>Simple VXLAN<br/>Basic networking<br/>Limited features"]
+            Canal["Canal<br/>Flannel + Calico<br/>Network policies<br/>More complex"]
+        end
+        
+        subgraph "Modern CNI"
+            Cilium["Cilium<br/>eBPF performance<br/>WireGuard built-in<br/>Hubble observability<br/>kube-proxy replacement<br/>Advanced policies"]
+        end
+        
+        subgraph "Capabilities"
+            Perf["Performance<br/>eBPF acceleration"]
+            Sec["Security<br/>Encryption + Policies"]
+            Obs["Observability<br/>Network visibility"]
+            Auto["Automation<br/>WireGuard management"]
+        end
+        
+        Flannel -.-> Perf
+        Canal -.-> Sec
+        Cilium --> Perf
+        Cilium --> Sec
+        Cilium --> Obs
+        Cilium --> Auto
+    end
+    
+    style Cilium fill:#c8e6c9
+    style Perf fill:#e3f2fd
+    style Sec fill:#fff8e1
+    style Obs fill:#f3e5f5
+    style Auto fill:#e8f5e8
+```
+
 Cilium's advanced networking features, WireGuard integration, and observability tools provide significant value over basic CNI options.
 
 ### 3. Embedded etcd Beats External Databases
+
 Eliminating the external PostgreSQL dependency simplified operations while maintaining high availability through embedded etcd.
 
 ### 4. Automation is Non-Negotiable
+
 Any manual step becomes a scaling bottleneck. If you can't automate it completely, redesign the approach.
 
 ### 5. GitOps from Day One
+
 GitHub Actions + Terraform eliminated operational headaches and made experimentation much safer with automated validation.
 
 ## Performance and Security Benefits
 
 ### Security
+
 - **Node-to-node encryption:** All cluster traffic encrypted via Cilium WireGuard
 - **Embedded etcd:** Database isolation within the cluster (no external attack surface)
 - **No exposed services:** Traefik disabled, minimal external access points
@@ -505,12 +944,14 @@ GitHub Actions + Terraform eliminated operational headaches and made experimenta
 - **Network policies:** Cilium enables fine-grained network security controls
 
 ### Performance
+
 - **Modern CNI:** Cilium provides eBPF-based networking with better performance
 - **Fast startup:** Workers join via RKE2 supervisor in under 2 minutes
 - **Dual-stack ready:** IPv4/IPv6 support for future networking requirements
 - **kube-proxy replacement:** Cilium eliminates kube-proxy overhead
 
 ### Operational
+
 - **Zero manual scaling:** `worker_count++` and `terraform apply`
 - **GitOps deployment:** All changes via pull requests
 - **Comprehensive logging:** Cloud-init and systemd logs for debugging
@@ -519,34 +960,68 @@ GitHub Actions + Terraform eliminated operational headaches and made experimenta
 ## Challenges and Solutions
 
 ### Challenge 1: PostgreSQL Token Rotation
+
 When switching between Kubernetes distributions, the cluster tokens changed, requiring database cleanup.
 
 **Solution:** Automated token rotation via Terraform variables and database reset procedures.
 
 ### Challenge 2: Cloud-Init Debugging
+
 Worker nodes would sometimes fail during initialization with limited visibility.
 
 **Solution:** Comprehensive logging and retry logic in cloud-init scripts, plus SSH access for debugging.
 
 ### Challenge 3: Database Dependency Management
+
 External PostgreSQL created additional operational complexity and potential failure points.
 
 **Solution:** Migrated to RKE2 with embedded etcd, eliminating external database dependency while maintaining high availability.
 
 ### Challenge 4: Manual Peer Management
+
 External WireGuard required manual peer registration for each worker, blocking automation.
 
 **Solution:** Adopted Cilium CNI with integrated WireGuard encryption, providing automatic peer management and advanced networking features.
 
 ## Cost Analysis
 
+```mermaid
+graph LR
+    subgraph "Scaling Time Comparison"
+        subgraph "Manual WireGuard Era"
+            M1["1 Worker<br/>⏱️ 20 min manual"]
+            M3["3 Workers<br/>⏱️ 60 min manual"]
+            M10["10 Workers<br/>⏱️ 200 min manual<br/>🤯 3+ hours!"]
+        end
+
+        subgraph "Automated Era"
+            A1["1 Worker<br/>⏱️ 2 min automated"]
+            A3["3 Workers<br/>⏱️ 3 min automated"]
+            A10["10 Workers<br/>⏱️ 5 min automated<br/>✨ GitOps magic!"]
+        end
+
+        M1 -.->|"Evolution"| A1
+        M3 -.->|"Evolution"| A3
+        M10 -.->|"Evolution"| A10
+    end
+
+    style M1 fill:#ffebee
+    style M3 fill:#ffcdd2
+    style M10 fill:#f44336,color:#fff
+    style A1 fill:#e8f5e8
+    style A3 fill:#c8e6c9
+    style A10 fill:#4caf50,color:#fff
+```
+
 ### Before: Manual Management
+
 - **Time per worker:** 15-20 minutes of manual setup
 - **Scaling friction:** High - each worker required manual intervention
 - **Error rate:** High - manual steps are error-prone
 - **Operational overhead:** Significant ongoing maintenance
 
 ### After: Full Automation
+
 - **Time per worker:** 0 minutes manual work, 2 minutes automated deployment
 - **Scaling friction:** Zero - purely declarative
 - **Error rate:** Very low - automated and tested
@@ -557,28 +1032,63 @@ External WireGuard required manual peer registration for each worker, blocking a
 ## Future Improvements
 
 ### Monitoring and Observability
+
 - Add Prometheus and Grafana for cluster monitoring
 - Implement log aggregation with Loki
 - Set up alerting for cluster health
 
 ### Security Enhancements
+
 - Implement Network Policies for pod-to-pod security
 - Add admission controllers for security scanning
 - Set up automated certificate rotation
 
 ### Application Deployment
+
 - Implement ArgoCD for application GitOps
 - Add Helm chart management
 - Set up staging and production environments
 
 ### Backup and Disaster Recovery
+
 - Automate PostgreSQL database backups
 - Implement cluster state backup procedures
 - Test disaster recovery scenarios
 
 ## When to Use This Architecture
 
+```mermaid
+flowchart TD
+    Start["Need Kubernetes?"] --> TeamSize{"Team Size?"}
+    
+    TeamSize -->|"1-20 people"| Budget{"Budget Conscious?"}
+    TeamSize -->|"20+ people"| Managed["Consider Managed<br/>EKS, GKE, AKS"]
+    
+    Budget -->|"Yes"| Expertise{"K8s Expertise?"}
+    Budget -->|"No"| Managed
+    
+    Expertise -->|"High"| Security{"Security Requirements?"}
+    Expertise -->|"Low"| Learning{"Learning Goal?"}
+    
+    Learning -->|"Yes"| ThisArch["✅ This Architecture<br/>Great for learning"]
+    Learning -->|"No"| Managed
+    
+    Security -->|"High"| HA{"HA Requirements?"}
+    Security -->|"Standard"| ThisArch
+    
+    HA -->|"Single master OK"| ThisArch
+    HA -->|"Multi-master required"| Enterprise["Enterprise Solution<br/>Rancher, OpenShift"]
+    
+    ThisArch -->|"Ideal Use Cases"| UseCases["5-50 node clusters<br/>Cost optimization<br/>Full infrastructure control<br/>GitOps workflows<br/>Security compliance"]
+    
+    style ThisArch fill:#c8e6c9
+    style UseCases fill:#e8f5e8
+    style Managed fill:#fff3e0
+    style Enterprise fill:#f3e5f5
+```
+
 ### Great For:
+
 - **Small to medium teams** who need production-ready Kubernetes
 - **Cost-conscious projects** that can't afford managed Kubernetes
 - **High security requirements** with encrypted pod-to-pod communication
@@ -586,6 +1096,7 @@ External WireGuard required manual peer registration for each worker, blocking a
 - **Learning environments** where you want to understand the internals
 
 ### Not Great For:
+
 - **Large enterprise environments** that need commercial support
 - **Teams without Kubernetes expertise** who prefer managed solutions
 - **Compliance requirements** that mandate specific distributions
@@ -601,16 +1112,17 @@ This journey taught me that evolution beats revolution in infrastructure. After 
 - **Zero manual intervention** for infinite scaling
 - **Full GitOps automation** via Terraform and GitHub Actions
 
-The cluster now delivers on all the evolved requirements:
-- ✅ Secure node-to-node communication via Cilium WireGuard
-- ✅ Embedded etcd for high availability (no external dependencies)
-- ✅ Infinite scaling capability with multi-location support
-- ✅ Infrastructure as Code with comprehensive automation
-- ✅ GitOps deployment with automated validation
-- ✅ Modern dual-stack networking (IPv4/IPv6 ready)
-- ✅ Advanced observability with Hubble
+The cluster delivers on all the evolved requirements:
 
-**Most importantly, it scales infinitely with zero manual steps.** Want 10 more workers across multiple regions? Change two numbers and push to main - GitHub Actions handles the rest. Want to experiment with different configurations? Create a pull request and get automated validation before deployment.
+- Secure node-to-node communication via Cilium WireGuard
+- Embedded etcd for high availability (no external dependencies)
+- Scalable infrastructure with multi-location support
+- Infrastructure as Code with comprehensive automation
+- GitOps deployment with automated validation
+- Modern dual-stack networking (IPv4/IPv6 ready)
+- Advanced observability with Hubble
+
+The infrastructure scales seamlessly with zero manual intervention. Adding workers across multiple regions requires changing terraform.tfvars and pushing to main - GitHub Actions handles the deployment. Configuration experiments are validated through pull request automation before deployment.
 
 Building production infrastructure is about finding the right balance for your needs. Sometimes you need to try multiple approaches to discover what "right" means for your specific requirements. The key is to keep iterating, learning from each experiment, and not being afraid to evolve your architecture when you discover better solutions.
 
@@ -628,4 +1140,4 @@ If you're building your own Kubernetes cluster, embrace the journey. Start with 
 - [Hubble Observability](https://github.com/cilium/hubble)
 - [etcd Documentation](https://etcd.io/docs/)
 
-The complete infrastructure code is available in my [infrastructure repository](https://github.com/spa5k/infra) if you want to see the full implementation details.
+The complete infrastructure code is available in my infrastructure repository if you want to see the full implementation details.
