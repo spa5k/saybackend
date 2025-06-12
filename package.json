@@ -65,6 +65,6 @@
     "sharp"
   ],
   "overrides": {
-    "react-is": "^19.0.0-rc-69d4b800-20241021"
+    "react-is": "^19.1.0"
   }
 }
