@@ -27,46 +27,17 @@ function buildToc(headings: Heading[]) {
 }
 ---
 
-<details open class="toc">
-  <summary class="toc-summary">Table of Contents</summary>
-  <nav class="toc-nav">
-    <ul class="toc-list">
+<details
+  open
+  class="animate group rounded-lg border border-black/15 dark:border-white/20"
+>
+  <summary
+    class="cursor-pointer rounded-t-lg px-3 py-1.5 font-medium transition-colors group-open:bg-black/5 hover:bg-black/5 dark:group-open:bg-white/5 hover:dark:bg-white/5"
+    >Table of Contents</summary
+  >
+  <nav>
+    <ul class="py-3">
       {toc.map((heading) => <TableOfContentsHeading heading={heading} />)}
     </ul>
   </nav>
 </details>
-
-<style>
-  .toc {
-    border-radius: 0.5rem;
-    border: 1px solid var(--color-border);
-    background-color: var(--color-bg-secondary);
-    margin: 1.5rem 0;
-  }
-
-  .toc-summary {
-    cursor: pointer;
-    padding: 0.75rem 1rem;
-    font-weight: 600;
-    color: var(--color-text-primary);
-    transition: background-color 0.2s ease;
-    list-style: none;
-  }
-
-  .toc-summary::-webkit-details-marker {
-    display: none;
-  }
-
-  .toc-summary:hover {
-    background-color: var(--color-bg-hover);
-  }
-
-  .toc-nav {
-    padding: 0.5rem 0;
-  }
-
-  .toc-list {
-    margin: 0;
-    padding: 0;
-  }
-</style>
