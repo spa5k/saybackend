@@ -1,0 +1,34 @@
+{
+  "decision_matrix": [
+    {
+      "priority": "Maximum Performance",
+      "recommendation": "PostgreSQL 18 native `uuidv7()`",
+      "why": "33% faster than UUIDv4, 16% higher throughput, C-level implementation"
+    },
+    {
+      "priority": "PostgreSQL 17 Compatibility",
+      "recommendation": "Custom `uuidv7()` implementation",
+      "why": "Matches UUIDv4 performance while adding time ordering"
+    },
+    {
+      "priority": "Human Readability",
+      "recommendation": "ULID",
+      "why": "Case-insensitive, 26-byte compact storage, lexicographic sorting"
+    },
+    {
+      "priority": "Type Safety",
+      "recommendation": "TypeID",
+      "why": "Prevents ID misuse, self-documenting, API clarity"
+    },
+    {
+      "priority": "Storage Efficiency",
+      "recommendation": "UUIDv4/UUIDv7",
+      "why": "16 bytes binary, mature indexing, wide tool support"
+    },
+    {
+      "priority": "Proven Stability",
+      "recommendation": "UUIDv4 (`gen_random_uuid`)",
+      "why": "Battle-tested, PostgreSQL native, zero compatibility issues"
+    }
+  ]
+}

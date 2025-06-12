@@ -25,14 +25,14 @@
       "implementation": "ULID",
       "avg_time": 124.5,
       "throughput": 24832,
-      "storage": 39,
+      "storage": 26,
       "pg_version": 17
     },
     {
       "implementation": "TypeID",
       "avg_time": 198.7,
       "throughput": 18943,
-      "storage": 42,
+      "storage": 31,
       "pg_version": 17
     }
   ],

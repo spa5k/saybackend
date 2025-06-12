@@ -50,7 +50,7 @@
       "p95_time_us": 159.7,
       "p99_time_us": 187.2,
       "throughput_per_second": 24832,
-      "storage_bytes": 39,
+      "storage_bytes": 26,
       "timestamp": "2025-06-12T13:58:00.000Z"
     },
     {
@@ -62,7 +62,7 @@
       "p95_time_us": 251.3,
       "p99_time_us": 298.1,
       "throughput_per_second": 18943,
-      "storage_bytes": 42,
+      "storage_bytes": 31,
       "timestamp": "2025-06-12T13:58:00.000Z"
     }
   ]

@@ -51,7 +51,7 @@ const { title = "End-to-End Software Development Solutions" } = Astro.props;
         href="mailto:admin@saybackend.com">admin@saybackend.com</a
       >, or <a href="mailto:kamrannetic@gmail.com">kamrannetic@gmail.com</a>.
       We're currently offering a 15% launch discount for projects initiated
-      before June 30, 2024.
+      before July 30, 2025.
     </p>
   </div>
 </div>
@@ -59,12 +59,13 @@ const { title = "End-to-End Software Development Solutions" } = Astro.props;
 <style>
   .advertise {
     padding: 1.5rem;
-    border-radius: 0.5rem;
+    border-radius: calc(var(--radius) - 2px);
     margin: 2rem 0;
-    background-color: var(--color-info-bg);
-    border-left: 4px solid var(--color-info);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     transition: all 0.2s ease;
+    border: 1px solid hsl(var(--border));
+    background-color: #eff6ff;
+    border-left: 4px solid #2563eb;
   }
 
   .advertise:hover {
@@ -77,7 +78,7 @@ const { title = "End-to-End Software Development Solutions" } = Astro.props;
     margin-bottom: 1rem;
     font-size: 1.2rem;
     font-weight: 600;
-    color: var(--color-info);
+    color: #2563eb;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -91,11 +92,12 @@ const { title = "End-to-End Software Development Solutions" } = Astro.props;
   .advertise-content {
     font-size: 0.95rem;
     line-height: 1.6;
+    color: hsl(var(--foreground));
   }
 
   .advertise-content :global(p) {
     margin: 0;
-    color: var(--color-text-primary);
+    color: hsl(var(--foreground));
   }
 
   .advertise-content :global(p + p) {
@@ -103,7 +105,7 @@ const { title = "End-to-End Software Development Solutions" } = Astro.props;
   }
 
   .advertise-content :global(a) {
-    color: var(--color-info);
+    color: #2563eb;
     text-decoration: none;
     font-weight: 500;
     transition: all 0.2s ease;
@@ -111,21 +113,32 @@ const { title = "End-to-End Software Development Solutions" } = Astro.props;
   }
 
   .advertise-content :global(a:hover) {
-    border-bottom-color: var(--color-info);
+    border-bottom-color: #2563eb;
+  }
+
+  .advertise-content :global(strong) {
+    color: hsl(var(--foreground));
+    font-weight: 600;
+  }
+
+  .advertise-content :global(ul) {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+  }
+
+  .advertise-content :global(li) {
+    margin: 0.25rem 0;
+    color: hsl(var(--foreground));
   }
 
   @media (prefers-color-scheme: dark) {
     .advertise {
-      background-color: var(--color-info-bg-dark);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      background-color: rgba(37, 99, 235, 0.1);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     }
 
     .advertise:hover {
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    }
-
-    .advertise-content :global(p) {
-      color: var(--color-text-primary-dark);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
     }
   }
 </style>

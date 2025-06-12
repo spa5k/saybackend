@@ -1,0 +1,49 @@
+{
+  "postgresql_18_native": {
+    "title": "PostgreSQL 18 Native Analysis",
+    "pros": [
+      "<strong>Best performance</strong> (C-level implementation)",
+      "<strong>Sub-millisecond precision</strong> with monotonicity",
+      "<strong>Future-proof</strong> with official support",
+      "<strong>Built-in utilities</strong> for timestamp extraction"
+    ],
+    "cons": [
+      "<strong>PostgreSQL 18+ only</strong> (currently in beta, expected release late 2025)",
+      "Limited customization vs custom functions"
+    ]
+  },
+  "implementation_1": {
+    "title": "Implementation 1 Analysis",
+    "pros": [
+      "Clear, readable implementation",
+      "Leverages PostgreSQL's built-in UUID generation",
+      "Good performance for most use cases"
+    ],
+    "cons": ["PL/pgSQL overhead", "No sub-millisecond precision"]
+  },
+  "implementation_2": {
+    "title": "Implementation 2 Analysis",
+    "pros": [
+      "No PL/pgSQL overhead",
+      "Slightly better performance",
+      "Same simplicity as Function 1"
+    ],
+    "cons": [
+      "No sub-millisecond precision",
+      "Less readable due to nested function calls"
+    ]
+  },
+  "implementation_3": {
+    "title": "Implementation 3 Analysis",
+    "pros": [
+      "Sub-millisecond precision improves ordering within the same millisecond",
+      "Better for high-frequency UUID generation",
+      "Pure SQL implementation"
+    ],
+    "cons": [
+      "More complex implementation",
+      "Slightly higher CPU usage",
+      "Less random bits (62 vs 74)"
+    ]
+  }
+}
