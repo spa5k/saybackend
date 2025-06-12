@@ -4,6 +4,7 @@ import vercel from "@astrojs/vercel";
 import tailwindcss from "@tailwindcss/vite";
 import pagefind from "astro-pagefind";
 import { defineConfig } from "astro/config";
+import rehypeMermaid from "rehype-mermaid";
 
 import solidJs from "@astrojs/solid-js";
 import compress from "astro-compress";
@@ -30,9 +31,25 @@ export default defineConfig({
   },
   prefetch: true,
   markdown: {
-    shikiConfig: {
+    syntaxHighlight: {
+      type: "shiki",
       theme: "css-variables",
+      excludeLangs: ["mermaid"],
     },
+    rehypePlugins: [
+      [
+        rehypeMermaid,
+        {
+          strategy: "img-svg",
+          mermaidConfig: {
+            theme: "default",
+            securityLevel: "loose",
+            startOnLoad: true,
+            fontFamily: "ui-sans-serif, system-ui, sans-serif",
+          },
+        },
+      ],
+    ],
   },
   adapter: vercel({
     webAnalytics: {
