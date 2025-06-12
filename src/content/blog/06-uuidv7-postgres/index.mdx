@@ -22,6 +22,9 @@ import uuidStructure from "./assets/uuid_structure.png";
 import implementationFlow from "./assets/implementation_flow.png";
 import collisionProbability from "./assets/collision_probability.png";
 import bitManipulation from "./assets/bit_manipulation.png";
+import comprehensiveComparison from "./assets/comprehensive_id_comparison.png";
+import speedComparison from "./assets/speed_comparison.png";
+import implementationArchitecture from "./assets/implementation_architecture.png";
 
 ## Introduction
 
@@ -30,9 +33,9 @@ When building distributed systems or high-performance applications, generating u
 In this comprehensive analysis, we'll explore multiple modern identifier implementations, benchmark their real-world performance, and provide practical guidance for choosing the right approach for your PostgreSQL applications. We'll cover three UUIDv7 implementations, ULID and TypeID alternatives, and PostgreSQL 18's native capabilities.
 
 <Callout type="info">
-  **TL;DR:** Function 1 (uuid_generate_v7) offers the best performance for most use cases.
-  For sub-millisecond precision and better time ordering within the same
-  millisecond, use Function 3 (uuidv7_sub_ms). Function 2 (uuidv7_custom) provides pure SQL implementation.
+  **TL;DR:** UUIDv7 (PL/pgSQL) is **16% faster** than UUIDv4 in single-threaded scenarios but 38% slower in concurrent workloads. 
+  For maximum concurrent performance, stick with UUIDv4. For time-ordered identifiers, UUIDv7 (PL/pgSQL) offers the best balance, 
+  while ULID provides the best human readability. TypeID adds type safety with minimal performance cost.
 </Callout>
 
 ## Understanding UUIDv7
@@ -353,6 +356,69 @@ UUIDs are 128-bit values, stored as 16 bytes in PostgreSQL. For large tables:
 - Partition by time ranges that align with your UUID timestamps
 - Use `CLUSTER` periodically to maintain physical ordering
 
+## Enhanced Performance Analysis: UUIDv4 Baseline Comparison
+
+To provide complete context, let's examine how our UUIDv7 implementations compare against PostgreSQL's native UUIDv4 generation (`gen_random_uuid()`). This baseline comparison helps quantify the performance trade-offs when choosing time-ordered identifiers.
+
+<Picture
+  src={speedComparison}
+  alt="Speed comparison between UUIDv4, UUIDv7, ULID, and TypeID implementations"
+/>
+
+### Updated Performance Results (Including UUIDv4)
+
+Our enhanced benchmarks with 5,000 iterations reveal interesting patterns:
+
+#### Single-threaded Performance Rankings
+
+| Rank | Implementation | Avg Time | Performance vs UUIDv4 |
+|------|----------------|----------|----------------------|
+| 1 | **UUIDv7 (PL/pgSQL)** | 72.3 μs | **16.2% faster** |
+| 2 | **ULID** | 79.9 μs | 7.4% faster |
+| 3 | **UUIDv7 (Pure SQL)** | 82.3 μs | 4.7% faster |
+| 4 | **UUIDv4 (Baseline)** | 86.3 μs | Baseline |
+| 5 | **TypeID** | 86.5 μs | 0.2% slower |
+| 6 | **UUIDv7 (Sub-ms)** | 90.6 μs | 5.0% slower |
+
+#### Concurrent Throughput Rankings (5 Workers)
+
+| Rank | Implementation | Throughput | Performance vs UUIDv4 |
+|------|----------------|------------|----------------------|
+| 1 | **UUIDv4 (Baseline)** | 29,492 IDs/sec | Baseline |
+| 2 | **ULID** | 26,523 IDs/sec | 10.1% lower |
+| 3 | **TypeID** | 25,775 IDs/sec | 12.6% lower |
+| 4 | **UUIDv7 (Pure SQL)** | 25,085 IDs/sec | 14.9% lower |
+| 5 | **UUIDv7 (Sub-ms)** | 21,658 IDs/sec | 26.6% lower |
+| 6 | **UUIDv7 (PL/pgSQL)** | 18,126 IDs/sec | 38.5% lower |
+
+### Key Insights from Enhanced Analysis
+
+1. **Single-threaded Advantage**: UUIDv7 PL/pgSQL implementation is surprisingly **16% faster** than UUIDv4 in single-threaded scenarios
+2. **Concurrent Trade-off**: UUIDv4 dominates concurrent scenarios, with 38% higher throughput than the best UUIDv7 implementation
+3. **Time Ordering Value**: The performance cost for time-ordering ranges from 10-39% in concurrent scenarios
+4. **Storage Efficiency**: All UUID implementations use the same 16-byte binary storage
+
+<Picture
+  src={comprehensiveComparison}
+  alt="Comprehensive comparison dashboard showing performance, storage, and feature matrices"
+/>
+
+## Implementation Architecture Overview
+
+Understanding the architectural differences helps explain the performance characteristics:
+
+<Picture
+  src={implementationArchitecture}
+  alt="Implementation architecture showing the structure and characteristics of each ID type"
+/>
+
+The architecture diagram reveals why certain implementations perform differently:
+
+- **UUIDv4**: Direct PostgreSQL C implementation with no timestamp manipulation
+- **UUIDv7 variants**: Add timestamp overlay operations with varying complexity
+- **ULID**: Custom timestamp formatting with Base32 encoding overhead
+- **TypeID**: Builds on UUIDv7 with additional prefix concatenation
+
 ## Beyond UUIDv7: ULID and TypeID Alternatives
 
 While UUIDv7 provides excellent time-ordering capabilities, there are other modern identifier formats worth considering for specific use cases. Let's explore ULID and TypeID implementations in PostgreSQL.
@@ -597,30 +663,35 @@ Based on our benchmarks:
 Modern applications have excellent choices for time-ordered identifiers in PostgreSQL. Based on our comprehensive benchmarking:
 
 ### Performance Summary
-- **ULID**: Fastest generation (72.31 μs), human-readable, 26 bytes text
-- **TypeID**: Close second (72.80 μs), type-safe, ~31 bytes text
-- **uuid_generate_v7()**: Fast UUIDv7 (77.15 μs), 16 bytes binary, 36 bytes text
-- **uuidv7_custom()**: Pure SQL UUIDv7 (84.98 μs), 16 bytes binary, 36 bytes text
-- **uuidv7_sub_ms()**: Sub-millisecond precision (94.69 μs), 16 bytes binary, 36 bytes text
-- **PostgreSQL 18 native**: Expected performance leader with C implementation
+- **UUIDv7 (PL/pgSQL)**: Fastest single-threaded (72.3 μs), 16% faster than UUIDv4
+- **ULID**: Human-readable champion (79.9 μs), 26 bytes text, 7.4% faster than UUIDv4
+- **UUIDv7 (Pure SQL)**: Balanced approach (82.3 μs), 4.7% faster than UUIDv4  
+- **UUIDv4**: Concurrent throughput leader (86.3 μs, 29,492 IDs/sec), PostgreSQL native
+- **TypeID**: Type-safe option (86.5 μs), ~31 bytes text, minimal overhead
+- **UUIDv7 (Sub-ms)**: Precision focus (90.6 μs), enhanced time ordering
+- **PostgreSQL 18 native uuidv7()**: Expected to outperform all custom implementations
 
 ### Decision Matrix
 
 | Priority | Recommendation | Why |
 |----------|----------------|-----|
-| **Maximum Performance** | PostgreSQL 18 native `uuidv7()` | C-level implementation, sub-millisecond precision |
+| **Maximum Concurrent Throughput** | UUIDv4 (`gen_random_uuid`) | 29K+ IDs/sec, PostgreSQL native, battle-tested |
+| **Single-threaded Performance** | UUIDv7 (PL/pgSQL) | 16% faster than UUIDv4, time-ordered |
+| **Time Ordering + Performance** | PostgreSQL 18 native `uuidv7()` | C-level implementation, sub-millisecond precision |
 | **Human Readability** | ULID | Case-insensitive, no special characters, lexicographic sorting |
 | **Type Safety** | TypeID | Prevents ID misuse, self-documenting, API clarity |
-| **Storage Efficiency** | UUIDv7 | 16 bytes binary, mature indexing, wide tool support |
+| **Storage Efficiency** | UUIDv4/UUIDv7 | 16 bytes binary, mature indexing, wide tool support |
 | **Backward Compatibility** | Custom UUIDv7 functions | Works on all PostgreSQL versions |
 
 ### Key Findings
 
-1. **All implementations are production-ready** with 25K+ IDs/second throughput
-2. **Zero collisions observed** across 50,000 ID generation tests  
-3. **Storage trade-offs matter**: UUIDs (16 bytes binary, 36 bytes text) vs ULID (26 bytes text) vs TypeID (30+ bytes text)
-4. **Performance differences are minimal** - choose based on features, not micro-optimizations
-5. **PostgreSQL 18 changes the game** with native implementation benefits
+1. **All implementations are production-ready** with 18K+ IDs/second concurrent throughput
+2. **UUIDv7 can outperform UUIDv4** in single-threaded scenarios (16% faster)
+3. **UUIDv4 dominates concurrent workloads** with 38% higher throughput than best UUIDv7
+4. **Time ordering costs 10-39% performance** in high-concurrency scenarios
+5. **Zero collisions observed** across 50,000 ID generation tests for all implementations
+6. **Storage trade-offs matter**: UUIDs (16 bytes binary, 36 bytes text) vs ULID (26 bytes text) vs TypeID (30+ bytes text)
+7. **PostgreSQL 18 changes the game** with native implementation benefits
 
 The modern identifier landscape offers powerful options beyond traditional UUIDs. Choose based on your application's specific requirements for readability, type safety, storage efficiency, and compatibility needs.
 
