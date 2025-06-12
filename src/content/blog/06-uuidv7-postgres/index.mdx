@@ -19,12 +19,8 @@ ogImage: "/images/uuidv7-postgres-og.png"
 import Callout from "@/components/Callout.astro";
 import { Picture } from "astro:assets";
 import uuidStructure from "./assets/uuid_structure.png";
-import implementationFlow from "./assets/implementation_flow.png";
 import collisionProbability from "./assets/collision_probability.png";
 import bitManipulation from "./assets/bit_manipulation.png";
-import simpleArchitecture from "./assets/simple_implementation_architecture.png";
-import performanceSummary from "./assets/performance_summary_diagram.png";
-import decisionFlowchart from "./assets/decision_flowchart.png";
 import PerformanceBarChart from "@/components/charts/PerformanceBarChart.tsx";
 import PerformanceScatterChart from "@/components/charts/PerformanceScatterChart.tsx";
 import RadarChart from "@/components/charts/RadarChart.tsx";
@@ -100,16 +96,12 @@ This implementation:
 3. Overlays the timestamp onto the first 48 bits
 4. Sets the version bits to make it a valid UUIDv7
 
-**Pros:**
+#### Function 1 Analysis
 
-- Clear, readable implementation
-- Leverages PostgreSQL's built-in UUID generation
-- Good performance for most use cases
-
-**Cons:**
-
-- PL/pgSQL overhead
-- No sub-millisecond precision
+| Aspect | Assessment |
+|--------|------------|
+| **Pros** | • Clear, readable implementation<br>• Leverages PostgreSQL's built-in UUID generation<br>• Good performance for most use cases |
+| **Cons** | • PL/pgSQL overhead<br>• No sub-millisecond precision |
 
 ### Function 2: The SQL Method
 
@@ -132,16 +124,12 @@ $$ LANGUAGE sql VOLATILE;
 
 This is essentially the same algorithm as Function 1, but implemented as a pure SQL function.
 
-**Pros:**
+#### Function 2 Analysis
 
-- No PL/pgSQL overhead
-- Slightly better performance
-- Same simplicity as Function 1
-
-**Cons:**
-
-- No sub-millisecond precision
-- Less readable due to nested function calls
+| Aspect | Assessment |
+|--------|------------|
+| **Pros** | • No PL/pgSQL overhead<br>• Slightly better performance<br>• Same simplicity as Function 1 |
+| **Cons** | • No sub-millisecond precision<br>• Less readable due to nested function calls |
 
 ### Function 3: Sub-millisecond Precision
 
@@ -163,22 +151,43 @@ This implementation builds the UUID from scratch:
 2. Uses the fractional part for sub-millisecond precision
 3. Manually constructs the UUID by concatenating components
 
-**Pros:**
+#### Function 3 Analysis
 
-- Sub-millisecond precision improves ordering within the same millisecond
-- Better for high-frequency UUID generation
-- Pure SQL implementation
+| Aspect | Assessment |
+|--------|------------|
+| **Pros** | • Sub-millisecond precision improves ordering within the same millisecond<br>• Better for high-frequency UUID generation<br>• Pure SQL implementation |
+| **Cons** | • More complex implementation<br>• Slightly higher CPU usage<br>• Less random bits (62 vs 74) |
 
-**Cons:**
+### Implementation Flow Overview
 
-- More complex implementation
-- Slightly higher CPU usage
-- Less random bits (62 vs 74)
-
-<Picture
-  src={implementationFlow}
-  alt="Flow diagrams showing the steps of each implementation method"
-/>
+```mermaid
+flowchart TD
+    A[Start UUID Generation] --> B{Choose Implementation}
+    
+    B -->|Function 1| C[Generate UUIDv4 Base]
+    B -->|Function 2| D[Generate UUIDv4 Base]  
+    B -->|Function 3| E[Extract Current Timestamp]
+    
+    C --> F[Extract Timestamp]
+    D --> G[Extract Timestamp]
+    E --> H[Split into Integer & Fractional]
+    
+    F --> I[Overlay on First 48 bits]
+    G --> J[Overlay on First 48 bits]
+    H --> K[Build UUID from Components]
+    
+    I --> L[Set Version Bits to 7]
+    J --> M[Set Version Bits to 7]
+    K --> N[Include Sub-ms Precision]
+    
+    L --> O[Return PL/pgSQL UUID]
+    M --> P[Return SQL UUID]
+    N --> Q[Return Sub-ms UUID]
+    
+    O --> R[Final UUIDv7]
+    P --> R
+    Q --> R
+```
 
 ## Bit Manipulation Visualization
 
@@ -428,10 +437,33 @@ Our enhanced benchmarks with 5,000 iterations reveal interesting patterns:
 
 Understanding the architectural differences helps explain the performance characteristics:
 
-<Picture
-  src={simpleArchitecture}
-  alt="Simplified implementation architecture showing the structure of each ID type"
-/>
+```mermaid
+graph TB
+    subgraph "UUID Family"
+        UUIDv4["🔴 UUIDv4<br/>(Baseline)<br/>• Pure random<br/>• No time info<br/>• PostgreSQL native"]
+        
+        subgraph "UUIDv7 Implementations"
+            UUIDv7_PL["🔵 UUIDv7 (PL/pgSQL)<br/>• Overlay method<br/>• Best single-thread<br/>• Readable code"]
+            UUIDv7_SQL["🟢 UUIDv7 (Pure SQL)<br/>• Bit operations<br/>• No PL/pgSQL overhead<br/>• Balanced performance"]
+            UUIDv7_SUB["🟡 UUIDv7 (Sub-ms)<br/>• Custom precision<br/>• Manual construction<br/>• Best time ordering"]
+        end
+    end
+    
+    subgraph "Alternative Formats"
+        ULID["🟠 ULID<br/>• Base32 encoded<br/>• Human readable<br/>• Lexicographic sort<br/>• Compact storage"]
+        TypeID["🟣 TypeID<br/>• Prefixed identifiers<br/>• Type safety<br/>• Based on UUIDv7<br/>• Self-documenting"]
+    end
+    
+    subgraph "Performance Characteristics"
+        PERF_SINGLE["📈 Single-threaded<br/>UUIDv7 (PL/pgSQL) fastest<br/>72.3 μs"]
+        PERF_CONCURRENT["⚡ Concurrent<br/>UUIDv4 fastest<br/>29,492 IDs/sec"]
+        PERF_STORAGE["💾 Storage<br/>ULID most compact<br/>26 bytes text"]
+    end
+    
+    UUIDv7_PL -.-> PERF_SINGLE
+    UUIDv4 -.-> PERF_CONCURRENT
+    ULID -.-> PERF_STORAGE
+```
 
 The architecture diagram reveals why certain implementations perform differently:
 
@@ -736,17 +768,71 @@ Modern applications have excellent choices for time-ordered identifiers in Postg
 
 ### Decision Guide
 
-<Picture
-  src={decisionFlowchart}
-  alt="Decision flowchart for choosing the right ID generation method"
-/>
+```mermaid
+flowchart TD
+    START[Choose ID Generation Method] --> Q1{Primary Requirement?}
+    
+    Q1 -->|Maximum Concurrent Performance| UUIDv4_CHOICE[🔴 UUIDv4<br/>29,492 IDs/sec<br/>Battle-tested]
+    Q1 -->|Time Ordering| Q2{Need Sub-millisecond Precision?}
+    Q1 -->|Human Readability| ULID_CHOICE[🟠 ULID<br/>Base32 encoded<br/>Lexicographic sort]
+    Q1 -->|Type Safety| TYPEID_CHOICE[🟣 TypeID<br/>Prefixed identifiers<br/>Self-documenting]
+    
+    Q2 -->|Yes| Q3{PostgreSQL Version?}
+    Q2 -->|No| Q4{Performance Priority?}
+    
+    Q3 -->|18+| PG18_CHOICE[🟢 PostgreSQL 18<br/>native uuidv7()<br/>C-level performance]
+    Q3 -->|< 18| SUBMS_CHOICE[🟡 UUIDv7 Sub-ms<br/>Custom precision<br/>Best time ordering]
+    
+    Q4 -->|Single-threaded Speed| PLPGSQL_CHOICE[🔵 UUIDv7 PL/pgSQL<br/>72.3 μs<br/>16% faster than UUIDv4]
+    Q4 -->|Balanced Approach| SQL_CHOICE[🟢 UUIDv7 Pure SQL<br/>No PL/pgSQL overhead<br/>Good all-around]
+    
+    UUIDv4_CHOICE --> RESULT[✅ Implementation Selected]
+    ULID_CHOICE --> RESULT
+    TYPEID_CHOICE --> RESULT
+    PG18_CHOICE --> RESULT
+    SUBMS_CHOICE --> RESULT
+    PLPGSQL_CHOICE --> RESULT
+    SQL_CHOICE --> RESULT
+    
+    style START fill:#e1f5fe
+    style RESULT fill:#e8f5e8
+    style UUIDv4_CHOICE fill:#ffebee
+    style ULID_CHOICE fill:#fff3e0
+    style TYPEID_CHOICE fill:#f3e5f5
+    style PG18_CHOICE fill:#e8f5e8
+    style SUBMS_CHOICE fill:#fffde7
+    style PLPGSQL_CHOICE fill:#e3f2fd
+    style SQL_CHOICE fill:#e8f5e8
+```
 
 ### Performance Summary
 
-<Picture
-  src={performanceSummary}
-  alt="Visual summary of performance characteristics for each ID type"
-/>
+```mermaid
+graph LR
+    subgraph "🏁 Performance Champions"
+        SINGLE["🥇 Single-threaded<br/>UUIDv7 (PL/pgSQL)<br/>72.3 μs<br/>16% faster than UUIDv4"]
+        CONCURRENT["🥇 Concurrent<br/>UUIDv4<br/>29,492 IDs/sec<br/>38% faster than best UUIDv7"]
+        STORAGE["🥇 Storage Efficient<br/>ULID<br/>26 bytes<br/>Most compact text"]
+    end
+    
+    subgraph "🎯 Specialized Features"
+        READABLE["👁️ Human Readable<br/>ULID<br/>Base32 encoding<br/>No special characters"]
+        TYPESAFE["🛡️ Type Safe<br/>TypeID<br/>Prefixed identifiers<br/>Self-documenting"]
+        PRECISION["⏱️ Time Precision<br/>UUIDv7 (Sub-ms)<br/>Sub-millisecond<br/>Best ordering"]
+    end
+    
+    subgraph "🔮 Future Ready"
+        NATIVE["🚀 PostgreSQL 18+<br/>Native uuidv7()<br/>C-level implementation<br/>Expected performance leader"]
+    end
+    
+    style SINGLE fill:#e8f5e8
+    style CONCURRENT fill:#ffebee
+    style STORAGE fill:#fff3e0
+    style READABLE fill:#f3e5f5
+    style TYPESAFE fill:#e3f2fd
+    style PRECISION fill:#fffde7
+    style NATIVE fill:#e1f5fe
+```
 
 The modern identifier landscape offers powerful options beyond traditional UUIDs. Choose based on your application's specific requirements for readability, type safety, storage efficiency, and compatibility needs.
 
