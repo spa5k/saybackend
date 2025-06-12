@@ -49,7 +49,7 @@ export default defineConfig({
         {
           strategy: "img-svg",
           mermaidConfig: {
-            theme: "default",
+            theme: "dark",
             securityLevel: "loose",
             startOnLoad: true,
             fontFamily: "ui-sans-serif, system-ui, sans-serif",
