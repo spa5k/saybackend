@@ -7,7 +7,6 @@ import {
   PolarRadiusAxis,
   Radar,
   RadarChart,
-  ResponsiveContainer,
   Scatter,
   ScatterChart,
   Tooltip,
@@ -91,60 +90,58 @@ export function PerformanceStorageScatterChart() {
       </CardHeader>
       <CardContent className="p-6">
         <ChartContainer config={chartConfig} className="h-[400px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 20, right: 20, bottom: 40, left: 40 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                type="number"
-                dataKey="x"
-                name="Storage"
-                unit=" bytes"
-                label={{
-                  value: "Storage Size (bytes)",
-                  position: "insideBottom",
-                  offset: -10,
-                }}
-              />
-              <YAxis
-                type="number"
-                dataKey="y"
-                name="Performance"
-                unit=" μs"
-                label={{
-                  value: "Generation Time (μs)",
-                  angle: -90,
-                  position: "insideLeft",
-                }}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Scatter
-                name="Implementations"
-                data={scatterData}
-                fill="#8884d8"
-                shape={(props: any) => {
-                  const { cx, cy, payload } = props;
-                  const colors: Record<string, string> = {
-                    "Native uuidv7()": "#10b981",
-                    "Custom uuidv7()": "#3b82f6",
-                    UUIDv4: "#ef4444",
-                    ULID: "#f59e0b",
-                    TypeID: "#8b5cf6",
-                  };
-                  return (
-                    <circle
-                      cx={cx}
-                      cy={cy}
-                      r={8}
-                      fill={colors[payload.name] || "#8884d8"}
-                      stroke={colors[payload.name] || "#8884d8"}
-                      strokeWidth={2}
-                      fillOpacity={0.8}
-                    />
-                  );
-                }}
-              />
-            </ScatterChart>
-          </ResponsiveContainer>
+          <ScatterChart margin={{ top: 20, right: 20, bottom: 40, left: 40 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              type="number"
+              dataKey="x"
+              name="Storage"
+              unit=" bytes"
+              label={{
+                value: "Storage Size (bytes)",
+                position: "insideBottom",
+                offset: -10,
+              }}
+            />
+            <YAxis
+              type="number"
+              dataKey="y"
+              name="Performance"
+              unit=" μs"
+              label={{
+                value: "Generation Time (μs)",
+                angle: -90,
+                position: "insideLeft",
+              }}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Scatter
+              name="Implementations"
+              data={scatterData}
+              fill="#8884d8"
+              shape={(props: any) => {
+                const { cx, cy, payload } = props;
+                const colors: Record<string, string> = {
+                  "Native uuidv7()": "#10b981",
+                  "Custom uuidv7()": "#3b82f6",
+                  UUIDv4: "#ef4444",
+                  ULID: "#f59e0b",
+                  TypeID: "#8b5cf6",
+                };
+                return (
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={8}
+                    fill={colors[payload.name] || "#8884d8"}
+                    stroke={colors[payload.name] || "#8884d8"}
+                    strokeWidth={2}
+                    fillOpacity={0.8}
+                  />
+                );
+              }}
+            />
+          </ScatterChart>
         </ChartContainer>
       </CardContent>
     </Card>
@@ -195,36 +192,34 @@ export function MultiMetricRadarChart({
       </CardHeader>
       <CardContent className="p-6">
         <ChartContainer config={chartConfig} className="h-[400px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={chartData}>
-              <PolarGrid gridType="polygon" />
-              <PolarAngleAxis dataKey="metric" tick={{ fontSize: 12 }} />
-              <PolarRadiusAxis
-                angle={90}
-                domain={[0, 100]}
-                tickFormatter={(value) => `${value}%`}
+          <RadarChart data={chartData}>
+            <PolarGrid gridType="polygon" />
+            <PolarAngleAxis dataKey="metric" tick={{ fontSize: 12 }} />
+            <PolarRadiusAxis
+              angle={90}
+              domain={[0, 100]}
+              tickFormatter={(value) => `${value}%`}
+            />
+            {filteredData.map((impl, index) => (
+              <Radar
+                key={impl.implementation}
+                name={impl.implementation}
+                dataKey={impl.implementation}
+                stroke={colors[impl.implementation] || "#8884d8"}
+                fill={colors[impl.implementation] || "#8884d8"}
+                fillOpacity={0.3}
+                strokeWidth={2}
               />
-              {filteredData.map((impl, index) => (
-                <Radar
-                  key={impl.implementation}
-                  name={impl.implementation}
-                  dataKey={impl.implementation}
-                  stroke={colors[impl.implementation] || "#8884d8"}
-                  fill={colors[impl.implementation] || "#8884d8"}
-                  fillOpacity={0.3}
-                  strokeWidth={2}
-                />
-              ))}
-              <Tooltip
-                formatter={(value: any) => `${value}%`}
-                contentStyle={{
-                  backgroundColor: "var(--background)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "8px",
-                }}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
+            ))}
+            <Tooltip
+              formatter={(value: any) => `${value}%`}
+              contentStyle={{
+                backgroundColor: "var(--background)",
+                border: "1px solid var(--border)",
+                borderRadius: "8px",
+              }}
+            />
+          </RadarChart>
         </ChartContainer>
       </CardContent>
     </Card>

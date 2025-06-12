@@ -6,7 +6,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  ResponsiveContainer,
   XAxis,
   YAxis,
 } from "recharts";
@@ -101,48 +100,46 @@ export function PerformanceComparisonChart() {
       </CardHeader>
       <CardContent className="p-6">
         <ChartContainer config={chartConfig} className="h-[350px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={data}
-              margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis
-                dataKey="name"
-                angle={-45}
-                textAnchor="end"
-                height={100}
-                interval={0}
-                tick={{ fontSize: 12 }}
-              />
-              <YAxis
-                tickFormatter={(value) =>
-                  activeMetric === "throughput"
-                    ? `${(value / 1000).toFixed(0)}k`
-                    : value.toString()
-                }
-              />
-              <ChartTooltip
-                wrapperClassName="!bg-white dark:!bg-gray-900"
-                content={
-                  <ChartTooltipContent
-                    className="!bg-white !text-black dark:!bg-gray-900 dark:!text-white"
-                    formatter={(value) => {
-                      if (activeMetric === "avgTime") {
-                        return `${value} μs`;
-                      }
-                      return `${value.toLocaleString()} IDs/sec`;
-                    }}
-                  />
-                }
-              />
-              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={getBarColor(entry.name)} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <BarChart
+            data={data}
+            margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis
+              dataKey="name"
+              angle={-45}
+              textAnchor="end"
+              height={100}
+              interval={0}
+              tick={{ fontSize: 12 }}
+            />
+            <YAxis
+              tickFormatter={(value) =>
+                activeMetric === "throughput"
+                  ? `${(value / 1000).toFixed(0)}k`
+                  : value.toString()
+              }
+            />
+            <ChartTooltip
+              wrapperClassName="!bg-white dark:!bg-gray-900"
+              content={
+                <ChartTooltipContent
+                  className="!bg-white !text-black dark:!bg-gray-900 dark:!text-white"
+                  formatter={(value) => {
+                    if (activeMetric === "avgTime") {
+                      return `${value} μs`;
+                    }
+                    return `${value.toLocaleString()} IDs/sec`;
+                  }}
+                />
+              }
+            />
+            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={getBarColor(entry.name)} />
+              ))}
+            </Bar>
+          </BarChart>
         </ChartContainer>
       </CardContent>
     </Card>
@@ -173,37 +170,35 @@ export function StorageComparisonChart() {
       </CardHeader>
       <CardContent className="p-6">
         <ChartContainer config={chartConfig} className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={storageData}
-              margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis
-                dataKey="name"
-                angle={-45}
-                textAnchor="end"
-                height={100}
-                interval={0}
-                tick={{ fontSize: 12 }}
-              />
-              <YAxis />
-              <ChartTooltip
-                wrapperClassName="!bg-white dark:!bg-gray-900"
-                content={
-                  <ChartTooltipContent
-                    className="!bg-white !text-black dark:!bg-gray-900 dark:!text-white"
-                    formatter={(value) => `${value} bytes`}
-                  />
-                }
-              />
-              <Bar dataKey="storage" radius={[4, 4, 0, 0]}>
-                {storageData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={getBarColor(entry.name)} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <BarChart
+            data={storageData}
+            margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis
+              dataKey="name"
+              angle={-45}
+              textAnchor="end"
+              height={100}
+              interval={0}
+              tick={{ fontSize: 12 }}
+            />
+            <YAxis />
+            <ChartTooltip
+              wrapperClassName="!bg-white dark:!bg-gray-900"
+              content={
+                <ChartTooltipContent
+                  className="!bg-white !text-black dark:!bg-gray-900 dark:!text-white"
+                  formatter={(value) => `${value} bytes`}
+                />
+              }
+            />
+            <Bar dataKey="storage" radius={[4, 4, 0, 0]}>
+              {storageData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={getBarColor(entry.name)} />
+              ))}
+            </Bar>
+          </BarChart>
         </ChartContainer>
       </CardContent>
     </Card>
