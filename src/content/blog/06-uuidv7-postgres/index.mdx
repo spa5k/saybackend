@@ -21,10 +21,14 @@ import { Picture } from "astro:assets";
 import uuidStructure from "./assets/uuid_structure.png";
 import collisionProbability from "./assets/collision_probability.png";
 import bitManipulation from "./assets/bit_manipulation.png";
-import PerformanceBarChart from "@/components/react/charts/PerformanceBarChart.tsx";
-import PerformanceScatterChart from "@/components/react/charts/PerformanceScatterChart.tsx";
-import RadarChart from "@/components/react/charts/RadarChart.tsx";
-import ComparisonChart from "@/components/react/charts/ComparisonChart.tsx";
+import {
+  PerformanceComparisonChart,
+  StorageComparisonChart,
+} from "@components/react/charts/UUIDBenchmarkCharts";
+import {
+  PerformanceStorageScatterChart,
+  MultiMetricRadarChart,
+} from "@components/react/charts/UUIDAdvancedCharts";
 
 ## Introduction
 
@@ -75,6 +79,7 @@ SELECT uuid_extract_timestamp('01976408-e525-78fb-889c-818826fc412f'::uuid);
 ```
 
 **Native Implementation Features:**
+
 - **C-level performance**: Direct PostgreSQL core implementation
 - **12-bit sub-millisecond precision**: Uses rand_a field for timestamp fraction
 - **Monotonicity guarantee**: Ensures ordering within same database session
@@ -83,10 +88,10 @@ SELECT uuid_extract_timestamp('01976408-e525-78fb-889c-818826fc412f'::uuid);
 
 #### PostgreSQL 18 Native Analysis
 
-| Aspect   | Assessment                                                                                                                       |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Aspect   | Assessment                                                                                                                                                                                               |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Pros** | • **Best performance** (C-level implementation)<br/>• **Sub-millisecond precision** with monotonicity<br/>• **Future-proof** with official support<br/>• **Built-in utilities** for timestamp extraction |
-| **Cons** | • **PostgreSQL 18+ only** (late 2025 release)<br/>• Limited customization vs custom functions                                  |
+| **Cons** | • **PostgreSQL 18+ only** (late 2025 release)<br/>• Limited customization vs custom functions                                                                                                            |
 
 ## Custom UUIDv7 Implementations (PostgreSQL < 18)
 
@@ -252,13 +257,13 @@ Based on comprehensive testing with 5,000 iterations per implementation across P
 
 #### Single-threaded Performance (microseconds)
 
-| Implementation           | PostgreSQL 17 | PostgreSQL 18 | Performance vs UUIDv4 |
-| ------------------------ | ------------- | ------------- | --------------------- |
-| **Native uuidv7()**      | N/A           | **58.1 μs**   | **32.7% faster**      |
-| **uuid_generate_v7()**   | 72.3 μs       | 72.3 μs       | 16.2% faster          |
-| **uuidv7_custom()**      | 82.3 μs       | 82.3 μs       | 4.7% faster           |
-| **UUIDv4 (baseline)**    | 86.3 μs       | 86.3 μs       | Baseline              |
-| **uuidv7_sub_ms()**      | 90.6 μs       | 90.6 μs       | 5.0% slower           |
+| Implementation         | PostgreSQL 17 | PostgreSQL 18 | Performance vs UUIDv4 |
+| ---------------------- | ------------- | ------------- | --------------------- |
+| **Native uuidv7()**    | N/A           | **58.1 μs**   | **32.7% faster**      |
+| **uuid_generate_v7()** | 72.3 μs       | 72.3 μs       | 16.2% faster          |
+| **uuidv7_custom()**    | 82.3 μs       | 82.3 μs       | 4.7% faster           |
+| **UUIDv4 (baseline)**  | 86.3 μs       | 86.3 μs       | Baseline              |
+| **uuidv7_sub_ms()**    | 90.6 μs       | 90.6 μs       | 5.0% slower           |
 
 #### Concurrent Throughput (5 workers, UUIDs/second)
 
@@ -272,12 +277,12 @@ Based on comprehensive testing with 5,000 iterations per implementation across P
 
 #### Time Ordering Accuracy
 
-| Implementation         | Ordering Accuracy | Notes                                    |
-| ---------------------- | ----------------- | ---------------------------------------- |
+| Implementation         | Ordering Accuracy | Notes                                      |
+| ---------------------- | ----------------- | ------------------------------------------ |
 | **Native uuidv7()**    | **99.97%**        | **Best** - guaranteed session monotonicity |
-| **uuidv7_sub_ms()**    | 99.9%             | Excellent due to sub-ms precision        |
-| **uuid_generate_v7()** | 99.7%             | Very good for most uses                  |
-| **uuidv7_custom()**    | 99.7%             | Same as PL/pgSQL implementation          |
+| **uuidv7_sub_ms()**    | 99.9%             | Excellent due to sub-ms precision          |
+| **uuid_generate_v7()** | 99.7%             | Very good for most uses                    |
+| **uuidv7_custom()**    | 99.7%             | Same as PL/pgSQL implementation            |
 
 ### Key Findings
 
@@ -288,9 +293,10 @@ Based on comprehensive testing with 5,000 iterations per implementation across P
 5. **Zero collisions detected** in 50,000 UUID generation tests across all implementations
 
 <Callout type="success">
-  **Performance Note:** PostgreSQL 18's native uuidv7() delivers 34,127 UUIDs per second
-  with guaranteed time ordering - making it the optimal choice for new applications.
-  Custom implementations remain excellent for existing PostgreSQL installations.
+  **Performance Note:** PostgreSQL 18's native uuidv7() delivers 34,127 UUIDs
+  per second with guaranteed time ordering - making it the optimal choice for
+  new applications. Custom implementations remain excellent for existing
+  PostgreSQL installations.
 </Callout>
 
 ## Collision Probability Analysis
@@ -430,17 +436,7 @@ To provide complete context, let's examine how our UUIDv7 implementations compar
 
 ### Performance Comparison Charts
 
-<PerformanceBarChart
-  client:load
-  type="performance"
-  title="Single-threaded Performance Comparison (Lower is Better)"
-/>
-
-<PerformanceBarChart
-  client:load
-  type="throughput"
-  title="Concurrent Throughput Comparison (Higher is Better)"
-/>
+<PerformanceComparisonChart client:load />
 
 ### Updated Performance Results (Including UUIDv4)
 
@@ -451,20 +447,20 @@ Our enhanced benchmarks with 5,000 iterations reveal interesting patterns:
 | Rank | Implementation             | Avg Time | Performance vs UUIDv4 |
 | ---- | -------------------------- | -------- | --------------------- |
 | 1    | **Native uuidv7() (PG18)** | 58.1 μs  | **33% faster**        |
-| 2    | **UUIDv4 (Baseline)**     | 86.8 μs  | Baseline              |
+| 2    | **UUIDv4 (Baseline)**      | 86.8 μs  | Baseline              |
 | 3    | **Custom uuidv7() (PG17)** | 87.3 μs  | 0.6% slower           |
-| 4    | **ULID**                  | 124.5 μs | 43% slower            |
-| 5    | **TypeID**                | 198.7 μs | 129% slower           |
+| 4    | **ULID**                   | 124.5 μs | 43% slower            |
+| 5    | **TypeID**                 | 198.7 μs | 129% slower           |
 
 #### Concurrent Throughput Rankings
 
 | Rank | Implementation             | Throughput     | Performance vs UUIDv4 |
 | ---- | -------------------------- | -------------- | --------------------- |
 | 1    | **Native uuidv7() (PG18)** | 34,127 IDs/sec | **17% higher**        |
-| 2    | **Custom uuidv7() (PG17)** | 29,456 IDs/sec | 1% higher            |
-| 3    | **UUIDv4 (Baseline)**     | 29,238 IDs/sec | Baseline              |
-| 4    | **ULID**                  | 24,832 IDs/sec | 15% lower             |
-| 5    | **TypeID**                | 18,943 IDs/sec | 35% lower             |
+| 2    | **Custom uuidv7() (PG17)** | 29,456 IDs/sec | 1% higher             |
+| 3    | **UUIDv4 (Baseline)**      | 29,238 IDs/sec | Baseline              |
+| 4    | **ULID**                   | 24,832 IDs/sec | 15% lower             |
+| 5    | **TypeID**                 | 18,943 IDs/sec | 35% lower             |
 
 ### Key Insights from Enhanced Analysis
 
@@ -476,14 +472,10 @@ Our enhanced benchmarks with 5,000 iterations reveal interesting patterns:
 
 ### Multi-dimensional Performance Analysis
 
-<PerformanceScatterChart
-  client:load
-  title="Performance vs Storage Trade-off Analysis"
-/>
+<PerformanceStorageScatterChart client:load />
 
-<RadarChart
+<MultiMetricRadarChart
   client:load
-  title="Multi-metric Comparison (Normalized Scores)"
   selectedImplementations={["UUIDv4", "Native uuidv7()", "ULID", "TypeID"]}
 />
 
@@ -635,11 +627,7 @@ Based on comprehensive benchmarking with 5,000 iterations per test:
 
 ### Storage Efficiency Analysis
 
-<PerformanceBarChart
-  client:load
-  type="storage"
-  title="Storage Requirements Comparison (Text Representation)"
-/>
+<StorageComparisonChart client:load />
 
 ### Single-threaded Performance Summary
 

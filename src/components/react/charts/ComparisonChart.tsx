@@ -7,8 +7,8 @@ import {
   Title,
   Tooltip,
 } from "chart.js";
-import { Bar } from "solid-chartjs";
-import { createSignal, onMount } from "solid-js";
+import { useEffect, useState } from "react";
+import { Bar } from "react-chartjs-2";
 
 Chart.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -71,10 +71,10 @@ interface Props {
 }
 
 export default function ComparisonChart(props: Props) {
-  const [chartData, setChartData] = createSignal({});
+  const [chartData, setChartData] = useState({});
   const data = props.data || defaultData;
 
-  onMount(() => {
+  useEffect(() => {
     const labels = data.map((d) => d.implementation.replace(" ", "\n"));
 
     if (props.type === "side-by-side") {
@@ -123,7 +123,7 @@ export default function ComparisonChart(props: Props) {
         ],
       });
     }
-  });
+  }, [data, props.type]);
 
   const options = {
     responsive: true,
@@ -190,8 +190,8 @@ export default function ComparisonChart(props: Props) {
   };
 
   return (
-    <div class="mb-6 h-80 w-full">
-      <Bar data={chartData()} options={options} />
+    <div className="mb-6 h-80 w-full">
+      <Bar data={chartData} options={options} />
     </div>
   );
 }
