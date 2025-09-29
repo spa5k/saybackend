@@ -25,3 +25,4 @@ pnpm-debug.log*
 .vercel
 .aider*
 .specstory/
+uuidv7-postgres-benchmark

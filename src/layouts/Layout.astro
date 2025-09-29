@@ -4,7 +4,6 @@ import Head from "@components/Head.astro";
 import Header from "@components/Header.astro";
 import PageFind from "@components/PageFind.astro";
 import { SITE } from "@consts";
-import SpeedInsights from "@vercel/speed-insights/astro";
 
 type Props = {
   title: string;
@@ -23,7 +22,6 @@ const { title, description, image } = Astro.props;
       description={description}
       image={image}
     />
-    <SpeedInsights />
     <style is:global>
       /* Add styles for modal handling */
       html.modal-open {
