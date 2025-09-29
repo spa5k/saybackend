@@ -24,7 +24,9 @@
   var Xe;
   function ie(n, e) {
     return (
-      Xe || (Xe = document.createElement("a")), (Xe.href = e), n === Xe.href
+      Xe || (Xe = document.createElement("a")),
+      (Xe.href = e),
+      n === Xe.href
     );
   }
   function cn(n) {
@@ -38,15 +40,15 @@
           : global,
     de = class {
       constructor(e) {
-        (this.options = e),
-          (this._listeners = "WeakMap" in _n ? new WeakMap() : void 0);
+        ((this.options = e),
+          (this._listeners = "WeakMap" in _n ? new WeakMap() : void 0));
       }
       observe(e, t) {
         return (
           this._listeners.set(e, t),
           this._getObserver().observe(e, this.options),
           () => {
-            this._listeners.delete(e), this._observer.unobserve(e);
+            (this._listeners.delete(e), this._observer.unobserve(e));
           }
         );
       }
@@ -57,10 +59,10 @@
           : (this._observer = new ResizeObserver((t) => {
               var s;
               for (let l of t)
-                de.entries.set(l.target, l),
+                (de.entries.set(l.target, l),
                   (s = this._listeners.get(l.target)) === null ||
                     s === void 0 ||
-                    s(l);
+                    s(l));
             }));
       }
     };
@@ -100,7 +102,7 @@
     return w("");
   }
   function J(n, e, t, s) {
-    return n.addEventListener(e, t, s), () => n.removeEventListener(e, t, s);
+    return (n.addEventListener(e, t, s), () => n.removeEventListener(e, t, s));
   }
   function E(n, e, t) {
     t == null
@@ -111,7 +113,7 @@
     return Array.from(n.childNodes);
   }
   function N(n, e) {
-    (e = "" + e), n.data !== e && (n.data = e);
+    ((e = "" + e), n.data !== e && (n.data = e));
   }
   function ft(n, e) {
     n.value = e ?? "";
@@ -121,33 +123,33 @@
   }
   var $e = class {
     constructor(e = !1) {
-      (this.is_svg = !1), (this.is_svg = e), (this.e = this.n = null);
+      ((this.is_svg = !1), (this.is_svg = e), (this.e = this.n = null));
     }
     c(e) {
       this.h(e);
     }
     m(e, t, s = null) {
-      this.e ||
+      (this.e ||
         (this.is_svg
           ? (this.e = Ts(t.nodeName))
           : (this.e = C(t.nodeType === 11 ? "TEMPLATE" : t.nodeName)),
         (this.t = t.tagName !== "TEMPLATE" ? t : t.content),
         this.c(e)),
-        this.i(s);
+        this.i(s));
     }
     h(e) {
-      (this.e.innerHTML = e),
+      ((this.e.innerHTML = e),
         (this.n = Array.from(
           this.e.nodeName === "TEMPLATE"
             ? this.e.content.childNodes
             : this.e.childNodes,
-        ));
+        )));
     }
     i(e) {
       for (let t = 0; t < this.n.length; t += 1) y(this.t, this.n[t], e);
     }
     p(e) {
-      this.d(), this.h(e), this.i(this.a);
+      (this.d(), this.h(e), this.i(this.a));
     }
     d() {
       this.n.forEach(k);
@@ -192,7 +194,7 @@
       try {
         for (; ne < se.length; ) {
           let e = se[ne];
-          ne++, fe(e), Ss(e.$$);
+          (ne++, fe(e), Ss(e.$$));
         }
       } catch (e) {
         throw ((se.length = 0), (ne = 0), e);
@@ -205,23 +207,23 @@
       le.length = 0;
     } while (se.length);
     for (; ot.length; ) ot.pop()();
-    (ut = !1), at.clear(), fe(n);
+    ((ut = !1), at.clear(), fe(n));
   }
   function Ss(n) {
     if (n.fragment !== null) {
-      n.update(), G(n.before_update);
+      (n.update(), G(n.before_update));
       let e = n.dirty;
-      (n.dirty = [-1]),
+      ((n.dirty = [-1]),
         n.fragment && n.fragment.p(n.ctx, e),
-        n.after_update.forEach(ct);
+        n.after_update.forEach(ct));
     }
   }
   function Ms(n) {
     let e = [],
       t = [];
-    le.forEach((s) => (n.indexOf(s) === -1 ? e.push(s) : t.push(s))),
+    (le.forEach((s) => (n.indexOf(s) === -1 ? e.push(s) : t.push(s))),
       t.forEach((s) => s()),
-      (le = e);
+      (le = e));
   }
   var Qe = new Set(),
     ee;
@@ -229,7 +231,7 @@
     ee = { r: 0, c: [], p: ee };
   }
   function oe() {
-    ee.r || G(ee.c), (ee = ee.p);
+    (ee.r || G(ee.c), (ee = ee.p));
   }
   function D(n, e) {
     n && n.i && (Qe.delete(n), n.i(e));
@@ -237,11 +239,11 @@
   function P(n, e, t, s) {
     if (n && n.o) {
       if (Qe.has(n)) return;
-      Qe.add(n),
+      (Qe.add(n),
         ee.c.push(() => {
-          Qe.delete(n), s && (t && n.d(1), s());
+          (Qe.delete(n), s && (t && n.d(1), s()));
         }),
-        n.o(e);
+        n.o(e));
     } else s && s();
   }
   function pn(n, e) {
@@ -263,14 +265,14 @@
       let v = m(l, r, _),
         F = t(v),
         O = i.get(F);
-      O ? s && M.push(() => O.p(v, e)) : ((O = h(F, v)), O.c()),
+      (O ? s && M.push(() => O.p(v, e)) : ((O = h(F, v)), O.c()),
         T.set(F, (f[_] = O)),
-        F in u && R.set(F, Math.abs(_ - u[F]));
+        F in u && R.set(F, Math.abs(_ - u[F])));
     }
     let U = new Set(),
       X = new Set();
     function W(v) {
-      D(v, 1), v.m(a, c), i.set(v.key, v), (c = v.first), d--;
+      (D(v, 1), v.m(a, c), i.set(v.key, v), (c = v.first), d--);
     }
     for (; p && d; ) {
       let v = f[d - 1],
@@ -294,7 +296,7 @@
       T.has(v.key) || o(v, i);
     }
     for (; d; ) W(f[d - 1]);
-    return G(M), f;
+    return (G(M), f);
   }
   var As = [
       "allowfullscreen",
@@ -333,14 +335,14 @@
   }
   function me(n, e, t, s) {
     let { fragment: l, after_update: r } = n.$$;
-    l && l.m(e, t),
+    (l && l.m(e, t),
       s ||
         ct(() => {
           let i = n.$$.on_mount.map(_t).filter(xe);
-          n.$$.on_destroy ? n.$$.on_destroy.push(...i) : G(i),
-            (n.$$.on_mount = []);
+          (n.$$.on_destroy ? n.$$.on_destroy.push(...i) : G(i),
+            (n.$$.on_mount = []));
         }),
-      r.forEach(ct);
+      r.forEach(ct));
   }
   function ue(n, e) {
     let t = n.$$;
@@ -352,8 +354,8 @@
       (t.ctx = []));
   }
   function vs(n, e) {
-    n.$$.dirty[0] === -1 && (se.push(n), ys(), n.$$.dirty.fill(0)),
-      (n.$$.dirty[(e / 31) | 0] |= 1 << e % 31);
+    (n.$$.dirty[0] === -1 && (se.push(n), ys(), n.$$.dirty.fill(0)),
+      (n.$$.dirty[(e / 31) | 0] |= 1 << e % 31));
   }
   function Y(n, e, t, s, l, r, i, a = [-1]) {
     let o = he;
@@ -399,12 +401,12 @@
       if (e.hydrate) {
         Rs();
         let m = Cs(e.target);
-        h.fragment && h.fragment.l(m), m.forEach(k);
+        (h.fragment && h.fragment.l(m), m.forEach(k));
       } else h.fragment && h.fragment.c();
-      e.intro && D(n.$$.fragment),
+      (e.intro && D(n.$$.fragment),
         me(n, e.target, e.anchor, e.customElement),
         bs(),
-        mn();
+        mn());
     }
     fe(o);
   }
@@ -412,7 +414,7 @@
   typeof HTMLElement == "function" &&
     (ws = class extends HTMLElement {
       constructor() {
-        super(), this.attachShadow({ mode: "open" });
+        (super(), this.attachShadow({ mode: "open" }));
       }
       connectedCallback() {
         let { on_mount: n } = this.$$;
@@ -426,7 +428,7 @@
         G(this.$$.on_disconnect);
       }
       $destroy() {
-        ue(this, 1), (this.$destroy = j);
+        (ue(this, 1), (this.$destroy = j));
       }
       $on(n, e) {
         if (!xe(e)) return j;
@@ -447,7 +449,7 @@
     });
   var q = class {
     $destroy() {
-      ue(this, 1), (this.$destroy = j);
+      (ue(this, 1), (this.$destroy = j));
     }
     $on(e, t) {
       if (!xe(t)) return j;
@@ -549,7 +551,9 @@
               3,
               "Too many extended language subtags, expected at most 3 subtags",
             );
-          t.extendedLanguageSubtags.push(s.slice(r + 1, r + 4)), (r += 4), a++;
+          (t.extendedLanguageSubtags.push(s.slice(r + 1, r + 4)),
+            (r += 4),
+            a++);
         }
       }
       for (
@@ -581,7 +585,7 @@
           o++;
         }
         if (o - a > 4 || (o - a > 3 && $(l.charCodeAt(a))))
-          t.variants.push(s.slice(a, o)), (r = o);
+          (t.variants.push(s.slice(a, o)), (r = o));
         else break;
       }
       for (
@@ -621,11 +625,11 @@
             4,
             "Empty extension, extensions must have at least 2 characters of content",
           );
-        t.extensions.push({
+        (t.extensions.push({
           singleton: s.charAt(r + 1),
           extensions: s.slice(r + 3, a).split("-"),
         }),
-          (r = a);
+          (r = a));
       }
     } else r = 0;
     if (
@@ -645,13 +649,13 @@
             );
           a++;
         }
-        t.privateuse.push(s.slice(r + 1, a)), (r = a);
+        (t.privateuse.push(s.slice(r + 1, a)), (r = a));
       }
     }
     if (r !== s.length) return i(r, 6, "Found superfluous content after tag");
     return t;
     function i(a, o, h) {
-      return e.warning && e.warning(h, o, a), e.forgiving ? t : bn();
+      return (e.warning && e.warning(h, o, a), e.forgiving ? t : bn());
     }
   }
   function bn() {
@@ -669,7 +673,7 @@
   }
   function Tn(n, e, t) {
     let s = n.slice();
-    return (s[8] = e[t][0]), (s[9] = e[t][1]), s;
+    return ((s[8] = e[t][0]), (s[9] = e[t][1]), s);
   }
   function Hs(n) {
     let e,
@@ -680,7 +684,7 @@
       i = n[0] && Cn(n);
     return {
       c() {
-        i && i.c(),
+        (i && i.c(),
           (e = A()),
           (t = C("div")),
           (s = C("p")),
@@ -698,10 +702,10 @@
             "class",
             "pagefind-ui__result-excerpt pagefind-ui__loading svelte-j9e30",
           ),
-          E(t, "class", "pagefind-ui__result-inner svelte-j9e30");
+          E(t, "class", "pagefind-ui__result-inner svelte-j9e30"));
       },
       m(a, o) {
-        i && i.m(a, o), y(a, e, o), y(a, t, o), b(t, s), b(t, l), b(t, r);
+        (i && i.m(a, o), y(a, e, o), y(a, t, o), b(t, s), b(t, l), b(t, r));
       },
       p(a, o) {
         a[0]
@@ -709,7 +713,7 @@
           : i && (i.d(1), (i = null));
       },
       d(a) {
-        i && i.d(a), a && k(e), a && k(t);
+        (i && i.d(a), a && k(e), a && k(t));
       },
     };
   }
@@ -729,7 +733,7 @@
       d = n[2].length && Sn(n);
     return {
       c() {
-        p && p.c(),
+        (p && p.c(),
           (e = A()),
           (t = C("div")),
           (s = C("p")),
@@ -743,10 +747,10 @@
           E(l, "href", (a = n[1].meta?.url || n[1].url)),
           E(s, "class", "pagefind-ui__result-title svelte-j9e30"),
           E(h, "class", "pagefind-ui__result-excerpt svelte-j9e30"),
-          E(t, "class", "pagefind-ui__result-inner svelte-j9e30");
+          E(t, "class", "pagefind-ui__result-inner svelte-j9e30"));
       },
       m(_, u) {
-        p && p.m(_, u),
+        (p && p.m(_, u),
           y(_, e, u),
           y(_, t, u),
           b(t, s),
@@ -756,10 +760,10 @@
           b(t, h),
           (h.innerHTML = c),
           b(t, m),
-          d && d.m(t, null);
+          d && d.m(t, null));
       },
       p(_, u) {
-        _[0]
+        (_[0]
           ? p
             ? p.p(_, u)
             : ((p = kn(_)), p.c(), p.m(e.parentNode, e))
@@ -771,10 +775,10 @@
             ? d
               ? d.p(_, u)
               : ((d = Sn(_)), d.c(), d.m(t, null))
-            : d && (d.d(1), (d = null));
+            : d && (d.d(1), (d = null)));
       },
       d(_) {
-        p && p.d(_), _ && k(e), _ && k(t), d && d.d();
+        (p && p.d(_), _ && k(e), _ && k(t), d && d.d());
       },
     };
   }
@@ -782,12 +786,12 @@
     let e;
     return {
       c() {
-        (e = C("div")),
+        ((e = C("div")),
           E(
             e,
             "class",
             "pagefind-ui__result-thumb pagefind-ui__loading svelte-j9e30",
-          );
+          ));
       },
       m(t, s) {
         y(t, e, s);
@@ -802,12 +806,12 @@
       t = n[1].meta.image && yn(n);
     return {
       c() {
-        (e = C("div")),
+        ((e = C("div")),
           t && t.c(),
-          E(e, "class", "pagefind-ui__result-thumb svelte-j9e30");
+          E(e, "class", "pagefind-ui__result-thumb svelte-j9e30"));
       },
       m(s, l) {
-        y(s, e, l), t && t.m(e, null);
+        (y(s, e, l), t && t.m(e, null));
       },
       p(s, l) {
         s[1].meta.image
@@ -817,7 +821,7 @@
           : t && (t.d(1), (t = null));
       },
       d(s) {
-        s && k(e), t && t.d();
+        (s && k(e), t && t.d());
       },
     };
   }
@@ -825,19 +829,19 @@
     let e, t, s;
     return {
       c() {
-        (e = C("img")),
+        ((e = C("img")),
           E(e, "class", "pagefind-ui__result-image svelte-j9e30"),
           ie(e.src, (t = n[1].meta?.image)) || E(e, "src", t),
-          E(e, "alt", (s = n[1].meta?.image_alt || n[1].meta?.title));
+          E(e, "alt", (s = n[1].meta?.image_alt || n[1].meta?.title)));
       },
       m(l, r) {
         y(l, e, r);
       },
       p(l, r) {
-        r & 2 && !ie(e.src, (t = l[1].meta?.image)) && E(e, "src", t),
+        (r & 2 && !ie(e.src, (t = l[1].meta?.image)) && E(e, "src", t),
           r & 2 &&
             s !== (s = l[1].meta?.image_alt || l[1].meta?.title) &&
-            E(e, "alt", s);
+            E(e, "alt", s));
       },
       d(l) {
         l && k(e);
@@ -872,7 +876,7 @@
         }
       },
       d(l) {
-        l && k(e), Q(s, l);
+        (l && k(e), Q(s, l));
       },
     };
   }
@@ -886,19 +890,19 @@
       a;
     return {
       c() {
-        (e = C("li")),
+        ((e = C("li")),
           (s = w(t)),
           (l = w(": ")),
           (i = w(r)),
           (a = A()),
-          E(e, "class", "pagefind-ui__result-tag svelte-j9e30");
+          E(e, "class", "pagefind-ui__result-tag svelte-j9e30"));
       },
       m(o, h) {
-        y(o, e, h), b(e, s), b(e, l), b(e, i), b(e, a);
+        (y(o, e, h), b(e, s), b(e, l), b(e, i), b(e, a));
       },
       p(o, h) {
-        h & 4 && t !== (t = o[8].replace(/^(\w)/, An) + "") && N(s, t),
-          h & 4 && r !== (r = o[9] + "") && N(i, r);
+        (h & 4 && t !== (t = o[8].replace(/^(\w)/, An) + "") && N(s, t),
+          h & 4 && r !== (r = o[9] + "") && N(i, r));
       },
       d(o) {
         o && k(e);
@@ -914,10 +918,12 @@
       l = s(n);
     return {
       c() {
-        (e = C("li")), l.c(), E(e, "class", "pagefind-ui__result svelte-j9e30");
+        ((e = C("li")),
+          l.c(),
+          E(e, "class", "pagefind-ui__result svelte-j9e30"));
       },
       m(r, i) {
-        y(r, e, i), l.m(e, null);
+        (y(r, e, i), l.m(e, null));
       },
       p(r, [i]) {
         s === (s = t(r, i)) && l
@@ -927,7 +933,7 @@
       i: j,
       o: j,
       d(r) {
-        r && k(e), l.d();
+        (r && k(e), l.d());
       },
     };
   }
@@ -940,16 +946,16 @@
       a,
       o = [],
       h = async (m) => {
-        t(1, (a = await m.data())),
+        (t(1, (a = await m.data())),
           t(1, (a = l?.(a) ?? a)),
-          t(2, (o = Object.entries(a.meta).filter(([p]) => !i.includes(p))));
+          t(2, (o = Object.entries(a.meta).filter(([p]) => !i.includes(p)))));
       },
       c = (m = 30) => ". ".repeat(Math.floor(10 + Math.random() * m));
     return (
       (n.$$set = (m) => {
-        "show_images" in m && t(0, (s = m.show_images)),
+        ("show_images" in m && t(0, (s = m.show_images)),
           "process_result" in m && t(4, (l = m.process_result)),
-          "result" in m && t(5, (r = m.result));
+          "result" in m && t(5, (r = m.result)));
       }),
       (n.$$.update = () => {
         if (n.$$.dirty & 32) e: h(r);
@@ -959,22 +965,22 @@
   }
   var pt = class extends q {
       constructor(e) {
-        super(),
+        (super(),
           Y(this, e, zs, Os, K, {
             show_images: 0,
             process_result: 4,
             result: 5,
-          });
+          }));
       }
     },
     vn = pt;
   function wn(n, e, t) {
     let s = n.slice();
-    return (s[11] = e[t][0]), (s[12] = e[t][1]), s;
+    return ((s[11] = e[t][0]), (s[12] = e[t][1]), s);
   }
   function Fn(n, e, t) {
     let s = n.slice();
-    return (s[15] = e[t]), s;
+    return ((s[15] = e[t]), s);
   }
   function js(n) {
     let e,
@@ -985,7 +991,7 @@
       i = n[0] && Hn(n);
     return {
       c() {
-        i && i.c(),
+        (i && i.c(),
           (e = A()),
           (t = C("div")),
           (s = C("p")),
@@ -1003,10 +1009,10 @@
             "class",
             "pagefind-ui__result-excerpt pagefind-ui__loading svelte-4xnkmf",
           ),
-          E(t, "class", "pagefind-ui__result-inner svelte-4xnkmf");
+          E(t, "class", "pagefind-ui__result-inner svelte-4xnkmf"));
       },
       m(a, o) {
-        i && i.m(a, o), y(a, e, o), y(a, t, o), b(t, s), b(t, l), b(t, r);
+        (i && i.m(a, o), y(a, e, o), y(a, t, o), b(t, s), b(t, l), b(t, r));
       },
       p(a, o) {
         a[0]
@@ -1014,7 +1020,7 @@
           : i && (i.d(1), (i = null));
       },
       d(a) {
-        i && i.d(a), a && k(e), a && k(t);
+        (i && i.d(a), a && k(e), a && k(t));
       },
     };
   }
@@ -1037,7 +1043,7 @@
     let u = n[2].length && Dn(n);
     return {
       c() {
-        m && m.c(),
+        (m && m.c(),
           (e = A()),
           (t = C("div")),
           (s = C("p")),
@@ -1045,17 +1051,17 @@
           (i = w(r)),
           (o = A()),
           p && p.c(),
-          (h = A());
+          (h = A()));
         for (let f = 0; f < _.length; f += 1) _[f].c();
-        (c = A()),
+        ((c = A()),
           u && u.c(),
           E(l, "class", "pagefind-ui__result-link svelte-4xnkmf"),
           E(l, "href", (a = n[1].meta?.url || n[1].url)),
           E(s, "class", "pagefind-ui__result-title svelte-4xnkmf"),
-          E(t, "class", "pagefind-ui__result-inner svelte-4xnkmf");
+          E(t, "class", "pagefind-ui__result-inner svelte-4xnkmf"));
       },
       m(f, T) {
-        m && m.m(f, T),
+        (m && m.m(f, T),
           y(f, e, T),
           y(f, t, T),
           b(t, s),
@@ -1063,9 +1069,9 @@
           b(l, i),
           b(t, o),
           p && p.m(t, null),
-          b(t, h);
+          b(t, h));
         for (let R = 0; R < _.length; R += 1) _[R] && _[R].m(t, null);
-        b(t, c), u && u.m(t, null);
+        (b(t, c), u && u.m(t, null));
       },
       p(f, T) {
         if (
@@ -1099,7 +1105,7 @@
           : u && (u.d(1), (u = null));
       },
       d(f) {
-        m && m.d(f), f && k(e), f && k(t), p && p.d(), Q(_, f), u && u.d();
+        (m && m.d(f), f && k(e), f && k(t), p && p.d(), Q(_, f), u && u.d());
       },
     };
   }
@@ -1107,12 +1113,12 @@
     let e;
     return {
       c() {
-        (e = C("div")),
+        ((e = C("div")),
           E(
             e,
             "class",
             "pagefind-ui__result-thumb pagefind-ui__loading svelte-4xnkmf",
-          );
+          ));
       },
       m(t, s) {
         y(t, e, s);
@@ -1127,12 +1133,12 @@
       t = n[1].meta.image && On(n);
     return {
       c() {
-        (e = C("div")),
+        ((e = C("div")),
           t && t.c(),
-          E(e, "class", "pagefind-ui__result-thumb svelte-4xnkmf");
+          E(e, "class", "pagefind-ui__result-thumb svelte-4xnkmf"));
       },
       m(s, l) {
-        y(s, e, l), t && t.m(e, null);
+        (y(s, e, l), t && t.m(e, null));
       },
       p(s, l) {
         s[1].meta.image
@@ -1142,7 +1148,7 @@
           : t && (t.d(1), (t = null));
       },
       d(s) {
-        s && k(e), t && t.d();
+        (s && k(e), t && t.d());
       },
     };
   }
@@ -1150,19 +1156,19 @@
     let e, t, s;
     return {
       c() {
-        (e = C("img")),
+        ((e = C("img")),
           E(e, "class", "pagefind-ui__result-image svelte-4xnkmf"),
           ie(e.src, (t = n[1].meta?.image)) || E(e, "src", t),
-          E(e, "alt", (s = n[1].meta?.image_alt || n[1].meta?.title));
+          E(e, "alt", (s = n[1].meta?.image_alt || n[1].meta?.title)));
       },
       m(l, r) {
         y(l, e, r);
       },
       p(l, r) {
-        r & 2 && !ie(e.src, (t = l[1].meta?.image)) && E(e, "src", t),
+        (r & 2 && !ie(e.src, (t = l[1].meta?.image)) && E(e, "src", t),
           r & 2 &&
             s !== (s = l[1].meta?.image_alt || l[1].meta?.title) &&
-            E(e, "alt", s);
+            E(e, "alt", s));
       },
       d(l) {
         l && k(e);
@@ -1174,11 +1180,11 @@
       t = n[1].excerpt + "";
     return {
       c() {
-        (e = C("p")),
-          E(e, "class", "pagefind-ui__result-excerpt svelte-4xnkmf");
+        ((e = C("p")),
+          E(e, "class", "pagefind-ui__result-excerpt svelte-4xnkmf"));
       },
       m(s, l) {
-        y(s, e, l), (e.innerHTML = t);
+        (y(s, e, l), (e.innerHTML = t));
       },
       p(s, l) {
         l & 2 && t !== (t = s[1].excerpt + "") && (e.innerHTML = t);
@@ -1200,7 +1206,7 @@
       h = n[15].excerpt + "";
     return {
       c() {
-        (e = C("div")),
+        ((e = C("div")),
           (t = C("p")),
           (s = C("a")),
           (r = w(l)),
@@ -1210,21 +1216,21 @@
           E(s, "href", (i = n[15].url)),
           E(t, "class", "pagefind-ui__result-title svelte-4xnkmf"),
           E(o, "class", "pagefind-ui__result-excerpt svelte-4xnkmf"),
-          E(e, "class", "pagefind-ui__result-nested svelte-4xnkmf");
+          E(e, "class", "pagefind-ui__result-nested svelte-4xnkmf"));
       },
       m(c, m) {
-        y(c, e, m),
+        (y(c, e, m),
           b(e, t),
           b(t, s),
           b(s, r),
           b(e, a),
           b(e, o),
-          (o.innerHTML = h);
+          (o.innerHTML = h));
       },
       p(c, m) {
-        m & 8 && l !== (l = c[15].title + "") && N(r, l),
+        (m & 8 && l !== (l = c[15].title + "") && N(r, l),
           m & 8 && i !== (i = c[15].url) && E(s, "href", i),
-          m & 8 && h !== (h = c[15].excerpt + "") && (o.innerHTML = h);
+          m & 8 && h !== (h = c[15].excerpt + "") && (o.innerHTML = h));
       },
       d(c) {
         c && k(e);
@@ -1259,7 +1265,7 @@
         }
       },
       d(l) {
-        l && k(e), Q(s, l);
+        (l && k(e), Q(s, l));
       },
     };
   }
@@ -1273,19 +1279,19 @@
       a;
     return {
       c() {
-        (e = C("li")),
+        ((e = C("li")),
           (s = w(t)),
           (l = w(": ")),
           (i = w(r)),
           (a = A()),
-          E(e, "class", "pagefind-ui__result-tag svelte-4xnkmf");
+          E(e, "class", "pagefind-ui__result-tag svelte-4xnkmf"));
       },
       m(o, h) {
-        y(o, e, h), b(e, s), b(e, l), b(e, i), b(e, a);
+        (y(o, e, h), b(e, s), b(e, l), b(e, i), b(e, a));
       },
       p(o, h) {
-        h & 4 && t !== (t = o[11].replace(/^(\w)/, In) + "") && N(s, t),
-          h & 4 && r !== (r = o[12] + "") && N(i, r);
+        (h & 4 && t !== (t = o[11].replace(/^(\w)/, In) + "") && N(s, t),
+          h & 4 && r !== (r = o[12] + "") && N(i, r));
       },
       d(o) {
         o && k(e);
@@ -1301,12 +1307,12 @@
       l = s(n);
     return {
       c() {
-        (e = C("li")),
+        ((e = C("li")),
           l.c(),
-          E(e, "class", "pagefind-ui__result svelte-4xnkmf");
+          E(e, "class", "pagefind-ui__result svelte-4xnkmf"));
       },
       m(r, i) {
-        y(r, e, i), l.m(e, null);
+        (y(r, e, i), l.m(e, null));
       },
       p(r, [i]) {
         s === (s = t(r, i)) && l
@@ -1316,7 +1322,7 @@
       i: j,
       o: j,
       d(r) {
-        r && k(e), l.d();
+        (r && k(e), l.d());
       },
     };
   }
@@ -1339,21 +1345,21 @@
         return _.filter((T) => f.includes(T.url));
       },
       p = async (_) => {
-        t(1, (a = await _.data())),
+        (t(1, (a = await _.data())),
           t(1, (a = l?.(a) ?? a)),
           t(2, (o = Object.entries(a.meta).filter(([u]) => !i.includes(u)))),
           Array.isArray(a.sub_results) &&
             (t(4, (c = a.sub_results?.[0]?.url === (a.meta?.url || a.url))),
             c
               ? t(3, (h = m(a.sub_results.slice(1), 3)))
-              : t(3, (h = m([...a.sub_results], 3))));
+              : t(3, (h = m([...a.sub_results], 3)))));
       },
       d = (_ = 30) => ". ".repeat(Math.floor(10 + Math.random() * _));
     return (
       (n.$$set = (_) => {
-        "show_images" in _ && t(0, (s = _.show_images)),
+        ("show_images" in _ && t(0, (s = _.show_images)),
           "process_result" in _ && t(6, (l = _.process_result)),
-          "result" in _ && t(7, (r = _.result));
+          "result" in _ && t(7, (r = _.result)));
       }),
       (n.$$.update = () => {
         if (n.$$.dirty & 128) e: p(r);
@@ -1363,22 +1369,22 @@
   }
   var gt = class extends q {
       constructor(e) {
-        super(),
+        (super(),
           Y(this, e, Is, Us, K, {
             show_images: 0,
             process_result: 6,
             result: 7,
-          });
+          }));
       }
     },
     Pn = gt;
   function Ln(n, e, t) {
     let s = n.slice();
-    return (s[10] = e[t][0]), (s[11] = e[t][1]), (s[12] = e), (s[13] = t), s;
+    return ((s[10] = e[t][0]), (s[11] = e[t][1]), (s[12] = e), (s[13] = t), s);
   }
   function qn(n, e, t) {
     let s = n.slice();
-    return (s[14] = e[t][0]), (s[15] = e[t][1]), (s[16] = e), (s[17] = t), s;
+    return ((s[14] = e[t][0]), (s[15] = e[t][1]), (s[16] = e), (s[17] = t), s);
   }
   function Bn(n) {
     let e,
@@ -1391,13 +1397,13 @@
     for (let o = 0; o < i.length; o += 1) a[o] = Gn(Ln(n, i, o));
     return {
       c() {
-        (e = C("fieldset")), (t = C("legend")), (l = w(s)), (r = A());
+        ((e = C("fieldset")), (t = C("legend")), (l = w(s)), (r = A()));
         for (let o = 0; o < a.length; o += 1) a[o].c();
-        E(t, "class", "pagefind-ui__filter-panel-label svelte-1v2r7ls"),
-          E(e, "class", "pagefind-ui__filter-panel svelte-1v2r7ls");
+        (E(t, "class", "pagefind-ui__filter-panel-label svelte-1v2r7ls"),
+          E(e, "class", "pagefind-ui__filter-panel svelte-1v2r7ls"));
       },
       m(o, h) {
-        y(o, e, h), b(e, t), b(t, l), b(e, r);
+        (y(o, e, h), b(e, t), b(t, l), b(e, r));
         for (let c = 0; c < a.length; c += 1) a[c] && a[c].m(e, null);
       },
       p(o, h) {
@@ -1418,7 +1424,7 @@
         }
       },
       d(o) {
-        o && k(e), Q(a, o);
+        (o && k(e), Q(a, o));
       },
     };
   }
@@ -1445,7 +1451,7 @@
     }
     return {
       c() {
-        (e = C("div")),
+        ((e = C("div")),
           (t = C("input")),
           (i = A()),
           (a = C("label")),
@@ -1464,10 +1470,14 @@
           E(a, "class", "pagefind-ui__filter-label svelte-1v2r7ls"),
           E(a, "for", (_ = n[10] + "-" + n[14])),
           E(e, "class", "pagefind-ui__filter-value svelte-1v2r7ls"),
-          B(e, "pagefind-ui__filter-value--checked", n[0][`${n[10]}:${n[14]}`]);
+          B(
+            e,
+            "pagefind-ui__filter-value--checked",
+            n[0][`${n[10]}:${n[14]}`],
+          ));
       },
       m(M, U) {
-        y(M, e, U),
+        (y(M, e, U),
           b(e, t),
           (t.checked = n[0][`${n[10]}:${n[14]}`]),
           b(e, i),
@@ -1477,10 +1487,10 @@
           b(a, p),
           b(a, d),
           b(e, u),
-          f || ((T = J(t, "change", R)), (f = !0));
+          f || ((T = J(t, "change", R)), (f = !0)));
       },
       p(M, U) {
-        (n = M),
+        ((n = M),
           U & 2 && s !== (s = n[10] + "-" + n[14]) && E(t, "id", s),
           U & 2 && l !== (l = n[10]) && E(t, "name", l),
           U & 2 &&
@@ -1495,10 +1505,10 @@
               e,
               "pagefind-ui__filter-value--checked",
               n[0][`${n[10]}:${n[14]}`],
-            );
+            ));
       },
       d(M) {
-        M && k(e), (f = !1), T();
+        (M && k(e), (f = !1), T());
       },
     };
   }
@@ -1507,10 +1517,10 @@
       t = (n[2] || n[15] || n[0][`${n[10]}:${n[14]}`]) && Wn(n);
     return {
       c() {
-        t && t.c(), (e = x());
+        (t && t.c(), (e = x()));
       },
       m(s, l) {
-        t && t.m(s, l), y(s, e, l);
+        (t && t.m(s, l), y(s, e, l));
       },
       p(s, l) {
         s[2] || s[15] || s[0][`${s[10]}:${s[14]}`]
@@ -1520,7 +1530,7 @@
           : t && (t.d(1), (t = null));
       },
       d(s) {
-        t && t.d(s), s && k(e);
+        (t && t.d(s), s && k(e));
       },
     };
   }
@@ -1540,29 +1550,29 @@
     for (let d = 0; d < m.length; d += 1) p[d] = Vn(qn(n, m, d));
     return {
       c() {
-        (e = C("details")),
+        ((e = C("details")),
           (t = C("summary")),
           (l = A()),
           (r = C("fieldset")),
           (i = C("legend")),
-          (o = A());
+          (o = A()));
         for (let d = 0; d < p.length; d += 1) p[d].c();
-        (h = A()),
+        ((h = A()),
           E(t, "class", "pagefind-ui__filter-name svelte-1v2r7ls"),
           E(i, "class", "pagefind-ui__filter-group-label svelte-1v2r7ls"),
           E(r, "class", "pagefind-ui__filter-group svelte-1v2r7ls"),
           E(e, "class", "pagefind-ui__filter-block svelte-1v2r7ls"),
-          (e.open = c = n[7] || n[3].map(Jn).includes(n[10].toLowerCase()));
+          (e.open = c = n[7] || n[3].map(Jn).includes(n[10].toLowerCase())));
       },
       m(d, _) {
-        y(d, e, _),
+        (y(d, e, _),
           b(e, t),
           (t.innerHTML = s),
           b(e, l),
           b(e, r),
           b(r, i),
           (i.innerHTML = a),
-          b(r, o);
+          b(r, o));
         for (let u = 0; u < p.length; u += 1) p[u] && p[u].m(r, null);
         b(e, h);
       },
@@ -1588,7 +1598,7 @@
           (e.open = c);
       },
       d(d) {
-        d && k(e), Q(p, d);
+        (d && k(e), Q(p, d));
       },
     };
   }
@@ -1598,23 +1608,23 @@
       s = e && Bn(n);
     return {
       c() {
-        s && s.c(), (t = x());
+        (s && s.c(), (t = x()));
       },
       m(l, r) {
-        s && s.m(l, r), y(l, t, r);
+        (s && s.m(l, r), y(l, t, r));
       },
       p(l, [r]) {
-        r & 2 && (e = l[1] && Object.entries(l[1]).length),
+        (r & 2 && (e = l[1] && Object.entries(l[1]).length),
           e
             ? s
               ? s.p(l, r)
               : ((s = Bn(l)), s.c(), s.m(t.parentNode, t))
-            : s && (s.d(1), (s = null));
+            : s && (s.d(1), (s = null)));
       },
       i: j,
       o: j,
       d(l) {
-        s && s.d(l), l && k(t);
+        (s && s.d(l), l && k(t));
       },
     };
   }
@@ -1631,17 +1641,17 @@
       c = !1,
       m = !1;
     function p(d, _) {
-      (h[`${d}:${_}`] = this.checked), t(0, h);
+      ((h[`${d}:${_}`] = this.checked), t(0, h));
     }
     return (
       (n.$$set = (d) => {
-        "available_filters" in d && t(1, (s = d.available_filters)),
+        ("available_filters" in d && t(1, (s = d.available_filters)),
           "show_empty_filters" in d && t(2, (l = d.show_empty_filters)),
           "open_filters" in d && t(3, (r = d.open_filters)),
           "translate" in d && t(4, (i = d.translate)),
           "automatic_translations" in d && t(5, (a = d.automatic_translations)),
           "translations" in d && t(6, (o = d.translations)),
-          "selected_filters" in d && t(0, (h = d.selected_filters));
+          "selected_filters" in d && t(0, (h = d.selected_filters)));
       }),
       (n.$$.update = () => {
         if (n.$$.dirty & 258) {
@@ -1659,7 +1669,7 @@
   }
   var Et = class extends q {
       constructor(e) {
-        super(),
+        (super(),
           Y(this, e, Ls, Ps, K, {
             available_filters: 1,
             show_empty_filters: 2,
@@ -1668,7 +1678,7 @@
             automatic_translations: 5,
             translations: 6,
             selected_filters: 0,
-          });
+          }));
       }
     },
     Yn = Et;
@@ -2721,7 +2731,7 @@
     ];
   function Qn(n, e, t) {
     let s = n.slice();
-    return (s[51] = e[t]), s;
+    return ((s[51] = e[t]), s);
   }
   function xn(n) {
     let e, t, s;
@@ -2745,11 +2755,11 @@
           et(e.$$.fragment);
         },
         m(i, a) {
-          me(e, i, a), (s = !0);
+          (me(e, i, a), (s = !0));
         },
         p(i, a) {
           let o = {};
-          a[0] & 32 && (o.show_empty_filters = i[5]),
+          (a[0] & 32 && (o.show_empty_filters = i[5]),
             a[0] & 64 && (o.open_filters = i[6]),
             a[0] & 262144 && (o.available_filters = i[18]),
             a[0] & 524288 && (o.automatic_translations = i[19]),
@@ -2757,13 +2767,13 @@
             !t &&
               a[0] & 1 &&
               ((t = !0), (o.selected_filters = i[0]), hn(() => (t = !1))),
-            e.$set(o);
+            e.$set(o));
         },
         i(i) {
           s || (D(e.$$.fragment, i), (s = !0));
         },
         o(i) {
-          P(e.$$.fragment, i), (s = !1);
+          (P(e.$$.fragment, i), (s = !1));
         },
         d(i) {
           ue(e, i);
@@ -2786,16 +2796,16 @@
       (s = i[t] = r[t](n)),
       {
         c() {
-          (e = C("div")),
+          ((e = C("div")),
             s.c(),
-            E(e, "class", "pagefind-ui__results-area svelte-e9gkc3");
+            E(e, "class", "pagefind-ui__results-area svelte-e9gkc3"));
         },
         m(o, h) {
-          y(o, e, h), i[t].m(e, null), (l = !0);
+          (y(o, e, h), i[t].m(e, null), (l = !0));
         },
         p(o, h) {
           let c = t;
-          (t = a(o, h)),
+          ((t = a(o, h)),
             t === c
               ? i[t].p(o, h)
               : (ae(),
@@ -2806,16 +2816,16 @@
                 (s = i[t]),
                 s ? s.p(o, h) : ((s = i[t] = r[t](o)), s.c()),
                 D(s, 1),
-                s.m(e, null));
+                s.m(e, null)));
         },
         i(o) {
           l || (D(s), (l = !0));
         },
         o(o) {
-          P(s), (l = !1);
+          (P(s), (l = !1));
         },
         d(o) {
-          o && k(e), i[t].d();
+          (o && k(e), i[t].d());
         },
       }
     );
@@ -2848,21 +2858,21 @@
     let _ = n[13].results.length > n[17] && ts(n);
     return {
       c() {
-        (e = C("p")), m.c(), (t = A()), (s = C("ol"));
+        ((e = C("p")), m.c(), (t = A()), (s = C("ol")));
         for (let u = 0; u < l.length; u += 1) l[u].c();
-        (i = A()),
+        ((i = A()),
           _ && _.c(),
           (a = x()),
           E(e, "class", "pagefind-ui__message svelte-e9gkc3"),
-          E(s, "class", "pagefind-ui__results svelte-e9gkc3");
+          E(s, "class", "pagefind-ui__results svelte-e9gkc3"));
       },
       m(u, f) {
-        y(u, e, f), m.m(e, null), y(u, t, f), y(u, s, f);
+        (y(u, e, f), m.m(e, null), y(u, t, f), y(u, s, f));
         for (let T = 0; T < l.length; T += 1) l[T] && l[T].m(s, null);
-        y(u, i, f), _ && _.m(u, f), y(u, a, f), (o = !0);
+        (y(u, i, f), _ && _.m(u, f), y(u, a, f), (o = !0));
       },
       p(u, f) {
-        c === (c = h(u, f)) && m
+        (c === (c = h(u, f)) && m
           ? m.p(u, f)
           : (m.d(1), (m = c(u)), m && (m.c(), m.m(e, null))),
           f[0] & 139292 &&
@@ -2874,7 +2884,7 @@
             ? _
               ? _.p(u, f)
               : ((_ = ts(u)), _.c(), _.m(a.parentNode, a))
-            : _ && (_.d(1), (_ = null));
+            : _ && (_.d(1), (_ = null)));
       },
       i(u) {
         if (!o) {
@@ -2887,9 +2897,9 @@
         o = !1;
       },
       d(u) {
-        u && k(e), m.d(), u && k(t), u && k(s);
+        (u && k(e), m.d(), u && k(t), u && k(s));
         for (let f = 0; f < l.length; f += 1) l[f].d();
-        u && k(i), _ && _.d(u), u && k(a);
+        (u && k(i), _ && _.d(u), u && k(a));
       },
     };
   }
@@ -2898,10 +2908,10 @@
       t = n[16] && ns(n);
     return {
       c() {
-        t && t.c(), (e = x());
+        (t && t.c(), (e = x()));
       },
       m(s, l) {
-        t && t.m(s, l), y(s, e, l);
+        (t && t.m(s, l), y(s, e, l));
       },
       p(s, l) {
         s[16]
@@ -2913,7 +2923,7 @@
       i: j,
       o: j,
       d(s) {
-        t && t.d(s), s && k(e);
+        (t && t.d(s), s && k(e));
       },
     };
   }
@@ -3023,20 +3033,20 @@
           et(e.$$.fragment);
         },
         m(s, l) {
-          me(e, s, l), (t = !0);
+          (me(e, s, l), (t = !0));
         },
         p(s, l) {
           let r = {};
-          l[0] & 4 && (r.show_images = s[2]),
+          (l[0] & 4 && (r.show_images = s[2]),
             l[0] & 16 && (r.process_result = s[4]),
             l[0] & 139264 && (r.result = s[51]),
-            e.$set(r);
+            e.$set(r));
         },
         i(s) {
           t || (D(e.$$.fragment, s), (t = !0));
         },
         o(s) {
-          P(e.$$.fragment, s), (t = !1);
+          (P(e.$$.fragment, s), (t = !1));
         },
         d(s) {
           ue(e, s);
@@ -3055,20 +3065,20 @@
           et(e.$$.fragment);
         },
         m(s, l) {
-          me(e, s, l), (t = !0);
+          (me(e, s, l), (t = !0));
         },
         p(s, l) {
           let r = {};
-          l[0] & 4 && (r.show_images = s[2]),
+          (l[0] & 4 && (r.show_images = s[2]),
             l[0] & 16 && (r.process_result = s[4]),
             l[0] & 139264 && (r.result = s[51]),
-            e.$set(r);
+            e.$set(r));
         },
         i(s) {
           t || (D(e.$$.fragment, s), (t = !0));
         },
         o(s) {
-          P(e.$$.fragment, s), (t = !1);
+          (P(e.$$.fragment, s), (t = !1));
         },
         d(s) {
           ue(e, s);
@@ -3094,15 +3104,15 @@
         key: n,
         first: null,
         c() {
-          (t = x()), l.c(), (r = x()), (this.first = t);
+          ((t = x()), l.c(), (r = x()), (this.first = t));
         },
         m(c, m) {
-          y(c, t, m), o[s].m(c, m), y(c, r, m), (i = !0);
+          (y(c, t, m), o[s].m(c, m), y(c, r, m), (i = !0));
         },
         p(c, m) {
           e = c;
           let p = s;
-          (s = h(e, m)),
+          ((s = h(e, m)),
             s === p
               ? o[s].p(e, m)
               : (ae(),
@@ -3113,16 +3123,16 @@
                 (l = o[s]),
                 l ? l.p(e, m) : ((l = o[s] = a[s](e)), l.c()),
                 D(l, 1),
-                l.m(r.parentNode, r));
+                l.m(r.parentNode, r)));
         },
         i(c) {
           i || (D(l), (i = !0));
         },
         o(c) {
-          P(l), (i = !1);
+          (P(l), (i = !1));
         },
         d(c) {
-          c && k(t), o[s].d(c), c && k(r);
+          (c && k(t), o[s].d(c), c && k(r));
         },
       }
     );
@@ -3135,13 +3145,13 @@
       r;
     return {
       c() {
-        (e = C("button")),
+        ((e = C("button")),
           (s = w(t)),
           E(e, "type", "button"),
-          E(e, "class", "pagefind-ui__button svelte-e9gkc3");
+          E(e, "class", "pagefind-ui__button svelte-e9gkc3"));
       },
       m(i, a) {
-        y(i, e, a), b(e, s), l || ((r = J(e, "click", n[22])), (l = !0));
+        (y(i, e, a), b(e, s), l || ((r = J(e, "click", n[22])), (l = !0)));
       },
       p(i, a) {
         a[0] & 524416 &&
@@ -3149,7 +3159,7 @@
           N(s, t);
       },
       d(i) {
-        i && k(e), (l = !1), r();
+        (i && k(e), (l = !1), r());
       },
     };
   }
@@ -3160,12 +3170,12 @@
       s;
     return {
       c() {
-        (e = C("p")),
+        ((e = C("p")),
           (s = w(t)),
-          E(e, "class", "pagefind-ui__message svelte-e9gkc3");
+          E(e, "class", "pagefind-ui__message svelte-e9gkc3"));
       },
       m(l, r) {
-        y(l, e, r), b(e, s);
+        (y(l, e, r), b(e, s));
       },
       p(l, r) {
         r[0] & 589952 &&
@@ -3202,7 +3212,7 @@
       T = n[15] && $n(n);
     return {
       c() {
-        (e = C("div")),
+        ((e = C("div")),
           (t = C("form")),
           (s = C("input")),
           (r = A()),
@@ -3228,10 +3238,10 @@
           E(t, "aria-label", (p = n[20]("search_label", n[19], n[7]))),
           E(t, "action", "javascript:void(0);"),
           E(e, "class", "pagefind-ui svelte-e9gkc3"),
-          B(e, "pagefind-ui--reset", n[1]);
+          B(e, "pagefind-ui--reset", n[1]));
       },
       m(R, M) {
-        y(R, e, M),
+        (y(R, e, M),
           b(e, t),
           b(t, s),
           ft(s, n[9]),
@@ -3255,10 +3265,10 @@
               J(i, "click", n[36]),
               J(t, "submit", ra),
             ]),
-            (_ = !0));
+            (_ = !0)));
       },
       p(R, M) {
-        (!d ||
+        ((!d ||
           (M[0] & 524416 && l !== (l = R[20]("placeholder", R[19], R[7])))) &&
           E(s, "placeholder", l),
           (!d || M[0] & 256) && (s.autofocus = R[8]),
@@ -3292,22 +3302,22 @@
             (M[0] & 524416 &&
               p !== (p = R[20]("search_label", R[19], R[7])))) &&
             E(t, "aria-label", p),
-          (!d || M[0] & 2) && B(e, "pagefind-ui--reset", R[1]);
+          (!d || M[0] & 2) && B(e, "pagefind-ui--reset", R[1]));
       },
       i(R) {
         d || (D(f), D(T), (d = !0));
       },
       o(R) {
-        P(f), P(T), (d = !1);
+        (P(f), P(T), (d = !1));
       },
       d(R) {
-        R && k(e),
+        (R && k(e),
           n[34](null),
           n[35](null),
           f && f.d(),
           T && T.d(),
           (_ = !1),
-          G(u);
+          G(u));
       },
     };
   }
@@ -3351,7 +3361,7 @@
       ce = null,
       rn = s.en,
       rs = (g, H, z) => z[g] ?? H[g] ?? "";
-    dt(() => {
+    (dt(() => {
       let g = document?.querySelector?.("html")?.getAttribute?.("lang") || "en",
         H = tt(g.toLocaleLowerCase());
       t(
@@ -3364,15 +3374,15 @@
       );
     }),
       ht(() => {
-        F?.destroy?.(), (F = null);
-      });
+        (F?.destroy?.(), (F = null));
+      }));
     let an = async () => {
         if (!st && (t(12, (st = !0)), !F)) {
           let g;
           try {
             g = await import(`${r}pagefind.js`);
           } catch (z) {
-            console.error(z),
+            (console.error(z),
               console.error(
                 [
                   `Pagefind couldn't be loaded from ${this.options.bundlePath}pagefind.js`,
@@ -3380,7 +3390,7 @@
                   `[DEBUG: Loaded from ${document?.currentScript?.src ?? "no known script location"}]`,
                 ].join(`
 `),
-              );
+              ));
           }
           c || t(24, (c = h ? 12 : 30));
           let H = { ...(f || {}), excerptLength: c };
@@ -3389,9 +3399,9 @@
             if (!z.bundlePath)
               throw new Error("mergeIndex requires a bundlePath parameter");
             let L = z.bundlePath;
-            delete z.bundlePath, await g.mergeIndex(L, z);
+            (delete z.bundlePath, await g.mergeIndex(L, z));
           }
-          (F = g), is();
+          ((F = g), is());
         }
       },
       is = async () => {
@@ -3406,7 +3416,7 @@
             .filter(([, z]) => z)
             .forEach(([z]) => {
               let [L, te] = z.split(/:(.*)$/);
-              (H[L] = H[L] || []), H[L].push(te);
+              ((H[L] = H[L] || []), H[L].push(te));
             }),
           H
         );
@@ -3414,28 +3424,28 @@
       _e,
       os = async (g, H) => {
         if (!g) {
-          t(15, (rt = !1)), _e && clearTimeout(_e);
+          (t(15, (rt = !1)), _e && clearTimeout(_e));
           return;
         }
         let z = as(H),
           L = () => us(g, z);
-        u > 0 && g
+        (u > 0 && g
           ? (_e && clearTimeout(_e),
             (_e = setTimeout(L, u)),
             await on(),
             F.preload(g, { filters: z }))
           : L(),
-          cs();
+          cs());
       },
       on = async () => {
-        for (; !F; ) an(), await new Promise((g) => setTimeout(g, 50));
+        for (; !F; ) (an(), await new Promise((g) => setTimeout(g, 50)));
       },
       us = async (g, H) => {
-        t(16, (sn = g || "")),
+        (t(16, (sn = g || "")),
           typeof p == "function" && (g = p(g)),
           t(14, (lt = !0)),
           t(15, (rt = !0)),
-          await on();
+          await on());
         let z = ++nn,
           L = { filters: H };
         X && typeof X == "object" && (L.sort = X);
@@ -3453,34 +3463,34 @@
         g != ls && t(10, (O.style.paddingRight = `${g + 2}px`), O);
       },
       _s = (g) => {
-        g?.preventDefault(), t(17, (it += i));
+        (g?.preventDefault(), t(17, (it += i)));
       },
       fs = (g) => {
-        g.key === "Escape" && (t(9, (v = "")), O.blur()),
-          g.key === "Enter" && g.preventDefault();
+        (g.key === "Escape" && (t(9, (v = "")), O.blur()),
+          g.key === "Enter" && g.preventDefault());
       };
     function ds() {
-      (v = this.value), t(9, v), t(23, R);
+      ((v = this.value), t(9, v), t(23, R));
     }
     function hs(g) {
       re[g ? "unshift" : "push"](() => {
-        (O = g), t(10, O);
+        ((O = g), t(10, O));
       });
     }
     function ms(g) {
       re[g ? "unshift" : "push"](() => {
-        (V = g), t(11, V);
+        ((V = g), t(11, V));
       });
     }
     let ps = () => {
-      t(9, (v = "")), O.blur();
+      (t(9, (v = "")), O.blur());
     };
     function gs(g) {
-      (W = g), t(0, W);
+      ((W = g), t(0, W));
     }
     return (
       (n.$$set = (g) => {
-        "base_path" in g && t(25, (r = g.base_path)),
+        ("base_path" in g && t(25, (r = g.base_path)),
           "page_size" in g && t(26, (i = g.page_size)),
           "reset_styles" in g && t(1, (a = g.reset_styles)),
           "show_images" in g && t(2, (o = g.show_images)),
@@ -3497,7 +3507,7 @@
           "translations" in g && t(7, (M = g.translations)),
           "autofocus" in g && t(8, (U = g.autofocus)),
           "sort" in g && t(31, (X = g.sort)),
-          "selected_filters" in g && t(0, (W = g.selected_filters));
+          "selected_filters" in g && t(0, (W = g.selected_filters)));
       }),
       (n.$$.update = () => {
         if (n.$$.dirty[0] & 8388608) e: R && (t(9, (v = R)), t(23, (R = "")));
@@ -3547,7 +3557,7 @@
   }
   var $t = class extends q {
       constructor(e) {
-        super(),
+        (super(),
           Y(
             this,
             e,
@@ -3576,7 +3586,7 @@
             },
             null,
             [-1, -1],
-          );
+          ));
       }
     },
     ss = $t;
@@ -3607,7 +3617,7 @@
         u = e.translations ?? [],
         f = e.autofocus ?? !1,
         T = e.sort ?? null;
-      delete e.element,
+      (delete e.element,
         delete e.bundlePath,
         delete e.pageSize,
         delete e.resetStyles,
@@ -3622,7 +3632,7 @@
         delete e.mergeIndex,
         delete e.translations,
         delete e.autofocus,
-        delete e.sort;
+        delete e.sort);
       let R = t instanceof HTMLElement ? t : document.querySelector(t);
       R
         ? (this._pfs = new ss({

@@ -16,23 +16,23 @@
       this.element = document.createElement(e);
     }
     id(e) {
-      return (this.element.id = e), this;
+      return ((this.element.id = e), this);
     }
     class(e) {
-      return this.element.classList.add(e), this;
+      return (this.element.classList.add(e), this);
     }
     attrs(e) {
       for (let [t, s] of Object.entries(e)) this.element.setAttribute(t, s);
       return this;
     }
     text(e) {
-      return (this.element.innerText = e), this;
+      return ((this.element.innerText = e), this);
     }
     html(e) {
-      return (this.element.innerHTML = e), this;
+      return ((this.element.innerHTML = e), this);
     }
     handle(e, t) {
-      return this.element.addEventListener(e, t), this;
+      return (this.element.addEventListener(e, t), this);
     }
     addTo(e) {
       return (
@@ -68,7 +68,7 @@
           );
           return;
         }
-        this.inputEl.addEventListener("input", async (t) => {
+        (this.inputEl.addEventListener("input", async (t) => {
           if (this.instance && typeof t?.target?.value == "string") {
             this.updateState(t.target.value);
             let s = ++this.searchID;
@@ -78,16 +78,16 @@
           }
         }),
           this.inputEl.addEventListener("keydown", (t) => {
-            t.key === "Escape" &&
+            (t.key === "Escape" &&
               (++this.searchID,
               (this.inputEl.value = ""),
               this.instance?.triggerSearch(""),
               this.updateState("")),
-              t.key === "Enter" && t.preventDefault();
+              t.key === "Enter" && t.preventDefault());
           }),
           this.inputEl.addEventListener("focus", () => {
             this.instance?.triggerLoad();
-          });
+          }));
       }
       initContainer(e) {
         let t = document.querySelector(e);
@@ -98,13 +98,13 @@
           return;
         }
         if (t.tagName === "INPUT")
-          console.warn(
+          (console.warn(
             `[Pagefind Input component]: Encountered input element for ${e} when a container was expected`,
           ),
             console.warn(
               "[Pagefind Input component]: Treating containerElement option as inputElement and proceeding",
             ),
-            this.initExisting(e);
+            this.initExisting(e));
         else {
           t.innerHTML = "";
           let s = 0;
@@ -114,7 +114,7 @@
             "aria-label": "Search this site",
             action: "javascript:void(0);",
           });
-          new r("label")
+          (new r("label")
             .attrs({ for: `pfmod-input-${s}`, "data-pfmod-sr-hidden": "true" })
             .text("Search this site")
             .addTo(n),
@@ -128,12 +128,12 @@
               .attrs({ "data-pfmod-suppressed": "true" })
               .text("Clear")
               .handle("click", () => {
-                (this.inputEl.value = ""),
+                ((this.inputEl.value = ""),
                   this.instance.triggerSearch(""),
-                  this.updateState("");
+                  this.updateState(""));
               })
               .addTo(n)),
-            n.addTo(t);
+            n.addTo(t));
         }
       }
       initExisting(e) {
@@ -159,12 +159,12 @@
             : this.clearEl.setAttribute("data-pfmod-suppressed", "true"));
       }
       register(e) {
-        (this.instance = e),
+        ((this.instance = e),
           this.instance.on("search", (t, s) => {
             this.inputEl &&
               document.activeElement !== this.inputEl &&
               ((this.inputEl.value = t), this.updateState(t));
-          });
+          }));
       }
       focus() {
         this.inputEl && this.inputEl.focus();
@@ -175,7 +175,7 @@
       if (Array.isArray(i) && i.every((e) => e instanceof Element)) return i;
       if (typeof i == "string" || i instanceof String) {
         let e = document.createElement("div");
-        return (e.innerHTML = i), [...e.childNodes];
+        return ((e.innerHTML = i), [...e.childNodes]);
       } else
         return (
           console.error(
@@ -224,12 +224,12 @@
     },
     d = class {
       constructor(e = {}) {
-        (this.rawResult = e.result),
+        ((this.rawResult = e.result),
           (this.placeholderNodes = e.placeholderNodes),
           (this.resultFn = e.resultFn),
           (this.intersectionEl = e.intersectionEl),
           (this.result = null),
-          this.waitForIntersection();
+          this.waitForIntersection());
       }
       waitForIntersection() {
         if (!this.placeholderNodes?.length) return;
@@ -286,7 +286,7 @@
         for (let t of e) this.containerEl.appendChild(t);
       }
       register(e) {
-        e.on("results", (t) => {
+        (e.on("results", (t) => {
           this.containerEl &&
             ((this.containerEl.innerHTML = ""),
             (this.intersectionEl = E(this.containerEl)),
@@ -305,7 +305,7 @@
         }),
           e.on("loading", () => {
             this.containerEl && (this.containerEl.innerHTML = "");
-          });
+          }));
       }
     };
   var o = class {
@@ -332,11 +332,11 @@
         );
         return;
       }
-      (this.containerEl = t),
-        (this.containerEl.innerText = this.defaultMessage);
+      ((this.containerEl = t),
+        (this.containerEl.innerText = this.defaultMessage));
     }
     register(e) {
-      e.on("search", (t, s) => {
+      (e.on("search", (t, s) => {
         this.term = t;
       }),
         e.on("results", (t) => {
@@ -351,7 +351,7 @@
         e.on("loading", () => {
           this.containerEl &&
             (this.containerEl.innerText = `Searching for ${this.term}...`);
-        });
+        }));
     }
   };
   var h = class {
@@ -396,7 +396,7 @@
         n = new r("div")
           .class("pagefind-modular-filter-pills-wrapper")
           .attrs({ role: "group", "aria-labelledby": s });
-      this.alwaysShow || n.attrs({ "data-pfmod-hidden": !0 }),
+      (this.alwaysShow || n.attrs({ "data-pfmod-hidden": !0 }),
         new r("div")
           .id(s)
           .class("pagefind-modular-filter-pills-label")
@@ -406,7 +406,7 @@
         (this.pillContainer = new r("div")
           .class("pagefind-modular-filter-pills")
           .addTo(n)),
-        (this.wrapper = n.addTo(t));
+        (this.wrapper = n.addTo(t)));
     }
     update() {
       let e = this.available.map((t) => t[0]).join("~");
@@ -430,7 +430,7 @@
           .html(this.pillInner(e, t))
           .attrs({ "aria-pressed": this.selected.includes(e), type: "button" })
           .handle("click", () => {
-            e === "All"
+            (e === "All"
               ? (this.selected = ["All"])
               : this.selected.includes(e)
                 ? (this.selected = this.selected.filter((s) => s !== e))
@@ -442,7 +442,7 @@
                   (this.selected = this.selected.filter((s) => s !== "All"))
                 : (this.selected = ["All"]),
               this.update(),
-              this.pushFilters();
+              this.pushFilters());
           })
           .addTo(this.pillContainer);
       });
@@ -450,12 +450,12 @@
     updateExisting() {
       let e = [...this.pillContainer.childNodes];
       this.available.forEach(([t, s], n) => {
-        (e[n].innerHTML = this.pillInner(t, s)),
-          e[n].setAttribute("aria-pressed", this.selected.includes(t));
+        ((e[n].innerHTML = this.pillInner(t, s)),
+          e[n].setAttribute("aria-pressed", this.selected.includes(t)));
       });
     }
     register(e) {
-      (this.instance = e),
+      ((this.instance = e),
         this.instance.on("filters", (t) => {
           if (!this.pillContainer) return;
           this.selectMultiple ? (t = t.available) : (t = t.total);
@@ -466,7 +466,7 @@
             );
             return;
           }
-          (this.available = Object.entries(s)),
+          ((this.available = Object.entries(s)),
             Array.isArray(this.ordering)
               ? this.available.sort((n, c) => {
                   let m = this.ordering.indexOf(n[0]),
@@ -475,7 +475,7 @@
                 })
               : this.available.sort((n, c) => n[0].localeCompare(c[0])),
             this.available.unshift(["All", this.total]),
-            this.update();
+            this.update());
         }),
         e.on("results", (t) => {
           this.pillContainer &&
@@ -486,7 +486,7 @@
               ? this.wrapper.removeAttribute("data-pfmod-hidden")
               : this.wrapper.setAttribute("data-pfmod-hidden", "true"),
             this.update());
-        });
+        }));
     }
   };
   var F = async (i = 50) => await new Promise((e) => setTimeout(e, i)),
@@ -500,7 +500,7 @@
   }
   var p = class {
     constructor(e = {}) {
-      (this.__pagefind__ = null),
+      ((this.__pagefind__ = null),
         (this.__initializing__ = null),
         (this.__searchID__ = 0),
         (this.__hooks__ = {
@@ -526,10 +526,10 @@
         delete e.debounceTimeoutMs,
         delete e.mergeIndex,
         delete e.translations,
-        (this.pagefindOptions = e);
+        (this.pagefindOptions = e));
     }
     add(e) {
-      e?.register?.(this), this.components.push(e);
+      (e?.register?.(this), this.components.push(e));
     }
     on(e, t) {
       if (!this.__hooks__[e]) {
@@ -551,41 +551,41 @@
       this.__load__();
     }
     triggerSearch(e) {
-      (this.searchTerm = e),
+      ((this.searchTerm = e),
         this.__dispatch__("search", e, this.searchFilters),
-        this.__search__(e, this.searchFilters);
+        this.__search__(e, this.searchFilters));
     }
     triggerSearchWithFilters(e, t) {
-      (this.searchTerm = e),
+      ((this.searchTerm = e),
         (this.searchFilters = t),
         this.__dispatch__("search", e, t),
-        this.__search__(e, t);
+        this.__search__(e, t));
     }
     triggerFilters(e) {
-      (this.searchFilters = e),
+      ((this.searchFilters = e),
         this.__dispatch__("search", this.searchTerm, e),
-        this.__search__(this.searchTerm, e);
+        this.__search__(this.searchTerm, e));
     }
     triggerFilter(e, t) {
-      (this.searchFilters = this.searchFilters || {}),
+      ((this.searchFilters = this.searchFilters || {}),
         (this.searchFilters[e] = t),
         this.__dispatch__("search", this.searchTerm, this.searchFilters),
-        this.__search__(this.searchTerm, this.searchFilters);
+        this.__search__(this.searchTerm, this.searchFilters));
     }
     __dispatch__(e, ...t) {
       this.__hooks__[e]?.forEach((s) => s?.(...t));
     }
     async __clear__() {
-      this.__dispatch__("results", { results: [], unfilteredTotalCount: 0 }),
+      (this.__dispatch__("results", { results: [], unfilteredTotalCount: 0 }),
         (this.availableFilters = await this.__pagefind__.filters()),
         (this.totalFilters = this.availableFilters),
         this.__dispatch__("filters", {
           available: this.availableFilters,
           total: this.totalFilters,
-        });
+        }));
     }
     async __search__(e, t) {
-      this.__dispatch__("loading"), await this.__load__();
+      (this.__dispatch__("loading"), await this.__load__());
       let s = ++this.__searchID__;
       if (!e || !e.length) return this.__clear__();
       let n = await this.__pagefind__.search(e, { filters: t });
@@ -612,7 +612,7 @@
         try {
           e = await import(`${this.options.bundlePath}pagefind.js`);
         } catch (t) {
-          console.error(t),
+          (console.error(t),
             console.error(
               [
                 `Pagefind couldn't be loaded from ${this.options.bundlePath}pagefind.js`,
@@ -620,23 +620,23 @@
                 `[DEBUG: Loaded from ${document?.currentScript?.src ?? "no known script location"}]`,
               ].join(`
 `),
-            );
+            ));
         }
         await e.options(this.pagefindOptions || {});
         for (let t of this.options.mergeIndex) {
           if (!t.bundlePath)
             throw new Error("mergeIndex requires a bundlePath parameter");
           let s = t.bundlePath;
-          delete t.bundlePath, await e.mergeIndex(s, t);
+          (delete t.bundlePath, await e.mergeIndex(s, t));
         }
         this.__pagefind__ = e;
       }
-      (this.availableFilters = await this.__pagefind__.filters()),
+      ((this.availableFilters = await this.__pagefind__.filters()),
         (this.totalFilters = this.availableFilters),
         this.__dispatch__("filters", {
           available: this.availableFilters,
           total: this.totalFilters,
-        });
+        }));
     }
   };
   window.PagefindModularUI = f;

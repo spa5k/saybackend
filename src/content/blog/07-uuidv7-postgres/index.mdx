@@ -1,8 +1,9 @@
 ---
-title: "PostgreSQL UUIDv7 Performance Guide: Native vs Custom Implementations with Benchmarks"
+title: "PostgreSQL UUIDv7 Performance Benchmark: Native vs Custom Implementations"
 description: "Comprehensive analysis of modern time-ordered identifiers in PostgreSQL: UUIDv7, ULID, and TypeID implementations with real performance benchmarks, PostgreSQL 18 native support, and practical recommendations for choosing the right identifier for your project."
 date: "2025-06-13"
-draft: true
+draft: false
+wip: true
 tags:
   - "postgres"
   - "uuid"
@@ -18,6 +19,7 @@ ogImage: "/images/uuidv7-postgres-og.png"
 
 import Callout from "@/components/Callout.astro";
 import Advertise from "@/components/Advertise.astro";
+import OgImage from "./uuidv7-postgres-og.png";
 import { Picture } from "astro:assets";
 import uuidStructure from "./assets/uuid_structure.png";
 import collisionProbability from "./assets/collision_probability.png";
@@ -42,6 +44,13 @@ import analysisData from "./data/analysis-data.json";
 import rankingData from "./data/ranking-data.json";
 import featureData from "./data/feature-comparison.json";
 import decisionData from "./data/decision-matrix.json";
+
+<Picture
+  src={OgImage}
+  alt="Strategies for Chunking Text Data for RAG Applications"
+  inferSize
+  formats={["avif", "webp"]}
+/>
 
 ## Introduction
 

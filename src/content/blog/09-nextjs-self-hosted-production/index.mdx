@@ -90,21 +90,18 @@ When it comes to deploying Next.js applications in production, many developers d
 Before diving into self-hosting your Next.js application, ensure you have:
 
 1. **Technical Knowledge**
-
    - Basic understanding of Docker and containerization
    - Familiarity with Kubernetes (for container orchestration)
    - Knowledge of CI/CD pipelines
    - Understanding of monitoring and logging concepts
 
 2. **Required Tools**
-
    - Docker installed on your development machine
    - kubectl (if using Kubernetes)
    - A cloud provider account (AWS, GCP, Azure, etc.)
    - Git for version control
 
 3. **Infrastructure Requirements**
-
    - A domain name for your application
    - SSL certificates (can be obtained from Let's Encrypt)
    - Access to a cloud provider's services
@@ -127,7 +124,6 @@ Before diving into self-hosting your Next.js application, ensure you have:
 1. **Cost Control**: Self-hosting can be more cost-effective, especially for applications with predictable traffic patterns or specific resource requirements.
 
 2. **Infrastructure Control**: You have complete control over your infrastructure, allowing you to:
-
    - Choose your hosting provider
    - Customize server configurations
    - Implement specific security measures
@@ -154,21 +150,18 @@ Before diving into self-hosting, let's address some common misconceptions:
 Before embarking on self-hosting, consider these key points:
 
 1. **Infrastructure Requirements**
-
    - Server specifications
    - Network requirements
    - SSL/TLS setup
    - Domain and DNS configuration
 
 2. **Operational Overhead**
-
    - Monitoring and maintenance
    - Security updates
    - Backup procedures
    - Scaling management
 
 3. **Cost Analysis**
-
    - Infrastructure costs
    - Operational costs
    - Development time
@@ -260,13 +253,11 @@ graph TB
 For a production Next.js application, consider these server specifications:
 
 1. **CPU Requirements**
-
    - Minimum: 2 vCPUs
    - Recommended: 4+ vCPUs
    - Consider: Node.js is single-threaded, but Next.js can utilize multiple cores for static generation
 
 2. **Memory Requirements**
-
    - Minimum: 4GB RAM
    - Recommended: 8GB+ RAM
    - Consider: Memory usage increases with:
@@ -275,7 +266,6 @@ For a production Next.js application, consider these server specifications:
      - Server-side rendering load
 
 3. **Storage Requirements**
-
    - Minimum: 20GB SSD
    - Recommended: 50GB+ SSD
    - Consider: Space needed for:
@@ -312,7 +302,6 @@ Here are some real-world performance benchmarks for different server configurati
 ### Network Configuration
 
 1. **Load Balancing**
-
    - Set up a load balancer for high availability
    - Configure SSL termination
    - Implement health checks
@@ -322,7 +311,6 @@ Here are some real-world performance benchmarks for different server configurati
      - Cloud provider load balancers
 
 2. **DNS Configuration**
-
    - Set up proper DNS records
    - Configure SSL certificates
    - Set up subdomains if needed
@@ -340,13 +328,11 @@ Here are some real-world performance benchmarks for different server configurati
 ### Common Infrastructure Issues and Solutions
 
 1. **High Memory Usage**
-
    - Problem: Node.js memory leaks
    - Solution: Implement proper garbage collection and memory monitoring
    - Prevention: Use memory leak detection tools
 
 2. **Network Latency**
-
    - Problem: Slow response times
    - Solution: Implement CDN and caching
    - Prevention: Regular performance monitoring
@@ -1553,7 +1539,6 @@ const secrets = await getSecret("your-app-secrets");
    ```
 
    **Solution:**
-
    - Check Node.js version compatibility
    - Verify all dependencies are installed
    - Check for memory limits during build
@@ -1567,7 +1552,6 @@ const secrets = await getSecret("your-app-secrets");
    ```
 
    **Solution:**
-
    - Increase Node.js memory limit
    - Implement proper garbage collection
    - Monitor memory usage patterns

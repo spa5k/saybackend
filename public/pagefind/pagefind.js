@@ -340,7 +340,7 @@ var freb = function (eb, start) {
 var _a = freb(fleb, 2);
 var fl = _a[0];
 var revfl = _a[1];
-(fl[28] = 258), (revfl[258] = 28);
+((fl[28] = 258), (revfl[258] = 28));
 var _b = freb(fdeb, 0);
 var fd = _b[0];
 var revfd = _b[1];
@@ -490,9 +490,9 @@ var inflt = function (dat, buf, st) {
         }
         if (noBuf) cbuf(bt + l);
         buf.set(dat.subarray(s, t), bt);
-        (st.b = bt += l), (st.p = pos = t * 8), (st.f = final);
+        ((st.b = bt += l), (st.p = pos = t * 8), (st.f = final));
         continue;
-      } else if (type == 1) (lm = flrm), (dm = fdrm), (lbt = 9), (dbt = 5);
+      } else if (type == 1) ((lm = flrm), (dm = fdrm), (lbt = 9), (dbt = 5));
       else if (type == 2) {
         var hLit = bits(dat, pos, 31) + 257,
           hcLen = bits(dat, pos + 10, 15) + 4;
@@ -517,9 +517,9 @@ var inflt = function (dat, buf, st) {
             var c = 0,
               n = 0;
             if (s == 16)
-              (n = 3 + bits(dat, pos, 3)), (pos += 2), (c = ldt[i2 - 1]);
-            else if (s == 17) (n = 3 + bits(dat, pos, 7)), (pos += 3);
-            else if (s == 18) (n = 11 + bits(dat, pos, 127)), (pos += 7);
+              ((n = 3 + bits(dat, pos, 3)), (pos += 2), (c = ldt[i2 - 1]));
+            else if (s == 17) ((n = 3 + bits(dat, pos, 7)), (pos += 3));
+            else if (s == 18) ((n = 11 + bits(dat, pos, 127)), (pos += 7));
             while (n--) ldt[i2++] = c;
           }
         }
@@ -550,7 +550,7 @@ var inflt = function (dat, buf, st) {
       if (!c) err(2);
       if (sym < 256) buf[bt++] = sym;
       else if (sym == 256) {
-        (lpos = pos), (lm = null);
+        ((lpos = pos), (lm = null));
         break;
       } else {
         var add = sym - 254;
@@ -567,7 +567,7 @@ var inflt = function (dat, buf, st) {
         var dt = fd[dsym];
         if (dsym > 3) {
           var b = fdeb[dsym];
-          (dt += bits16(dat, pos) & ((1 << b) - 1)), (pos += b);
+          ((dt += bits16(dat, pos) & ((1 << b) - 1)), (pos += b));
         }
         if (pos > tbts) {
           if (noSt) err(0);
@@ -584,8 +584,8 @@ var inflt = function (dat, buf, st) {
         bt = end;
       }
     }
-    (st.l = lm), (st.p = lpos), (st.b = bt), (st.f = final);
-    if (lm) (final = 1), (st.m = lbt), (st.d = dm), (st.n = dbt);
+    ((st.l = lm), (st.p = lpos), (st.b = bt), (st.f = final));
+    if (lm) ((final = 1), (st.m = lbt), (st.d = dm), (st.n = dbt));
   } while (!final);
   return bt == buf.length ? buf : slc(buf, 0, bt);
 };
