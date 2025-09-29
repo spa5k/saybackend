@@ -3,7 +3,6 @@ import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
 import pagefind from "astro-pagefind";
 import { defineConfig } from "astro/config";
-import rehypeMermaid from "rehype-mermaid";
 
 import react from "@astrojs/react";
 import solidJs from "@astrojs/solid-js";
@@ -48,20 +47,6 @@ export default defineConfig({
       theme: "css-variables",
       excludeLangs: ["mermaid"],
     },
-    rehypePlugins: [
-      [
-        rehypeMermaid,
-        {
-          strategy: "img-svg",
-          mermaidConfig: {
-            theme: "dark",
-            securityLevel: "loose",
-            startOnLoad: true,
-            fontFamily: "ui-sans-serif, system-ui, sans-serif",
-          },
-        },
-      ],
-    ],
   },
 
   image: {
