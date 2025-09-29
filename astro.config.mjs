@@ -11,9 +11,12 @@ import compress from "astro-compress";
 
 import partytown from "@astrojs/partytown";
 
+import cloudflare from "@astrojs/cloudflare";
+
 /** @type {import('astro').AstroConfig} */
 export default defineConfig({
   site: "https://www.saybackend.com",
+
   integrations: [
     sitemap(),
     mdx(),
@@ -32,10 +35,13 @@ export default defineConfig({
       experimentalReactChildren: true,
     }),
   ],
+
   vite: {
     plugins: [tailwindcss()],
   },
+
   prefetch: true,
+
   markdown: {
     syntaxHighlight: {
       type: "shiki",
@@ -57,9 +63,12 @@ export default defineConfig({
       ],
     ],
   },
+
   image: {
     service: {
       entrypoint: "astro/assets/services/sharp",
     },
   },
+
+  adapter: cloudflare(),
 });
