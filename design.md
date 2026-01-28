@@ -1,23 +1,10 @@
-Role: You are an expert UI/UX Designer and Frontend Engineer specializing in "Swiss Minimal Brutalist" aesthetics and high-performance engineering personal brands. No shadow borders, or something like that, just zero corner radius type thing.
+Role: You are an expert UI/UX Designer and Frontend Engineer specializing in "Swiss Minimal" aesthetics. No shadow borders, or something like that, just zero corner radius type thing.
 
 Keep in mind that we are doing a blog, not a SAAS Site or something, so it should be readble and easy,
 
-Task: Create a complete Design System & Landing Page Specification for "SayBackend" (A Personal Engineering Portfolio & DevOps Blog).
+Task: Create a complete Design System & Landing Page Specification for "SayBackend" (A Personal Engineering Blog).
 
-1. The Design DNA (Global System)
-   Style Anchor: International Typographic Style (Swiss Style) meets Cyber-Brutalism. Clean, grid-based, but with raw industrial edges.
-   Aesthetic & Materiality: "Cold Digital Industrial". Matte Steel, Technical Blueprints, Frosted Polycarbonate, Anti-aliased text rendering quality.
-   Color - Bluish, design system below.
-
-Typography:
-
-- Headers: Druk Wide or alternatives like Archivo Black / Syne (Bold, forceful).
-- Body: Geist Sans or Inter (Clean, legible, neutral).
-- Monospace: JetBrains Mono or Geist Mono (For code snippets and technical accents).
-  Icon Set: RemixIcon or Phosphor Icons (Sharp, techno-utilitarian).
-  Layout Philosophy: Rigid Grid Systems, Asymmetric arrangements, Large negative space.
-
-Do not just restyle, but recreate them from scratch, below is a design system from a site i like quite much, use it for reference.
+Do not just restyle, but recreate them from scratch, below is a design system from a site i like quite much, use it for reference for colors and components etc only, only minimal inspirations from it.
 
 # LeapOCR Design System
 
