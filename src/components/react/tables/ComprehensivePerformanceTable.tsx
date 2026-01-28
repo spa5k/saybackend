@@ -15,6 +15,11 @@ interface ComprehensivePerformanceTableProps {
 export default function ComprehensivePerformanceTable({
   data,
 }: ComprehensivePerformanceTableProps) {
+  // Guard against undefined/empty data during SSR
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return null;
+  }
+
   const processedData = useMemo(() => {
     return data.map((item) => ({
       ...item,

@@ -355,7 +355,7 @@
   }
   function vs(n, e) {
     (n.$$.dirty[0] === -1 && (se.push(n), ys(), n.$$.dirty.fill(0)),
-      (n.$$.dirty[(e / 31) | 0] |= 1 << e % 31));
+      (n.$$.dirty[(e / 31) | 0] |= 1 << (e % 31)));
   }
   function Y(n, e, t, s, l, r, i, a = [-1]) {
     let o = he;
@@ -543,7 +543,6 @@
           I(l.charCodeAt(r + 2)) &&
           I(l.charCodeAt(r + 3)) &&
           !I(l.charCodeAt(r + 4));
-
         ) {
           if (a > 2)
             return i(
@@ -575,7 +574,6 @@
                 !$(l.charCodeAt(r + 4)) &&
                 ((t.region = s.slice(r + 1, r + 4)), (r += 4)));
         l.charCodeAt(r) === 45;
-
       ) {
         let a = r + 1,
           o = a;
@@ -597,7 +595,6 @@
           l.charCodeAt(r + 2) !== 45 ||
           !Z(l.charCodeAt(r + 3))
         );
-
       ) {
         let a = r + 2,
           o = 0;
@@ -606,7 +603,6 @@
           l.charCodeAt(a) === 45 &&
           Z(l.charCodeAt(a + 1)) &&
           Z(l.charCodeAt(a + 2));
-
         ) {
           let h = a + 1;
           for (a = h + 2, o++; Z(l.charCodeAt(a)); ) {

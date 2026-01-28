@@ -3,7 +3,7 @@ title: "PostgreSQL UUIDv7 Performance Benchmark: Native vs Custom Implementation
 description: "Comprehensive analysis of modern time-ordered identifiers in PostgreSQL: UUIDv7, ULID, and TypeID implementations with real performance benchmarks, PostgreSQL 18 native support, and practical recommendations for choosing the right identifier for your project."
 date: "2025-06-13"
 draft: false
-wip: true
+wip: false
 tags:
   - "postgres"
   - "uuid"
@@ -17,33 +17,33 @@ slug: uuidv7-postgres-comparison
 ogImage: "/images/uuidv7-postgres-og.png"
 ---
 
-import Callout from "@/components/Callout.astro";
 import Advertise from "@/components/Advertise.astro";
-import OgImage from "./uuidv7-postgres-og.png";
-import { Picture } from "astro:assets";
-import uuidStructure from "./assets/uuid_structure.png";
-import collisionProbability from "./assets/collision_probability.png";
-import bitManipulation from "./assets/bit_manipulation.png";
-import comprehensiveOverview from "./assets/comprehensive_overview.png";
+import Callout from "@/components/Callout.astro";
+import {
+  MultiMetricRadarChart,
+  PerformanceStorageScatterChart,
+} from "@components/react/charts/UUIDAdvancedCharts";
 import {
   PerformanceComparisonChart,
   StorageComparisonChart,
 } from "@components/react/charts/UUIDBenchmarkCharts";
-import {
-  PerformanceStorageScatterChart,
-  MultiMetricRadarChart,
-} from "@components/react/charts/UUIDAdvancedCharts";
-import PerformanceTable from "@components/react/tables/PerformanceTable";
-import ComprehensivePerformanceTable from "@components/react/tables/ComprehensivePerformanceTable";
 import AnalysisTable from "@components/react/tables/AnalysisTable";
-import PerformanceRankingTable from "@components/react/tables/PerformanceRankingTable";
-import FeatureComparisonTable from "@components/react/tables/FeatureComparisonTable";
+import ComprehensivePerformanceTable from "@components/react/tables/ComprehensivePerformanceTable";
 import DecisionMatrixTable from "@components/react/tables/DecisionMatrixTable";
+import FeatureComparisonTable from "@components/react/tables/FeatureComparisonTable";
+import PerformanceRankingTable from "@components/react/tables/PerformanceRankingTable";
+import PerformanceTable from "@components/react/tables/PerformanceTable";
+import { Picture } from "astro:assets";
+import bitManipulation from "./assets/bit_manipulation.png";
+import collisionProbability from "./assets/collision_probability.png";
+import comprehensiveOverview from "./assets/comprehensive_overview.png";
+import uuidStructure from "./assets/uuid_structure.png";
 import performanceData from "./benchmark_data/performance_summary.json";
 import analysisData from "./data/analysis-data.json";
-import rankingData from "./data/ranking-data.json";
-import featureData from "./data/feature-comparison.json";
 import decisionData from "./data/decision-matrix.json";
+import featureData from "./data/feature-comparison.json";
+import rankingData from "./data/ranking-data.json";
+import OgImage from "./uuidv7-postgres-og.png";
 
 <Picture
   src={OgImage}
@@ -56,15 +56,17 @@ import decisionData from "./data/decision-matrix.json";
 
 Choosing the right unique identifier strategy is critical for database performance and application scalability. While UUIDv4 has been the go-to choice for distributed systems, the new UUIDv7 standard introduces time-ordered identifiers that maintain randomness while providing natural sorting capabilities.
 
-PostgreSQL 18's introduction of native UUIDv7 support marks a turning point in this landscape. Our comprehensive benchmarking reveals that the native implementation not only matches UUIDv4 performance but actually exceeds it by 33%, while adding time-ordered benefits that were previously considered a performance trade-off.
+PostgreSQL 18's introduction of native UUIDv7 support marks a turning point in this landscape. Our comprehensive benchmarking shows the native implementation lands within ~4% of UUIDv4 while adding time-ordered benefits that were previously considered a performance trade-off.
 
 This analysis examines five different identifier implementations with real-world performance data, helping you make informed decisions for your PostgreSQL applications.
 
 <Callout type="info">
-  **TL;DR:** PostgreSQL 18's native **uuidv7() is 33% faster than UUIDv4** (58.1
-  vs 86.8 μs per operation) and delivers **16% higher throughput** (34,127 vs
-  29,238 ops/sec). PostgreSQL 17 custom UUIDv7 implementations also outperform
-  UUIDv4, with zero collisions detected across all implementations.
+  **TL;DR:** PostgreSQL 18's native **uuidv7() now ships and matches UUIDv4
+  within a few microseconds** (74.3 vs 71.6 μs per operation) with **throughput
+  parity around 21.7K ops/sec**. The fastest UUIDv7 option is **uuidv7_custom on
+  PG18 at 71.8 μs**, landing within 0.6% of UUIDv4. PostgreSQL 17 remains highly
+  competitive with similar numbers. Zero collisions detected across all
+  implementations.
 </Callout>
 
 ## Understanding UUIDv7
@@ -281,11 +283,11 @@ To provide real-world performance data, I created a comprehensive benchmark suit
 
 **Benchmark Environment Specifications:**
 
-- **High-precision Testing**: 50,000 iterations for statistical significance
-- **Warmup**: 10,000 iterations per function to eliminate cold-start effects
-- **Runs**: 5 complete benchmark cycles per function for consistency analysis
+- **High-precision Testing**: 100,000 iterations per run (10 runs) for statistical significance
+- **Warmup**: 25,000 iterations per function to eliminate cold-start effects
+- **Runs**: 10 complete benchmark cycles per function for consistency analysis
 - **Timing**: Nanosecond precision using `time.perf_counter_ns()`
-- **Concurrency**: 10 workers × 5,000 iterations for realistic load testing
+- **Concurrency**: 10 workers × 10,000 iterations (1,000 warmup) for realistic load testing
 - **PostgreSQL Config**: 512MB shared_buffers, 2GB effective_cache_size, SSD optimizations
 - **Resource limits**: 2GB RAM, 2 CPU cores per container
 
@@ -293,27 +295,28 @@ The full benchmark code and methodology are available at [github.com/spa5k/uuidv
 
 ### Comprehensive Benchmark Results
 
-Based on professional-grade benchmarking with 50,000 iterations per implementation:
+Based on professional-grade benchmarking with **10 runs × 100,000 iterations** per implementation (with warmups):
 
 #### Single-Thread Performance
 
-<PerformanceTable data={performanceData.performance_summary} client:load />
+<PerformanceTable data={performanceData.summary_statistics} client:load />
 
 <Callout type="info">
-  **Key Finding:** PostgreSQL 18's native uuidv7() is **33% faster than UUIDv4**
-  (58.1 vs 86.8 μs) with **16% higher throughput** (34,127 vs 29,238 ops/sec).
-  This breaks the traditional performance trade-off between time ordering and
-  speed.
+  **Key Finding:** PostgreSQL 18's native uuidv7() now delivers **UUIDv4-parity
+  performance** (74.3 vs 71.6 μs) with comparable throughput (~21.7K ops/sec).
+  The fastest UUIDv7 option is the lightweight **uuidv7_custom** on PG18 at
+  **71.8 μs** (within 0.6% of UUIDv4). This removes the historical performance
+  penalty for time-ordered IDs.
 </Callout>
 
 ### Key Findings
 
-- **PostgreSQL 18 native UUIDv7**: 33% faster than UUIDv4, 16% higher throughput
-- **Time-ordered performance**: Native implementation breaks the performance trade-off
-- **Production ready**: All implementations maintain >18K ops/sec throughput
-- **Sub-millisecond precision**: PG18 native supports microsecond-level ordering
+- **PostgreSQL 18 native UUIDv7**: Within ~4% of UUIDv4 (74.3 vs 71.6 μs) with matching throughput (~21.7K ops/sec)
+- **Fastest UUIDv7**: `uuidv7_custom` on PG18 at 71.8 μs (0.6% off UUIDv4 latency)
+- **Throughput leader**: `ulid_generate` on PG17 at 23,160 ops/sec; top UUIDv7 throughput on PG18 is `uuid_generate_v7` at 21,877 ops/sec
+- **Time-ordered at no penalty**: Practical parity with UUIDv4 removes the historical trade-off
 - **Zero-downtime migration**: Drop-in replacement for existing UUIDv4 columns
-- **Zero collisions detected** across 50,000 generations per implementation
+- **Zero collisions detected** across 50,000+ generations per implementation
 
 ## Collision Probability Analysis
 
@@ -340,7 +343,7 @@ Here's a decision matrix to help you choose:
 
 ### Use PostgreSQL 18 Native uuidv7() when:
 
-- **You're using PostgreSQL 18+** (available late 2025)
+- **You're using PostgreSQL 18+** (released 2025)
 - **You want the best performance AND time ordering**
 - You need guaranteed monotonicity within sessions
 - You prefer official, maintained implementations
@@ -454,7 +457,7 @@ UUIDs are 128-bit values, stored as 16 bytes in PostgreSQL. For large tables:
 
 ### Updated Performance Results (Professional Benchmark Data)
 
-Our professional-grade benchmarks with 50,000 iterations and statistical analysis reveal clear performance leaders:
+Our professional-grade benchmarks with **10 runs × 100,000 iterations** and statistical analysis reveal clear performance leaders:
 
 #### Performance Rankings
 
@@ -462,11 +465,11 @@ Our professional-grade benchmarks with 50,000 iterations and statistical analysi
 
 ### Key Insights from Professional Benchmark Analysis
 
-1. **Native UUIDv7 Performance Leader**: PostgreSQL 18's native implementation is **33% faster than UUIDv4** with 16% higher throughput
-2. **Time-Ordered Advantage**: Breaking the traditional performance vs ordering trade-off
-3. **Custom Implementation Excellence**: PostgreSQL 17 custom UUIDv7 matches UUIDv4 performance while adding time ordering
-4. **Statistical Significance**: Results based on 50,000 iterations with multiple runs for reliability
-5. **Zero Collision Rate**: All implementations maintain perfect uniqueness guarantees
+1. **Native UUIDv7 near parity**: PostgreSQL 18 native uuidv7() measures 74.3 μs vs UUIDv4 at 71.6 μs with ~21.7K ops/sec
+2. **Fastest UUIDv7**: `uuidv7_custom` (PG18) at 71.8 μs; top UUIDv7 throughput is `uuid_generate_v7` (PG18) at 21,877 ops/sec
+3. **Throughput leader overall**: `ulid_generate` (PG17) reaches 23,160 ops/sec with human-readable IDs
+4. **Statistical Significance**: Results based on 10 runs × 100,000 iterations with multiple runs for reliability
+5. **Zero Collision Rate**: All implementations maintain perfect uniqueness guarantees (50k collision sample)
 
 <Picture
   src={comprehensiveOverview}
@@ -523,8 +526,9 @@ UUID Family
         └── Self-documenting
 
 Performance Characteristics:
-📈 Single-threaded:    Native UUIDv7 fastest → 58.1 μs (33% faster)
-⚡ Throughput:         Native UUIDv7 highest → 34,127 ops/sec
+📈 Single-threaded:    gen_random_uuid fastest → 71.4 μs (UUIDv4 baseline)
+📈 Fastest UUIDv7:     uuidv7_custom (PG18) → 71.8 μs (≈0.6% off UUIDv4)
+⚡ Throughput:         ulid_generate (PG17) → 23,160 ops/sec
 💾 Storage:           ULID most compact → 26 bytes text
 ```
 
@@ -633,7 +637,7 @@ $$ LANGUAGE plpgsql VOLATILE;
 
 ## Extended Performance Comparison
 
-Based on professional-grade benchmarking with 50,000 iterations per test:
+Based on professional-grade benchmarking with **10 runs × 100,000 iterations** per test:
 
 ### Storage Efficiency Analysis
 
@@ -642,13 +646,13 @@ Based on professional-grade benchmarking with 50,000 iterations per test:
 ### Comprehensive Performance Summary
 
 <ComprehensivePerformanceTable
-  data={performanceData.performance_summary}
+  data={performanceData.summary_statistics}
   client:load
 />
 
 ### Collision Resistance
 
-All implementations achieved **zero collisions** in 50,000 ID generation tests, demonstrating excellent entropy and uniqueness guarantees across all identifier types.
+All implementations achieved **zero collisions** in 50,000 ID generation tests (collision sample size), demonstrating excellent entropy and uniqueness guarantees across all identifier types.
 
 ## PostgreSQL 18 Native UUIDv7 Support
 
@@ -763,7 +767,7 @@ PostgreSQL 18 provides significant advances:
 - **Native uuidv7()**: C-level implementation with sub-millisecond precision
 - **Monotonicity**: Guaranteed ordering within database sessions
 - **Built-in functions**: `uuid_extract_timestamp()`, `uuid_extract_version()`
-- **Performance**: Demonstrated 33% improvement over UUIDv4 and custom implementations
+- **Performance**: Demonstrated parity with UUIDv4 (74.3 vs 71.6 μs) and throughput around 21.7K ops/sec
 - **Backward compatibility**: Seamless replacement for custom functions
 
 ### Performance Recommendations
@@ -781,13 +785,14 @@ Modern applications have excellent choices for time-ordered identifiers in Postg
 
 ### Performance Summary
 
-**Professional Benchmark Results:**
+**Latest Benchmark Results (10 runs × 100k iterations):**
 
-- **Native uuidv7() (PG18)**: Performance leader (58.1 μs), 33% faster than UUIDv4, 34,127 ops/sec
-- **Custom uuidv7() (PG17)**: Excellent performer (87.3 μs), matches UUIDv4 speed with time ordering
-- **UUIDv4**: Baseline performance (86.8 μs), 29,238 ops/sec, PostgreSQL native
-- **ULID**: Readable alternative (124.5 μs), 24,832 ops/sec, compact 26-byte storage
-- **TypeID**: Type-safe option (198.7 μs), 18,943 ops/sec, self-documenting format
+- **UUIDv4 (`gen_random_uuid`, PG17)**: 71.4 μs avg, ~21.4K ops/sec (baseline fastest)
+- **UUIDv7 (`uuidv7_custom`, PG18)**: 71.8 μs avg, 21,688 ops/sec (fastest UUIDv7, ~0.6% off UUIDv4)
+- **UUIDv7 (`uuid_generate_v7`, PG18)**: 73.8 μs avg, 21,877 ops/sec (top UUIDv7 throughput on PG18)
+- **UUIDv7 (`uuidv7_native`, PG18)**: 74.3 μs avg, 21,674 ops/sec (native support with throughput parity)
+- **ULID (`ulid_generate`, PG17)**: 80.3 μs avg, 23,160 ops/sec (throughput leader when readability matters)
+- **TypeID (`typeid_generate_text`, PG18)**: 87.8 μs avg, 22,857 ops/sec (type-safe, slightly slower)
 
 ### Decision Matrix
 
@@ -795,13 +800,13 @@ Modern applications have excellent choices for time-ordered identifiers in Postg
 
 ### Key Findings
 
-1. **Native uuidv7() breaks the performance trade-off** - 33% faster than UUIDv4 with time ordering
-2. **Custom implementations deliver excellent value** - PostgreSQL 17 UUIDv7 matches UUIDv4 performance
-3. **Professional benchmarking reveals clear winners** - 50,000 iterations with statistical significance
-4. **All implementations maintain zero collision rates** across extensive testing
-5. **PostgreSQL 18 native implementation leads** in both latency and throughput metrics
+1. **Native uuidv7() lands at UUIDv4 parity** - 74.3 vs 71.6 μs with ~21.7K ops/sec
+2. **Fastest UUIDv7** - `uuidv7_custom` (PG18) at 71.8 μs, within 0.6% of UUIDv4
+3. **Throughput leader** - `ulid_generate` (PG17) at 23,160 ops/sec; top UUIDv7 throughput is `uuid_generate_v7` (PG18) at 21,877 ops/sec
+4. **Updated methodology** - 10 runs × 100k iterations + concurrency (10×10k) with warmups
+5. **Zero collisions observed** across 50,000+ generations per implementation
 6. **Storage efficiency varies by format**: UUIDs (16 bytes binary) vs ULID (26 bytes text) vs TypeID (31+ bytes text)
-7. **Time-ordered identifiers are now production-ready** for high-performance applications
+7. **Time-ordered identifiers are production-ready** with negligible performance penalty
 
 ### Decision Guide
 
@@ -817,8 +822,8 @@ Concurrent Ordering      Readability   Safety
 Performance   ↓              ↓          ↓
     ↓         ↓              ↓          ↓
 🔴 UUIDv4   Need Sub-ms  🟠 ULID    🟣 TypeID
-29,492      Precision?      Base32     Prefixed
-IDs/sec        ↓            encoded    identifiers
+~21.6K      Precision?      Base32     Prefixed
+ops/sec        ↓            encoded    identifiers
 Battle-        ↓            Lexicographic Self-documenting
 tested      ┌──┴──┐         sort
            Yes   No
@@ -832,8 +837,8 @@ tested      ┌──┴──┐         sort
    🟢 PostgreSQL 🟡 UUIDv7    ↓        ↓
    18 native     Sub-ms   🔵 UUIDv7  🟢 UUIDv7
    uuidv7        Custom    PL/pgSQL   Pure SQL
-   C-level       precision 87.3 μs    No PL/pgSQL
-   performance   Best time matches    overhead
+   C-level       precision 75.9 μs    No PL/pgSQL
+   performance   Best time ~71.8–73 μs overhead
                  ordering  UUIDv4     Good all-around
 ```
 
@@ -841,8 +846,8 @@ tested      ┌──┴──┐         sort
 
 **🏁 Performance Champions**
 
-- 🥇 **Overall Performance**: Native UUIDv7 → 58.1 μs (33% faster than UUIDv4)
-- 🥇 **Throughput**: Native UUIDv7 → 34,127 ops/sec (16% higher than UUIDv4)
+- 🥇 **Overall Latency**: `gen_random_uuid` (PG17) → 71.4 μs; fastest UUIDv7 is `uuidv7_custom` (PG18) → 71.8 μs
+- 🥇 **Throughput**: `ulid_generate` (PG17) → 23,160 ops/sec; top UUIDv7 throughput on PG18 is `uuid_generate_v7` → 21,877 ops/sec
 - 🥇 **Storage Efficient**: ULID → 26 bytes (Most compact text representation)
 
 **🎯 Specialized Features**
@@ -853,7 +858,7 @@ tested      ┌──┴──┐         sort
 
 **🔮 Future Ready**
 
-- 🚀 **PostgreSQL 18+**: native uuidv7() → C-level implementation, expected performance leader
+- 🚀 **PostgreSQL 18+**: native uuidv7() → C-level implementation, GA with near-baseline latency
 
 The modern identifier landscape offers powerful options beyond traditional UUIDs. Choose based on your application's specific requirements for readability, type safety, storage efficiency, and compatibility needs.
 
@@ -867,4 +872,4 @@ The modern identifier landscape offers powerful options beyond traditional UUIDs
 
 ---
 
-_Last updated: June 2025 | PostgreSQL 17.1 & 18 Beta 1 with real benchmark data_
+_Last updated: December 2025 | PostgreSQL 17 & 18 GA with latest 10×100k benchmark data_

@@ -4,11 +4,11 @@
     "pros": [
       "<strong>Best performance</strong> (C-level implementation)",
       "<strong>Sub-millisecond precision</strong> with monotonicity",
-      "<strong>Future-proof</strong> with official support",
+      "<strong>Future-proof</strong> with official support (GA in PostgreSQL 18)",
       "<strong>Built-in utilities</strong> for timestamp extraction"
     ],
     "cons": [
-      "<strong>PostgreSQL 18+ only</strong> (currently in beta, expected release late 2025)",
+      "<strong>PostgreSQL 18+ only</strong>",
       "Limited customization vs custom functions"
     ]
   },

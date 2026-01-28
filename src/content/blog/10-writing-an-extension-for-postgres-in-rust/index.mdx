@@ -1,0 +1,510 @@
+---
+title: "Writing an extension for postgres in rust"
+description: "A detailed build log of pg_strict: from sqlparser and executor hooks to Postgres' own parser and parse-time enforcement."
+date: "2026-01-28"
+draft: false
+wip: false
+tags:
+  - "postgres"
+  - "postgresql"
+  - "database"
+  - "safety"
+  - "extension"
+  - "rust"
+  - "pgrx"
+  - "backend"
+  - "devops"
+slug: writing-an-extension-for-postgres-in-rust
+ogImage: "/images/pg-strict-og.png"
+---
+
+import Advertise from "@/components/Advertise.astro";
+import Callout from "@/components/Callout.astro";
+import { Picture } from "astro:assets";
+import OgImage from "./pg-strict-og.png";
+
+<Picture
+  src={OgImage}
+  alt="Writing an extension for postgres in rust"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+## Writing an extension for postgres in rust
+
+I wrote a small Postgres extension in Rust called `pg_strict`. The goal is tiny but sharp: block UPDATE and DELETE statements without a WHERE clause. I thought the build would be straightforward. It was not. The hard part was not Rust. It was choosing the _right_ phase of Postgres and the _right_ parser.
+
+This post is a detailed build log. It follows the actual sequence of commits, the wrong turns, and the eventual design that shipped. The work was inspired by PlanetScale's pg_strict, and the goal here was to build an open-source version with the same safety intent. If you are writing a Postgres extension, this is the stuff I wish I had read first.
+
+<Callout type="info">
+  **TL;DR:** I started with quick SQL string checks to validate pgrx wiring,
+  tried tree-sitter (failed), moved to `sqlparser` at `ExecutorRun_hook`, then
+  switched to Postgres' native parser (`pg_parse_query`), and finally moved
+  enforcement into `post_parse_analyze_hook` after reading PlanetScale's
+  approach.
+</Callout>
+
+---
+
+## The problem
+
+We all know this foot-gun:
+
+```sql
+UPDATE users SET status = 'inactive';
+DELETE FROM sessions;
+```
+
+This is valid SQL and a data incident waiting to happen. I wanted a guardrail that is:
+
+- **Loud** when it matters
+- **Simple** enough to keep enabled
+- **Native** to Postgres behavior (GUCs, roles, sessions)
+
+---
+
+## Primer: Postgres query pipeline and hooks (where things live)
+
+Before the build log, here is the mental model that made the rest of the decisions obvious.
+
+```text
++------------------+     +------------------+     +------------------+     +------------------+
+|   SQL text       | --> |   Parser         | --> |  Parse/Analyze   | --> |    Planner       |
++------------------+     +------------------+     +------------------+     +------------------+
+                                                       |                         |
+                                                       | post_parse_analyze_hook |
+                                                       v                         v
+                                                  +------------------+     +------------------+
+                                                  |    Query tree    | --> |    Executor      |
+                                                  +------------------+     +------------------+
+                                                                                |
+                                                                                | ExecutorRun_hook
+                                                                                v
+                                                                            Results
+```
+
+What each stage actually gives you:
+
+- **Parser**: syntax tree only, no semantic guarantees.
+- **Parse/Analyze**: a real `Query` tree with `commandType`, `jointree`, and `quals`.
+- **Planner**: a plan tree optimized for execution.
+- **Executor**: row processing, side effects, and the last place to intervene.
+
+Why hook choice matters (the two I touched):
+
+```text
+post_parse_analyze_hook
+  - early in the pipeline
+  - Query tree already built
+  - perfect for rules based on query shape
+
+ExecutorRun_hook
+  - late in the pipeline
+  - mostly SQL text via QueryDesc.sourceText
+  - you end up parsing strings yourself
+```
+
+For pg*strict, I care about \_query shape* (UPDATE/DELETE with or without WHERE), so parse/analyze is the natural home for enforcement.
+
+---
+
+## Commit timeline (the real evolution)
+
+```text
+1) Simple query parsing to prove pgrx wiring
+   - minimal string checks
+   - just to see if hooks work
+
+2) Tree-sitter attempt (failed)
+   - grammar mismatch and AST complexity
+
+3) ExecutorRun_hook + sqlparser
+   - string parsing in Rust
+   - enforcement at executor time
+   - allow on parse failure
+
+4) Move to Postgres parser (pg_parse_query)
+   - RawStmt list from Postgres
+   - multi-statement support
+   - pg_regress E2E tests
+
+5) Parse/analyze hook (post_parse_analyze_hook)
+   - Query tree, not SQL strings
+   - earlier in pipeline
+   - removed executor hook enforcement
+```
+
+---
+
+## Stage 0: Simple query parsing (sanity check)
+
+Before getting fancy, I did a simple parse/scan pass at the **executor hook** level to prove that pgrx hooks were wired correctly. The goal was just: can I intercept DML and make a decision?
+
+This stage was intentionally naive. It was not meant to be correct, just to prove the plumbing.
+
+### Dry run (stage 0)
+
+```text
+Input SQL
+  "UPDATE users SET active = false"
+
+Hook runs -> simple detection -> decision
+  - detect UPDATE
+  - detect missing WHERE (via string scan)
+  - warn/block
+
+Outcome
+  - Works for obvious cases
+  - Fails on comments, strings, CTEs, or complex syntax
+```
+
+---
+
+## Stage 1: Tree-sitter attempt (failed)
+
+After the initial sanity check, I tried tree-sitter with the Postgres grammar, also at the **executor hook** level. It looked promising: fast, incremental, and used by editors. In reality, I failed to set it up cleanly and did not spend much time fighting it. That was enough of a signal to move on.
+
+It was still a third-party parser, and I would have owned another compatibility surface, so I stopped there and switched approaches.
+
+### Dry run (stage 1)
+
+```text
+Input SQL
+  "WITH target AS (...) UPDATE users SET active = false"
+
+tree-sitter parse
+  - AST nodes ambiguous or missing
+  - hard to distinguish UPDATE without WHERE reliably
+
+Outcome
+  - inconsistent results
+  - abandoned
+```
+
+---
+
+## Stage 2: Executor hook + sqlparser (first real implementation)
+
+The first real implementation used `ExecutorRun_hook` to intercept DML at execution time. Inside that hook, I grabbed the SQL text from `QueryDesc.sourceText` and parsed it with `sqlparser` using the Postgres dialect.
+
+That gave me a quick, working prototype that supported modes (`off`, `warn`, `on`), GUCs, and helper functions. But the design was fragile because it depended on parsing SQL _strings_ with a non-Postgres parser.
+
+### The executor hook (initial code)
+
+```rust
+#[pg_guard]
+unsafe extern "C-unwind" fn pg_strict_executor_run_hook(
+    query_desc: *mut pg_sys::QueryDesc,
+    direction: i32,
+    count: u64,
+    execute_once: bool,
+) {
+    let query_str = if !query_desc.is_null() {
+        let source_text = (*query_desc).sourceText;
+        if !source_text.is_null() {
+            CStr::from_ptr(source_text).to_string_lossy().to_string()
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+
+    check_query_strictness(&query_str);
+
+    if let Some(prev_hook) = PREV_EXECUTOR_RUN_HOOK {
+        prev_hook(query_desc, direction, count, execute_once);
+    } else {
+        pg_sys::standard_ExecutorRun(query_desc, direction, count, execute_once);
+    }
+}
+```
+
+### The sqlparser AST check (initial code)
+
+```rust
+match stmt {
+    Statement::Update { selection, .. } => selection.is_some(),
+    Statement::Delete { selection, .. } => selection.is_some(),
+    _ => false,
+}
+```
+
+### The "fail open" behavior (initial code)
+
+```rust
+match Parser::parse_sql(&dialect, query_string) {
+    Ok(statements) => Ok(Self { statements }),
+    Err(_) => Ok(Self { statements: Vec::new() }), // allow on parse failure
+}
+```
+
+### Dry run (stage 2)
+
+```text
+Input SQL
+  "UPDATE users SET active = false"
+
+ExecutorRun_hook
+  -> sourceText
+  -> sqlparser AST
+  -> UPDATE with no selection
+  -> mode = on
+
+Outcome
+  - Blocked (good)
+  - BUT false negatives for CTEs/USING/FROM
+  - AND parse failures silently bypass
+```
+
+### Why this approach failed
+
+Even a good SQL parser is not Postgres. This showed up fast:
+
+- CTEs around UPDATE/DELETE
+- `UPDATE ... FROM` with joins
+- `DELETE ... USING`
+- multiple statements in one string
+- comments or string literals containing the word WHERE
+
+I could add tests, but I was still locked into a parser that would never be 100% of Postgres. I also ended up re-parsing SQL that Postgres had already parsed.
+
+---
+
+## Stage 3: Use Postgres' own parser
+
+The next commit replaced `sqlparser` with Postgres' internal parser via `pg_parse_query`. This was a big turning point.
+
+Instead of parsing text into a third-party AST, I asked Postgres to parse the SQL and give me the list of `RawStmt` nodes. That instantly fixed a bunch of edge cases.
+
+### Parsing with pg_parse_query
+
+```rust
+let statements = memcx::current_context(|_mcx| unsafe {
+    let raw_list = pg_sys::pg_parse_query(c_query.as_ptr());
+    collect_parsed_statements(raw_list)
+});
+```
+
+### Reading RawStmt nodes directly
+
+```rust
+match (*stmt).type_ {
+    pg_sys::NodeTag::T_UpdateStmt => {
+        let update = stmt as *mut pg_sys::UpdateStmt;
+        let has_where = !(*update).whereClause.is_null();
+        parsed.push(ParsedStmt { operation: Operation::Update, has_where });
+    }
+    pg_sys::NodeTag::T_DeleteStmt => {
+        let delete = stmt as *mut pg_sys::DeleteStmt;
+        let has_where = !(*delete).whereClause.is_null();
+        parsed.push(ParsedStmt { operation: Operation::Delete, has_where });
+    }
+    _ => {}
+}
+```
+
+### Dry run (stage 3)
+
+```text
+Input SQL
+  "WITH t AS (...) DELETE FROM users"
+
+pg_parse_query
+  -> RawStmt list
+  -> NodeTag::T_DeleteStmt
+  -> whereClause = NULL
+
+Outcome
+  - Correctly flagged
+  - Works for multi-statement strings
+  - Still enforced at executor stage
+```
+
+---
+
+## Stage 4: Parse-time enforcement (the correct hook)
+
+While reading PlanetScale's `pg_strict` implementation, I noticed the check runs earlier, during parse/analyze. That clicked: this is a _query shape_ decision, so it belongs at parse time.
+
+I moved enforcement to `post_parse_analyze_hook`, removed the executor hook check, and used the analyzed `Query` tree directly.
+
+### Parse/analyze hook enforcement
+
+```rust
+#[pg_guard]
+unsafe extern "C-unwind" fn pg_strict_post_parse_analyze_hook(
+    pstate: *mut pg_sys::ParseState,
+    query: *mut pg_sys::Query,
+    jstate: *mut pg_sys::JumbleState,
+) {
+    if let Some(prev_hook) = PREV_POST_PARSE_ANALYZE_HOOK {
+        prev_hook(pstate, query, jstate);
+    }
+
+    check_query_strictness_from_query(query);
+}
+```
+
+### Direct Query tree inspection
+
+```rust
+let command_type = (*query).commandType;
+let operation = match command_type {
+    pg_sys::CmdType::CMD_UPDATE => Operation::Update,
+    pg_sys::CmdType::CMD_DELETE => Operation::Delete,
+    _ => return,
+};
+
+let jointree = (*query).jointree;
+let has_where = !jointree.is_null() && !(*jointree).quals.is_null();
+```
+
+### Dry run (stage 4)
+
+```text
+Input SQL
+  "DELETE FROM sessions"
+
+post_parse_analyze_hook
+  -> Query.commandType = CMD_DELETE
+  -> jointree.quals = NULL
+  -> mode = on
+
+Outcome
+  - Blocked before planning/execution
+  - No SQL string parsing
+  - Correct for real Postgres syntax
+```
+
+---
+
+## The "fail closed" decision (the important pivot)
+
+The original parser logic allowed queries to pass if parsing failed. That was the wrong tradeoff. For a safety feature, failure to parse should be considered unsafe.
+
+In the refactor, validation functions flipped to _error on parse failure_:
+
+```rust
+match QueryAnalyzer::new(query) {
+    Ok(analyzer) => { /* normal checks */ }
+    Err(_) => {
+        pgrx::error!("Failed to parse {} query.", operation.as_str());
+    }
+}
+```
+
+This change is subtle but critical. It removes the bypass path and makes the extension safe-by-default.
+
+---
+
+## Memory contexts and "unsafe" containment
+
+Parsing via `pg_parse_query` returns Postgres-owned memory. I initially handled the raw list manually and it was easy to misuse pointers.
+
+The refactor pushed parsing into a memory context and used a safe list helper:
+
+```rust
+let statements = memcx::current_context(|mcx| unsafe {
+    let raw_list = pg_sys::pg_parse_query(c_query.as_ptr());
+    collect_parsed_statements(raw_list, mcx)
+});
+```
+
+```rust
+let list = unsafe { List::<*mut c_void>::downcast_ptr_in_memcx(raw_list, memcx) };
+```
+
+That kept the unsafe code tiny and explicit, and removed a lot of hand-rolled pointer math.
+
+---
+
+## Tests and edge cases
+
+The tests that found real bugs were not the clean examples, they were the messy ones:
+
+- multiple statements in one string
+- a safe statement followed by an unsafe one
+- `DELETE ... USING` without a WHERE
+- `UPDATE ... FROM` without a WHERE
+- CTE-wrapped UPDATE/DELETE
+- comments or string literals that contain the word WHERE
+
+Here are a few that stayed in the suite:
+
+```rust
+let violations = analyze_missing_where_operations(
+    "UPDATE users SET active = true WHERE id = 1; UPDATE users SET active = false;",
+);
+assert_eq!(violations, vec![Operation::Update]);
+```
+
+```rust
+let violations = analyze_missing_where_operations(
+    "DELETE FROM users USING accounts;",
+);
+assert_eq!(violations, vec![Operation::Delete]);
+```
+
+```rust
+let violations = analyze_missing_where_operations(
+    "WITH doomed AS (SELECT 1) DELETE FROM users RETURNING id;",
+);
+assert_eq!(violations, vec![Operation::Delete]);
+```
+
+---
+
+## A simple rule set that scales
+
+The extension stays small by only enforcing two rules:
+
+- `pg_strict.require_where_on_update`
+- `pg_strict.require_where_on_delete`
+
+Each is a GUC with `off`, `warn`, and `on`. That lets you:
+
+- default to strict for app roles
+- warn only for migrations
+- turn it off inside a single transaction
+
+```text
+ALTER DATABASE -> ALTER ROLE -> SET -> SET LOCAL
+```
+
+Because it is a normal GUC, it behaves like everything else in Postgres.
+
+---
+
+## What I would do differently next time
+
+- **Start with Postgres' parser immediately.** Any other parser is a compatibility tax.
+- **Pick the hook by data shape.** If you need the AST, choose parse/analyze. If you only need execution stats, go later.
+- **Test only the ugly cases.** Clean SQL is never what breaks in production.
+- **Fail closed.** If you cannot parse or analyze, the safest choice is to block.
+
+---
+
+## If you are building your own extension
+
+This is the distilled checklist I now follow:
+
+- Decide on the hook based on the _data you need_, not convenience.
+- Use Postgres' own parser instead of re-parsing SQL text.
+- Keep unsafe code tiny and local.
+- Use GUCs so your extension feels native.
+- Build tests around real-world SQL, not toy examples.
+
+That is the full story. `pg_strict` is small on purpose, but the path to get there taught me how Postgres actually works under the hood. If you are writing your own extension, start where I ended up.
+
+---
+
+## Citation
+
+```text
+https://planetscale.com/docs/postgres/extensions/pg_strict
+```
+
+---
+
+<Advertise />

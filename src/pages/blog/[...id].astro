@@ -54,7 +54,6 @@ const nextPost = getNextPost();
 const prevPost = getPrevPost();
 
 const post = Astro.props;
-console.log(post.data);
 const { Content, headings } = await render(post);
 ---
 

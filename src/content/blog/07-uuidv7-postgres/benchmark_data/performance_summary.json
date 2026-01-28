@@ -1,69 +1,276 @@
 {
   "metadata": {
-    "benchmark_date": "2025-06-12T13:58:00.000Z",
-    "postgresql_versions": [17, 18],
-    "description": "PostgreSQL UUIDv7 implementation comparison including native PG18 support"
+    "benchmark_completed": "2025-12-08T16:40:21.472151+00:00",
+    "total_execution_time_seconds": 2465.4732847213745,
+    "configuration": {
+      "warmup_iterations": 25000,
+      "single_thread_iterations": 100000,
+      "concurrent_workers": 10,
+      "concurrent_iterations_per_worker": 10000,
+      "benchmark_runs": 10,
+      "concurrent_warmup_iterations": 1000,
+      "function_timeout_seconds": 30,
+      "connection_timeout_seconds": 10,
+      "max_memory_usage_mb": 1024,
+      "validation_sample_size": 500,
+      "collision_test_iterations": 50000,
+      "detailed_logging": true,
+      "export_raw_data": true,
+      "generate_charts": true
+    },
+    "databases_tested": ["postgresql17", "postgresql18"],
+    "functions_tested": [
+      "typeid_generate_text",
+      "uuidv7_custom",
+      "uuid_generate_v7",
+      "gen_random_uuid",
+      "uuidv7_native",
+      "uuidv7_sub_ms",
+      "ulid_generate"
+    ]
   },
-  "performance_summary": [
-    {
-      "implementation": "Native uuidv7() (PG18)",
-      "function_name": "uuidv7_native",
-      "pg_version": 18,
-      "avg_time_us": 58.1,
-      "median_time_us": 55.2,
-      "p95_time_us": 78.4,
-      "p99_time_us": 95.1,
-      "throughput_per_second": 34127,
-      "storage_bytes": 36,
-      "timestamp": "2025-06-12T13:58:00.000Z"
+  "summary_statistics": {
+    "postgresql17": {
+      "gen_random_uuid": {
+        "avg_single_thread_us": 71.394140621,
+        "avg_throughput_per_second": 21424.939284103417,
+        "consistency_coefficient": 0.002603692960950832,
+        "runs_completed": 10,
+        "postgres_version": 17
+      },
+      "typeid_generate_text": {
+        "avg_single_thread_us": 90.975007052,
+        "avg_throughput_per_second": 23031.77975593142,
+        "consistency_coefficient": 0.04017402259849231,
+        "runs_completed": 10,
+        "postgres_version": 17
+      },
+      "ulid_generate": {
+        "avg_single_thread_us": 80.324832314,
+        "avg_throughput_per_second": 23159.53132861027,
+        "consistency_coefficient": 0.007905015724843686,
+        "runs_completed": 10,
+        "postgres_version": 17
+      },
+      "uuid_generate_v7": {
+        "avg_single_thread_us": 73.79953151500001,
+        "avg_throughput_per_second": 21519.813390151714,
+        "consistency_coefficient": 0.005813247352108893,
+        "runs_completed": 10,
+        "postgres_version": 17
+      },
+      "uuidv7_custom": {
+        "avg_single_thread_us": 73.17777887,
+        "avg_throughput_per_second": 21563.346547617813,
+        "consistency_coefficient": 0.002493741391100875,
+        "runs_completed": 10,
+        "postgres_version": 17
+      },
+      "uuidv7_sub_ms": {
+        "avg_single_thread_us": 93.767350471,
+        "avg_throughput_per_second": 23042.68350613189,
+        "consistency_coefficient": 0.054484188237698974,
+        "runs_completed": 10,
+        "postgres_version": 17
+      }
     },
-    {
-      "implementation": "Custom uuidv7() (PG17)",
-      "function_name": "uuidv7_custom",
-      "pg_version": 17,
-      "avg_time_us": 87.3,
-      "median_time_us": 82.1,
-      "p95_time_us": 112.8,
-      "p99_time_us": 134.2,
-      "throughput_per_second": 29456,
-      "storage_bytes": 36,
-      "timestamp": "2025-06-12T13:58:00.000Z"
-    },
-    {
-      "implementation": "UUIDv4 (PG17)",
-      "function_name": "gen_random_uuid",
-      "pg_version": 17,
-      "avg_time_us": 86.8,
-      "median_time_us": 81.7,
-      "p95_time_us": 111.4,
-      "p99_time_us": 132.9,
-      "throughput_per_second": 29238,
-      "storage_bytes": 36,
-      "timestamp": "2025-06-12T13:58:00.000Z"
-    },
-    {
-      "implementation": "ULID (PG17)",
-      "function_name": "ulid_generate",
-      "pg_version": 17,
-      "avg_time_us": 124.5,
-      "median_time_us": 118.3,
-      "p95_time_us": 159.7,
-      "p99_time_us": 187.2,
-      "throughput_per_second": 24832,
-      "storage_bytes": 26,
-      "timestamp": "2025-06-12T13:58:00.000Z"
-    },
-    {
-      "implementation": "TypeID (PG17)",
-      "function_name": "typeid_generate",
-      "pg_version": 17,
-      "avg_time_us": 198.7,
-      "median_time_us": 189.4,
-      "p95_time_us": 251.3,
-      "p99_time_us": 298.1,
-      "throughput_per_second": 18943,
-      "storage_bytes": 31,
-      "timestamp": "2025-06-12T13:58:00.000Z"
+    "postgresql18": {
+      "gen_random_uuid": {
+        "avg_single_thread_us": 71.601098312,
+        "avg_throughput_per_second": 21650.25562927022,
+        "consistency_coefficient": 0.007036128605318056,
+        "runs_completed": 10,
+        "postgres_version": 18
+      },
+      "typeid_generate_text": {
+        "avg_single_thread_us": 87.829003563,
+        "avg_throughput_per_second": 22857.388883030868,
+        "consistency_coefficient": 0.005528923395144383,
+        "runs_completed": 10,
+        "postgres_version": 18
+      },
+      "ulid_generate": {
+        "avg_single_thread_us": 79.506161091,
+        "avg_throughput_per_second": 22534.25427130257,
+        "consistency_coefficient": 0.00552295078763338,
+        "runs_completed": 10,
+        "postgres_version": 18
+      },
+      "uuid_generate_v7": {
+        "avg_single_thread_us": 73.836720912,
+        "avg_throughput_per_second": 21877.01116841472,
+        "consistency_coefficient": 0.003844683687345109,
+        "runs_completed": 10,
+        "postgres_version": 18
+      },
+      "uuidv7_custom": {
+        "avg_single_thread_us": 71.78437029199999,
+        "avg_throughput_per_second": 21688.17139394712,
+        "consistency_coefficient": 0.002790732064192885,
+        "runs_completed": 10,
+        "postgres_version": 18
+      },
+      "uuidv7_native": {
+        "avg_single_thread_us": 74.268828752,
+        "avg_throughput_per_second": 21673.813505610786,
+        "consistency_coefficient": 0.004369066974897583,
+        "runs_completed": 10,
+        "postgres_version": 18
+      },
+      "uuidv7_sub_ms": {
+        "avg_single_thread_us": 75.854775551,
+        "avg_throughput_per_second": 21958.156057499684,
+        "consistency_coefficient": 0.0023702008531689676,
+        "runs_completed": 10,
+        "postgres_version": 18
+      }
     }
-  ]
+  },
+  "performance_rankings": {
+    "fastest_single_thread": [
+      {
+        "database": "postgresql17",
+        "function": "gen_random_uuid",
+        "single_thread_us": 71.394140621,
+        "throughput_ops_sec": 21424.939284103417,
+        "postgres_version": 17
+      },
+      {
+        "database": "postgresql18",
+        "function": "gen_random_uuid",
+        "single_thread_us": 71.601098312,
+        "throughput_ops_sec": 21650.25562927022,
+        "postgres_version": 18
+      },
+      {
+        "database": "postgresql18",
+        "function": "uuidv7_custom",
+        "single_thread_us": 71.78437029199999,
+        "throughput_ops_sec": 21688.17139394712,
+        "postgres_version": 18
+      },
+      {
+        "database": "postgresql17",
+        "function": "uuidv7_custom",
+        "single_thread_us": 73.17777887,
+        "throughput_ops_sec": 21563.346547617813,
+        "postgres_version": 17
+      },
+      {
+        "database": "postgresql17",
+        "function": "uuid_generate_v7",
+        "single_thread_us": 73.79953151500001,
+        "throughput_ops_sec": 21519.813390151714,
+        "postgres_version": 17
+      },
+      {
+        "database": "postgresql18",
+        "function": "uuid_generate_v7",
+        "single_thread_us": 73.836720912,
+        "throughput_ops_sec": 21877.01116841472,
+        "postgres_version": 18
+      },
+      {
+        "database": "postgresql18",
+        "function": "uuidv7_native",
+        "single_thread_us": 74.268828752,
+        "throughput_ops_sec": 21673.813505610786,
+        "postgres_version": 18
+      },
+      {
+        "database": "postgresql18",
+        "function": "uuidv7_sub_ms",
+        "single_thread_us": 75.854775551,
+        "throughput_ops_sec": 21958.156057499684,
+        "postgres_version": 18
+      },
+      {
+        "database": "postgresql18",
+        "function": "ulid_generate",
+        "single_thread_us": 79.506161091,
+        "throughput_ops_sec": 22534.25427130257,
+        "postgres_version": 18
+      },
+      {
+        "database": "postgresql17",
+        "function": "ulid_generate",
+        "single_thread_us": 80.324832314,
+        "throughput_ops_sec": 23159.53132861027,
+        "postgres_version": 17
+      }
+    ],
+    "highest_throughput": [
+      {
+        "database": "postgresql17",
+        "function": "ulid_generate",
+        "single_thread_us": 80.324832314,
+        "throughput_ops_sec": 23159.53132861027,
+        "postgres_version": 17
+      },
+      {
+        "database": "postgresql17",
+        "function": "uuidv7_sub_ms",
+        "single_thread_us": 93.767350471,
+        "throughput_ops_sec": 23042.68350613189,
+        "postgres_version": 17
+      },
+      {
+        "database": "postgresql17",
+        "function": "typeid_generate_text",
+        "single_thread_us": 90.975007052,
+        "throughput_ops_sec": 23031.77975593142,
+        "postgres_version": 17
+      },
+      {
+        "database": "postgresql18",
+        "function": "typeid_generate_text",
+        "single_thread_us": 87.829003563,
+        "throughput_ops_sec": 22857.388883030868,
+        "postgres_version": 18
+      },
+      {
+        "database": "postgresql18",
+        "function": "ulid_generate",
+        "single_thread_us": 79.506161091,
+        "throughput_ops_sec": 22534.25427130257,
+        "postgres_version": 18
+      },
+      {
+        "database": "postgresql18",
+        "function": "uuidv7_sub_ms",
+        "single_thread_us": 75.854775551,
+        "throughput_ops_sec": 21958.156057499684,
+        "postgres_version": 18
+      },
+      {
+        "database": "postgresql18",
+        "function": "uuid_generate_v7",
+        "single_thread_us": 73.836720912,
+        "throughput_ops_sec": 21877.01116841472,
+        "postgres_version": 18
+      },
+      {
+        "database": "postgresql18",
+        "function": "uuidv7_custom",
+        "single_thread_us": 71.78437029199999,
+        "throughput_ops_sec": 21688.17139394712,
+        "postgres_version": 18
+      },
+      {
+        "database": "postgresql18",
+        "function": "uuidv7_native",
+        "single_thread_us": 74.268828752,
+        "throughput_ops_sec": 21673.813505610786,
+        "postgres_version": 18
+      },
+      {
+        "database": "postgresql18",
+        "function": "gen_random_uuid",
+        "single_thread_us": 71.601098312,
+        "throughput_ops_sec": 21650.25562927022,
+        "postgres_version": 18
+      }
+    ]
+  },
+  "database_comparison": {}
 }

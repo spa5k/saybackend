@@ -20,6 +20,11 @@ export default function PerformanceTable({
   data,
   showMetricsExplanation = true,
 }: PerformanceTableProps) {
+  // Guard against undefined/empty data during SSR
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return null;
+  }
+
   const sortedData = useMemo(() => {
     return [...data].sort((a, b) => a.avg_time_us - b.avg_time_us);
   }, [data]);

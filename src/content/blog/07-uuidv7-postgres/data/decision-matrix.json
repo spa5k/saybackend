@@ -2,18 +2,23 @@
   "decision_matrix": [
     {
       "priority": "Maximum Performance",
-      "recommendation": "PostgreSQL 18 native `uuidv7()`",
-      "why": "33% faster than UUIDv4, 16% higher throughput, C-level implementation"
+      "recommendation": "`gen_random_uuid` (UUIDv4)",
+      "why": "Fastest single-thread (≈71.4 μs) and simplest baseline option"
+    },
+    {
+      "priority": "Time-ordered on PostgreSQL 18",
+      "recommendation": "`uuidv7_custom` (or native `uuidv7()`)",
+      "why": "71.8–74.3 μs with throughput parity (~21.7K ops/sec); closest to UUIDv4 latency"
     },
     {
       "priority": "PostgreSQL 17 Compatibility",
       "recommendation": "Custom `uuidv7()` implementation",
-      "why": "Matches UUIDv4 performance while adding time ordering"
+      "why": "73 μs single-thread with time ordering and drop-in compatibility"
     },
     {
       "priority": "Human Readability",
       "recommendation": "ULID",
-      "why": "Case-insensitive, 26-byte compact storage, lexicographic sorting"
+      "why": "Case-insensitive, 26-byte compact storage, lexicographic sorting; throughput leader (23,160 ops/sec on PG17)"
     },
     {
       "priority": "Type Safety",
@@ -28,7 +33,7 @@
     {
       "priority": "Proven Stability",
       "recommendation": "UUIDv4 (`gen_random_uuid`)",
-      "why": "Battle-tested, PostgreSQL native, zero compatibility issues"
+      "why": "Battle-tested, PostgreSQL native, zero compatibility issues; best raw latency"
     }
   ]
 }
