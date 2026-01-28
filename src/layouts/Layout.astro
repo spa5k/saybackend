@@ -44,7 +44,9 @@ const { title, description, image } = Astro.props;
       }
     </style>
   </head>
-  <body>
+  <body
+    class="border-structural mx-auto min-h-screen max-w-7xl border-x border-b bg-white selection:bg-blue-500 selection:text-white"
+  >
     <Header />
     <main>
       <slot />

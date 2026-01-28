@@ -1,10 +1,10 @@
 ---
-import ArrowCard from "@components/ArrowCard.astro";
+import Button from "@components/Button.astro";
+import Card from "@components/Card.astro";
 import Container from "@components/Container.astro";
-import Link from "@components/Link.astro";
-import { HOME, SITE, SOCIALS } from "@consts";
+import Section from "@components/Section.astro";
+import { HOME, SITE } from "@consts";
 import Layout from "@layouts/Layout.astro";
-import type { CollectionEntry } from "astro:content";
 import { getCollection } from "astro:content";
 
 let blog = (await getCollection("blog"))
@@ -12,133 +12,142 @@ let blog = (await getCollection("blog"))
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
   .slice(0, SITE.NUM_POSTS_ON_HOMEPAGE);
 
-// Sort using updated date if it exists, otherwise use date
-blog = blog.sort((a, b) => {
-  const aDate =
-    a.data.updated && a.data.updated > a.data.date
-      ? a.data.updated
-      : a.data.date;
-  const bDate =
-    b.data.updated && b.data.updated > b.data.date
-      ? b.data.updated
-      : b.data.date;
-  return bDate.valueOf() - aDate.valueOf();
-});
-
-const projects: CollectionEntry<"projects">[] = (
-  await getCollection("projects")
-)
+const projects = (await getCollection("projects"))
   .filter((project) => !project.data.draft)
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
   .slice(0, SITE.NUM_PROJECTS_ON_HOMEPAGE);
 ---
 
 <Layout title={HOME.TITLE} description={HOME.DESCRIPTION}>
-  <Container>
-    <h1 class="animate font-mono font-semibold text-black dark:text-white">
-      Welcome to SayBackend - Your Backend and DevOps Resource
-    </h1>
-    <div class="space-y-16">
-      <section>
-        <article class="space-y-4">
-          <span class="animate">
-            <p>
-              SayBackend is your go-to resource for backend and DevOps topics.
-              Dive into our articles to learn about the latest trends, best
-              practices, and tools in the industry.
-            </p>
-            <p>
-              Whether you're a seasoned developer or just starting out,
-              SayBackend has something for everyone. Explore our tutorials,
-              guides, and project showcases to enhance your backend and DevOps
-              skills.
-            </p>
-          </span>
-          <span class="animate">
-            <p>
-              Stay updated with our latest posts and projects. We cover a wide
-              range of topics including server management, CI/CD pipelines,
-              cloud services, and much more.
-            </p>
-            <p>
-              Visit our <span class="m-1"
-                ><Link href="/blog">backend and DevOps blog </Link></span
-              >
-              and <span class="m-1"
-                ><Link href="/projects">recent projects </Link></span
-              > sections to get started.
-            </p>
-          </span>
-        </article>
-      </section>
-
-      <section class="animate space-y-6">
-        <div class="flex flex-wrap items-center justify-between gap-y-2">
-          <h2 class="font-semibold text-black dark:text-white">Latest posts</h2>
-          <Link href="/blog"> See all backend and DevOps posts </Link>
-        </div>
-        <ul class="not-prose flex flex-col gap-4">
-          {
-            blog.map((post) => (
-              <li>
-                <ArrowCard entry={post} />
-              </li>
-            ))
-          }
-        </ul>
-      </section>
-
-      <section class="animate space-y-6">
-        <div class="flex flex-wrap items-center justify-between gap-y-2">
-          <h2 class="font-semibold text-black dark:text-white">
-            Recent projects
-          </h2>
-          <Link href="/projects"> See all backend and DevOps projects </Link>
-        </div>
-        <ul class="not-prose flex flex-col gap-4">
-          {
-            projects.map((project) => (
-              <li>
-                <ArrowCard entry={project} />
-              </li>
-            ))
-          }
-        </ul>
-      </section>
-
-      <section class="animate space-y-4">
-        <h2 class="font-semibold text-black dark:text-white">Let's Connect</h2>
-        <article>
-          <p>
-            If you want to get in touch with me about something or just to say
-            hi, reach out on social media or send me an email.
+  <!-- Hero Section -->
+  <Section class="py-20 md:py-32">
+    <Container>
+      <div class="max-w-4xl">
+        <h1
+          class="animate-fade-in-up mb-8 text-[clamp(3.5rem,8vw,9rem)] leading-[0.85] font-black tracking-tighter text-black uppercase"
+        >
+          Say<br />Backend
+        </h1>
+        <div
+          class="animate-fade-in-up border-t border-black pt-8"
+          style="animation-delay: 100ms;"
+        >
+          <p class="max-w-xl font-mono text-sm leading-relaxed md:text-base">
+            A minimalist engineering blog dedicated to backend systems, DevOps,
+            and structural data patterns. Exploring the intersection of
+            brutalist architecture and clean code.
           </p>
-        </article>
-        <ul class="not-prose flex flex-wrap gap-2">
-          {
-            SOCIALS.map((SOCIAL) => (
-              <li class="flex gap-x-2 text-nowrap">
-                <Link
-                  href={SOCIAL.HREF}
-                  external
-                  aria-label={`${SITE.TITLE} on ${SOCIAL.NAME}`}
-                >
-                  {SOCIAL.NAME}
-                </Link>
-                {"/"}
-              </li>
-            ))
-          }
-          <li class="line-clamp-1">
-            <Link
-              href={`mailto:${SITE.EMAIL}`}
-              aria-label={`Email ${SITE.TITLE}`}
-            >
-              {SITE.EMAIL}
-            </Link>
-          </li>
-        </ul>
-      </section>
+        </div>
+      </div>
+    </Container>
+  </Section>
+
+  <!-- Marquee Banner -->
+  <div
+    class="border-structural overflow-hidden border-b bg-black py-3 whitespace-nowrap text-white"
+  >
+    <div
+      class="animate-marquee inline-block font-mono text-xs font-bold tracking-widest uppercase"
+    >
+      BACKEND ENGINEERING /// DEVOPS PATTERNS /// SYSTEM ARCHITECTURE ///
+      DATABASE DESIGN /// BACKEND ENGINEERING /// DEVOPS PATTERNS /// SYSTEM
+      ARCHITECTURE /// DATABASE DESIGN /// BACKEND ENGINEERING /// DEVOPS
+      PATTERNS /// SYSTEM ARCHITECTURE /// DATABASE DESIGN ///
     </div>
-  </Container>
+  </div>
+
+  <!-- Latest Posts -->
+  <Section class="py-16 md:py-24">
+    <Container>
+      <div class="mb-12 flex items-end justify-between">
+        <h2 class="text-4xl font-black tracking-tight uppercase md:text-6xl">
+          Latest Logs
+        </h2>
+        <Button href="/blog" variant="secondary" class="hidden md:flex"
+          >View Archive</Button
+        >
+      </div>
+
+      <div
+        class="border-structural grid gap-px border bg-gray-200 md:grid-cols-2 lg:grid-cols-3"
+      >
+        {
+          blog.map((post, i) => {
+            const cleanId = post.id.replace(/\/index$/, "");
+            return (
+              <Card
+                href={`/blog/${cleanId}`}
+                title={post.data.title}
+                description={post.data.description}
+                date={post.data.date}
+                label={`FIG 1.${i} — POST`}
+                class="h-full"
+              />
+            );
+          })
+        }
+      </div>
+
+      <div class="mt-8 md:hidden">
+        <Button href="/blog" variant="secondary" class="w-full"
+          >View Archive</Button
+        >
+      </div>
+    </Container>
+  </Section>
+
+  <!-- Projects -->
+  <Section class="bg-gray-50/50 py-16 md:py-24">
+    <Container>
+      <div class="mb-12 flex items-end justify-between">
+        <h2 class="text-4xl font-black tracking-tight uppercase md:text-6xl">
+          Works
+        </h2>
+        <Button href="/projects" variant="secondary" class="hidden md:flex"
+          >All Projects</Button
+        >
+      </div>
+
+      <div class="grid gap-8 md:grid-cols-2">
+        {
+          projects.map((project, i) => (
+            <Card
+              href={`/projects/${project.id}`}
+              title={project.data.title}
+              description={project.data.description}
+              label={`SYS 2.${i} — PROJECT`}
+            />
+          ))
+        }
+      </div>
+
+      <div class="mt-8 md:hidden">
+        <Button href="/projects" variant="secondary" class="w-full"
+          >All Projects</Button
+        >
+      </div>
+    </Container>
+  </Section>
+
+  <!-- Connect -->
+  <Section class="py-24 text-center">
+    <Container>
+      <h2
+        class="mb-8 text-[clamp(3rem,6vw,6rem)] leading-none font-black tracking-tighter uppercase"
+      >
+        Collaborate
+      </h2>
+      <p
+        class="mx-auto mb-12 max-w-md font-mono text-sm text-gray-600 md:text-base"
+      >
+        Open for engineering discussions, system design consulting, and
+        technical writing opportunities.
+      </p>
+      <div class="flex justify-center gap-4">
+        <Button href={`mailto:${SITE.EMAIL}`} variant="primary"
+          >Initialize Handshake</Button
+        >
+      </div>
+    </Container>
+  </Section>
 </Layout>

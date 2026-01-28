@@ -44,8 +44,12 @@ export default defineConfig({
   markdown: {
     syntaxHighlight: {
       type: "shiki",
-      theme: "css-variables",
+      // theme: "css-variables",
+
       excludeLangs: ["mermaid"],
+    },
+    shikiConfig: {
+      theme: "vitesse-dark",
     },
   },
 

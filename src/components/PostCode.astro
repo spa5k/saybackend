@@ -1,0 +1,33 @@
+---
+const { class: className, title, ...props } = Astro.props;
+
+// Extension parsing logic
+const getExtension = (filename) => {
+  if (!filename) return "";
+  const parts = filename.split(".");
+  return parts.length > 1 ? parts.pop().toUpperCase() : "";
+};
+
+const extension = getExtension(title);
+---
+
+<figure class="my-8 overflow-hidden border border-black/15 bg-white">
+  {
+    title && (
+      <figcaption class="flex items-center justify-between border-b border-black/15 bg-gray-50 px-4 py-2 font-mono text-xs text-gray-500 uppercase">
+        <span class="font-bold tracking-tight text-black">{title}</span>
+        <span class="opacity-70">{extension}</span>
+      </figcaption>
+    )
+  }
+  <div class="group relative">
+    <pre
+      class={`${className} my-0! border-0! rounded-none!`}
+      {...props}><slot /></pre>
+    <div
+      class="absolute top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100"
+    >
+      <!-- Optional: Copy button could go here -->
+    </div>
+  </div>
+</figure>

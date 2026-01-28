@@ -12,10 +12,13 @@ export async function getStaticPaths() {
   const projects = (await getCollection("projects"))
     .filter((post) => !post.data.draft)
     .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
-  return projects.map((project) => ({
-    params: { id: project.id },
-    props: project,
-  }));
+  return projects.map((project) => {
+    const cleanId = project.id.replace(/\/index$/, "");
+    return {
+      params: { id: cleanId },
+      props: project,
+    };
+  });
 }
 type Props = CollectionEntry<"projects">;
 
@@ -40,7 +43,7 @@ const { Content, headings } = await render(project);
           )
         }
       </div>
-      <h1 class="text-3xl font-semibold text-black dark:text-white">
+      <h1 class="text-3xl font-semibold text-black">
         {project.data.title}
       </h1>
       {
@@ -62,7 +65,9 @@ const { Content, headings } = await render(project);
       }
     </div>
     <TableOfContents headings={headings} />
-    <article class="animate">
+    <article
+      class="animate prose prose-neutral prose-headings:uppercase prose-headings:font-black prose-headings:tracking-tighter prose-a:text-[var(--color-accent)] prose-a:no-underline hover:prose-a:underline prose-img:border-structural prose-img:border prose-pre:border-structural prose-pre:border prose-pre:rounded-none max-w-none"
+    >
       <Content />
     </article>
   </Container>

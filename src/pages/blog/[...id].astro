@@ -9,15 +9,20 @@ import PostNavigation from "@components/PostNavigation.astro";
 import TableOfContents from "@components/TableOfContents.astro";
 import Giscus from "@components/Giscus.astro";
 import WipWarning from "@components/WipWarning.astro";
+import PostCode from "@components/PostCode.astro";
 
 export async function getStaticPaths() {
   const posts = (await getCollection("blog"))
     .filter((post: any) => !post.data.draft)
     .sort((a: any, b: any) => b.data.date.valueOf() - a.data.date.valueOf());
-  return posts.map((post: { id: any }) => ({
-    params: { id: post.id },
-    props: post,
-  }));
+  return posts.map((post: { id: string }) => {
+    // Clean up ID if it ends with /index or /index.mdx
+    const cleanId = post.id.replace(/\/index$/, "");
+    return {
+      params: { id: cleanId },
+      props: post,
+    };
+  });
 }
 type Props = CollectionEntry<"blog">;
 
@@ -58,98 +63,105 @@ const { Content, headings } = await render(post);
 ---
 
 <Layout title={post.data.title} description={post.data.description}>
-  <Container>
-    <div class="animate">
-      <BackToPrevious href="/blog">Back to blog</BackToPrevious>
-    </div>
-    <div class="my-10 space-y-1">
-      <div class="animate flex items-center gap-1.5">
-        <div class="font-base text-sm">
-          <FormattedDate date={post.data.date} />
+  <div class="pt-24">
+    <Container>
+      <div class="animate">
+        <BackToPrevious href="/blog">Back to blog</BackToPrevious>
+      </div>
+      <div class="animate my-10 space-y-8">
+        <div class="space-y-4">
+          <h1
+            class="text-4xl leading-[0.85] font-black tracking-tighter text-black uppercase md:text-6xl lg:text-7xl"
+          >
+            {post.data.title}
+          </h1>
+        </div>
+
+        <div
+          class="flex flex-col gap-4 border-y border-black py-4 md:flex-row md:items-center md:justify-between"
+        >
+          <div
+            class="flex items-center gap-4 font-mono text-xs tracking-wider text-gray-600 uppercase"
+          >
+            <span>
+              <FormattedDate date={post.data.date} />
+            </span>
+            <span>/</span>
+            <span>{readingTime(post.body!)} READ</span>
+          </div>
+
           {
-            post.data.updated && post.data.updated > post.data.date && (
-              <>
-                &bull; Updated <FormattedDate date={post.data.updated} />
-              </>
-            )
+            post.data.tags && post.data.tags?.length > 0 ? (
+              <div class="flex flex-wrap gap-2">
+                {post.data.tags.map((tag: unknown) => (
+                  <a
+                    href={`/tags/${tag}`}
+                    class="border border-black px-1.5 py-0.5 font-mono text-[10px] uppercase transition-colors hover:bg-black hover:text-white"
+                  >
+                    {tag}
+                  </a>
+                ))}
+              </div>
+            ) : null
           }
         </div>
-        &bull;
-        {
-          post.body && (
-            <div class="font-base text-sm">{readingTime(post.body)}</div>
-          )
-        }
       </div>
-      <h1 class="animate text-3xl font-semibold text-black dark:text-white">
-        {post.data.title}
-      </h1>
-      {
-        post.data.tags && post.data.tags?.length > 0 ? (
-          <div class="animate flex gap-2 pt-1">
-            <ul class="flex flex-wrap gap-2">
-              {post.data.tags.map((tag: unknown, index: number) => (
-                <li
-                  class={`rounded-md bg-gray-800 px-2 py-1 text-sm font-medium text-white ${index >= 5 ? "hidden" : ""}`}
-                  title={`${tag}`}
-                >
-                  <a href={`/tags/${tag}`}>{tag}</a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null
-      }
-    </div>
-    {post.data.wip && <WipWarning />}
-    {headings.length > 0 && <TableOfContents headings={headings} />}
-    <article class="animate">
-      <Content />
-      <div class="mt-24">
-        <PostNavigation prevPost={prevPost} nextPost={nextPost} />
-      </div>
-      <div class="mt-24">
-        <Giscus />
-      </div>
-    </article>
-  </Container>
-</Layout>
+      {post.data.wip && <WipWarning />}
 
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const postData = document.getElementById("post-data");
-    if (!postData) return;
+      <article
+        class="animate prose prose-neutral prose-headings:uppercase prose-headings:font-black prose-headings:tracking-tighter prose-a:text-(--color-accent) prose-a:no-underline hover:prose-a:underline prose-img:border-structural prose-img:border prose-pre:border-structural prose-pre:border prose-pre:rounded-none w-full max-w-none"
+      >
+        <Content />
+        <div class="mt-24">
+          <PostNavigation prevPost={prevPost} nextPost={nextPost} />
+        </div>
+        <div class="mt-24">
+          <Giscus />
+        </div>
+      </article>
+    </Container>
 
-    const title = postData.dataset.title;
-    const ogImage = postData.dataset.ogimage;
-    const datePublished = postData.dataset.date;
-    const dateModified = postData.dataset.updated;
-    const description = postData.dataset.description;
+    <aside class="fixed top-32 right-8 hidden w-64 2xl:block">
+      {headings.length > 0 && <TableOfContents headings={headings} />}
+    </aside>
+  </div>
 
-    const script = document.createElement("script");
-    script.type = "application/ld+json";
-    script.textContent = JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "BlogPosting",
-      headline: title,
-      image: ogImage,
-      author: {
-        "@type": "Person",
-        name: "spark",
-      },
-      publisher: {
-        "@type": "Organization",
-        name: "SayBackend",
-        logo: {
-          "@type": "ImageObject",
-          url: "/images/saybackend.png",
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const postData = document.getElementById("post-data");
+      if (!postData) return;
+
+      const title = postData.dataset.title;
+      const ogImage = postData.dataset.ogimage;
+      const datePublished = postData.dataset.date;
+      const dateModified = postData.dataset.updated;
+      const description = postData.dataset.description;
+
+      const script = document.createElement("script");
+      script.type = "application/ld+json";
+      script.textContent = JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        headline: title,
+        image: ogImage,
+        author: {
+          "@type": "Person",
+          name: "spark",
         },
-      },
-      datePublished: datePublished,
-      dateModified: dateModified,
-      description: description,
-    });
+        publisher: {
+          "@type": "Organization",
+          name: "SayBackend",
+          logo: {
+            "@type": "ImageObject",
+            url: "/images/saybackend.png",
+          },
+        },
+        datePublished: datePublished,
+        dateModified: dateModified,
+        description: description,
+      });
 
-    document.head.appendChild(script);
-  });
-</script>
+      document.head.appendChild(script);
+    });
+  </script>
+</Layout>

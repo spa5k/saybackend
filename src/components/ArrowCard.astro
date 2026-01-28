@@ -11,54 +11,37 @@ const { entry } = Astro.props as {
 ---
 
 <a
-  href={`/${entry.collection}/${entry.id}`}
-  class="not-prose group relative flex flex-nowrap rounded-lg border border-black/15 px-4 py-3 pr-10 transition-colors duration-300 ease-in-out hover:bg-black/5 hover:text-black focus-visible:bg-black/5 focus-visible:text-black dark:border-white/20 dark:hover:bg-white/5 dark:hover:text-white dark:focus-visible:bg-white/5 dark:focus-visible:text-white"
+  href={`/${entry.collection}/${entry.id.replace(/\/index$/, "")}`}
+  class="group border-structural block border bg-white p-6 transition-colors duration-200 hover:bg-black hover:text-white"
 >
-  <div class="flex flex-1 flex-col truncate">
-    <div class="flex items-center gap-2 font-semibold">
+  <div class="flex flex-col gap-4">
+    <div class="flex items-start justify-between">
+      <h3
+        class="text-xl leading-none font-black tracking-tight uppercase group-hover:text-white"
+      >
+        {entry.data.title}
+      </h3>
       {
         entry.collection === "blog" && entry.data.wip && (
-          <span
-            class="inline-flex items-center rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-            title="Work in Progress"
-          >
-            <svg
-              class="mr-1 h-3 w-3"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
-                clip-rule="evenodd"
-              />
-            </svg>
+          <span class="border border-black px-1 font-mono text-[10px] uppercase group-hover:border-white group-hover:text-white">
             WIP
           </span>
         )
       }
-      {entry.data.title}
     </div>
-    <div class="text-sm">
+
+    <p
+      class="line-clamp-2 font-mono text-sm leading-relaxed text-gray-600 group-hover:text-gray-300"
+    >
       {entry.data.description}
+    </p>
+
+    <div class="mt-2 flex items-center gap-2">
+      <span class="font-label text-gray-400 group-hover:text-gray-500">
+        {entry.collection === "blog" ? "FIG" : "SYS"}
+        {entry.data.date.getFullYear().toString().slice(-2)}
+      </span>
+      <div class="h-px w-8 bg-gray-300 group-hover:bg-gray-700"></div>
     </div>
   </div>
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    class="absolute top-1/2 right-2 size-5 -translate-y-1/2 fill-none stroke-current stroke-2"
-  >
-    <line
-      x1="5"
-      y1="12"
-      x2="19"
-      y2="12"
-      class="translate-x-3 scale-x-0 transition-transform duration-300 ease-in-out group-hover:translate-x-0 group-hover:scale-x-100 group-focus-visible:translate-x-0 group-focus-visible:scale-x-100"
-    ></line>
-    <polyline
-      points="12 5 19 12 12 19"
-      class="-translate-x-1 transition-transform duration-300 ease-in-out group-hover:translate-x-0 group-focus-visible:translate-x-0"
-    ></polyline>
-  </svg>
 </a>

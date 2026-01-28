@@ -1,0 +1,56 @@
+---
+interface Props {
+  href: string;
+  title: string;
+  description?: string;
+  label?: string;
+  date?: Date;
+  class?: string;
+}
+
+const { href, title, description, label, date, class: className } = Astro.props;
+---
+
+<a
+  href={href}
+  class:list={[
+    "group border-structural block border bg-white p-8 transition-all duration-200 hover:bg-black hover:text-white",
+    className,
+  ]}
+>
+  <div class="flex h-full flex-col justify-between gap-8">
+    <div>
+      {
+        label && (
+          <span class="font-label mb-4 block text-gray-500 group-hover:text-gray-400">
+            {label}
+          </span>
+        )
+      }
+      <h3
+        class="mb-4 text-2xl leading-none font-black uppercase group-hover:text-white"
+      >
+        {title}
+      </h3>
+      {
+        description && (
+          <p class="font-mono text-sm leading-relaxed text-gray-600 group-hover:text-gray-300">
+            {description}
+          </p>
+        )
+      }
+    </div>
+
+    {
+      date && (
+        <div class="mt-auto border-t border-gray-200 pt-4 font-mono text-xs group-hover:border-gray-700 group-hover:text-gray-400">
+          {date.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          })}
+        </div>
+      )
+    }
+  </div>
+</a>
