@@ -16,79 +16,51 @@ const { type = "default", title } = Astro.props;
 
 <style>
   .callout {
-    padding: 1rem;
+    padding: 1.25rem;
     border-radius: calc(var(--radius) - 2px);
     margin: 1.5rem 0;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s ease;
-    border: 1px solid hsl(var(--border));
-    background-color: hsl(var(--card));
-  }
-
-  .callout:hover {
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    transform: translateY(-1px);
+    transition:
+      border-color 0.2s ease,
+      background-color 0.2s ease;
+    border: 1px solid var(--color-accent);
+    background-color: #f4f8ff;
   }
 
   .callout-info {
-    background-color: #eff6ff;
-    border-left: 4px solid #2563eb;
+    background-color: #f4f8ff;
+    border-left: 4px solid var(--color-accent);
   }
 
   .callout-warning {
-    background-color: #fffbeb;
-    border-left: 4px solid #d97706;
+    background-color: #eef4ff;
+    border-left: 4px solid #003fb3;
   }
 
   .callout-default {
-    background-color: hsl(var(--muted) / 0.3);
-    border-left: 4px solid hsl(var(--muted-foreground));
+    background-color: #f7faff;
+    border-left: 4px solid #80b3ff;
   }
 
   .callout-title {
     margin-top: 0;
     margin-bottom: 0.5rem;
-    font-size: 1.1rem;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: hsl(var(--foreground));
-  }
-
-  .callout-info .callout-title {
-    color: #2563eb;
-  }
-
-  .callout-warning .callout-title {
-    color: #d97706;
-  }
-
-  .callout-default .callout-title {
-    color: hsl(var(--muted-foreground));
-  }
-
-  .callout-info .callout-title::before {
-    content: "ℹ️";
-  }
-
-  .callout-warning .callout-title::before {
-    content: "⚠️";
-  }
-
-  .callout-default .callout-title::before {
-    content: "💡";
+    font-size: 0.85rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--color-accent);
   }
 
   .callout-content {
     font-size: 0.95rem;
     line-height: 1.6;
-    color: hsl(var(--foreground));
+    color: var(--color-primary);
   }
 
   .callout-content :global(p) {
     margin: 0;
-    color: hsl(var(--foreground));
+    color: var(--color-primary);
   }
 
   .callout-content :global(p + p) {
@@ -108,29 +80,7 @@ const { type = "default", title } = Astro.props;
   }
 
   .callout-content :global(strong) {
-    color: hsl(var(--foreground));
-    font-weight: 600;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .callout {
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    }
-
-    .callout:hover {
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
-    }
-
-    .callout-info {
-      background-color: rgba(37, 99, 235, 0.1);
-    }
-
-    .callout-warning {
-      background-color: rgba(217, 119, 6, 0.1);
-    }
-
-    .callout-default {
-      background-color: hsl(var(--muted) / 0.5);
-    }
+    color: var(--color-primary);
+    font-weight: 700;
   }
 </style>

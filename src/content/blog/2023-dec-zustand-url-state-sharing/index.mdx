@@ -140,8 +140,6 @@ export const useCounter = create()(
 - Latest release listed on GitHub as of Jan 28, 2026: **v5.0.10 (Jan 12)**, which
   includes a `persist` edge‑case fix.
 
-```
-
 The `hashStorage` object keeps the persisted JSON state in the URL hash. That
 makes the URL fully shareable and reload-safe. If your state is large, consider
 persisting only a subset (via `partialize`) or switching to `localStorage`.
@@ -149,9 +147,7 @@ persisting only a subset (via `partialize`) or switching to `localStorage`.
 Now, when users interact with the useCounter store, the state will persist in the URL hash. For example, the URL might look like this:
 
 ```
-
 https://saybackend.com#counter=eyJzdGF0ZSI6eyJxdXJhblRleHRFZGl0aW9uIjoiYXJh
-
 ```
 
 This enables users to reload the page or share the URL while maintaining a consistent state across all instances.
@@ -163,4 +159,3 @@ Implementing URL hash storage for Zustand allows you to create dynamic and share
 I hope this tutorial has been helpful in understanding how to store Zustand state into the URL as a hash. Happy coding!
 
 <Advertise />
-```

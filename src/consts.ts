@@ -5,7 +5,7 @@ export const SITE: Site = {
   DESCRIPTION:
     "A blog about backend development, software engineering, and other tech topics.",
   EMAIL: "admin@saybackend.com",
-  NUM_POSTS_ON_HOMEPAGE: 5,
+  NUM_POSTS_ON_HOMEPAGE: 6,
   NUM_PROJECTS_ON_HOMEPAGE: 1,
 };
 

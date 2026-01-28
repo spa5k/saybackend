@@ -8,6 +8,9 @@ type Props = {
 const { entry } = Astro.props as {
   entry: CollectionEntry<"blog"> | CollectionEntry<"projects">;
 };
+
+const primaryTag =
+  entry.collection === "blog" ? entry.data.tags?.[0] : undefined;
 ---
 
 <a
@@ -37,11 +40,19 @@ const { entry } = Astro.props as {
     </p>
 
     <div class="mt-2 flex items-center gap-2">
-      <span class="font-label text-gray-400 group-hover:text-gray-500">
-        {entry.collection === "blog" ? "FIG" : "SYS"}
-        {entry.data.date.getFullYear().toString().slice(-2)}
-      </span>
-      <div class="h-px w-8 bg-gray-300 group-hover:bg-gray-700"></div>
+      {
+        entry.collection === "blog" ? (
+          primaryTag && <span class="tag-pill">{primaryTag}</span>
+        ) : (
+          <>
+            <span class="font-label text-gray-400 group-hover:text-gray-500">
+              {entry.collection === "blog" ? "FIG" : "SYS"}
+              {entry.data.date.getFullYear().toString().slice(-2)}
+            </span>
+            <div class="h-px w-8 bg-gray-300 group-hover:bg-gray-700" />
+          </>
+        )
+      }
     </div>
   </div>
 </a>

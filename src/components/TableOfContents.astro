@@ -27,11 +27,42 @@ function buildToc(headings: Heading[]) {
 }
 ---
 
-<nav class="animate text-sm">
-  <div class="mb-4 text-xs font-black tracking-tight text-gray-400 uppercase">
+<nav class="animate border border-black/10 bg-white p-4 text-sm">
+  <div
+    class="mb-4 font-mono text-[10px] tracking-[0.3em] text-(--color-accent) uppercase"
+  >
     On This Page
   </div>
-  <ul class="space-y-2 border-l border-gray-200 pl-4 text-gray-600">
+  <ul class="space-y-1.5 border-l-2 border-(--color-accent) pl-4 text-gray-700">
     {toc.map((heading) => <TableOfContentsHeading heading={heading} />)}
   </ul>
 </nav>
+
+<script is:inline>
+  const toc = document.querySelector("nav");
+  if (toc) {
+    const links = Array.from(toc.querySelectorAll("[data-toc-link]"));
+    const targets = links
+      .map((link) => {
+        const id = link.getAttribute("data-toc-link");
+        const el = id ? document.getElementById(id) : null;
+        return el ? { link, el } : null;
+      })
+      .filter(Boolean);
+
+    if (targets.length) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            const match = targets.find((t) => t.el === entry.target);
+            if (!match) return;
+            match.link.classList.toggle("is-active", entry.isIntersecting);
+          });
+        },
+        { rootMargin: "0px 0px -70% 0px", threshold: 0.1 },
+      );
+
+      targets.forEach((t) => observer.observe(t.el));
+    }
+  }
+</script>

@@ -27,48 +27,64 @@ const { Content, headings } = await render(project);
 ---
 
 <Layout title={project.data.title} description={project.data.description}>
-  <Container>
-    <div class="animate">
-      <BackToPrevious href="/projects">Back to projects</BackToPrevious>
-    </div>
-    <div class="animate my-10 space-y-1">
-      <div class="flex items-center gap-1.5">
-        <div class="font-base text-sm">
-          <FormattedDate date={project.data.date} />
-        </div>
-        &bull;
-        {
-          project.body && (
-            <div class="font-base text-sm">{readingTime(project.body)}</div>
-          )
-        }
+  <div class="pt-24 pb-24">
+    <Container>
+      <div class="animate">
+        <BackToPrevious href="/projects">Back to projects</BackToPrevious>
       </div>
-      <h1 class="text-3xl font-semibold text-black">
-        {project.data.title}
-      </h1>
-      {
-        (project.data.demoURL || project.data.repoURL) && (
-          <nav class="flex gap-1">
-            {project.data.demoURL && (
-              <Link href={project.data.demoURL} external>
-                demo
-              </Link>
-            )}
-            {project.data.demoURL && project.data.repoURL && <span>/</span>}
-            {project.data.repoURL && (
-              <Link href={project.data.repoURL} external>
-                repo
-              </Link>
-            )}
-          </nav>
-        )
-      }
-    </div>
-    <TableOfContents headings={headings} />
-    <article
-      class="animate prose prose-neutral prose-headings:uppercase prose-headings:font-black prose-headings:tracking-tighter prose-a:text-[var(--color-accent)] prose-a:no-underline hover:prose-a:underline prose-img:border-structural prose-img:border prose-pre:border-structural prose-pre:border prose-pre:rounded-none max-w-none"
-    >
-      <Content />
-    </article>
-  </Container>
+      <div class="animate my-10 space-y-8">
+        <div class="space-y-4">
+          <h1
+            class="text-4xl leading-[0.85] font-black tracking-tighter text-black uppercase md:text-6xl lg:text-7xl"
+          >
+            {project.data.title}
+          </h1>
+        </div>
+
+        <div
+          class="flex flex-col gap-4 border-y border-black py-4 md:flex-row md:items-center md:justify-between"
+        >
+          <div
+            class="flex items-center gap-4 font-mono text-xs tracking-wider text-gray-600 uppercase"
+          >
+            <span>
+              <FormattedDate date={project.data.date} />
+            </span>
+            <span>/</span>
+            {
+              project.body ? (
+                <span>{readingTime(project.body)} READ</span>
+              ) : null
+            }
+          </div>
+          {
+            (project.data.demoURL || project.data.repoURL) && (
+              <nav class="flex items-center gap-4">
+                {project.data.demoURL && (
+                  <Link href={project.data.demoURL} external underline={false}>
+                    demo
+                  </Link>
+                )}
+                {project.data.repoURL && (
+                  <Link href={project.data.repoURL} external underline={false}>
+                    repo
+                  </Link>
+                )}
+              </nav>
+            )
+          }
+        </div>
+      </div>
+
+      <article
+        class="animate prose prose-neutral prose-headings:uppercase prose-headings:font-black prose-headings:tracking-tighter prose-a:text-[var(--color-accent)] prose-a:no-underline hover:prose-a:no-underline prose-img:border-structural prose-img:border prose-pre:border-structural prose-pre:border prose-pre:rounded-none w-full max-w-none"
+      >
+        <Content />
+      </article>
+    </Container>
+
+    <aside class="fixed top-32 right-8 hidden w-64 2xl:block">
+      {headings.length > 0 && <TableOfContents headings={headings} />}
+    </aside>
+  </div>
 </Layout>

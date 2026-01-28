@@ -71,6 +71,13 @@
       pointer;
   }
 
+  a,
+  a:hover,
+  a:focus,
+  a:active {
+    text-decoration: none;
+  }
+
   h1,
   h2,
   h3,
@@ -109,6 +116,37 @@
 
   .font-cursive {
     font-family: var(--font-cursive);
+  }
+
+  .tag-pill {
+    background-color: var(--color-accent);
+    color: #ffffff;
+    border: 1px solid var(--color-accent);
+    padding: 0.25rem 0.6rem;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    text-decoration: none;
+    transition:
+      background-color var(--duration-fast) var(--ease-mechanical),
+      border-color var(--duration-fast) var(--ease-mechanical),
+      color var(--duration-fast) var(--ease-mechanical);
+  }
+
+  .tag-pill:hover {
+    background-color: #0047cc;
+    border-color: #0047cc;
+    color: #ffffff;
+  }
+
+  .tag-pill-count {
+    opacity: 0.75;
   }
 
   /* Hover Effects */

@@ -4,11 +4,20 @@ interface Props {
   title: string;
   description?: string;
   label?: string;
+  tag?: string;
   date?: Date;
   class?: string;
 }
 
-const { href, title, description, label, date, class: className } = Astro.props;
+const {
+  href,
+  title,
+  description,
+  label,
+  tag,
+  date,
+  class: className,
+} = Astro.props;
 ---
 
 <a
@@ -21,10 +30,14 @@ const { href, title, description, label, date, class: className } = Astro.props;
   <div class="flex h-full flex-col justify-between gap-8">
     <div>
       {
-        label && (
-          <span class="font-label mb-4 block text-gray-500 group-hover:text-gray-400">
-            {label}
-          </span>
+        tag ? (
+          <span class="tag-pill mb-4">{tag}</span>
+        ) : (
+          label && (
+            <span class="font-label mb-4 block text-gray-500 group-hover:text-gray-400">
+              {label}
+            </span>
+          )
         )
       }
       <h3
