@@ -1,7 +1,8 @@
 "use client";
 
-import { renderMermaid, THEMES } from "beautiful-mermaid";
+import { fromShikiTheme, renderMermaid } from "beautiful-mermaid";
 import { useEffect, useState } from "react";
+import { getSingletonHighlighter } from "shiki";
 
 interface Props {
   code: string;
@@ -13,12 +14,15 @@ export default function Mermaid({ code }: Props) {
   useEffect(() => {
     const render = async () => {
       try {
-        const isDark = document.documentElement.classList.contains("dark");
-        // Use beautiful-mermaid's built-in themes for better aesthetics
-        const theme = isDark
-          ? THEMES["vitesse-dark"]
-          : THEMES["vitesse-light"];
-        const svg = await renderMermaid(code.trim(), theme);
+        // Load any theme from Shiki's registry
+        const highlighter = await getSingletonHighlighter({
+          themes: ["vitesse-dark", "rose-pine", "material-theme-darker"],
+        });
+
+        // Extract diagram colors from the theme
+        const colors = fromShikiTheme(highlighter.getTheme("rose-pine"));
+
+        const svg = await renderMermaid(code.trim(), colors);
 
         setRenderedSvg(svg);
       } catch (error) {
@@ -29,18 +33,6 @@ export default function Mermaid({ code }: Props) {
     };
 
     render();
-
-    // Re-render when dark mode changes
-    const observer = new MutationObserver(() => {
-      render();
-    });
-
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-
-    return () => observer.disconnect();
   }, [code]);
 
   if (!renderedSvg) {
