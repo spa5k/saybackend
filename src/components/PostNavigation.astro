@@ -7,9 +7,9 @@ const { prevPost, nextPost } = Astro.props;
     prevPost?.id ? (
       <a
         href={`/blog/${prevPost?.id}`}
-        class="group flex flex-col gap-2 border border-black/20 bg-gray-50 p-4 no-underline transition-colors hover:bg-black hover:text-white hover:no-underline"
+        class="group border-border/40 bg-surface hover:bg-foreground hover:text-background flex flex-col gap-2 border p-4 no-underline transition-colors hover:no-underline"
       >
-        <div class="font-mono text-xs tracking-widest text-gray-500 uppercase group-hover:text-gray-400">
+        <div class="text-muted-foreground group-hover:text-background/70 font-mono text-xs tracking-widest uppercase">
           &larr; Previous Log
         </div>
         <div class="leading-tight font-bold uppercase">
@@ -25,9 +25,9 @@ const { prevPost, nextPost } = Astro.props;
     nextPost?.id ? (
       <a
         href={`/blog/${nextPost?.id}`}
-        class="group flex flex-col gap-2 border border-black/20 bg-gray-50 p-4 text-right no-underline transition-colors hover:bg-black hover:text-white hover:no-underline"
+        class="group border-border/40 bg-surface hover:bg-foreground hover:text-background flex flex-col gap-2 border p-4 text-right no-underline transition-colors hover:no-underline"
       >
-        <div class="font-mono text-xs tracking-widest text-gray-500 uppercase group-hover:text-gray-400">
+        <div class="text-muted-foreground group-hover:text-background/70 font-mono text-xs tracking-widest uppercase">
           Next Log &rarr;
         </div>
         <div class="leading-tight font-bold uppercase">

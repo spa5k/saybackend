@@ -15,18 +15,18 @@ const primaryTag =
 
 <a
   href={`/${entry.collection}/${entry.id.replace(/\/index$/, "")}`}
-  class="group border-structural block border bg-white p-6 transition-colors duration-200 hover:bg-black hover:text-white"
+  class="group border-structural bg-surface hover:bg-foreground hover:text-background block border p-6 transition-colors duration-200"
 >
   <div class="flex flex-col gap-4">
     <div class="flex items-start justify-between">
       <h3
-        class="text-xl leading-none font-black tracking-tight uppercase group-hover:text-white"
+        class="group-hover:text-background text-xl leading-none font-black tracking-tight uppercase"
       >
         {entry.data.title}
       </h3>
       {
         entry.collection === "blog" && entry.data.wip && (
-          <span class="border border-black px-1 font-mono text-[10px] uppercase group-hover:border-white group-hover:text-white">
+          <span class="border-border group-hover:border-background group-hover:text-background border px-1 font-mono text-[10px] uppercase">
             WIP
           </span>
         )
@@ -34,7 +34,7 @@ const primaryTag =
     </div>
 
     <p
-      class="line-clamp-2 font-mono text-sm leading-relaxed text-gray-600 group-hover:text-gray-300"
+      class="text-muted-foreground group-hover:text-background/80 line-clamp-2 font-mono text-sm leading-relaxed"
     >
       {entry.data.description}
     </p>
@@ -45,11 +45,11 @@ const primaryTag =
           primaryTag && <span class="tag-pill">{primaryTag}</span>
         ) : (
           <>
-            <span class="font-label text-gray-400 group-hover:text-gray-500">
+            <span class="font-label text-muted-foreground group-hover:text-background/70 opacity-70">
               {entry.collection === "blog" ? "FIG" : "SYS"}
               {entry.data.date.getFullYear().toString().slice(-2)}
             </span>
-            <div class="h-px w-8 bg-gray-300 group-hover:bg-gray-700" />
+            <div class="bg-border group-hover:bg-background/70 h-px w-8" />
           </>
         )
       }

@@ -27,13 +27,13 @@ function buildToc(headings: Heading[]) {
 }
 ---
 
-<nav class="animate border border-black/10 bg-white p-4 text-sm">
+<nav class="animate border-border/30 bg-surface border p-4 text-sm">
   <div
-    class="mb-4 font-mono text-[10px] tracking-[0.3em] text-(--color-accent) uppercase"
+    class="text-accent mb-4 font-mono text-[10px] tracking-[0.3em] uppercase"
   >
     On This Page
   </div>
-  <ul class="space-y-1.5 border-l-2 border-(--color-accent) pl-4 text-gray-700">
+  <ul class="text-muted-foreground border-accent space-y-1.5 border-l-2 pl-4">
     {toc.map((heading) => <TableOfContentsHeading heading={heading} />)}
   </ul>
 </nav>

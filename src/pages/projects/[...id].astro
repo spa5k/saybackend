@@ -35,17 +35,17 @@ const { Content, headings } = await render(project);
       <div class="animate my-10 space-y-8">
         <div class="space-y-4">
           <h1
-            class="text-4xl leading-[0.85] font-black tracking-tighter text-black uppercase md:text-6xl lg:text-7xl"
+            class="text-foreground text-4xl leading-[0.85] font-black tracking-tighter uppercase md:text-6xl lg:text-7xl"
           >
             {project.data.title}
           </h1>
         </div>
 
         <div
-          class="flex flex-col gap-4 border-y border-black py-4 md:flex-row md:items-center md:justify-between"
+          class="border-border flex flex-col gap-4 border-y py-4 md:flex-row md:items-center md:justify-between"
         >
           <div
-            class="flex items-center gap-4 font-mono text-xs tracking-wider text-gray-600 uppercase"
+            class="text-foreground flex items-center gap-4 font-mono text-xs tracking-wider uppercase"
           >
             <span>
               <FormattedDate date={project.data.date} />
@@ -76,9 +76,7 @@ const { Content, headings } = await render(project);
         </div>
       </div>
 
-      <article
-        class="animate prose prose-neutral prose-headings:uppercase prose-headings:font-black prose-headings:tracking-tighter prose-a:text-[var(--color-accent)] prose-a:no-underline hover:prose-a:no-underline prose-img:border-structural prose-img:border prose-pre:border-structural prose-pre:border prose-pre:rounded-none w-full max-w-none"
-      >
+      <article class="animate typography w-full max-w-none">
         <Content />
       </article>
     </Container>

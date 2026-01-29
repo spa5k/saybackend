@@ -28,13 +28,13 @@ export default function PerformanceRankingTable({
 
   const getRankBadgeClass = (rank: number) => {
     if (rank === 1) {
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border border-yellow-300/50";
+      return "bg-chart-1/15 text-chart-1 border border-chart-1/30";
     }
     if (rank === 2) {
-      return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300 border border-gray-300/50";
+      return "bg-chart-2/15 text-chart-2 border border-chart-2/30";
     }
     if (rank === 3) {
-      return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border border-orange-300/50";
+      return "bg-chart-3/15 text-chart-3 border border-chart-3/30";
     }
     return "bg-muted/50 text-muted-foreground border border-border";
   };

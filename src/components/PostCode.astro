@@ -11,11 +11,11 @@ const getExtension = (filename) => {
 const extension = getExtension(title);
 ---
 
-<figure class="my-8 overflow-hidden border border-black/15 bg-white">
+<figure class="border-border/40 bg-surface my-8 overflow-hidden border">
   {
     title && (
-      <figcaption class="flex items-center justify-between border-b border-black/15 bg-gray-50 px-4 py-2 font-mono text-xs text-gray-500 uppercase">
-        <span class="font-bold tracking-tight text-black">{title}</span>
+      <figcaption class="border-border/40 bg-surface-muted text-muted flex items-center justify-between border-b px-4 py-2 font-mono text-xs uppercase">
+        <span class="text-foreground font-bold tracking-tight">{title}</span>
         <span class="opacity-70">{extension}</span>
       </figcaption>
     )

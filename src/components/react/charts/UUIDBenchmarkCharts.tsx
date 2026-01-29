@@ -49,11 +49,11 @@ export function PerformanceComparisonChart() {
   }));
 
   const getBarColor = (name: string) => {
-    if (name === "Native uuidv7()") return "#10b981"; // green
-    if (name === "Custom uuidv7()") return "#3b82f6"; // blue
-    if (name === "UUIDv4") return "#ef4444"; // red
-    if (name === "ULID") return "#f59e0b"; // yellow
-    if (name === "TypeID") return "#8b5cf6"; // purple
+    if (name === "Native uuidv7()") return "var(--color-success)";
+    if (name === "Custom uuidv7()") return "var(--color-accent)";
+    if (name === "UUIDv4") return "var(--color-error)";
+    if (name === "ULID") return "var(--color-warning)";
+    if (name === "TypeID") return "var(--color-purple)";
     return "var(--chart-1)";
   };
 
@@ -114,10 +114,10 @@ export function PerformanceComparisonChart() {
               }
             />
             <ChartTooltip
-              wrapperClassName="!bg-white dark:!bg-gray-900"
+              wrapperClassName="!bg-background !border-border/40 !shadow-xl"
               content={
                 <ChartTooltipContent
-                  className="!bg-white !text-black dark:!bg-gray-900 dark:!text-white"
+                  className="!bg-background text-foreground"
                   formatter={(value) => {
                     if (activeMetric === "avgTime") {
                       return `${value} μs`;
@@ -147,11 +147,11 @@ export function StorageComparisonChart() {
   }));
 
   const getBarColor = (name: string) => {
-    if (name === "Native uuidv7()") return "#10b981";
-    if (name === "Custom uuidv7()") return "#3b82f6";
-    if (name === "UUIDv4") return "#ef4444";
-    if (name === "ULID") return "#f59e0b";
-    if (name === "TypeID") return "#8b5cf6";
+    if (name === "Native uuidv7()") return "var(--color-success)";
+    if (name === "Custom uuidv7()") return "var(--color-accent)";
+    if (name === "UUIDv4") return "var(--color-error)";
+    if (name === "ULID") return "var(--color-warning)";
+    if (name === "TypeID") return "var(--color-purple)";
     return "var(--chart-3)";
   };
 
@@ -178,10 +178,10 @@ export function StorageComparisonChart() {
             />
             <YAxis />
             <ChartTooltip
-              wrapperClassName="!bg-white dark:!bg-gray-900"
+              wrapperClassName="!bg-background !border-border/40 !shadow-xl"
               content={
                 <ChartTooltipContent
-                  className="!bg-white !text-black dark:!bg-gray-900 dark:!text-white"
+                  className="!bg-background text-foreground"
                   formatter={(value) => `${value} bytes`}
                 />
               }

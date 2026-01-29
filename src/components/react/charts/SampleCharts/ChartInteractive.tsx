@@ -59,12 +59,12 @@ export function ChartBarMultiple() {
               tickFormatter={(value) => value.slice(0, 3)}
             />
             <ChartTooltip
-              wrapperClassName="!bg-white dark:!bg-gray-900"
+              wrapperClassName="!bg-background !border-border/40 !shadow-xl"
               cursor={false}
               content={
                 <ChartTooltipContent
                   indicator="dashed"
-                  className="!bg-white !text-black dark:!bg-gray-900 dark:!text-white"
+                  className="!bg-background text-foreground"
                 />
               }
             />

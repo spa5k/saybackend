@@ -24,15 +24,17 @@ const projects = (await getCollection("projects"))
     <Container>
       <div class="max-w-4xl">
         <h1
-          class="animate-fade-in-up mb-8 text-[clamp(3.5rem,8vw,9rem)] leading-[0.85] font-black tracking-tighter text-black uppercase"
+          class="animate-fade-in-up text-foreground mb-8 text-[clamp(3.5rem,8vw,9rem)] leading-[0.85] font-black tracking-tighter uppercase"
         >
           Say<br />Backend
         </h1>
         <div
-          class="animate-fade-in-up border-t border-black pt-8"
+          class="animate-fade-in-up border-border border-t pt-8"
           style="animation-delay: 100ms;"
         >
-          <p class="max-w-xl font-mono text-sm leading-relaxed md:text-base">
+          <p
+            class="text-muted-foreground max-w-xl font-mono text-sm leading-relaxed md:text-base"
+          >
             A minimalist engineering blog dedicated to backend systems, DevOps,
             and structural data patterns. Exploring the intersection of
             brutalist architecture and clean code.
@@ -44,7 +46,7 @@ const projects = (await getCollection("projects"))
 
   <!-- Marquee Banner -->
   <div
-    class="border-structural overflow-hidden border-b bg-black py-3 whitespace-nowrap text-white"
+    class="border-structural bg-foreground text-background overflow-hidden border-b py-3 whitespace-nowrap"
   >
     <div
       class="animate-marquee inline-block font-mono text-xs font-bold tracking-widest uppercase"
@@ -69,7 +71,7 @@ const projects = (await getCollection("projects"))
       </div>
 
       <div
-        class="border-structural grid gap-px border bg-gray-200 md:grid-cols-2"
+        class="border-structural bg-border grid gap-px border md:grid-cols-2"
       >
         {
           blog.map((post, i) => {
@@ -98,7 +100,7 @@ const projects = (await getCollection("projects"))
   </Section>
 
   <!-- Projects -->
-  <Section class="bg-gray-50/50 py-16 md:py-24">
+  <Section class="bg-surface/60 py-16 md:py-24">
     <Container>
       <div class="mb-12 flex items-end justify-between">
         <h2 class="text-4xl font-black tracking-tight uppercase md:text-6xl">
@@ -139,7 +141,7 @@ const projects = (await getCollection("projects"))
         Collaborate
       </h2>
       <p
-        class="mx-auto mb-12 max-w-md font-mono text-sm text-gray-600 md:text-base"
+        class="text-muted-foreground mx-auto mb-12 max-w-md font-mono text-sm md:text-base"
       >
         Open for engineering discussions, system design consulting, and
         technical writing opportunities.

@@ -111,6 +111,7 @@ const { title, description, image = "/images/blog.png" } = Astro.props;
 
   document.addEventListener("DOMContentLoaded", () => init());
   document.addEventListener("astro:after-swap", () => init());
+  document.addEventListener("theme:change", () => setGiscusTheme());
   preloadTheme();
 </script>
 

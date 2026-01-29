@@ -3,7 +3,7 @@ import Container from "@components/Container.astro";
 import { SITE } from "@consts";
 ---
 
-<footer class="border-structural border-t bg-white py-12">
+<footer class="border-structural bg-background border-t py-12">
   <Container>
     <div
       class="flex flex-col items-start justify-between gap-8 md:flex-row md:items-center"
@@ -12,7 +12,7 @@ import { SITE } from "@consts";
         <h3 class="text-xl font-black tracking-tight uppercase">
           {SITE.TITLE}
         </h3>
-        <p class="max-w-xs font-mono text-sm text-gray-500">
+        <p class="text-muted-foreground max-w-xs font-mono text-sm">
           Engineering blog exploring backend systems, DevOps, and structural
           data.
         </p>
@@ -20,10 +20,10 @@ import { SITE } from "@consts";
 
       <div class="flex flex-col items-start gap-2 md:items-end">
         <div class="flex gap-6 font-mono text-sm uppercase">
-          <a href="/rss.xml" class="hover:text-blue-600">RSS</a>
-          <a href="/sitemap-index.xml" class="hover:text-blue-600">Sitemap</a>
+          <a href="/rss.xml" class="hover:text-accent">RSS</a>
+          <a href="/sitemap-index.xml" class="hover:text-accent">Sitemap</a>
         </div>
-        <p class="mt-4 font-mono text-xs text-gray-400">
+        <p class="text-muted-foreground mt-4 font-mono text-xs opacity-70">
           &copy; {new Date().getFullYear()} SayBackend. Zero Rights Reserved.
         </p>
       </div>

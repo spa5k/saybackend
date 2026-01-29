@@ -23,7 +23,7 @@ const {
 <a
   href={href}
   class:list={[
-    "group border-structural block border bg-white p-8 transition-all duration-200 hover:bg-black hover:text-white",
+    "group border-structural bg-surface hover:bg-foreground hover:text-background block border p-8 transition-all duration-200",
     className,
   ]}
 >
@@ -34,20 +34,20 @@ const {
           <span class="tag-pill mb-4">{tag}</span>
         ) : (
           label && (
-            <span class="font-label mb-4 block text-gray-500 group-hover:text-gray-400">
+            <span class="font-label text-muted-foreground group-hover:text-background/70 mb-4 block opacity-70">
               {label}
             </span>
           )
         )
       }
       <h3
-        class="mb-4 text-2xl leading-none font-black uppercase group-hover:text-white"
+        class="group-hover:text-background mb-4 text-2xl leading-none font-black uppercase"
       >
         {title}
       </h3>
       {
         description && (
-          <p class="font-mono text-sm leading-relaxed text-gray-600 group-hover:text-gray-300">
+          <p class="text-muted-foreground group-hover:text-background/80 font-mono text-sm leading-relaxed">
             {description}
           </p>
         )
@@ -56,7 +56,7 @@ const {
 
     {
       date && (
-        <div class="mt-auto border-t border-gray-200 pt-4 font-mono text-xs group-hover:border-gray-700 group-hover:text-gray-400">
+        <div class="border-border text-muted-foreground group-hover:border-background/70 group-hover:text-background/70 mt-auto border-t pt-4 font-mono text-xs">
           {date.toLocaleDateString("en-US", {
             year: "numeric",
             month: "short",

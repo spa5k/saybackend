@@ -3,30 +3,100 @@ import Container from "@components/Container.astro";
 import { SITE } from "@consts";
 ---
 
-<header class="border-structural sticky top-0 z-50 border-b bg-white">
+<header class="border-structural bg-background sticky top-0 z-50 border-b">
   <Container>
     <div class="flex h-16 items-center justify-between">
       <a
         href="/"
-        class="text-xl font-black tracking-tighter uppercase transition-colors hover:text-blue-600"
+        class="hover:text-accent text-xl font-black tracking-tighter uppercase transition-colors"
       >
         {SITE.TITLE}
       </a>
 
-      <nav class="flex items-center gap-8">
+      <nav class="flex items-center gap-6">
         <a
           href="/blog"
-          class="font-mono text-sm tracking-widest uppercase transition-colors hover:text-blue-600"
+          class="hover:text-accent font-mono text-sm tracking-widest uppercase transition-colors"
         >
           Blog
         </a>
         <a
           href="/projects"
-          class="font-mono text-sm tracking-widest uppercase transition-colors hover:text-blue-600"
+          class="hover:text-accent font-mono text-sm tracking-widest uppercase transition-colors"
         >
           Projects
         </a>
+        <button
+          id="theme-toggle"
+          type="button"
+          aria-label="Toggle theme"
+          aria-pressed="false"
+          class="group border-border/60 bg-surface text-muted hover:border-accent hover:text-foreground inline-flex items-center gap-2 border px-2.5 py-1.5 font-mono text-[11px] tracking-[0.25em] uppercase transition-colors"
+        >
+          <svg
+            aria-hidden="true"
+            class="text-accent h-4 w-4 dark:hidden"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2"></path>
+            <path d="M12 20v2"></path>
+            <path d="M4.93 4.93l1.41 1.41"></path>
+            <path d="M17.66 17.66l1.41 1.41"></path>
+            <path d="M2 12h2"></path>
+            <path d="M20 12h2"></path>
+            <path d="M6.34 17.66l-1.41 1.41"></path>
+            <path d="M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+          <svg
+            aria-hidden="true"
+            class="text-accent hidden h-4 w-4 dark:block"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>
+          </svg>
+          <span class="hidden sm:inline">Mode</span>
+        </button>
       </nav>
     </div>
   </Container>
 </header>
+
+<script is:inline>
+  const toggle = document.getElementById("theme-toggle");
+
+  const updateToggle = () => {
+    if (!toggle) return;
+    const isDark = document.documentElement.classList.contains("dark");
+    toggle.setAttribute("aria-pressed", String(isDark));
+    toggle.setAttribute(
+      "title",
+      isDark ? "Switch to light mode" : "Switch to dark mode",
+    );
+  };
+
+  const applyTheme = (isDark) => {
+    document.documentElement.classList.toggle("dark", isDark);
+    localStorage.setItem("theme", isDark ? "dark" : "light");
+    document.dispatchEvent(new Event("theme:change"));
+    updateToggle();
+  };
+
+  toggle?.addEventListener("click", () => {
+    const isDark = document.documentElement.classList.contains("dark");
+    applyTheme(!isDark);
+  });
+
+  document.addEventListener("DOMContentLoaded", updateToggle);
+  document.addEventListener("astro:after-swap", updateToggle);
+</script>

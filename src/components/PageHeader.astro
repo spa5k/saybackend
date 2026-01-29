@@ -8,7 +8,7 @@ const { title, subtitle } = Astro.props;
 ---
 
 <div
-  class="border-structural overflow-hidden border-b bg-white p-6 md:p-12 lg:p-24"
+  class="border-structural bg-background overflow-hidden border-b p-6 md:p-12 lg:p-24"
 >
   <h1
     class="text-[9vw] leading-[0.8] font-black tracking-tighter break-words uppercase"
@@ -17,7 +17,7 @@ const { title, subtitle } = Astro.props;
   </h1>
   {
     subtitle && (
-      <div class="mt-8 max-w-2xl border-l-2 border-black pl-6">
+      <div class="border-border mt-8 max-w-2xl border-l-2 pl-6">
         <p class="font-mono text-lg md:text-xl">{subtitle}</p>
       </div>
     )

@@ -38,11 +38,13 @@ const sortedPosts = posts.sort(
         </div>
         <div class="animate space-y-4">
           <h1
-            class="text-4xl leading-[0.85] font-black tracking-tighter text-black uppercase md:text-6xl lg:text-7xl"
+            class="text-foreground text-4xl leading-[0.85] font-black tracking-tighter uppercase md:text-6xl lg:text-7xl"
           >
             {id}
           </h1>
-          <div class="font-mono text-xs tracking-wider text-gray-600 uppercase">
+          <div
+            class="text-muted-foreground font-mono text-xs tracking-wider uppercase"
+          >
             Posts tagged with "{id}"
           </div>
         </div>

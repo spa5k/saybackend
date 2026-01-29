@@ -198,10 +198,10 @@ export function ChartSimple() {
               }}
             />
             <ChartTooltip
-              wrapperClassName="!bg-white dark:!bg-gray-900"
+              wrapperClassName="!bg-background !border-border/40 !shadow-xl"
               content={
                 <ChartTooltipContent
-                  className="w-[150px] !bg-white !text-black dark:!bg-gray-900 dark:!text-white"
+                  className="!bg-background text-foreground w-[150px]"
                   nameKey="views"
                   labelFormatter={(value) => {
                     return new Date(value).toLocaleDateString("en-US", {
