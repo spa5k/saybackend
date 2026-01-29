@@ -1,3 +1,10 @@
+---
+interface Props {
+  term?: string;
+}
+const { term } = Astro.props;
+---
+
 <div class="giscus"></div>
 
 <script
@@ -7,7 +14,8 @@
   data-repo-id="R_kgDOK-1fwg"
   data-category="Blog"
   data-category-id="DIC_kwDOK-1fws4Cf4rx"
-  data-mapping="pathname"
+  data-mapping={term ? "specific" : "pathname"}
+  data-term={term}
   data-strict="0"
   data-reactions-enabled="1"
   data-emit-metadata="0"

@@ -128,7 +128,7 @@ const footerTags = tags.slice(4);
           <PostNavigation prevPost={prevPost} nextPost={nextPost} />
         </div>
         <div class="mt-24">
-          <Giscus />
+          <Giscus term={post.data.oldPath} />
         </div>
       </article>
     </Container>

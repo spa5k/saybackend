@@ -49,7 +49,10 @@ export default defineConfig({
       excludeLangs: ["mermaid"],
     },
     shikiConfig: {
-      theme: "vitesse-dark",
+      themes: {
+        light: "vitesse-dark",
+        dark: "vitesse-dark",
+      },
     },
   },
 
