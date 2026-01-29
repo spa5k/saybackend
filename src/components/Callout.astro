@@ -24,22 +24,31 @@ const { type = "default", title } = Astro.props;
       background-color 0.2s ease;
     border: 1px solid var(--color-border);
     background-color: var(--color-card);
-    color: var(--color-foreground);
+    /* color: var(--color-foreground); */
   }
 
   .callout-info {
-    background-color: var(--color-surface);
+    background-color: var(--color-card);
     border-left: 4px solid var(--color-accent);
   }
 
   .callout-warning {
-    background-color: var(--color-surface);
+    background-color: var(--color-card);
     border-left: 4px solid var(--color-destructive);
   }
 
   .callout-default {
-    background-color: var(--color-surface);
+    background-color: var(--color-card);
     border-left: 4px solid var(--color-accent-strong);
+  }
+
+  :global(.dark) .callout-info,
+  :global([data-theme="dark"]) .callout-info,
+  :global(.dark) .callout-warning,
+  :global([data-theme="dark"]) .callout-warning,
+  :global(.dark) .callout-default,
+  :global([data-theme="dark"]) .callout-default {
+    background-color: var(--color-background);
   }
 
   .callout-title {
@@ -50,18 +59,18 @@ const { type = "default", title } = Astro.props;
     font-family: var(--font-mono);
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: var(--color-accent);
+    /* color: var(--color-accent); */
   }
 
   .callout-content {
     font-size: 0.95rem;
     line-height: 1.6;
-    color: var(--color-foreground);
+    /* color: var(--color-foreground); */
   }
 
   .callout-content :global(p) {
     margin: 0;
-    color: var(--color-primary);
+    /* color: var(--color-primary); */
   }
 
   .callout-content :global(p + p) {
@@ -69,7 +78,7 @@ const { type = "default", title } = Astro.props;
   }
 
   .callout-content :global(a) {
-    color: var(--color-accent);
+    /* color: var(--color-accent); */
     text-decoration: none;
     font-weight: 500;
     transition: all 0.2s ease;
@@ -81,7 +90,7 @@ const { type = "default", title } = Astro.props;
   }
 
   .callout-content :global(strong) {
-    color: var(--color-foreground);
+    /* color: var(--color-foreground); */
     font-weight: 700;
   }
 </style>

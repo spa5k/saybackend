@@ -4,6 +4,7 @@ import { ClientRouter } from "astro:transitions";
 import { join } from "node:path";
 import { AstroFont } from "astro-font";
 import "@fontsource/lexend";
+import ThemeManager from "./ThemeManager.astro";
 
 interface Props {
   title: string;
@@ -84,22 +85,11 @@ const { title, description, image = "/images/blog.png" } = Astro.props;
 <script is:inline src="/pagefind/pagefind-ui.js"></script>
 
 <ClientRouter />
+<ThemeManager defaultTheme="dark" />
 
 <script is:inline>
-  const init = () => {
-    setGiscusTheme();
-  };
-
-  const preloadTheme = () => {
-    const theme = localStorage.getItem("theme");
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark");
-    }
-  };
-
   const setGiscusTheme = () => {
     const giscus = document.querySelector(".giscus-frame");
-
     const isDark = document.documentElement.classList.contains("dark");
 
     if (giscus) {
@@ -109,10 +99,8 @@ const { title, description, image = "/images/blog.png" } = Astro.props;
     }
   };
 
-  document.addEventListener("DOMContentLoaded", () => init());
-  document.addEventListener("astro:after-swap", () => init());
-  document.addEventListener("theme:change", () => setGiscusTheme());
-  preloadTheme();
+  document.addEventListener("DOMContentLoaded", () => setGiscusTheme());
+  document.addEventListener("theme-changed", () => setGiscusTheme());
 </script>
 
 <!-- Google tag (gtag.js) -->
