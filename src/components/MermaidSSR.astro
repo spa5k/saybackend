@@ -1,0 +1,32 @@
+---
+import { renderMermaid, THEMES } from "beautiful-mermaid";
+
+interface Props {
+  code: string;
+}
+
+const { code } = Astro.props;
+
+// Server-side render the diagram
+let svg = "";
+try {
+  svg = await renderMermaid(code.trim(), THEMES["github-light"]);
+} catch (error) {
+  console.error("Failed to render Mermaid diagram:", error);
+  svg = await renderMermaid(code.trim());
+}
+---
+
+<div class="mermaid-diagram my-4 flex justify-center" set:html={svg} />
+
+<style>
+  .mermaid-diagram {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .mermaid-diagram :global(svg) {
+    max-width: 100%;
+    height: auto;
+  }
+</style>

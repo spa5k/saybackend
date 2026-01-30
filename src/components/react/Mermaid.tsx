@@ -16,7 +16,7 @@ export default function Mermaid({ code }: Props) {
       try {
         // Load any theme from Shiki's registry
         const highlighter = await getSingletonHighlighter({
-          themes: ["vitesse-dark", "rose-pine", "material-theme-darker"],
+          themes: ["rose-pine", "material-theme-darker"],
         });
 
         // Extract diagram colors from the theme

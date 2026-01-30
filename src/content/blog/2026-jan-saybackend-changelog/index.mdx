@@ -1,0 +1,35 @@
+---
+title: "January 2026 Changelog"
+description: "Theme management, Mermaid diagrams, and infrastructure improvements."
+date: "2026-01-30"
+oldPath: "00-saybackend-changelog"
+---
+
+import Callout from "@/components/Callout.astro";
+
+---
+
+## Theme Management overhaul 🎨
+
+- Refactored theme management into a centralized `ThemeManager` component and API
+- Updated all components and styles to utilize the new theme system
+- Replaced dynamic dark mode observation with Shiki's `fromShikiTheme` utility for better performance
+
+## New Mermaid Diagram Component 📊
+
+- Introduced a new React-based Mermaid component with interactive features
+- Diagrams now support zoom and pan in a modal view
+- Replaced the previous SolidJS implementation with React for better integration
+
+## Infrastructure Updates 🛠️
+
+- Added initial Wrangler configuration for Cloudflare Worker assets
+- Enabled `platformProxy` in Cloudflare adapter configuration
+- Updated project name to `saybackend` across all configurations
+- Added `.assetsignore` file for better asset management
+
+## Other Changes
+
+- Removed rehype-mermaid integration and related dependencies
+- Image optimization improvements via ImgBot
+- PostgreSQL strict mode enabled for blog migrations
