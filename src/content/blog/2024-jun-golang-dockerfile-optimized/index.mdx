@@ -31,6 +31,17 @@ tags:
   - Golang Docker build optimization tips
   - Advanced Dockerfile for Golang
   - Reducing Docker build time for Go applications
+faqs:
+  - question: "Why use a multi-stage Dockerfile for Go?"
+    answer: "It keeps the final image small and secure: compile in a builder stage, then copy only the resulting binary (and required files) into a minimal runtime stage."
+  - question: "How can I speed up Go Docker builds?"
+    answer: "Cache dependencies: copy `go.mod`/`go.sum` first, download modules, then copy the rest of the source. This preserves layer caching when code changes but dependencies don’t."
+  - question: "Should I use `scratch` or `distroless` for the runtime image?"
+    answer: "`scratch` is the smallest but can be inconvenient for certificates and debugging. Distroless (or a slim base) is a good balance for many production services."
+  - question: "How do I handle CA certificates in minimal images?"
+    answer: "If your app makes HTTPS requests, ensure CA certs are available in the runtime stage (either by copying them or using a base image that includes them)."
+  - question: "What’s the easiest way to keep images reproducible?"
+    answer: "Pin base image versions, keep build flags consistent, and prefer deterministic builds (same inputs → same artifact)."
 ogImage: "/images/dockerfile-golang-og.png"
 ---
 

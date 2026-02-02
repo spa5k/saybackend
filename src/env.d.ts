@@ -8,4 +8,5 @@ interface Window {
     getSystemTheme: () => "light" | "dark";
     getDefaultTheme: () => "auto" | "dark" | "light";
   };
+  gtag?: (...args: any[]) => void;
 }

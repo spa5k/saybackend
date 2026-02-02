@@ -49,6 +49,17 @@ tags:
   - Zustand URL state persistence
   - React Zustand URL storage
   - Zustand state in URL hash
+faqs:
+  - question: "Why store Zustand state in the URL?"
+    answer: "It makes state shareable and reproducible. Users can copy a link and you can debug issues by opening the exact same state snapshot."
+  - question: "Should I use the query string or the hash?"
+    answer: "Hash-based state is often simpler because it doesn’t hit the server and avoids routing conflicts. Query params can work too, but you need to manage parsing, encoding, and URL length more carefully."
+  - question: "How do I keep URLs from getting too large?"
+    answer: "Only serialize what’s necessary, keep values compact, and avoid dumping entire objects. If the state is large, consider storing a short key in the URL and persisting the full state elsewhere."
+  - question: "Is it safe to store state in the URL?"
+    answer: "Never put secrets or PII in URLs. URLs can end up in logs, analytics, referrers, and screenshots."
+  - question: "How do I handle versioning when state shape changes?"
+    answer: "Add a small version field to the encoded payload and write a migration step so old links still work after updates."
 
 ogImage: "/images/zustand-og.png"
 ---

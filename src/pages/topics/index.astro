@@ -1,0 +1,88 @@
+---
+import Container from "@components/Container.astro";
+import Layout from "@layouts/Layout.astro";
+import { getCollection } from "astro:content";
+import { getTopicDefinitions, getTopicPosts } from "@lib/topics";
+
+const topics = getTopicDefinitions();
+const allPosts = await getCollection("blog", ({ data }) => !data.draft);
+const topicCards = topics.map((topic) => ({
+  ...topic,
+  count: getTopicPosts(allPosts, topic).length,
+}));
+---
+
+<Layout title="Topics" description="Content clusters and learning paths.">
+  <script
+    type="application/ld+json"
+    set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: "Topics",
+      description:
+        "Content clusters and learning paths on backend engineering.",
+      url: "https://www.saybackend.com/topics/",
+      isPartOf: {
+        "@type": "WebSite",
+        "@id": "https://www.saybackend.com/#website",
+      },
+      breadcrumb: {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          {
+            "@type": "ListItem",
+            position: 1,
+            name: "Home",
+            item: "https://www.saybackend.com/",
+          },
+          {
+            "@type": "ListItem",
+            position: 2,
+            name: "Topics",
+            item: "https://www.saybackend.com/topics/",
+          },
+        ],
+      },
+    })}
+  />
+
+  <div class="pt-24 pb-24">
+    <Container>
+      <div class="space-y-10" data-pagefind-ignore>
+        <div class="animate space-y-4">
+          <h1
+            class="text-foreground text-4xl leading-[0.85] font-black tracking-tighter uppercase md:text-6xl lg:text-7xl"
+          >
+            Topics
+          </h1>
+          <p
+            class="text-muted-foreground max-w-3xl font-mono text-sm md:text-base"
+          >
+            Hub pages that group related posts into focused learning paths.
+          </p>
+        </div>
+
+        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {
+            topicCards.map((topic) => (
+              <a
+                href={`/topics/${topic.slug}`}
+                class="border-structural hover:bg-foreground hover:text-background group border p-6 transition-all duration-200"
+              >
+                <div class="text-muted-foreground mb-3 font-mono text-xs tracking-wider uppercase">
+                  {topic.count} article{topic.count === 1 ? "" : "s"}
+                </div>
+                <h2 class="mb-2 text-lg leading-tight font-bold uppercase">
+                  {topic.name}
+                </h2>
+                <p class="text-muted-foreground group-hover:text-background/80 line-clamp-3 font-mono text-xs">
+                  {topic.description}
+                </p>
+              </a>
+            ))
+          }
+        </div>
+      </div>
+    </Container>
+  </div>
+</Layout>

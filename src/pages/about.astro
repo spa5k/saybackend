@@ -3,9 +3,81 @@ import Advertise from "@components/Advertise.astro";
 import Container from "@components/Container.astro";
 import { ABOUT } from "@consts";
 import Layout from "@layouts/Layout.astro";
+import pfp from "@components/pfp.png";
 ---
 
 <Layout title={ABOUT.TITLE} description={ABOUT.DESCRIPTION}>
+  <!-- Structured Data -->
+  <script
+    type="application/ld+json"
+    set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Person",
+          "@id": "https://www.saybackend.com/#author",
+          name: "Kamran Tahir",
+          jobTitle: "Senior Software Engineer",
+          description:
+            "Senior Software Engineer specializing in backend systems, AWS serverless architecture, PostgreSQL, and DevOps with 6+ years of experience",
+          image: new URL(pfp.src, Astro.site).href,
+          url: "https://www.saybackend.com/about/",
+          sameAs: [
+            "https://github.com/spa5k",
+            "https://linkedin.com/in/kamrantahir2",
+            "http://kamran.sh/",
+          ],
+          email: "hello@kamran.sh",
+          knowsLanguage: ["en"],
+          worksFor: {
+            "@id": "https://www.saybackend.com/#organization",
+          },
+          hasOccupation: [
+            {
+              "@type": "Occupation",
+              name: "Senior Software Engineer",
+              skills: [
+                "Backend Engineering",
+                "AWS Serverless",
+                "PostgreSQL",
+                "Kubernetes",
+                "DevOps",
+              ],
+            },
+          ],
+          knowsAbout: [
+            "Backend Development",
+            "AWS Serverless",
+            "PostgreSQL",
+            "Kubernetes",
+            "Docker",
+            "Go Programming",
+            "Node.js",
+            "TypeScript",
+            "Microservices",
+            "DevOps",
+          ],
+        },
+        {
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Home",
+              item: "https://www.saybackend.com/",
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "About",
+              item: "https://www.saybackend.com/about/",
+            },
+          ],
+        },
+      ],
+    })}
+  />
   <div class="pt-24">
     <Container>
       <div class="animate my-10 space-y-10">
@@ -15,13 +87,24 @@ import Layout from "@layouts/Layout.astro";
           About
         </h1>
 
-        <div class="border-border space-y-6 border-y py-6">
+        <div
+          class="border-border grid gap-6 border-y py-6 md:grid-cols-[auto,1fr] md:items-start"
+        >
+          <img
+            src={pfp.src}
+            width={pfp.width}
+            height={pfp.height}
+            alt="Kamran Tahir"
+            loading="lazy"
+            decoding="async"
+            class="border-structural h-20 w-20 border object-cover md:h-24 md:w-24"
+          />
           <p
             class="text-muted-foreground max-w-3xl font-mono text-sm leading-relaxed md:text-base"
           >
-            I’m Kamran Tahir, a Senior Software Engineer (6 years) based in
-            India. I build scalable backend systems, event-driven pipelines, and
-            pragmatic infrastructure on AWS.
+            I’m Kamran Tahir, a Senior Software Engineer. I build scalable
+            backend systems, event-driven pipelines, and pragmatic
+            infrastructure on AWS.
           </p>
 
           <div

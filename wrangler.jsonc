@@ -60,6 +60,10 @@
       "custom_domain": true,
       "pattern": "saybackend.com",
     },
+    {
+      "custom_domain": true,
+      "pattern": "www.saybackend.com",
+    },
   ],
   /**
    * Service Bindings (communicate between multiple Workers)

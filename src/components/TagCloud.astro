@@ -2,7 +2,6 @@
 import { getCollection } from "astro:content";
 
 const allPosts = await getCollection("blog");
-const allTags = allPosts.map((tag) => tag.data.tags).flat();
 ---
 
 <span> </span>

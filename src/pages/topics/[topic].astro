@@ -1,0 +1,120 @@
+---
+import ArrowCard from "@components/ArrowCard.astro";
+import BackToPrevious from "@components/BackToPrevious.astro";
+import Container from "@components/Container.astro";
+import Layout from "@layouts/Layout.astro";
+import { getCollection } from "astro:content";
+import { getTopicBySlug, getTopicPosts } from "@lib/topics";
+
+export async function getStaticPaths() {
+  const allPosts = await getCollection("blog", ({ data }) => !data.draft);
+  const topics = getTopicBySlug();
+
+  return Object.values(topics).map((topic) => ({
+    params: { topic: topic.slug },
+    props: {
+      topic,
+      posts: getTopicPosts(allPosts, topic).sort(
+        (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+      ),
+    },
+  }));
+}
+
+const { topic } = Astro.props;
+const posts = Astro.props.posts ?? [];
+---
+
+<Layout title={topic.title} description={topic.description}>
+  <script
+    type="application/ld+json"
+    set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "CollectionPage",
+          name: topic.title,
+          description: topic.description,
+          url: `https://www.saybackend.com/topics/${topic.slug}/`,
+          isPartOf: {
+            "@type": "WebSite",
+            "@id": "https://www.saybackend.com/#website",
+          },
+          about: topic.keywords,
+          mainEntity: {
+            "@type": "ItemList",
+            itemListElement: posts.map((post: any, index: number) => ({
+              "@type": "ListItem",
+              position: index + 1,
+              url: `https://www.saybackend.com/blog/${post.id.replace(
+                /\/index$/,
+                "",
+              )}/`,
+              name: post.data.title,
+            })),
+          },
+        },
+        {
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Home",
+              item: "https://www.saybackend.com/",
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "Topics",
+              item: "https://www.saybackend.com/topics/",
+            },
+            {
+              "@type": "ListItem",
+              position: 3,
+              name: topic.name,
+            },
+          ],
+        },
+      ],
+    })}
+  />
+
+  <div class="pt-24 pb-24">
+    <Container>
+      <div class="space-y-10" data-pagefind-ignore>
+        <div class="animate">
+          <BackToPrevious href="/topics">All topics</BackToPrevious>
+        </div>
+
+        <div class="animate space-y-4">
+          <h1
+            class="text-foreground text-4xl leading-[0.85] font-black tracking-tighter uppercase md:text-6xl lg:text-7xl"
+          >
+            {topic.name}
+          </h1>
+          <p
+            class="text-muted-foreground max-w-3xl font-mono text-sm md:text-base"
+          >
+            {topic.description}
+          </p>
+        </div>
+
+        <div class="animate border-border bg-surface rounded-lg border p-6">
+          <h2 class="text-foreground mb-2 text-lg font-bold uppercase">
+            What you’ll learn
+          </h2>
+          <ul
+            class="text-muted-foreground list-disc space-y-1 pl-5 font-mono text-sm"
+          >
+            {topic.learningPoints.map((point: string) => <li>{point}</li>)}
+          </ul>
+        </div>
+
+        <ul class="animate flex flex-col gap-4">
+          {posts.map((post: any) => <ArrowCard entry={post} />)}
+        </ul>
+      </div>
+    </Container>
+  </div>
+</Layout>

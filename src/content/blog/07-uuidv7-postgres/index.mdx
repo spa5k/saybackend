@@ -13,6 +13,17 @@ tags:
   - "benchmarking"
   - "postgresql"
   - "backend development"
+faqs:
+  - question: "What is UUIDv7 (and why would I use it)?"
+    answer: "UUIDv7 is a time-ordered UUID variant. It keeps the uniqueness benefits of UUIDs while making inserts and index locality behave more like increasing IDs (often reducing b-tree churn compared to random UUIDv4)."
+  - question: "Does PostgreSQL support UUIDv7 natively?"
+    answer: "Newer PostgreSQL versions include built-in UUIDv7 generation support (for example, PostgreSQL 18 adds native UUIDv7 functions). If you're on an older version, you can still generate UUIDv7 in the app layer or via extensions/custom functions."
+  - question: "Is UUIDv7 better than ULID or TypeID?"
+    answer: "It depends on your constraints. UUIDv7 is standard and widely supported; ULID is popular and readable; TypeID adds type prefixes for clarity. This post benchmarks the tradeoffs so you can choose based on latency, storage, and operational ergonomics."
+  - question: "How do I index UUIDv7 efficiently?"
+    answer: "A normal b-tree index works well. Because UUIDv7 values are roughly time-ordered, inserts tend to hit nearby pages, which can reduce page splits and improve cache behavior versus fully random UUIDs."
+  - question: "Should I use UUIDv7 as a primary key?"
+    answer: "Often yes for distributed systems where you want globally unique IDs without coordination. Still consider tradeoffs like storage size, human ergonomics, and whether you need sequential integers for legacy integrations."
 slug: uuidv7-postgres-comparison
 ogImage: "/images/uuidv7-postgres-og.png"
 ---

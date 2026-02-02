@@ -2,10 +2,10 @@
 const { class: className, title, ...props } = Astro.props;
 
 // Extension parsing logic
-const getExtension = (filename) => {
+const getExtension = (filename: string | undefined) => {
   if (!filename) return "";
   const parts = filename.split(".");
-  return parts.length > 1 ? parts.pop().toUpperCase() : "";
+  return parts.length > 1 ? parts.pop()!.toUpperCase() : "";
 };
 
 const extension = getExtension(title);

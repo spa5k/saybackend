@@ -33,6 +33,17 @@ tags:
   - "kubernetes-scaling"
   - "kubernetes-security"
   - "kubernetes-infrastructure"
+faqs:
+  - question: "Why did you move from k3s to RKE2?"
+    answer: "k3s is great for lightweight setups, but my production needs (repeatable automation, fewer edge-case surprises, and a cleaner upgrade story) pushed me toward RKE2. The switch simplified operations and removed a bunch of brittle glue."
+  - question: "What networking stack did you settle on (and why)?"
+    answer: "I ended up with Cilium. It gave me a more predictable networking model and made it easier to reason about policies and connectivity issues than the earlier setup."
+  - question: "How did you automate cluster provisioning end-to-end?"
+    answer: "Terraform for infrastructure, cloud-init for node bootstrap, and GitHub Actions + GitOps workflows to keep the cluster converging toward a desired state without manual clicks."
+  - question: "How do you handle upgrades without downtime surprises?"
+    answer: "Treat upgrades as a pipeline: version pinning, staging the change, and rolling node updates with validation at each step. The goal is boring, repeatable upgrades—not hero debugging sessions."
+  - question: "What would you do differently if you started over?"
+    answer: "Pick the target architecture earlier (distribution + CNI + automation) and avoid stacking too many experimental parts at once. Most pain came from compounding small mismatches between networking, provisioning, and operational assumptions."
 ogImage: "/images/7-kubernetes-journey/kubernetes_cluster_og.png"
 draft: true
 ---

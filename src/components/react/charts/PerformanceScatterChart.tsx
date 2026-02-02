@@ -1,3 +1,4 @@
+import type { ChartData } from "chart.js";
 import {
   Chart,
   Legend,
@@ -32,7 +33,10 @@ interface Props {
 }
 
 export default function PerformanceScatterChart(props: Props) {
-  const [chartData, setChartData] = useState({});
+  const [chartData, setChartData] = useState<ChartData<"scatter">>({
+    labels: [],
+    datasets: [],
+  });
   const data = props.data || defaultData;
 
   useEffect(() => {
@@ -59,7 +63,6 @@ export default function PerformanceScatterChart(props: Props) {
             borderColor: colors[index % colors.length].replace("0.8", "1"),
             borderWidth: 2,
           })),
-          pointLabels: data.map((point) => point.label),
         },
       ],
     });
@@ -74,7 +77,7 @@ export default function PerformanceScatterChart(props: Props) {
         text: props.title,
         font: {
           size: 16,
-          weight: "bold",
+          weight: "bold" as const,
         },
       },
       legend: {
@@ -102,7 +105,7 @@ export default function PerformanceScatterChart(props: Props) {
           text: "Storage Size (bytes)",
           font: {
             size: 14,
-            weight: "bold",
+            weight: "bold" as const,
           },
         },
         grid: {
@@ -115,7 +118,7 @@ export default function PerformanceScatterChart(props: Props) {
           text: "Generation Time (μs)",
           font: {
             size: 14,
-            weight: "bold",
+            weight: "bold" as const,
           },
         },
         grid: {

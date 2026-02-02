@@ -33,6 +33,17 @@ tags:
   - "semantic-search"
   - "knowledge-graphs"
   - "ai-research"
+faqs:
+  - question: "What is “chunking” in RAG?"
+    answer: "Chunking is how you split source documents into smaller pieces before embedding and retrieval. Better chunks improve retrieval relevance and reduce hallucinations."
+  - question: "How big should my chunks be?"
+    answer: "There’s no universal size. Start with something that fits your model context comfortably (including prompt + retrieved context), then tune using retrieval accuracy and downstream answer quality."
+  - question: "Should I split by tokens, characters, or structure?"
+    answer: "Prefer structure when possible (headings, paragraphs, sections). Token/character splitting is a baseline, but structure-aware splitting usually preserves meaning better."
+  - question: "Do I need overlap between chunks?"
+    answer: "Often yes. A small overlap can preserve context across boundaries, but too much overlap increases index size and can introduce redundancy in retrieval."
+  - question: "How do I evaluate a chunking strategy?"
+    answer: "Use a fixed set of questions and measure retrieval metrics (like recall@k) plus qualitative answer quality. Treat chunking as an experiment: change one variable at a time."
 ogImage: "/images/6-rag-chunking-strategies/rag_strategies_og.png"
 ---
 

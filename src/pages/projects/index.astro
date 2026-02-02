@@ -11,6 +11,39 @@ const projects = (await getCollection("projects"))
 ---
 
 <Layout title={PROJECTS.TITLE} description={PROJECTS.DESCRIPTION}>
+  <!-- Structured Data -->
+  <script
+    type="application/ld+json"
+    set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: "DevOps Projects & Portfolio",
+      description:
+        "Open-source projects and production deployments showcasing Go, Node.js, AWS, Kubernetes, PostgreSQL, and Docker implementations",
+      url: "https://www.saybackend.com/projects/",
+      isPartOf: {
+        "@type": "WebSite",
+        "@id": "https://www.saybackend.com/#website",
+      },
+      breadcrumb: {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          {
+            "@type": "ListItem",
+            position: 1,
+            name: "Home",
+            item: "https://www.saybackend.com/",
+          },
+          {
+            "@type": "ListItem",
+            position: 2,
+            name: "Projects",
+            item: "https://www.saybackend.com/projects/",
+          },
+        ],
+      },
+    })}
+  />
   <Container>
     <aside data-pagefind-ignore>
       <div class="space-y-10">

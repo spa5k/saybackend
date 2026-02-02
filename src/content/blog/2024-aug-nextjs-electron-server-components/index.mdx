@@ -35,6 +35,17 @@ tags:
   - Advanced Electron app with Next.js
   - Using Vite in Electron and Next.js
   - Dynamic content in Electron apps with Next.js
+faqs:
+  - question: "Can you really use Next.js inside Electron?"
+    answer: "Yes. You can bundle an Electron shell and run a Next.js app inside it. The key is deciding whether the Next.js server runs locally (packaged) or the Electron app points to a remote deployment."
+  - question: "Do React Server Components work in Electron?"
+    answer: "They can, but the constraints are the same as the web: you need a compatible Next.js runtime and you have to be careful about what runs on the server vs. in the renderer process."
+  - question: "What’s the biggest gotcha with Electron + Next.js?"
+    answer: "Build/runtime boundaries. Electron’s main process, renderer process, and the Next.js server all have different constraints—so keeping APIs, file access, and routing clean matters."
+  - question: "Should I use a custom protocol or file:// URLs?"
+    answer: "Usually you’ll use a local server URL during dev. In production, many setups prefer a packaged server or a custom protocol to avoid file path quirks and to keep routing predictable."
+  - question: "How do I ship updates safely?"
+    answer: "Treat the Electron shell and the Next.js app as separate artifacts. Use a proven auto-update mechanism for the shell, and version/deploy the app consistently so you don’t mix incompatible builds."
 ogImage: "/images/3-electron-nextjs/nextjs_electron_og.png"
 draft: false
 ---
@@ -133,47 +144,48 @@ Point to the transpiled file in the `main` key:
 Add the following to ensure Electron knows what files to bundle:
 
 ```json
-"build": {
-  "asar": true,
-  "executableName": "NextJSElectron",
-  "appId": "com.saybackend.nextjs-electron",
-  "asarUnpack": [
-    "node_modules/next",
-    "node_modules/@img",
-    "node_modules/sharp",
-    "**\\*.{node,dll}"
-  ],
-  "files": [
-    "build",
-    {
-      "from": ".next/standalone",
-      "to": "app",
-      "filter": [
-        "!**/.env",
-        "!**/package.json"
+{
+  "build": {
+    "asar": true,
+    "executableName": "NextJSElectron",
+    "appId": "com.saybackend.nextjs-electron",
+    "asarUnpack": [
+      "node_modules/next",
+      "node_modules/@img",
+      "node_modules/sharp",
+      "**\\*.{node,dll}"
+    ],
+    "files": [
+      "build",
+      {
+        "from": ".next/standalone",
+        "to": "app",
+        "filter": [
+          "!**/.env",
+          "!**/package.json"
+        ]
+      },
+      {
+        "from": ".next/static",
+        "to": "app/.next/static"
+      },
+      {
+        "from": "public",
+        "to": "app/public"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
       ]
     },
-    {
-      "from": ".next/static",
-      "to": "app/.next/static"
-    },
-    {
-      "from": "public",
-      "to": "app/public"
+    "linux": {
+      "target": [
+        "deb"
+      ],
+      "category": "Development"
     }
-  ],
-  "win": {
-    "target": [
-      "nsis"
-    ]
-  },
-  "linux": {
-    "target": [
-      "deb"
-    ],
-    "category": "Development"
   }
-}
 ```
 
 5. **Add Scripts to `package.json`:**

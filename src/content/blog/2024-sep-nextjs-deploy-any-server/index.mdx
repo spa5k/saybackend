@@ -45,6 +45,17 @@ tags:
   - "Nextjs in any cloud"
   - "Updated for Next.js 15"
   - "Next.js 15"
+faqs:
+  - question: "Can I deploy Next.js without Vercel?"
+    answer: "Yes. You can ship Next.js as a Dockerized Node server (or a platform-native build) and run it anywhere you can run containers or Node—VMs, Kubernetes, or your own servers."
+  - question: "What is the Next.js standalone output?"
+    answer: "Standalone output packages the minimal server code and dependencies needed to run your app. It’s a good fit for Docker images because it keeps runtime artifacts smaller and more predictable."
+  - question: "How do I handle environment variables in production?"
+    answer: "Keep build-time and runtime variables separate. Public variables are baked into the client bundle at build time, while secrets (API keys, database URLs) must be provided at runtime via your host or container environment."
+  - question: "Do I need Kubernetes for a production Next.js deployment?"
+    answer: "No. Kubernetes helps with orchestration and rollouts at scale, but a single VM (or a small cluster behind a reverse proxy) is often enough for many production apps—especially early on."
+  - question: "How do I do zero-downtime deploys?"
+    answer: "Use a rolling strategy: start new instances, verify health, then drain old ones behind a load balancer or reverse proxy. In Kubernetes, use readiness probes + rolling updates; on VMs, use blue/green or a process manager with graceful reloads."
 ogImage: "/images/4-nextjs-docker/nextjs_docker.png"
 draft: false
 ---
@@ -263,7 +274,7 @@ and everything seems to be working fine, but we are not done yet.
 
 1. Update your next.config.ts to use the standalone build
 
-```javascript
+```ts
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -543,7 +554,7 @@ CMD ["node", "server.js"]
 
 - This is a sample healthcheck endpoint in nextjs 15 api routes, you can use it in your own application.
 
-```javascript
+```ts
 // app/api/health/route.ts
 export async function GET(request: Request) {
   return new Response("OK");
@@ -647,13 +658,13 @@ Currently, it won't have any caching, so the RSC, SSR etc, won't be as fast as h
 
 1. Update the next.config.ts to use the cache handler
 
-```javascript
+```ts
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
   output: "standalone",
-   cacheHandler:
+  cacheHandler:
     process.env.NODE_ENV === "production"
       ? require.resolve("./cache-handler.js")
       : undefined,

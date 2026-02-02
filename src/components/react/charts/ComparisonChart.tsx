@@ -1,3 +1,4 @@
+import type { ChartData } from "chart.js";
 import {
   BarElement,
   CategoryScale,
@@ -71,7 +72,10 @@ interface Props {
 }
 
 export default function ComparisonChart(props: Props) {
-  const [chartData, setChartData] = useState({});
+  const [chartData, setChartData] = useState<ChartData<"bar">>({
+    labels: [],
+    datasets: [],
+  });
   const data = props.data || defaultData;
 
   useEffect(() => {
@@ -88,7 +92,7 @@ export default function ComparisonChart(props: Props) {
           {
             label: "Single-threaded Performance",
             data: data.map((d) =>
-              ((minPerformance / d.singleThreaded) * 100).toFixed(1),
+              Number(((minPerformance / d.singleThreaded) * 100).toFixed(1)),
             ),
             backgroundColor: "rgba(54, 162, 235, 0.8)",
             borderColor: "rgba(54, 162, 235, 1)",
@@ -98,7 +102,7 @@ export default function ComparisonChart(props: Props) {
           {
             label: "Concurrent Throughput",
             data: data.map((d) =>
-              ((d.concurrent / maxThroughput) * 100).toFixed(1),
+              Number(((d.concurrent / maxThroughput) * 100).toFixed(1)),
             ),
             backgroundColor: "rgba(75, 192, 192, 0.8)",
             borderColor: "rgba(75, 192, 192, 1)",
@@ -134,7 +138,7 @@ export default function ComparisonChart(props: Props) {
         text: props.title,
         font: {
           size: 16,
-          weight: "bold",
+          weight: "bold" as const,
         },
       },
       legend: {
@@ -178,7 +182,7 @@ export default function ComparisonChart(props: Props) {
               : "Time (μs)",
           font: {
             size: 14,
-            weight: "bold",
+            weight: "bold" as const,
           },
         },
         grid: {

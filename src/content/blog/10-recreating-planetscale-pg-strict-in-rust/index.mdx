@@ -14,6 +14,17 @@ tags:
   - "pgrx"
   - "backend"
   - "devops"
+faqs:
+  - question: "What is pg_strict (and what problem does it solve)?"
+    answer: "pg_strict is a strictness layer for PostgreSQL that helps prevent dangerous SQL patterns from making it to production. The goal is to catch footguns early—before they become incidents."
+  - question: "Why not just parse SQL with a library like sqlparser?"
+    answer: "SQL parsing alone usually isn’t enough: you lose context like resolved tables, types, and query rewrites. Hooking into Postgres’ own parsing/analyze pipeline keeps the checks accurate without fighting the database."
+  - question: "What is post_parse_analyze_hook used for here?"
+    answer: "It runs after Postgres has parsed and analyzed a query, which means you can inspect a fully-resolved query tree. That makes it practical to enforce strict rules with far fewer false positives."
+  - question: "Is this approach safe for production?"
+    answer: "It can be, if you keep the checks fast, deterministic, and well-tested. The key is to avoid heavy computation in hooks and to fail safely with clear error messages."
+  - question: "How do you build Postgres extensions in Rust?"
+    answer: "The usual approach is `pgrx`, which provides Rust bindings and tooling for building and packaging extensions. This post walks through the build log and the key integration points."
 slug: recreating-planetscale-pg-strict-in-rust
 ogImage: "/images/pg-strict-og.png"
 ---

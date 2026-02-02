@@ -1,3 +1,4 @@
+import type { ChartData } from "chart.js";
 import {
   Chart,
   Filler,
@@ -46,7 +47,10 @@ interface Props {
 }
 
 export default function RadarChart(props: Props) {
-  const [chartData, setChartData] = useState({});
+  const [chartData, setChartData] = useState<ChartData<"radar">>({
+    labels: [],
+    datasets: [],
+  });
   const data = props.data || defaultData;
 
   useEffect(() => {
@@ -97,7 +101,7 @@ export default function RadarChart(props: Props) {
         text: props.title,
         font: {
           size: 16,
-          weight: "bold",
+          weight: "bold" as const,
         },
       },
       legend: {
@@ -135,7 +139,7 @@ export default function RadarChart(props: Props) {
         pointLabels: {
           font: {
             size: 12,
-            weight: "bold",
+            weight: "bold" as const,
           },
         },
       },

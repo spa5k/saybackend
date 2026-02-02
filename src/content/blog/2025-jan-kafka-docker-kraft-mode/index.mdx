@@ -33,6 +33,17 @@ tags:
   - "kafka-kraft-mode-docker"
   - "kafka-docker-cluster"
   - "kafka-kraft-mode-configuration"
+faqs:
+  - question: "What is KRaft mode in Kafka?"
+    answer: "KRaft (Kafka Raft) replaces ZooKeeper with Kafka’s built-in metadata quorum. It simplifies local setups and aligns with Kafka’s newer architecture."
+  - question: "Do I still need ZooKeeper for local development?"
+    answer: "Not if you use KRaft mode. This guide shows a Docker setup that runs Kafka without ZooKeeper."
+  - question: "How do I create topics in a local Kafka Docker setup?"
+    answer: "You can create topics via the Kafka CLI inside the container, or by using a UI tool connected to the broker. Either way, the broker must be reachable from your host/network."
+  - question: "What’s the most common Docker networking issue with Kafka?"
+    answer: "Advertised listeners. If the broker advertises the wrong host/port, clients can connect initially but fail when they receive the broker’s advertised address."
+  - question: "Is KRaft production-ready?"
+    answer: "It depends on your Kafka version and operational requirements. For local development, it’s an excellent default; for production, follow Kafka’s official guidance for your target version."
 ogImage: "/images/5-kafka-docker/kafka_docker_kraft_og.png"
 ---
 
@@ -64,8 +75,8 @@ Apache Kafka traditionally required Zookeeper for cluster coordination - until K
   inferSize
   formats={["avif", "webp"]}
 />
-> Image from [Kafka Raft Metadata (KRaft)
-mode](https://developer.confluent.io/learn/kraft/)
+
+> Image from [Kafka Raft Metadata (KRaft) mode](https://developer.confluent.io/learn/kraft/)
 
 - **Simplified architecture**: Fewer moving parts
 - **Faster recovery**: Metadata changes happen in milliseconds

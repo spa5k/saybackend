@@ -19,6 +19,62 @@ const projects = (await getCollection("projects"))
 ---
 
 <Layout title={HOME.TITLE} description={HOME.DESCRIPTION}>
+  <!-- Structured Data -->
+  <script
+    type="application/ld+json"
+    set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://www.saybackend.com/#website",
+          url: "https://www.saybackend.com/",
+          name: "SayBackend",
+          description:
+            "A engineering blog dedicated to backend systems, DevOps, and structural data patterns",
+          publisher: {
+            "@id": "https://www.saybackend.com/#organization",
+          },
+          potentialAction: {
+            "@type": "SearchAction",
+            target: {
+              "@type": "EntryPoint",
+              urlTemplate:
+                "https://www.saybackend.com/pagefind/?q={search_term_string}",
+            },
+            "query-input": "required name=search_term_string",
+          },
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://www.saybackend.com/#organization",
+          name: "SayBackend",
+          url: "https://www.saybackend.com/",
+          logo: {
+            "@type": "ImageObject",
+            url: "https://www.saybackend.com/favicon.ico",
+          },
+          sameAs: ["https://github.com/spa5k"],
+          contactPoint: {
+            "@type": "ContactPoint",
+            email: "hello@kamran.sh",
+            contactType: "customer service",
+          },
+        },
+        {
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Home",
+              item: "https://www.saybackend.com/",
+            },
+          ],
+        },
+      ],
+    })}
+  />
   <!-- Hero Section -->
   <Section class="py-20 md:py-32">
     <Container>
@@ -35,9 +91,9 @@ const projects = (await getCollection("projects"))
           <p
             class="text-muted-foreground max-w-xl font-mono text-sm leading-relaxed md:text-base"
           >
-            A minimalist engineering blog dedicated to backend systems, DevOps,
-            and structural data patterns. Exploring the intersection of
-            brutalist architecture and clean code.
+            A blog dedicated to backend systems, DevOps, and structural data
+            patterns. Exploring the intersection of brutalist architecture and
+            clean code.
           </p>
         </div>
       </div>

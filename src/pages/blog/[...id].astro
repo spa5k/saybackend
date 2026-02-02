@@ -9,7 +9,7 @@ import PostNavigation from "@components/PostNavigation.astro";
 import TableOfContents from "@components/TableOfContents.astro";
 import Giscus from "@components/Giscus.astro";
 import WipWarning from "@components/WipWarning.astro";
-import PostCode from "@components/PostCode.astro";
+import FAQ from "@components/FAQ";
 
 export async function getStaticPaths() {
   const posts = (await getCollection("blog"))
@@ -63,17 +63,49 @@ const { Content, headings } = await render(post);
 const tags = post.data.tags ?? [];
 const headerTags = tags.slice(0, 4);
 const footerTags = tags.slice(4);
+
+// Find related posts based on tag overlap
+function getRelatedPosts(
+  currentPost: CollectionEntry<"blog">,
+  allPosts: CollectionEntry<"blog">[],
+  limit = 3,
+) {
+  const currentTags = new Set(currentPost.data.tags ?? []);
+  return allPosts
+    .filter((p) => p.id !== currentPost.id)
+    .map((p) => ({
+      post: p,
+      relevance: (p.data.tags ?? []).filter((t) => currentTags.has(t)).length,
+    }))
+    .filter((p) => p.relevance > 0)
+    .sort((a, b) => b.relevance - a.relevance)
+    .slice(0, limit)
+    .map((p) => p.post);
+}
+
+const relatedPosts = getRelatedPosts(post, posts);
 ---
 
-<Layout title={post.data.title} description={post.data.description} image={post.data.ogImage}>
-  <div id="post-data"
+<Layout
+  title={post.data.title}
+  description={post.data.description}
+  image={post.data.ogImage}
+>
+  <div
+    id="post-data"
     data-title={post.data.title}
-    data-ogimage={post.data.ogImage ? new URL(post.data.ogImage, Astro.site).href : ""}
+    data-ogimage={post.data.ogImage
+      ? new URL(post.data.ogImage, Astro.site).href
+      : ""}
     data-date={post.data.date.toISOString()}
-    data-updated={post.data.updated ? post.data.updated.toISOString() : post.data.date.toISOString()}
+    data-updated={post.data.updated
+      ? post.data.updated.toISOString()
+      : post.data.date.toISOString()}
     data-description={post.data.description}
+    data-tags={tags.join(",")}
     style="display: none;"
-  ></div>
+  >
+  </div>
   <div class="pt-24">
     <Container>
       <div class="animate">
@@ -118,6 +150,7 @@ const footerTags = tags.slice(4);
 
       <article class="animate typography w-full max-w-none">
         <Content />
+        <FAQ items={post.data.faqs ?? []} client:only="react" />
         {
           footerTags.length > 0 ? (
             <div class="border-border mt-12 flex flex-wrap items-center gap-2 border-t pt-6">
@@ -132,6 +165,44 @@ const footerTags = tags.slice(4);
             </div>
           ) : null
         }
+
+        {
+          relatedPosts.length > 0 && (
+            <div class="border-border mt-16 border-t pt-12">
+              <h3 class="text-foreground mb-6 text-2xl font-black uppercase">
+                Related Articles
+              </h3>
+              <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {relatedPosts.map((relatedPost, index) => {
+                  const cleanId = relatedPost.id.replace(/\/index$/, "");
+                  const primaryTag = relatedPost.data.tags?.[0];
+                  return (
+                    <a
+                      href={`/blog/${cleanId}`}
+                      data-related-post
+                      data-related-post-title={relatedPost.data.title}
+                      data-related-post-position={String(index + 1)}
+                      class="border-structural hover:bg-foreground hover:text-background group border p-6 transition-all duration-200"
+                    >
+                      {primaryTag && (
+                        <span class="tag-pill mb-3 inline-block">
+                          {primaryTag}
+                        </span>
+                      )}
+                      <h4 class="group-hover:text-background mb-2 text-lg leading-tight font-bold uppercase">
+                        {relatedPost.data.title}
+                      </h4>
+                      <p class="text-muted-foreground group-hover:text-background/80 line-clamp-2 font-mono text-xs">
+                        {relatedPost.data.description}
+                      </p>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          )
+        }
+
         <div class="mt-24">
           <PostNavigation prevPost={prevPost} nextPost={nextPost} />
         </div>
@@ -147,7 +218,7 @@ const footerTags = tags.slice(4);
   </div>
 
   <script>
-    document.addEventListener("DOMContentLoaded", () => {
+    function setupPostPage() {
       const postData = document.getElementById("post-data");
       if (!postData) return;
 
@@ -156,32 +227,130 @@ const footerTags = tags.slice(4);
       const datePublished = postData.dataset.date;
       const dateModified = postData.dataset.updated;
       const description = postData.dataset.description;
+      const tags = (postData.dataset.tags || "")
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
 
       const script = document.createElement("script");
+      script.id = "schema-blogposting";
       script.type = "application/ld+json";
       script.textContent = JSON.stringify({
         "@context": "https://schema.org",
         "@type": "BlogPosting",
         headline: title,
-        image: ogImage,
+        image: ogImage || "https://www.saybackend.com/images/blog.png",
         author: {
-          "@type": "Person",
-          name: "spark",
+          "@id": "https://www.saybackend.com/#author",
         },
         publisher: {
           "@type": "Organization",
+          "@id": "https://www.saybackend.com/#organization",
           name: "SayBackend",
           logo: {
             "@type": "ImageObject",
-            url: "/images/saybackend.png",
+            url: "https://www.saybackend.com/images/saybackend.png",
           },
         },
         datePublished: datePublished,
         dateModified: dateModified,
         description: description,
+        mainEntityOfPage: {
+          "@type": "WebPage",
+          "@id": window.location.href,
+        },
+        inLanguage: "en-US",
+        about: tags,
+        keywords: tags.join(", "),
       });
 
+      document.getElementById(script.id)?.remove();
       document.head.appendChild(script);
-    });
+
+      // Add FAQ schema if FAQ section exists
+      const faqSection = document.querySelector("[data-faq]");
+      if (faqSection) {
+        const faqItems = faqSection.querySelectorAll("[data-faq-item]");
+        if (faqItems.length > 0) {
+          const faqData = Array.from(faqItems).map((item) => ({
+            "@type": "Question",
+            name: item.querySelector("[data-faq-question]")?.textContent || "",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: item.querySelector("[data-faq-answer]")?.textContent || "",
+            },
+          }));
+
+          const faqScript = document.createElement("script");
+          faqScript.id = "schema-faq";
+          faqScript.type = "application/ld+json";
+          faqScript.textContent = JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: faqData,
+          });
+          document.getElementById(faqScript.id)?.remove();
+          document.head.appendChild(faqScript);
+        }
+      }
+
+      // Add Breadcrumb schema
+      const breadcrumbScript = document.createElement("script");
+      breadcrumbScript.id = "schema-breadcrumb";
+      breadcrumbScript.type = "application/ld+json";
+      breadcrumbScript.textContent = JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          {
+            "@type": "ListItem",
+            position: 1,
+            name: "Home",
+            item: "https://www.saybackend.com/",
+          },
+          {
+            "@type": "ListItem",
+            position: 2,
+            name: "Blog",
+            item: "https://www.saybackend.com/blog/",
+          },
+          {
+            "@type": "ListItem",
+            position: 3,
+            name: title,
+          },
+        ],
+      });
+      document.getElementById(breadcrumbScript.id)?.remove();
+      document.head.appendChild(breadcrumbScript);
+
+      // GA4 event: related post clicks
+      const relatedLinks = document.querySelectorAll("[data-related-post]");
+      relatedLinks.forEach((el) => {
+        if (el.hasAttribute("data-related-post-bound")) return;
+        el.setAttribute("data-related-post-bound", "true");
+        el.addEventListener("click", () => {
+          const toTitle = el.getAttribute("data-related-post-title") || "";
+          const toUrl = el.getAttribute("href") || "";
+          const position = Number(
+            el.getAttribute("data-related-post-position"),
+          );
+
+          if (typeof window.gtag !== "function") return;
+
+          window.gtag("event", "related_post_clicked", {
+            from_title: title || document.title,
+            from_url: window.location.href,
+            to_title: toTitle,
+            to_url: new URL(toUrl, window.location.origin).href,
+            position: Number.isFinite(position) ? position : undefined,
+            transport_type: "beacon",
+          });
+        });
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", setupPostPage);
+    document.addEventListener("astro:after-swap", setupPostPage);
   </script>
 </Layout>

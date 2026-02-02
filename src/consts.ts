@@ -10,25 +10,27 @@ export const SITE: Site = {
 };
 
 export const HOME: Metadata = {
-  TITLE: "Say Backend - Your Backend and DevOps Resource",
+  TITLE: "SayBackend - Backend Engineering & DevOps Blog",
   DESCRIPTION:
-    "Say Backend is your go-to resource for backend and DevOps topics. Dive into our articles to learn about the latest trends, best practices, and tools in the industry.",
+    "In-depth technical articles on backend development, DevOps, PostgreSQL, Kubernetes, and system architecture. Explore engineering tutorials, performance benchmarks, and production best practices.",
 };
 
 export const BLOG: Metadata = {
-  TITLE: "Blog",
-  DESCRIPTION: "A collection of articles on topics I am passionate about.",
+  TITLE: "Backend Engineering Blog - SayBackend",
+  DESCRIPTION:
+    "In-depth technical articles on backend development, DevOps, PostgreSQL, Kubernetes, Docker, and system architecture. Explore 50+ engineering tutorials and best practices from a senior software engineer.",
 };
 
 export const PROJECTS: Metadata = {
-  TITLE: "Projects",
+  TITLE: "DevOps Projects & Portfolio - SayBackend",
   DESCRIPTION:
-    "A collection of my projects with links to repositories and live demos.",
+    "Open-source projects and production deployments showcasing Go, Node.js, AWS, Kubernetes, PostgreSQL, and Docker implementations. View code repositories and live demos.",
 };
 
 export const ABOUT: Metadata = {
-  TITLE: "About",
-  DESCRIPTION: "About Kamran Tahir — Senior Software Engineer.",
+  TITLE: "About Kamran Tahir - Senior Backend Engineer",
+  DESCRIPTION:
+    "Meet Kamran Tahir, a Senior Software Engineer specializing in backend systems, AWS serverless architecture, PostgreSQL, and DevOps. 6+ years building scalable infrastructure and microservices.",
 };
 
 export const SOCIALS: Socials = [

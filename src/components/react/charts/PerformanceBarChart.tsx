@@ -1,3 +1,4 @@
+import type { ChartData } from "chart.js";
 import {
   BarElement,
   CategoryScale,
@@ -45,7 +46,10 @@ interface Props {
 }
 
 export default function PerformanceBarChart(props: Props) {
-  const [chartData, setChartData] = useState({});
+  const [chartData, setChartData] = useState<ChartData<"bar">>({
+    labels: [],
+    datasets: [],
+  });
   const data = props.data || defaultData;
 
   useEffect(() => {
@@ -95,7 +99,7 @@ export default function PerformanceBarChart(props: Props) {
         text: props.title,
         font: {
           size: 16,
-          weight: "bold",
+          weight: "bold" as const,
         },
       },
       legend: {

@@ -62,19 +62,23 @@ tags:
   - "Next.js deployment workflow"
   - "Next.js production architecture"
   - "Next.js deployment patterns"
-ogImage: "/images/5-nextjs-self-hosted/nextjs-self-hosted-og.png"
+faqs:
+  - question: "Do I need Vercel to run Next.js in production?"
+    answer: "No. Next.js can run on your own infrastructure (VMs, containers, or Kubernetes) as long as you deploy a Node runtime that serves the app."
+  - question: "What’s the simplest way to self-host Next.js?"
+    answer: "A Docker image running the Next.js server behind a reverse proxy is usually the fastest path: predictable builds, easy rollbacks, and portability."
+  - question: "How do I do zero-downtime deploys when self-hosting?"
+    answer: "Run at least two instances behind a load balancer and roll updates gradually. Use health checks/readiness and graceful shutdown to avoid cutting active requests."
+  - question: "How do I avoid “build skew” issues?"
+    answer: "Make deployments immutable: build once, deploy the same artifact everywhere. Don’t rebuild per machine, and keep runtime config separate from build output."
+  - question: "What should I monitor first?"
+    answer: "Start with latency (p95/p99), error rate, and saturation (CPU/memory). Add application logs, tracing, and synthetic checks once the basics are stable."
+ogImage: "/images/4-nextjs-docker/nextjs_docker.png"
 readingTime: "45 minutes"
 ---
 
 import Callout from "@/components/Callout.astro";
 import Mermaid from "@/components/react/Mermaid";
-
-<Picture
-  src={OgImage}
-  alt="Essential Guide to Self-Hosting Next.js in Production"
-  inferSize
-  formats={["avif", "webp"]}
-/>
 
 ## Introduction
 
@@ -975,25 +979,25 @@ export default function imageLoader({ src, width, quality }: ImageLoaderProps) {
 
 2. **Font Optimization**
 
-```typescript
+```tsx
 // app/layout.tsx
-import { Inter } from 'next/font/google'
+import { Inter } from "next/font/google";
 
 const inter = Inter({
-  subsets: ['latin'],
-  display: 'swap',
-})
+  subsets: ["latin"],
+  display: "swap",
+});
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en" className={inter.className}>
       <body>{children}</body>
     </html>
-  )
+  );
 }
 ```
 
@@ -1047,12 +1051,12 @@ export default config;
 
 1. **Dynamic Imports**
 
-```typescript
-import dynamic from 'next/dynamic'
+```tsx
+import dynamic from "next/dynamic";
 
-const HeavyComponent = dynamic(() => import('./HeavyComponent'), {
+const HeavyComponent = dynamic(() => import("./HeavyComponent"), {
   loading: () => <p>Loading...</p>,
-})
+});
 ```
 
 2. **Tree Shaking**
@@ -1066,11 +1070,11 @@ import { debounce } from "lodash/debounce";
 
 1. **Route-Based Code Splitting**
 
-```typescript
+```tsx
 // Automatically handled by Next.js
 // pages/about.tsx
 export default function About() {
-  return <h1>About Page</h1>
+  return <h1>About Page</h1>;
 }
 ```
 

@@ -110,10 +110,11 @@ const { title, description, image = "/images/blog.png" } = Astro.props;
 
 <!-- Google tag (gtag.js) -->
 <script
+  is:inline
   type="text/partytown"
   async
   src="https://www.googletagmanager.com/gtag/js?id=G-5XS7E70997"></script>
-<script type="text/partytown">
+<script is:inline type="text/partytown">
   window.dataLayer = window.dataLayer || [];
 
   window.gtag = function gtag() {

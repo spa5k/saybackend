@@ -6,7 +6,7 @@ import {
   CardTitle,
 } from "@/components/react/ui/card";
 import {
-  ChartConfig,
+  type ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,

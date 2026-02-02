@@ -158,26 +158,17 @@ const { code } = Astro.props;
 </style>
 
 <script>
-  import mermaid from "mermaid";
-
-  // Initialize mermaid with default config
-  mermaid.initialize({
-    startOnLoad: true,
-    theme: "default",
-    securityLevel: "loose",
-    themeVariables: {
-      darkMode: document.documentElement.classList.contains("dark"),
-    },
-  });
+  // Use beautiful-mermaid for SSR rendering
+  // No client-side mermaid initialization needed
+  // The mermaid diagrams are pre-rendered on the server
 
   // Re-run mermaid when the page content changes
   document.addEventListener("astro:after-swap", () => {
-    mermaid.contentLoaded();
+    // beautiful-mermaid diagrams are already rendered
   });
 
   // Modal functionality
   const modal = document.getElementById("mermaid-modal");
-  const modalContent = document.querySelector(".modal-content");
   const closeButton = document.querySelector(".close-button");
   const zoomButton = document.querySelector(".zoom-button");
   const mermaidDiagram = document.getElementById("mermaid-diagram");
