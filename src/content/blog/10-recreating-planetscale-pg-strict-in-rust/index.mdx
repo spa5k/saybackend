@@ -22,6 +22,15 @@ import Advertise from "@/components/Advertise.astro";
 import Callout from "@/components/Callout.astro";
 import Mermaid from "@/components/MermaidSSR.astro";
 import { Picture } from "astro:assets";
+import ImgCreateExtension from "./1-create-extension.png";
+import ImgConfig from "./2-config.png";
+import ImgTableState from "./3-table-state-with-rows.png";
+import ImgWarnConfig from "./4-setting-warn-config.png";
+import ImgWarnBehavior from "./5-delete-update-with-warn.png";
+import ImgOnBlocks from "./6-setting-on-update-erroring-out.png";
+import ImgValidUpdateWhere from "./7-valid-update-query-with-where.png";
+import ImgTxnSetLocalOff from "./8-transaction-turning-off.png";
+import ImgCtesWhere from "./9-ctes-with-where.png";
 import OgImage from "./pg-strict-og.png";
 
 <Picture
@@ -36,6 +45,15 @@ import OgImage from "./pg-strict-og.png";
 Recently PlanetScale released a pg_strict extension [here](https://x.com/PlanetScale/status/2011853851654275368) and I wanted to see if I could replicate it and release it open source, since I had some experience writing Postgres extensions in Rust like [uids-postgres](https://github.com/spa5k/uids-postgres) and [slugify-postgres](https://github.com/spa5k/slugify-postgres).
 
 So, I wrote a small Postgres extension in Rust of the same name: [pg_strict](https://github.com/spa5k/pg_strict). The goal is the same as PlanetScale's extension: block UPDATE and DELETE statements without a WHERE clause.
+
+<Picture
+  src={ImgCreateExtension}
+  alt="psql output showing CREATE EXTENSION pg_strict and the pg_extension row with extname pg_strict and extversion 1.0.2"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+_Installing it is a normal `CREATE EXTENSION pg_strict;` flow. The rest of this post is about how to reliably block unsafe statements at the right stage of Postgres’ pipeline._
 
 I thought the build would be straightforward. It was not. The hard part wasn't the Rust code; it was choosing the _right_ phase of the Postgres pipeline and the _right_ parser.
 
@@ -100,6 +118,11 @@ What each stage actually gives you:
 - **Parser**: syntax tree only, no semantic guarantees.
 
 - **Parse/Analyze**: a real `Query` tree with `commandType`, `jointree`, and `quals`. This represents the _intent_ of the query.
+
+- Tiny explanation:
+  - `commandType`: UPDATE, DELETE, etc.
+  - `jointree`: the FROM/JOIN tree (what relations are being scanned/joined).
+  - `quals`: the boolean filter expression tree (typically the `WHERE` conditions). If it’s null, there’s no filter.
 
 - **Planner**: a plan tree optimized for execution.
 
@@ -329,6 +352,19 @@ unsafe fn analyzed_query_operation(query: *mut pg_sys::Query) -> Option<(Operati
 
 This approach has **zero parsing overhead**. It just reads a few pointers from memory structures that already exist.
 
+### Demo: CTEs and what counts as a “WHERE”
+
+Because the check is based on the analyzed `Query` tree, it’s specifically looking for a top-level qualification (`jointree->quals`) on the actual `UPDATE`/`DELETE`.
+
+That means a `WHERE` clause inside a CTE does **not** count. A `WHERE ... IN (SELECT ...)` on the update **does** count.
+
+<Picture
+  src={ImgCtesWhere}
+  alt="psql output showing an UPDATE that uses CTEs and WHERE id IN (SELECT ...) succeeds, while an UPDATE without a top-level WHERE is blocked even though the CTE has a WHERE clause"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
 <Mermaid
   code={`
 graph LR
@@ -355,6 +391,64 @@ graph LR
 With the core logic solid, I needed to make the extension configurable to match PlanetScale's behavior. Users need to be able to toggle this on/off per role or per transaction.
 
 I used **GUC** (Grand Unified Configuration) — Postgres' native configuration system.
+
+### What it looks like in practice (psql)
+
+Start by checking the extension’s current settings:
+
+<Picture
+  src={ImgConfig}
+  alt="psql output showing SELECT * FROM pg_strict_config() returning require_where_on_update=off and require_where_on_delete=off, then setting require_where_on_update to on and showing the updated config"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+Here’s the table state I used for the examples below (so the row counts in the output make sense):
+
+<Picture
+  src={ImgTableState}
+  alt="psql output showing select count(*) from sessions equals 300000 and select count(*) from users equals 100000"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+#### Warn mode
+
+In `warn`, the extension logs a warning but allows the statement to execute:
+
+<Picture
+  src={ImgWarnConfig}
+  alt="psql output showing setting pg_strict.require_where_on_update and pg_strict.require_where_on_delete to warn and then selecting pg_strict_config() showing both set to warn"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+<Picture
+  src={ImgWarnBehavior}
+  alt="psql output showing UPDATE users SET status='inactive' and DELETE FROM sessions both emit pg_strict warnings about missing WHERE and then execute affecting 100000 and 300000 rows"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+#### On mode
+
+In `on`, the extension blocks unsafe statements with an error:
+
+<Picture
+  src={ImgOnBlocks}
+  alt="psql output showing pg_strict.require_where_on_update and require_where_on_delete set to on, then an UPDATE without WHERE and DELETE without WHERE both error with pg_strict message about missing WHERE clause"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+And when you do include a `WHERE`, the query runs normally:
+
+<Picture
+  src={ImgValidUpdateWhere}
+  alt="psql output showing a multi-line UPDATE users ... WHERE last_login < now() - interval '180 days' succeeds and reports UPDATE 99821"
+  inferSize
+  formats={["avif", "webp"]}
+/>
 
 ### Implementing GUCs with pgrx
 
@@ -424,6 +518,15 @@ This allows for powerful workflows:
 - `ALTER ROLE app_user SET pg_strict.require_where_on_delete = 'on'` (Safety for apps)
 - `SET LOCAL pg_strict.require_where_on_delete = 'off'` (Override for specific migrations)
 
+Here’s the “override for one transaction” pattern in action:
+
+<Picture
+  src={ImgTxnSetLocalOff}
+  alt="psql output showing BEGIN, SET LOCAL pg_strict.require_where_on_delete='off', DELETE FROM sessions allowed within the transaction, then ROLLBACK"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
 ---
 
 ## Final Architecture
@@ -468,6 +571,86 @@ graph TB
 `}
 />
 
+---
+
+## Installing `pg_strict`
+
+If you want to try the extension yourself, here are the quickest install paths.
+
+### Option 1: Pre-built binaries (recommended)
+
+Pre-built binaries are available for **Linux (x86_64)** on the GitHub Releases page for `pg_strict`. Download the archive for your PostgreSQL major version, extract it, then copy the extension files into Postgres’ extension directories:
+
+```bash
+# PostgreSQL 15 (example)
+wget https://github.com/spa5k/pg_strict/releases/download/v1.0.1/pg_strict-1.0.0-pg15-linux-x86_64.tar.gz
+tar -xzf pg_strict-1.0.0-pg15-linux-x86_64.tar.gz
+
+sudo cp pg_strict.so "$(pg_config --libdir)/"
+sudo cp pg_strict.control "$(pg_config --sharedir)/extension/"
+sudo cp pg_strict--*.sql "$(pg_config --sharedir)/extension/"
+```
+
+Then enable it in the database:
+
+```sql
+CREATE EXTENSION pg_strict;
+```
+
+### Option 2: Build from source
+
+Prerequisites:
+
+- Rust nightly toolchain
+- `cargo-pgrx` (README uses `0.16.1`)
+- Standard PostgreSQL build deps (including `libclang`)
+
+Build:
+
+```bash
+cargo install cargo-pgrx --version 0.16.1 --locked
+cargo pgrx init
+
+# pick one: pg13 / pg14 / pg15 / pg16 / pg17 / pg18
+cargo build --no-default-features --features pg15
+```
+
+On macOS you may need:
+
+```bash
+export BINDGEN_EXTRA_CLANG_ARGS="-isystem $(xcrun --sdk macosx --show-sdk-path)/usr/include"
+```
+
+Install the built extension:
+
+```bash
+PG_LIB="$(pg_config --libdir)"
+PG_SHARE="$(pg_config --sharedir)"
+
+# Linux
+sudo cp target/debug/libpg_strict.so "$PG_LIB/"
+
+# macOS
+sudo cp target/debug/libpg_strict.dylib "$PG_LIB/"
+
+sudo cp pg_strict.control "$PG_SHARE/extension/"
+sudo cp pg_strict--*.sql "$PG_SHARE/extension/"
+```
+
+Enable:
+
+```sql
+CREATE EXTENSION pg_strict;
+```
+
+### Verify
+
+```sql
+SELECT * FROM pg_extension WHERE extname = 'pg_strict';
+SELECT pg_strict_version();
+SELECT * FROM pg_strict_config();
+```
+
 ## What I would do differently next time
 
 - **Trust the internal parser immediately:** Any other parser is a compatibility tax.
@@ -483,6 +666,7 @@ This is the distilled checklist I now follow:
 3.  Keep unsafe code tiny and local.
 4.  Use GUCs so your extension feels native.
 5.  Build tests around real-world SQL (CTEs, Joins, RETURNING), not just toy examples.
+6.  PGRX has a lot of great documentation and examples to help you get started, with all the hooks and functions you need to build your extension.
 
 That's the full story. `pg_strict` is small on purpose, but the path to get there taught me how Postgres actually works under the hood. If you're writing your own extension, start where I ended up.
 
@@ -492,6 +676,4 @@ That's the full story. `pg_strict` is small on purpose, but the path to get ther
 
 ## Citation
 
-```text
-https://planetscale.com/docs/postgres/extensions/pg_strict
-```
+[PlanetScale's pg_strict documentation](https://planetscale.com/docs/postgres/extensions/pg_strict)
