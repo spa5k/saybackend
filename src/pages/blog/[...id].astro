@@ -65,7 +65,15 @@ const headerTags = tags.slice(0, 4);
 const footerTags = tags.slice(4);
 ---
 
-<Layout title={post.data.title} description={post.data.description}>
+<Layout title={post.data.title} description={post.data.description} image={post.data.ogImage}>
+  <div id="post-data"
+    data-title={post.data.title}
+    data-ogimage={post.data.ogImage ? new URL(post.data.ogImage, Astro.site).href : ""}
+    data-date={post.data.date.toISOString()}
+    data-updated={post.data.updated ? post.data.updated.toISOString() : post.data.date.toISOString()}
+    data-description={post.data.description}
+    style="display: none;"
+  ></div>
   <div class="pt-24">
     <Container>
       <div class="animate">

@@ -1,94 +1,72 @@
 ---
-interface Props {
-  title?: string;
-}
-
-const { title = "End-to-End Software Development Solutions" } = Astro.props;
+import pfp from "./pfp.png";
 ---
 
-<style>
-  .advertise {
-    padding: 1.5rem;
-    border-radius: calc(var(--radius) - 2px);
-    margin: 2rem 0;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s ease;
-    border: 1px solid hsl(var(--border));
-    background-color: #eff6ff;
-    border-left: 4px solid #2563eb;
-  }
+<aside
+  class="group border-structural bg-surface hover:bg-foreground hover:text-background my-12 border p-6 transition-colors duration-200 md:p-8"
+  aria-label="Work with me"
+>
+  <div class="flex items-center gap-4 md:gap-6">
+    <img
+      src={pfp.src}
+      width={pfp.width}
+      height={pfp.height}
+      alt="Kamran Tahir"
+      loading="lazy"
+      decoding="async"
+      class="border-structural h-14 w-14 flex-none border object-cover"
+    />
 
-  .advertise:hover {
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    transform: translateY(-1px);
-  }
+    <div class="min-w-0 flex-1 space-y-2">
+      <div
+        class="text-muted-foreground group-hover:text-background/70 font-mono text-xs tracking-widest uppercase opacity-70 transition-colors"
+      >
+        Work with me
+      </div>
 
-  .advertise-title {
-    margin-top: 0;
-    margin-bottom: 1rem;
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: #2563eb;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
+      <div
+        class="text-foreground group-hover:text-background text-xl leading-none font-black uppercase transition-colors"
+      >
+        Kamran
+      </div>
 
-  .advertise-title::before {
-    content: "💡";
-    font-size: 1.1em;
-  }
+      <p
+        class="text-muted-foreground group-hover:text-background/80 font-mono text-sm leading-relaxed transition-colors"
+      >
+        Senior Software Engineer • 6 years • AWS serverless &amp; microservices
+        (Go, Node.js, TypeScript)
+      </p>
 
-  .advertise-content {
-    font-size: 0.95rem;
-    line-height: 1.6;
-    color: hsl(var(--foreground));
-  }
-
-  .advertise-content :global(p) {
-    margin: 0;
-    color: hsl(var(--foreground));
-  }
-
-  .advertise-content :global(p + p) {
-    margin-top: 0.5rem;
-  }
-
-  .advertise-content :global(a) {
-    color: #2563eb;
-    text-decoration: none;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    border-bottom: 1px solid transparent;
-  }
-
-  .advertise-content :global(a:hover) {
-    border-bottom-color: #2563eb;
-  }
-
-  .advertise-content :global(strong) {
-    color: hsl(var(--foreground));
-    font-weight: 600;
-  }
-
-  .advertise-content :global(ul) {
-    margin: 0.5rem 0;
-    padding-left: 1.5rem;
-  }
-
-  .advertise-content :global(li) {
-    margin: 0.25rem 0;
-    color: hsl(var(--foreground));
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .advertise {
-      background-color: rgba(37, 99, 235, 0.1);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    }
-
-    .advertise:hover {
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
-    }
-  }
-</style>
+      <div
+        class="border-border group-hover:border-background/30 mt-4 flex flex-wrap items-center gap-3 border-t pt-4 transition-colors"
+      >
+        <a
+          href="mailto:hello@kamran.sh"
+          class="border-structural bg-accent text-accent-foreground hover:border-accent-strong inline-flex h-11 items-center border px-5 font-mono text-xs tracking-wider uppercase transition-colors"
+        >
+          Email
+        </a>
+        <a
+          href="http://kamran.sh/"
+          class="text-muted-foreground group-hover:text-background/80 hover:text-accent font-mono text-xs tracking-wider uppercase transition-colors"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Resume
+        </a>
+        <span
+          class="text-muted-foreground/40 group-hover:text-background/40 transition-colors"
+          >/</span
+        >
+        <a
+          href="https://linkedin.com/in/kamrantahir2"
+          class="text-muted-foreground group-hover:text-background/80 hover:text-accent font-mono text-xs tracking-wider uppercase transition-colors"
+          target="_blank"
+          rel="noreferrer"
+        >
+          LinkedIn
+        </a>
+      </div>
+    </div>
+  </div>
+</aside>

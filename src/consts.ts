@@ -4,7 +4,7 @@ export const SITE: Site = {
   TITLE: "SayBackend",
   DESCRIPTION:
     "A blog about backend development, software engineering, and other tech topics.",
-  EMAIL: "admin@saybackend.com",
+  EMAIL: "hello@kamran.sh",
   NUM_POSTS_ON_HOMEPAGE: 6,
   NUM_PROJECTS_ON_HOMEPAGE: 1,
 };
@@ -24,6 +24,11 @@ export const PROJECTS: Metadata = {
   TITLE: "Projects",
   DESCRIPTION:
     "A collection of my projects with links to repositories and live demos.",
+};
+
+export const ABOUT: Metadata = {
+  TITLE: "About",
+  DESCRIPTION: "About Kamran Tahir — Senior Software Engineer.",
 };
 
 export const SOCIALS: Socials = [
