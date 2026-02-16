@@ -54,6 +54,7 @@
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.1.18",
+    "baseline-browser-mapping": "^2.9.19",
     "pagefind": "^1.4.0",
     "playwright": "^1.58.2",
     "prettier": "^3.8.1",

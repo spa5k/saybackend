@@ -52,17 +52,25 @@ faqs:
 ---
 
 import Callout from "@/components/Callout.astro";
-import DemoFlow from "./demo-flow.svg";
-import DemoIntegrations from "./demo-integrations.svg";
-import DemoLogStream from "./demo-log-stream.svg";
-import DemoSampling from "./demo-sampling.svg";
-import OgImage from "./og-image.svg";
+import {
+  HappyContextHero,
+  IntegrationsMatrix,
+  RequestLifecycleRail,
+  SamplingDecisionPanel,
+  WideEventsBeforeAfter,
+  WideEventValueCards,
+} from "@/components/react/blog/happycontext/HappyContextBlocks";
+import BlueIntegrations from "./blue-integrations.svg";
+import BlueSampling from "./blue-sampling.svg";
+import BlueWideEvents from "./blue-wide-events.svg";
 
+<HappyContextHero />
 <img
-  src={OgImage.src}
-  alt="happycontext banner with logger and integration highlights"
+  src={BlueWideEvents.src}
+  alt="Minimal blue diagram comparing fragmented logs to one wide event"
   loading="eager"
 />
+<WideEventValueCards />
 
 ## Why I Built This
 
@@ -83,11 +91,50 @@ I wanted a small Go library that keeps the good parts of request logging while r
 
 Instead of emitting 6 to 20 lines through middleware and handlers, `happycontext` accumulates request context in-memory and writes one final event.
 
-<img
-  src={DemoLogStream.src}
-  alt="Transformation from fragmented log lines to one structured request event"
-  loading="lazy"
-/>
+### What are Wide Events?
+
+Instead of scattering logs throughout your code:
+
+<WideEventsBeforeAfter client:load />
+
+```go
+package main
+
+import (
+	"errors"
+	"log/slog"
+	"net/http"
+	"os"
+
+	hc "github.com/happytoolin/happycontext"
+	slogadapter "github.com/happytoolin/happycontext/adapter/slog"
+	stdhc "github.com/happytoolin/happycontext/integration/std"
+)
+
+func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	sink := slogadapter.New(logger)
+
+	mw := stdhc.Middleware(hc.Config{
+		Sink:         sink,
+		SamplingRate: 1.0,
+		Message:      "request_completed",
+	})
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /orders/{id}", func(w http.ResponseWriter, r *http.Request) {
+		hc.Add(r.Context(), "user_id", "u_8472", "feature", "checkout")
+		if r.URL.Query().Get("fail") == "1" {
+			hc.Error(r.Context(), errors.New("checkout failed"))
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	_ = http.ListenAndServe(":8080", mw(mux))
+}
+```
 
 Typical final fields include:
 
@@ -99,6 +146,31 @@ Typical final fields include:
 - your custom fields like `user_id`, `tenant_id`, `feature`, `trace_id`
 
 This structure makes filtering and alerting much easier in Loki, Datadog, ELK, or any JSON log pipeline.
+
+### Wide Events, in Practice
+
+A good wide event usually combines four layers:
+
+- Request context: method, path, route, request/trace IDs
+- User context: who made the call (user, tenant, plan)
+- Business context: cart/order/payment/domain fields
+- Outcome: status, duration, and error details (if any)
+
+In Go terms, the pattern is simple: add context incrementally with `hc.Add(...)` as you learn more during the request, and let middleware emit the final event once.
+
+```go
+hc.Add(ctx, "user_id", userID, "tenant_id", tenantID)
+hc.Add(ctx, "order_id", orderID, "total_cents", totalCents)
+
+if err != nil {
+	hc.Error(ctx, err)
+}
+```
+
+Prefer clear key names and grouped domain fields over generic blobs. That keeps queries readable and makes incidents faster to debug.
+
+For a deeper walkthrough of the wide-event model, see:
+[evlog.dev/core-concepts/wide-events](https://www.evlog.dev/core-concepts/wide-events).
 
 ## Quick Start (`net/http` + `slog`)
 
@@ -147,9 +219,10 @@ func main() {
 
 `happycontext` intentionally separates router middleware from logger adapters.
 
+<IntegrationsMatrix />
 <img
-  src={DemoIntegrations.src}
-  alt="Router integrations feeding happycontext and logger adapters"
+  src={BlueIntegrations.src}
+  alt="Blue minimal router and logger adapter architecture for happycontext"
   loading="lazy"
 />
 
@@ -169,11 +242,7 @@ func main() {
 
 That gives you 15 router/logger combinations without changing your domain handlers.
 
-<img
-  src={DemoFlow.src}
-  alt="Request lifecycle from start to enrich to finalize to write"
-  loading="lazy"
-/>
+<RequestLifecycleRail />
 
 ## Sampling Without Losing Incidents
 
@@ -193,9 +262,10 @@ mw := stdhc.Middleware(hc.Config{
 })
 ```
 
+<SamplingDecisionPanel />
 <img
-  src={DemoSampling.src}
-  alt="Sampler chain showing keep and drop decisions"
+  src={BlueSampling.src}
+  alt="Blue minimal tail-sampling decision path for happycontext"
   loading="lazy"
 />
 

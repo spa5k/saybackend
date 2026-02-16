@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 340" role="img" aria-labelledby="title desc">
+  <title id="title">Tail sampling flow</title>
+  <desc id="desc">Simple blue vertical decision flow for keeping or sampling wide events.</desc>
+
+  <rect width="960" height="340" fill="#f6faff"/>
+  <rect x="20" y="20" width="920" height="300" rx="12" fill="#ffffff" stroke="#dbeafe"/>
+
+  <text x="48" y="58" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" fill="#1e3a8a">Tail sampling</text>
+
+  <rect x="70" y="84" width="420" height="52" rx="8" fill="#eff6ff" stroke="#bfdbfe"/>
+  <text x="90" y="116" font-family="Geist Mono, monospace" font-size="13" fill="#1e40af">1) event completed (status + duration known)</text>
+
+  <rect x="70" y="148" width="420" height="52" rx="8" fill="#eff6ff" stroke="#bfdbfe"/>
+  <text x="90" y="180" font-family="Geist Mono, monospace" font-size="13" fill="#1e40af">2) if error or 5xx then keep</text>
+
+  <rect x="70" y="212" width="420" height="52" rx="8" fill="#eff6ff" stroke="#bfdbfe"/>
+  <text x="90" y="244" font-family="Geist Mono, monospace" font-size="13" fill="#1e40af">3) if critical path or slow request then keep</text>
+
+  <rect x="70" y="276" width="420" height="28" rx="8" fill="#eff6ff" stroke="#bfdbfe"/>
+  <text x="90" y="295" font-family="Geist Mono, monospace" font-size="13" fill="#1e40af">4) else apply base sampling rate</text>
+
+  <rect x="560" y="108" width="320" height="84" rx="10" fill="#1d4ed8"/>
+  <text x="720" y="144" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#eff6ff">KEEP</text>
+  <text x="720" y="168" text-anchor="middle" font-family="Geist Mono, monospace" font-size="13" fill="#dbeafe">errors and incidents</text>
+
+  <rect x="560" y="212" width="320" height="84" rx="10" fill="#2563eb"/>
+  <text x="720" y="248" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#eff6ff">SAMPLE</text>
+  <text x="720" y="272" text-anchor="middle" font-family="Geist Mono, monospace" font-size="13" fill="#dbeafe">healthy traffic only</text>
+
+  <text x="524" y="152" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700" fill="#2563eb">→</text>
+  <text x="524" y="256" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700" fill="#2563eb">→</text>
+</svg>
