@@ -1,6 +1,14 @@
 ---
 import Container from "@components/Container.astro";
 import { SITE } from "@consts";
+
+const navLinks = [
+  { href: "/blog", label: "Blog" },
+  { href: "/topics", label: "Topics" },
+  { href: "/about", label: "About" },
+  { href: "/projects", label: "Projects" },
+  { href: "https://kamran.sh", label: "Portfolio", external: true },
+];
 ---
 
 <header class="border-structural bg-background sticky top-0 z-50 border-b">
@@ -13,33 +21,102 @@ import { SITE } from "@consts";
         {SITE.TITLE}
       </a>
 
-      <nav class="flex items-center gap-6">
-        <a
-          href="/blog"
-          class="hover:text-accent font-mono text-sm tracking-widest uppercase transition-colors"
-        >
-          Blog
-        </a>
-        <a
-          href="/topics"
-          class="hover:text-accent font-mono text-sm tracking-widest uppercase transition-colors"
-        >
-          Topics
-        </a>
-        <a
-          href="/about"
-          class="hover:text-accent font-mono text-sm tracking-widest uppercase transition-colors"
-        >
-          About
-        </a>
-        <a
-          href="/projects"
-          class="hover:text-accent font-mono text-sm tracking-widest uppercase transition-colors"
-        >
-          Projects
-        </a>
+      <div class="flex items-center gap-2 md:hidden">
         <button
-          id="theme-toggle"
+          data-theme-toggle
+          type="button"
+          aria-label="Toggle theme"
+          aria-pressed="false"
+          class="group border-accent bg-accent text-accent-foreground hover:border-accent-strong inline-flex h-9 w-9 items-center justify-center border transition-colors"
+        >
+          <svg
+            aria-hidden="true"
+            class="text-accent-foreground hover:text-accent-strong h-4 w-4 dark:hidden"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2"></path>
+            <path d="M12 20v2"></path>
+            <path d="M4.93 4.93l1.41 1.41"></path>
+            <path d="M17.66 17.66l1.41 1.41"></path>
+            <path d="M2 12h2"></path>
+            <path d="M20 12h2"></path>
+            <path d="M6.34 17.66l-1.41 1.41"></path>
+            <path d="M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+          <svg
+            aria-hidden="true"
+            class="text-accent hidden h-4 w-4 dark:block"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>
+          </svg>
+        </button>
+        <button
+          id="nav-toggle"
+          type="button"
+          aria-label="Toggle navigation menu"
+          aria-controls="mobile-nav"
+          aria-expanded="false"
+          class="border-structural hover:border-accent inline-flex h-9 w-9 items-center justify-center border transition-colors"
+        >
+          <svg
+            data-menu-icon="open"
+            aria-hidden="true"
+            class="h-4 w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+          <svg
+            data-menu-icon="close"
+            aria-hidden="true"
+            class="hidden h-4 w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <nav class="hidden items-center gap-6 md:flex">
+        {
+          navLinks.map((link) => (
+            <a
+              href={link.href}
+              target={link.external ? "_blank" : undefined}
+              rel={link.external ? "noopener noreferrer" : undefined}
+              class="hover:text-accent font-mono text-sm tracking-widest uppercase transition-colors"
+            >
+              {link.label}
+            </a>
+          ))
+        }
+        <button
+          data-theme-toggle
           type="button"
           aria-label="Toggle theme"
           aria-pressed="false"
@@ -80,33 +157,95 @@ import { SITE } from "@consts";
         </button>
       </nav>
     </div>
+
+    <nav
+      id="mobile-nav"
+      class="border-structural hidden border-t py-4 md:hidden"
+    >
+      <div class="flex flex-col gap-4">
+        {
+          navLinks.map((link) => (
+            <a
+              href={link.href}
+              target={link.external ? "_blank" : undefined}
+              rel={link.external ? "noopener noreferrer" : undefined}
+              class="hover:text-accent font-mono text-sm tracking-widest uppercase transition-colors"
+            >
+              {link.label}
+            </a>
+          ))
+        }
+      </div>
+    </nav>
   </Container>
 </header>
 
 <script is:inline>
-  function setupThemeToggle() {
-    const toggle = document.getElementById("theme-toggle");
-    if (!toggle) return;
+  function updateThemeToggleState() {
+    const isDark = document.documentElement.classList.contains("dark");
 
-    const updateToggle = () => {
-      const isDark = document.documentElement.classList.contains("dark");
+    document.querySelectorAll("[data-theme-toggle]").forEach((toggle) => {
       toggle.setAttribute("aria-pressed", String(isDark));
       toggle.setAttribute(
         "title",
         isDark ? "Switch to light mode" : "Switch to dark mode",
       );
-    };
-
-    toggle.addEventListener("click", () => {
-      const currentTheme = window.theme.getTheme();
-      const newTheme = currentTheme === "dark" ? "light" : "dark";
-      window.theme.setTheme(newTheme);
     });
-
-    updateToggle();
-    document.addEventListener("theme-changed", updateToggle);
   }
 
-  document.addEventListener("DOMContentLoaded", setupThemeToggle);
-  document.addEventListener("astro:after-swap", setupThemeToggle);
+  function bindThemeToggles() {
+    document.querySelectorAll("[data-theme-toggle]").forEach((toggle) => {
+      if (toggle.dataset.bound === "true") return;
+      toggle.dataset.bound = "true";
+
+      toggle.addEventListener("click", () => {
+        const currentTheme = window.theme.getTheme();
+        const newTheme = currentTheme === "dark" ? "light" : "dark";
+        window.theme.setTheme(newTheme);
+      });
+    });
+  }
+
+  function bindMobileNavigation() {
+    const navToggle = document.getElementById("nav-toggle");
+    const mobileNav = document.getElementById("mobile-nav");
+    if (!navToggle || !mobileNav || navToggle.dataset.bound === "true") return;
+
+    navToggle.dataset.bound = "true";
+    const openIcon = navToggle.querySelector('[data-menu-icon="open"]');
+    const closeIcon = navToggle.querySelector('[data-menu-icon="close"]');
+
+    const setMenuOpen = (isOpen) => {
+      navToggle.setAttribute("aria-expanded", String(isOpen));
+      mobileNav.classList.toggle("hidden", !isOpen);
+      openIcon?.classList.toggle("hidden", isOpen);
+      closeIcon?.classList.toggle("hidden", !isOpen);
+    };
+
+    navToggle.addEventListener("click", () => {
+      const isOpen = navToggle.getAttribute("aria-expanded") === "true";
+      setMenuOpen(!isOpen);
+    });
+
+    mobileNav.querySelectorAll("a").forEach((link) => {
+      link.addEventListener("click", () => setMenuOpen(false));
+    });
+
+    setMenuOpen(false);
+  }
+
+  function setupHeader() {
+    bindThemeToggles();
+    updateThemeToggleState();
+    bindMobileNavigation();
+  }
+
+  if (!window.__headerSetupBound) {
+    window.__headerSetupBound = true;
+    document.addEventListener("theme-changed", updateThemeToggleState);
+    document.addEventListener("DOMContentLoaded", setupHeader);
+    document.addEventListener("astro:after-swap", setupHeader);
+  }
+
+  setupHeader();
 </script>

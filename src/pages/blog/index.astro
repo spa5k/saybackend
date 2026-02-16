@@ -61,49 +61,51 @@ const topics = getTopicDefinitions();
       },
     })}
   />
-  <Container>
-    <aside data-pagefind-ignore>
-      <div class="space-y-10">
-        <section class="animate space-y-4">
-          <div class="text-foreground font-semibold">Topics</div>
-          <div class="grid gap-4 md:grid-cols-3">
+  <div class="pt-20 pb-20 md:pt-24 md:pb-24">
+    <Container>
+      <aside data-pagefind-ignore>
+        <div class="space-y-10">
+          <section class="animate space-y-4">
+            <div class="text-foreground font-semibold">Topics</div>
+            <div class="grid gap-4 md:grid-cols-3">
+              {
+                topics.map((topic) => (
+                  <a
+                    href={`/topics/${topic.slug}`}
+                    class="border-structural hover:bg-foreground hover:text-background group border p-4 transition-all duration-200"
+                  >
+                    <div class="text-muted-foreground mb-2 font-mono text-[10px] tracking-wider uppercase">
+                      Hub page
+                    </div>
+                    <div class="text-sm font-bold uppercase">{topic.name}</div>
+                    <div class="text-muted-foreground group-hover:text-background/80 mt-2 line-clamp-2 font-mono text-xs">
+                      {topic.description}
+                    </div>
+                  </a>
+                ))
+              }
+            </div>
+          </section>
+          <div class="space-y-4">
             {
-              topics.map((topic) => (
-                <a
-                  href={`/topics/${topic.slug}`}
-                  class="border-structural hover:bg-foreground hover:text-background group border p-4 transition-all duration-200"
-                >
-                  <div class="text-muted-foreground mb-2 font-mono text-[10px] tracking-wider uppercase">
-                    Hub page
+              years.map((year) => (
+                <section class="animate space-y-4">
+                  <div class="text-foreground font-semibold">{year}</div>
+                  <div>
+                    <ul class="flex flex-col gap-4">
+                      {posts[year].map((post) => (
+                        <li>
+                          <ArrowCard entry={post} />
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <div class="text-sm font-bold uppercase">{topic.name}</div>
-                  <div class="text-muted-foreground group-hover:text-background/80 mt-2 line-clamp-2 font-mono text-xs">
-                    {topic.description}
-                  </div>
-                </a>
+                </section>
               ))
             }
           </div>
-        </section>
-        <div class="space-y-4">
-          {
-            years.map((year) => (
-              <section class="animate space-y-4">
-                <div class="text-foreground font-semibold">{year}</div>
-                <div>
-                  <ul class="flex flex-col gap-4">
-                    {posts[year].map((post) => (
-                      <li>
-                        <ArrowCard entry={post} />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </section>
-            ))
-          }
         </div>
-      </div>
-    </aside>
-  </Container>
+      </aside>
+    </Container>
+  </div>
 </Layout>

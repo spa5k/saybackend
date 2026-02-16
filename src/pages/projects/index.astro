@@ -44,20 +44,22 @@ const projects = (await getCollection("projects"))
       },
     })}
   />
-  <Container>
-    <aside data-pagefind-ignore>
-      <div class="space-y-10">
-        <div class="animate text-foreground font-semibold">Projects</div>
-        <ul class="animate flex flex-col gap-4">
-          {
-            projects.map((project) => (
-              <li>
-                <ArrowCard entry={project} />
-              </li>
-            ))
-          }
-        </ul>
-      </div>
-    </aside>
-  </Container>
+  <div class="pt-20 pb-20 md:pt-24 md:pb-24">
+    <Container>
+      <aside data-pagefind-ignore>
+        <div class="space-y-10">
+          <div class="animate text-foreground font-semibold">Projects</div>
+          <ul class="animate flex flex-col gap-4">
+            {
+              projects.map((project) => (
+                <li>
+                  <ArrowCard entry={project} />
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+      </aside>
+    </Container>
+  </div>
 </Layout>

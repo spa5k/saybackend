@@ -16,6 +16,16 @@ const projects = (await getCollection("projects"))
   .filter((project) => !project.data.draft)
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
   .slice(0, SITE.NUM_PROJECTS_ON_HOMEPAGE);
+
+const marqueeItems = [
+  "BACKEND ENGINEERING",
+  "DEVOPS PATTERNS",
+  "SYSTEM ARCHITECTURE",
+  "DATABASE DESIGN",
+  "BACKEND ENGINEER",
+];
+
+const marqueeText = `${marqueeItems.join(" /// ")} ///`;
 ---
 
 <Layout title={HOME.TITLE} description={HOME.DESCRIPTION}>
@@ -102,52 +112,71 @@ const projects = (await getCollection("projects"))
 
   <!-- Marquee Banner -->
   <div
-    class="border-structural bg-foreground text-background overflow-hidden border-b py-3 whitespace-nowrap"
+    class="border-structural bg-foreground text-background border-b py-4 md:py-5"
   >
-    <div
-      class="animate-marquee inline-block font-mono text-xs font-bold tracking-widest uppercase"
-    >
-      BACKEND ENGINEERING /// DEVOPS PATTERNS /// SYSTEM ARCHITECTURE ///
-      DATABASE DESIGN /// BACKEND ENGINEERING /// DEVOPS PATTERNS /// SYSTEM
-      ARCHITECTURE /// DATABASE DESIGN /// BACKEND ENGINEERING /// DEVOPS
-      PATTERNS /// SYSTEM ARCHITECTURE /// DATABASE DESIGN ///
+    <div class="marquee-shell">
+      <div class="marquee-track animate-marquee">
+        <p
+          class="marquee-content font-mono text-[11px] font-bold tracking-widest whitespace-nowrap uppercase md:text-xs"
+        >
+          {marqueeText}
+          {marqueeText}
+        </p>
+        <p
+          aria-hidden="true"
+          class="marquee-content font-mono text-[11px] font-bold tracking-widest whitespace-nowrap uppercase md:text-xs"
+        >
+          {marqueeText}
+          {marqueeText}
+        </p>
+      </div>
     </div>
   </div>
 
   <!-- Latest Posts -->
-  <Section class="py-16 md:py-24">
+  <Section class="py-20 md:py-28">
     <Container>
-      <div class="mb-12 flex items-end justify-between">
-        <h2 class="text-4xl font-black tracking-tight uppercase md:text-6xl">
-          Latest Logs
-        </h2>
-        <Button href="/blog" variant="secondary" class="hidden md:flex"
-          >View Archive</Button
+      <div class="space-y-6">
+        <div
+          class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between"
         >
+          <h2 class="text-4xl font-black tracking-tight uppercase md:text-6xl">
+            Latest Blogs
+          </h2>
+          <Button href="/blog" variant="secondary" class="hidden md:flex"
+            >View Archive</Button
+          >
+        </div>
+        <p
+          class="text-muted-foreground max-w-2xl font-mono text-sm md:text-base"
+        >
+          Fresh backend notes, production lessons, and architecture writeups
+          from real systems.
+        </p>
       </div>
 
-      <div
-        class="border-structural bg-border grid gap-px border md:grid-cols-2"
-      >
-        {
-          blog.map((post, i) => {
-            const cleanId = post.id.replace(/\/index$/, "");
-            const primaryTag = post.data.tags?.[0];
-            return (
-              <Card
-                href={`/blog/${cleanId}`}
-                title={post.data.title}
-                description={post.data.description}
-                date={post.data.date}
-                tag={primaryTag}
-                class="h-full"
-              />
-            );
-          })
-        }
+      <div class="border-border mt-10 border-t pt-8 md:pt-10">
+        <div class="grid gap-6 md:grid-cols-2 md:gap-8">
+          {
+            blog.map((post, i) => {
+              const cleanId = post.id.replace(/\/index$/, "");
+              const primaryTag = post.data.tags?.[0];
+              return (
+                <Card
+                  href={`/blog/${cleanId}`}
+                  title={post.data.title}
+                  description={post.data.description}
+                  date={post.data.date}
+                  tag={primaryTag}
+                  class="h-full md:p-10"
+                />
+              );
+            })
+          }
+        </div>
       </div>
 
-      <div class="mt-8 md:hidden">
+      <div class="mt-10 md:hidden">
         <Button href="/blog" variant="secondary" class="w-full"
           >View Archive</Button
         >
@@ -156,31 +185,46 @@ const projects = (await getCollection("projects"))
   </Section>
 
   <!-- Projects -->
-  <Section class="bg-surface/60 py-16 md:py-24">
+  <Section class="bg-surface/60 py-20 md:py-28">
     <Container>
-      <div class="mb-12 flex items-end justify-between">
-        <h2 class="text-4xl font-black tracking-tight uppercase md:text-6xl">
-          Works
-        </h2>
-        <Button href="/projects" variant="secondary" class="hidden md:flex"
-          >All Projects</Button
+      <div class="space-y-6">
+        <div
+          class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between"
         >
+          <h2 class="text-4xl font-black tracking-tight uppercase md:text-6xl">
+            Works
+          </h2>
+          <Button href="/projects" variant="secondary" class="hidden md:flex"
+            >All Projects</Button
+          >
+        </div>
+        <p
+          class="text-muted-foreground max-w-2xl font-mono text-sm md:text-base"
+        >
+          Selected product builds, tooling experiments, and backend-first
+          systems shipped in production.
+        </p>
       </div>
 
-      <div class="grid gap-8 md:grid-cols-2">
-        {
-          projects.map((project, i) => (
-            <Card
-              href={`/projects/${project.id}`}
-              title={project.data.title}
-              description={project.data.description}
-              label={`SYS 2.${i} — PROJECT`}
-            />
-          ))
-        }
+      <div class="border-border mt-10 border-t pt-8 md:pt-10">
+        <div class="grid gap-6 md:grid-cols-2 md:gap-8">
+          {
+            projects.map((project, i) => {
+              const cleanProjectId = project.id.replace(/\/index$/, "");
+              return (
+                <Card
+                  href={`/projects/${cleanProjectId}`}
+                  title={project.data.title}
+                  description={project.data.description}
+                  class="h-full md:p-10"
+                />
+              );
+            })
+          }
+        </div>
       </div>
 
-      <div class="mt-8 md:hidden">
+      <div class="mt-10 md:hidden">
         <Button href="/projects" variant="secondary" class="w-full"
           >All Projects</Button
         >

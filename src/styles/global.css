@@ -164,6 +164,31 @@
     border-color: var(--color-border);
   }
 
+  .animate-fade-in-up {
+    animation: fade-in-up 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .marquee-shell {
+    overflow: hidden;
+  }
+
+  .marquee-track {
+    display: flex;
+    width: max-content;
+    min-width: 100%;
+    will-change: transform;
+  }
+
+  .marquee-content {
+    flex-shrink: 0;
+    padding-right: calc(var(--spacing) * 10);
+    line-height: 1;
+  }
+
+  .animate-marquee {
+    animation: marquee-scroll 22s linear infinite;
+  }
+
   .text-label {
     font-family: var(--font-mono);
     font-size: 11px;
@@ -194,6 +219,36 @@
   .tag-pill:hover {
     background-color: var(--color-accent-strong);
     border-color: var(--color-accent-strong);
+  }
+}
+
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes marquee-scroll {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up,
+  .animate-marquee {
+    animation: none !important;
+    transform: none !important;
   }
 }
 

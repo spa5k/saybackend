@@ -1,6 +1,10 @@
 ---
 import Container from "@components/Container.astro";
 import { SITE } from "@consts";
+
+const sitemapHref = import.meta.env.DEV
+  ? "https://www.saybackend.com/sitemap-index.xml"
+  : "/sitemap-index.xml";
 ---
 
 <footer class="border-structural bg-background border-t py-12">
@@ -21,7 +25,7 @@ import { SITE } from "@consts";
       <div class="flex flex-col items-start gap-2 md:items-end">
         <div class="flex gap-6 font-mono text-sm uppercase">
           <a href="/rss.xml" class="hover:text-accent">RSS</a>
-          <a href="/sitemap-index.xml" class="hover:text-accent">Sitemap</a>
+          <a href={sitemapHref} class="hover:text-accent">Sitemap</a>
         </div>
         <p class="text-muted-foreground mt-4 font-mono text-xs opacity-70">
           &copy; {new Date().getFullYear()} SayBackend. Zero Rights Reserved.
