@@ -1,0 +1,237 @@
+---
+title: "I Built happycontext: Wide Logging for Go with Router + Logger Adapters"
+description: "A practical deep dive into happycontext, a Go wide-logging library that emits one structured event per request with support for slog, zap, zerolog, and net/http, gin, echo, and fiber integrations."
+date: "2026-02-16"
+slug: "happycontext-wide-logging-golang"
+oldPath: "11-happycontext-wide-logging"
+ogImage: "/images/happycontext-wide-logging-og.png"
+tags:
+  - "golang"
+  - "logging"
+  - "observability"
+  - "wide-events"
+  - "structured-logging"
+  - "request-logging"
+  - "contextual-logging"
+  - "json-logging"
+  - "application-logging"
+  - "go-logging-library"
+  - "go-middleware"
+  - "http-middleware"
+  - "backend-observability"
+  - "distributed-systems"
+  - "performance"
+  - "sampling"
+  - "log-sampling"
+  - "error-monitoring"
+  - "panic-handling"
+  - "production-logging"
+  - "otel-alternative"
+  - "log-aggregation"
+  - "developer-experience"
+  - "debugging"
+  - "api-observability"
+  - "slog"
+  - "zap"
+  - "zerolog"
+  - "gin"
+  - "fiber"
+  - "echo"
+  - "net/http"
+faqs:
+  - question: "What is wide logging in this context?"
+    answer: "Wide logging means emitting one complete, structured event per request instead of many fragmented log lines. The event includes method, path, route, status, duration, and any request-scoped context fields you add."
+  - question: "Does happycontext force a specific logger?"
+    answer: "No. happycontext provides adapters for slog, zap, and zerolog, so you can keep your existing logger and still get one canonical request event."
+  - question: "Which Go routers are supported?"
+    answer: "happycontext currently supports net/http, gin, echo, Fiber v2, and Fiber v3 via dedicated middleware packages."
+  - question: "Can I sample healthy traffic while always keeping failures?"
+    answer: "Yes. You can use SamplingRate, per-level rates, or a custom Sampler chain. Errors and 5xx responses are always retained by default in the built-in path."
+  - question: "Is there real performance data?"
+    answer: "Yes. The repository includes adapter and router benchmark reports. On an Apple M4 test machine, zerolog and zap adapters are zero-alloc in adapter benchmarks, while slog trades speed for its standard-library ergonomics."
+---
+
+import Callout from "@/components/Callout.astro";
+import DemoFlow from "./demo-flow.svg";
+import DemoIntegrations from "./demo-integrations.svg";
+import DemoLogStream from "./demo-log-stream.svg";
+import DemoSampling from "./demo-sampling.svg";
+import OgImage from "./og-image.svg";
+
+<img
+  src={OgImage.src}
+  alt="happycontext banner with logger and integration highlights"
+  loading="eager"
+/>
+
+## Why I Built This
+
+Most production logs are noisy but still missing context.
+
+You can have thousands of lines and still not answer the basic question: _what happened in this one request?_ That pain is exactly what posts like [loggingsucks.com](https://loggingsucks.com/) and [evlog's introduction to wide events](https://www.evlog.dev/getting-started/introduction) call out.
+
+I wanted a small Go library that keeps the good parts of request logging while reducing fragmentation.
+
+`happycontext` does that by emitting one structured, request-scoped event at the end of each request lifecycle.
+
+<Callout type="info">
+  The core idea: one canonical event per request, with predictable fields and
+  optional sampling.
+</Callout>
+
+## What "Wide Logging" Means Here
+
+Instead of emitting 6 to 20 lines through middleware and handlers, `happycontext` accumulates request context in-memory and writes one final event.
+
+<img
+  src={DemoLogStream.src}
+  alt="Transformation from fragmented log lines to one structured request event"
+  loading="lazy"
+/>
+
+Typical final fields include:
+
+- `http.method`
+- `http.path`
+- `http.route`
+- `http.status`
+- `duration_ms`
+- your custom fields like `user_id`, `tenant_id`, `feature`, `trace_id`
+
+This structure makes filtering and alerting much easier in Loki, Datadog, ELK, or any JSON log pipeline.
+
+## Quick Start (`net/http` + `slog`)
+
+```go
+package main
+
+import (
+	"errors"
+	"log/slog"
+	"net/http"
+	"os"
+
+	hc "github.com/happytoolin/happycontext"
+	slogadapter "github.com/happytoolin/happycontext/adapter/slog"
+	stdhc "github.com/happytoolin/happycontext/integration/std"
+)
+
+func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	sink := slogadapter.New(logger)
+
+	mw := stdhc.Middleware(hc.Config{
+		Sink:         sink,
+		SamplingRate: 1.0,
+		Message:      "request_completed",
+	})
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /orders/{id}", func(w http.ResponseWriter, r *http.Request) {
+		hc.Add(r.Context(), "user_id", "u_8472", "feature", "checkout")
+
+		if r.URL.Query().Get("fail") == "1" {
+			hc.Error(r.Context(), errors.New("checkout failed"))
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+	})
+
+	_ = http.ListenAndServe(":8080", mw(mux))
+}
+```
+
+## Integrations and Adapters
+
+`happycontext` intentionally separates router middleware from logger adapters.
+
+<img
+  src={DemoIntegrations.src}
+  alt="Router integrations feeding happycontext and logger adapters"
+  loading="lazy"
+/>
+
+### Router integrations
+
+- `integration/std` (`net/http`)
+- `integration/gin`
+- `integration/echo`
+- `integration/fiber` (Fiber v2)
+- `integration/fiberv3` (Fiber v3)
+
+### Logger adapters
+
+- `adapter/slog`
+- `adapter/zap`
+- `adapter/zerolog`
+
+That gives you 15 router/logger combinations without changing your domain handlers.
+
+<img
+  src={DemoFlow.src}
+  alt="Request lifecycle from start to enrich to finalize to write"
+  loading="lazy"
+/>
+
+## Sampling Without Losing Incidents
+
+Wide events are richer, so sampling strategy matters.
+
+The built-in path keeps failures and 5xx responses, then applies sampling to healthy traffic. You can also provide your own sampler chain.
+
+```go
+mw := stdhc.Middleware(hc.Config{
+	Sink: sink,
+	Sampler: hc.ChainSampler(
+		hc.RateSampler(0.05),
+		hc.KeepErrors(),
+		hc.KeepPathPrefix("/admin", "/checkout"),
+		hc.KeepSlowerThan(500*time.Millisecond),
+	),
+})
+```
+
+<img
+  src={DemoSampling.src}
+  alt="Sampler chain showing keep and drop decisions"
+  loading="lazy"
+/>
+
+## Benchmark Snapshot
+
+From the benchmark report in the repo (Apple M4, February 10, 2026):
+
+- `zerolog` adapter write (small): ~155 ns/op, 0 allocs/op
+- `zap` adapter write (small): ~553 ns/op, 0 allocs/op
+- `slog` adapter write (small): ~742 ns/op, 7 allocs/op
+- Standard-library router middleware (`net/http`) with sink-noop: ~525 ns/op
+
+Numbers will vary by machine and sink setup, but the trend is stable: adapters are lightweight and the middleware overhead is predictable.
+
+## Migration Plan for Existing Services
+
+If your codebase already logs in many places, migrate in layers:
+
+1. Wrap one router with `happycontext` middleware first.
+2. Keep your existing logger and only add the matching sink adapter (`slog`, `zap`, or `zerolog`).
+3. Add only core fields at first: `request_id`, `user_id`, `tenant_id`, and `feature`.
+4. Keep `SamplingRate=1.0` for the first rollout so you can validate full payload shape.
+5. Verify every request emits one canonical event with consistent key names.
+6. Add sampling rules only after dashboards and alerts are stable.
+7. Roll out integration-by-integration until all services follow the same schema.
+
+## Closing
+
+`happycontext` is my attempt to make wide logging practical in Go without forcing a logger rewrite.
+
+If you want to try it:
+
+```bash
+go get github.com/happytoolin/happycontext
+go get github.com/happytoolin/happycontext/adapter/slog
+go get github.com/happytoolin/happycontext/integration/std
+```
+
+Repo: [github.com/happytoolin/happycontext](https://github.com/happytoolin/happycontext)

@@ -34,17 +34,14 @@ export default function FAQ({ items }: FAQProps) {
             key={index}
             data-faq-item
             open={isClient && openIndex === index}
-            onToggle={(e) => {
-              if ((e.target as HTMLDetailsElement).open) {
-                setOpenIndex(index);
-              } else {
-                setOpenIndex(null);
-              }
-            }}
             className="border-border group border-b pb-4 last:border-0"
           >
             <summary
               data-faq-question
+              onClick={(e) => {
+                e.preventDefault();
+                setOpenIndex((prev) => (prev === index ? null : index));
+              }}
               className="text-foreground hover:text-accent flex cursor-pointer list-none items-center justify-between gap-4 text-lg font-bold"
             >
               <span>{item.question}</span>
