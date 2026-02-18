@@ -57,7 +57,9 @@ import {
   IntegrationsMatrix,
   RequestLifecycleRail,
   SamplingDecisionPanel,
+  SamplingTrap,
   WideEventsBeforeAfter,
+  WideEventBuilderSimulator,
   WideEventValueCards,
 } from "@/components/react/blog/happycontext/HappyContextBlocks";
 import BlueIntegrations from "./blue-integrations.svg";
@@ -169,6 +171,8 @@ if err != nil {
 
 Prefer clear key names and grouped domain fields over generic blobs. That keeps queries readable and makes incidents faster to debug.
 
+<WideEventBuilderSimulator client:load />
+
 For a deeper walkthrough of the wide-event model, see:
 [evlog.dev/core-concepts/wide-events](https://www.evlog.dev/core-concepts/wide-events).
 
@@ -261,6 +265,8 @@ mw := stdhc.Middleware(hc.Config{
 	),
 })
 ```
+
+<SamplingTrap client:load />
 
 <SamplingDecisionPanel />
 <img
