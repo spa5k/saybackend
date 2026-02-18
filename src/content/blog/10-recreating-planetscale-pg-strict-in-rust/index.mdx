@@ -33,6 +33,10 @@ import Advertise from "@/components/Advertise.astro";
 import Callout from "@/components/Callout.astro";
 import Mermaid from "@/components/MermaidSSR.astro";
 import { Picture } from "astro:assets";
+import {
+  HookPhaseExplorer,
+  PgStrictPlayground,
+} from "@/components/react/blog/pgstrict/PgStrictBlocks";
 import ImgCreateExtension from "./1-create-extension.png";
 import ImgConfig from "./2-config.png";
 import ImgTableState from "./3-table-state-with-rows.png";
@@ -140,6 +144,8 @@ What each stage actually gives you:
 - **Executor**: row processing and side effects. This is where the query actually runs.
 
 My journey involved moving from the bottom (Executor) to the top (Analyzer).
+
+<HookPhaseExplorer client:load />
 
 ---
 
@@ -523,6 +529,8 @@ graph TB
     style Warn2 fill:#fff8c5,stroke:#bf8700
 `}
 />
+
+<PgStrictPlayground client:load />
 
 This allows for powerful workflows:
 

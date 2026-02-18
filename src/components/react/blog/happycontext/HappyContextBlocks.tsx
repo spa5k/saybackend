@@ -1,6 +1,28 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
 import "./happycontext-blocks.css";
+import { useShikiHighlight } from "../useShikiHighlight";
+
+function GoCode({ code }: { code: string }) {
+  const lines = useShikiHighlight(code, "go");
+  if (!lines) return <pre><code>{code}</code></pre>;
+  return (
+    <pre>
+      <code className="shiki-code">
+        {lines.map((line, li) => (
+          <span key={li} className="line">
+            {line.map((tok, ti) => (
+              <span key={ti} style={tok.style as React.CSSProperties}>
+                {tok.content}
+              </span>
+            ))}
+            {li < lines.length - 1 ? "\n" : null}
+          </span>
+        ))}
+      </code>
+    </pre>
+  );
+}
 
 const traditionalLogging = `logger.Info(ctx, "Request started")
 logger.Info(ctx, "user authenticated", "user_id", userID)
@@ -129,9 +151,7 @@ export function WideEventsBeforeAfter() {
         <header>
           <p>Traditional logging</p>
         </header>
-        <pre>
-          <code>{traditionalLogging}</code>
-        </pre>
+        <GoCode code={traditionalLogging} />
       </article>
 
       <article className="hcw-compare-panel hcw-compare-panel-highlighted">
@@ -163,9 +183,11 @@ export function WideEventsBeforeAfter() {
           </div>
         </header>
 
-        <pre>
-          <code>{activeView === "code" ? wideEventCode : wideEventOutput}</code>
-        </pre>
+        {activeView === "code" ? (
+          <GoCode code={wideEventCode} />
+        ) : (
+          <pre><code>{wideEventOutput}</code></pre>
+        )}
         <p className="hcw-panel-note">
           One log, all context, emitted once at request completion.
         </p>
@@ -507,13 +529,11 @@ export function WideEventBuilderSimulator() {
         <p>{current.description}</p>
         <div className="hcw-wide-builder-panels">
           <div className="hcw-wide-builder-code">
-            <pre>
-              <code>{current.code}</code>
-            </pre>
+            <GoCode code={current.code} />
           </div>
           <div className="hcw-wide-builder-live">
             <div
-              className={`hcw-wide-builder-live-header${isError ? "is-error" : ""}`}
+              className={`hcw-wide-builder-live-header${isError ? " is-error" : ""}`}
             >
               <span>LIVE EVENT</span>
               <span>{fieldCount} FIELDS</span>
@@ -606,6 +626,7 @@ const DOT_COLORS: Record<EventType, string> = {
 const CELL_SIZE = 10; // visible box size in px
 const CELL_GAP = 2; // gap between boxes in px
 const CELL_STRIDE = CELL_SIZE + CELL_GAP;
+const MAX_ROWS = 20; // cap so narrow screens stay ~240px tall, not 800px
 
 function drawEventGrid(
   canvas: HTMLCanvasElement,
@@ -614,8 +635,10 @@ function drawEventGrid(
   containerW: number,
 ) {
   const dpr = Math.min(2, window.devicePixelRatio ?? 1);
-  const cols = Math.floor((containerW + CELL_GAP) / CELL_STRIDE);
-  const rows = Math.ceil(stream.length / cols);
+  const cols = Math.max(1, Math.floor((containerW + CELL_GAP) / CELL_STRIDE));
+  // Limit visible events to MAX_ROWS rows — keeps chart height consistent
+  const visibleCount = Math.min(stream.length, cols * MAX_ROWS);
+  const rows = Math.ceil(visibleCount / cols);
   const W = cols * CELL_STRIDE - CELL_GAP;
   const H = rows * CELL_STRIDE - CELL_GAP;
 
@@ -634,7 +657,7 @@ function drawEventGrid(
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
       const i = row * cols + col;
-      if (i >= stream.length) break;
+      if (i >= visibleCount) break;
       ctx.fillStyle = DOT_COLORS[stream[i]];
       ctx.globalAlpha = kept[i] ? 1 : 0.15;
       const x = col * stride;

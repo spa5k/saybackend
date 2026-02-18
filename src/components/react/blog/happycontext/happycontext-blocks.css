@@ -149,6 +149,7 @@
   border: 1px solid var(--color-border);
   background: var(--color-card);
   overflow: hidden;
+  min-width: 0; /* prevent grid blowout from long code lines */
 }
 
 .hcw-compare-panel-highlighted {
@@ -427,6 +428,13 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
+}
+
+/* Without min-width: 0, growing JSON content pushes grid columns wider than 1fr */
+.hcw-wide-builder-code,
+.hcw-wide-builder-live {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .hcw-wide-builder-code pre,
@@ -783,5 +791,42 @@
 
   .hcw-wide-builder-compare {
     grid-template-columns: 1fr;
+  }
+
+  /* SamplingTrap */
+
+  /* Chart header: legend wraps below stream label */
+  .hcw-st-chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+
+  /* Mode buttons: left-align, let them wrap */
+  .hcw-st-controls {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hcw-st-mode-buttons {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  /* Slider: take full width */
+  .hcw-st-slider-row {
+    width: 100%;
+  }
+
+  /* Stats table: reduce padding so 5 cols fit */
+  .hcw-st-table th,
+  .hcw-st-table td {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.78rem;
+  }
+
+  .hcw-st-table th {
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
   }
 }

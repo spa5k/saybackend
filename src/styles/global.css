@@ -575,6 +575,24 @@
   }
 }
 
+/* Interactive component code blocks — dual-theme Shiki token colors */
+.shiki-code {
+  display: block;
+  white-space: pre;
+}
+
+.shiki-code .line {
+  display: inline;
+}
+
+.shiki-code span {
+  color: var(--shiki-light);
+}
+
+.dark .shiki-code span {
+  color: var(--shiki-dark);
+}
+
 @media (prefers-color-scheme: dark) {
   .shiki,
   .shiki span {
