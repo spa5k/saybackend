@@ -43,7 +43,11 @@
 .pgs-playground {
   margin: 1.5rem 0;
   border: 1px solid var(--color-border);
-  background: color-mix(in oklab, var(--color-card) 92%, var(--color-background) 8%);
+  background: color-mix(
+    in oklab,
+    var(--color-card) 92%,
+    var(--color-background) 8%
+  );
   padding: 1.25rem;
 }
 
@@ -79,7 +83,9 @@
   font-family: var(--font-mono);
   font-size: 0.72rem;
   cursor: pointer;
-  transition: border-color 0.1s, color 0.1s;
+  transition:
+    border-color 0.1s,
+    color 0.1s;
 }
 
 .pgs-presets-buttons button:hover {
@@ -102,7 +108,11 @@
 
 .pgs-panel-header {
   padding: 0.35rem 0.75rem;
-  background: color-mix(in oklab, var(--color-muted) 85%, var(--color-card) 15%);
+  background: color-mix(
+    in oklab,
+    var(--color-muted) 85%,
+    var(--color-card) 15%
+  );
   border: 1px solid var(--color-border);
   border-bottom: 0;
   font-family: var(--font-mono);
@@ -123,7 +133,11 @@
   flex: 1;
   display: grid;
   border: 1px solid var(--color-border);
-  background: color-mix(in oklab, var(--color-muted) 85%, var(--color-background) 15%);
+  background: color-mix(
+    in oklab,
+    var(--color-muted) 85%,
+    var(--color-background) 15%
+  );
   min-height: 140px;
   transition: border-color 0.15s;
 }
@@ -208,14 +222,20 @@
 .pgs-mode-toggle button {
   border: 1px solid var(--color-border);
   border-right-width: 0;
-  background: color-mix(in oklab, var(--color-muted) 50%, var(--color-card) 50%);
+  background: color-mix(
+    in oklab,
+    var(--color-muted) 50%,
+    var(--color-card) 50%
+  );
   color: var(--color-muted-foreground);
   padding: 0.3rem 0.6rem;
   font-family: var(--font-mono);
   font-size: 0.75rem;
   cursor: pointer;
   text-transform: lowercase;
-  transition: background 0.1s, color 0.1s;
+  transition:
+    background 0.1s,
+    color 0.1s;
 }
 
 .pgs-mode-toggle button:last-child {
@@ -228,7 +248,11 @@
 }
 
 .pgs-mode-toggle button.pgs-mode-active-off {
-  background: color-mix(in oklab, var(--color-muted) 70%, var(--color-card) 30%);
+  background: color-mix(
+    in oklab,
+    var(--color-muted) 70%,
+    var(--color-card) 30%
+  );
   color: var(--color-foreground);
   border-color: var(--color-border);
 }
@@ -250,7 +274,9 @@
   border: 1px solid var(--color-border);
   padding: 0.85rem;
   flex: 1;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .pgs-result-pass {
@@ -276,9 +302,15 @@
   margin-bottom: 0.4rem;
 }
 
-.pgs-result-pass .pgs-result-badge   { color: #16a34a; }
-.pgs-result-warn .pgs-result-badge   { color: #b45309; }
-.pgs-result-block .pgs-result-badge  { color: #dc2626; }
+.pgs-result-pass .pgs-result-badge {
+  color: #16a34a;
+}
+.pgs-result-warn .pgs-result-badge {
+  color: #b45309;
+}
+.pgs-result-block .pgs-result-badge {
+  color: #dc2626;
+}
 
 .pgs-result-message {
   margin: 0 0 0.6rem;
@@ -310,15 +342,23 @@
   font-weight: 600;
 }
 
-.pgs-val-ok   { color: #16a34a; }
-.pgs-val-null { color: #dc2626; }
+.pgs-val-ok {
+  color: #16a34a;
+}
+.pgs-val-null {
+  color: #dc2626;
+}
 
 /* ─── Hook Phase Explorer ────────────────────────────────────────────────── */
 
 .pgs-hook-explorer {
   margin: 1.5rem 0;
   border: 1px solid var(--color-border);
-  background: color-mix(in oklab, var(--color-card) 92%, var(--color-background) 8%);
+  background: color-mix(
+    in oklab,
+    var(--color-card) 92%,
+    var(--color-background) 8%
+  );
   padding: 1.25rem;
 }
 
@@ -338,7 +378,10 @@
   font-family: var(--font-mono);
   font-size: 0.75rem;
   cursor: pointer;
-  transition: border-color 0.1s, background 0.1s, color 0.1s;
+  transition:
+    border-color 0.1s,
+    background 0.1s,
+    color 0.1s;
 }
 
 .pgs-stage-tab:hover:not(.is-active) {
@@ -346,10 +389,26 @@
   border-color: var(--color-muted-foreground);
 }
 
-.pgs-stage-tab.is-active.pgs-tab-correct   { background: #22c55e; color: #fff; border-color: #22c55e; }
-.pgs-stage-tab.is-active.pgs-tab-slow      { background: #f59e0b; color: #fff; border-color: #f59e0b; }
-.pgs-stage-tab.is-active.pgs-tab-flawed    { background: #ef4444; color: #fff; border-color: #ef4444; }
-.pgs-stage-tab.is-active.pgs-tab-abandoned { background: var(--color-muted-foreground); color: var(--color-card); border-color: var(--color-muted-foreground); }
+.pgs-stage-tab.is-active.pgs-tab-correct {
+  background: #22c55e;
+  color: #fff;
+  border-color: #22c55e;
+}
+.pgs-stage-tab.is-active.pgs-tab-slow {
+  background: #f59e0b;
+  color: #fff;
+  border-color: #f59e0b;
+}
+.pgs-stage-tab.is-active.pgs-tab-flawed {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+}
+.pgs-stage-tab.is-active.pgs-tab-abandoned {
+  background: var(--color-muted-foreground);
+  color: var(--color-card);
+  border-color: var(--color-muted-foreground);
+}
 
 /* Pipeline visualization */
 .pgs-pipeline {
@@ -360,7 +419,11 @@
   margin-bottom: 1rem;
   padding: 1rem;
   border: 1px solid var(--color-border);
-  background: color-mix(in oklab, var(--color-muted) 30%, var(--color-card) 70%);
+  background: color-mix(
+    in oklab,
+    var(--color-muted) 30%,
+    var(--color-card) 70%
+  );
 }
 
 .pgs-pipeline-segment {
@@ -381,11 +444,17 @@
   font-family: var(--font-mono);
   font-size: 0.78rem;
   white-space: nowrap;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .pgs-node-terminal {
-  background: color-mix(in oklab, var(--color-muted) 60%, var(--color-card) 40%);
+  background: color-mix(
+    in oklab,
+    var(--color-muted) 60%,
+    var(--color-card) 40%
+  );
   color: var(--color-muted-foreground);
   font-size: 0.72rem;
 }
@@ -394,10 +463,21 @@
   border-width: 2px;
 }
 
-.pgs-node-hooked-correct   { border-color: #22c55e; background: color-mix(in oklab, #22c55e 12%, var(--color-card) 88%); }
-.pgs-node-hooked-slow      { border-color: #f59e0b; background: color-mix(in oklab, #f59e0b 12%, var(--color-card) 88%); }
-.pgs-node-hooked-flawed    { border-color: #ef4444; background: color-mix(in oklab, #ef4444 12%, var(--color-card) 88%); }
-.pgs-node-hooked-abandoned { border-color: var(--color-muted-foreground); }
+.pgs-node-hooked-correct {
+  border-color: #22c55e;
+  background: color-mix(in oklab, #22c55e 12%, var(--color-card) 88%);
+}
+.pgs-node-hooked-slow {
+  border-color: #f59e0b;
+  background: color-mix(in oklab, #f59e0b 12%, var(--color-card) 88%);
+}
+.pgs-node-hooked-flawed {
+  border-color: #ef4444;
+  background: color-mix(in oklab, #ef4444 12%, var(--color-card) 88%);
+}
+.pgs-node-hooked-abandoned {
+  border-color: var(--color-muted-foreground);
+}
 
 .pgs-hook-badge {
   font-family: var(--font-mono);
@@ -407,10 +487,22 @@
   padding: 0.1rem 0.3rem;
 }
 
-.pgs-badge-correct   { background: #22c55e; color: #fff; }
-.pgs-badge-slow      { background: #f59e0b; color: #fff; }
-.pgs-badge-flawed    { background: #ef4444; color: #fff; }
-.pgs-badge-abandoned { background: var(--color-muted-foreground); color: var(--color-card); }
+.pgs-badge-correct {
+  background: #22c55e;
+  color: #fff;
+}
+.pgs-badge-slow {
+  background: #f59e0b;
+  color: #fff;
+}
+.pgs-badge-flawed {
+  background: #ef4444;
+  color: #fff;
+}
+.pgs-badge-abandoned {
+  background: var(--color-muted-foreground);
+  color: var(--color-card);
+}
 
 .pgs-pipeline-arrow {
   padding: 0 0.35rem;
@@ -426,10 +518,18 @@
   background: var(--color-card);
 }
 
-.pgs-card-correct   { border-left: 3px solid #22c55e; }
-.pgs-card-slow      { border-left: 3px solid #f59e0b; }
-.pgs-card-flawed    { border-left: 3px solid #ef4444; }
-.pgs-card-abandoned { border-left: 3px solid var(--color-muted-foreground); }
+.pgs-card-correct {
+  border-left: 3px solid #22c55e;
+}
+.pgs-card-slow {
+  border-left: 3px solid #f59e0b;
+}
+.pgs-card-flawed {
+  border-left: 3px solid #ef4444;
+}
+.pgs-card-abandoned {
+  border-left: 3px solid var(--color-muted-foreground);
+}
 
 .pgs-stage-card-header {
   display: flex;

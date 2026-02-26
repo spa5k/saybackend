@@ -63,6 +63,7 @@ const { Content, headings } = await render(post);
 const tags = post.data.tags ?? [];
 const headerTags = tags.slice(0, 4);
 const footerTags = tags.slice(4);
+const AUTHOR_NAME = "Kamran Tahir";
 
 // Find related posts based on tag overlap
 function getRelatedPosts(
@@ -129,6 +130,10 @@ const relatedPosts = getRelatedPosts(post, posts);
             <span>
               <FormattedDate date={post.data.date} />
             </span>
+            <span>/</span>
+            <a href="/hiring" class="hover:text-accent transition-colors"
+              >{AUTHOR_NAME}</a
+            >
             <span>/</span>
             <span>{readingTime(post.body!)} READ</span>
           </div>

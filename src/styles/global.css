@@ -217,8 +217,9 @@
   }
 
   .tag-pill:hover {
-    background-color: var(--color-accent-strong);
-    border-color: var(--color-accent-strong);
+    background-color: var(--color-secondary);
+    border-color: var(--color-secondary);
+    color: var(--color-secondary-foreground);
   }
 }
 

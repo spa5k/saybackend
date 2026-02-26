@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createHighlighter, type Highlighter } from "shiki";
 
 export type TokenStyle = Record<string, string>;

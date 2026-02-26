@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import "./pgstrict-blocks.css";
 import { useShikiHighlight } from "../useShikiHighlight";
+import "./pgstrict-blocks.css";
 
 function SqlEditor({
   value,
@@ -91,8 +91,14 @@ function parseSqlCommand(sql: string): { cmd: CmdType; hasWhere: boolean } {
   // Scan for WHERE at depth 0 (not inside subqueries / function calls)
   let depth = 0;
   for (let i = 0; i < mainUpper.length; i++) {
-    if (mainUpper[i] === "(") { depth++; continue; }
-    if (mainUpper[i] === ")") { depth--; continue; }
+    if (mainUpper[i] === "(") {
+      depth++;
+      continue;
+    }
+    if (mainUpper[i] === ")") {
+      depth--;
+      continue;
+    }
     if (depth === 0 && /^WHERE\s/.test(mainUpper.slice(i))) {
       return { cmd, hasWhere: true };
     }
@@ -107,16 +113,33 @@ function evaluate(
   deleteMode: StrictMode,
 ): { result: CheckResult; message: string } {
   if (cmd === "OTHER") {
-    return { result: "pass", message: "Not an UPDATE or DELETE — pg_strict passes it through." };
+    return {
+      result: "pass",
+      message: "Not an UPDATE or DELETE — pg_strict passes it through.",
+    };
   }
   if (hasWhere) {
-    return { result: "pass", message: `${cmd} has a top-level WHERE clause — pg_strict allows it.` };
+    return {
+      result: "pass",
+      message: `${cmd} has a top-level WHERE clause — pg_strict allows it.`,
+    };
   }
   const mode = cmd === "UPDATE" ? updateMode : deleteMode;
   const guc = `pg_strict.require_where_on_${cmd.toLowerCase()}`;
-  if (mode === "off") return { result: "pass", message: `${guc} = 'off' — missing WHERE is allowed.` };
-  if (mode === "warn") return { result: "warn", message: `WARNING:  pg_strict: ${cmd} without a WHERE clause` };
-  return { result: "block", message: `ERROR:  pg_strict: ${cmd} without a WHERE clause` };
+  if (mode === "off")
+    return {
+      result: "pass",
+      message: `${guc} = 'off' — missing WHERE is allowed.`,
+    };
+  if (mode === "warn")
+    return {
+      result: "warn",
+      message: `WARNING:  pg_strict: ${cmd} without a WHERE clause`,
+    };
+  return {
+    result: "block",
+    message: `ERROR:  pg_strict: ${cmd} without a WHERE clause`,
+  };
 }
 
 // ─── Presets ──────────────────────────────────────────────────────────────────
@@ -194,12 +217,15 @@ export function PgStrictPlayground() {
   const { result, message } = evaluate(cmd, hasWhere, updateMode, deleteMode);
 
   return (
-    <section className="pgs-playground not-typography" aria-label="pg_strict Playground">
+    <section
+      className="pgs-playground not-typography"
+      aria-label="pg_strict Playground"
+    >
       <h3 className="pgs-section-title">pg_strict Playground</h3>
       <p className="pgs-desc">
         Configure the extension and try your own SQL. The check mirrors what{" "}
-        <code>post_parse_analyze_hook</code> reads from the query tree — including
-        CTE edge cases.
+        <code>post_parse_analyze_hook</code> reads from the query tree —
+        including CTE edge cases.
       </p>
 
       <div className="pgs-presets" role="group" aria-label="Preset queries">
@@ -229,8 +255,16 @@ export function PgStrictPlayground() {
         <div className="pgs-config-panel">
           <div className="pgs-panel-header">CONFIGURATION</div>
           <div className="pgs-config-body">
-            <ModeToggle label="require_where_on_update" value={updateMode} onChange={setUpdateMode} />
-            <ModeToggle label="require_where_on_delete" value={deleteMode} onChange={setDeleteMode} />
+            <ModeToggle
+              label="require_where_on_update"
+              value={updateMode}
+              onChange={setUpdateMode}
+            />
+            <ModeToggle
+              label="require_where_on_delete"
+              value={deleteMode}
+              onChange={setDeleteMode}
+            />
           </div>
 
           <div className={`pgs-result pgs-result-${result}`}>
@@ -248,7 +282,9 @@ export function PgStrictPlayground() {
                 </span>
                 <span>
                   <span className="pgs-detail-key">jointree→quals</span>{" "}
-                  <span className={`pgs-detail-val ${hasWhere ? "pgs-val-ok" : "pgs-val-null"}`}>
+                  <span
+                    className={`pgs-detail-val ${hasWhere ? "pgs-val-ok" : "pgs-val-null"}`}
+                  >
                     {hasWhere ? "not null ✓" : "null"}
                   </span>
                 </span>
@@ -260,7 +296,8 @@ export function PgStrictPlayground() {
 
       <p className="pgs-footnote">
         WHERE inside a CTE does not satisfy the top-level{" "}
-        <code>jointree→quals</code> check — only a WHERE on the UPDATE/DELETE itself counts.
+        <code>jointree→quals</code> check — only a WHERE on the UPDATE/DELETE
+        itself counts.
       </p>
     </section>
   );
@@ -269,12 +306,12 @@ export function PgStrictPlayground() {
 // ─── Hook Phase Explorer ──────────────────────────────────────────────────────
 
 const PIPELINE_NODES = [
-  { id: "sql",      label: "SQL",      terminal: true },
-  { id: "parser",   label: "Parser",   terminal: false },
+  { id: "sql", label: "SQL", terminal: true },
+  { id: "parser", label: "Parser", terminal: false },
   { id: "analyzer", label: "Analyzer", terminal: false },
-  { id: "planner",  label: "Planner",  terminal: false },
+  { id: "planner", label: "Planner", terminal: false },
   { id: "executor", label: "Executor", terminal: false },
-  { id: "results",  label: "Results",  terminal: true },
+  { id: "results", label: "Results", terminal: true },
 ];
 
 type StageStatus = "flawed" | "abandoned" | "slow" | "correct";
@@ -341,9 +378,9 @@ const STAGES: {
 ];
 
 const STATUS_LABELS: Record<StageStatus, string> = {
-  correct:   "✓ Best approach",
-  slow:      "⚡ Correct, inefficient",
-  flawed:    "✗ Flawed",
+  correct: "✓ Best approach",
+  slow: "⚡ Correct, inefficient",
+  flawed: "✗ Flawed",
   abandoned: "— Abandoned",
 };
 
@@ -352,14 +389,21 @@ export function HookPhaseExplorer() {
   const stage = STAGES[active];
 
   return (
-    <section className="pgs-hook-explorer not-typography" aria-label="Hook Phase Explorer">
+    <section
+      className="pgs-hook-explorer not-typography"
+      aria-label="Hook Phase Explorer"
+    >
       <h3 className="pgs-section-title">Hook Phase Explorer</h3>
       <p className="pgs-desc">
         Five approaches, one correct answer. Click each stage to see where it
         hooks into the Postgres pipeline and why it works or fails.
       </p>
 
-      <div className="pgs-stage-tabs" role="tablist" aria-label="Evolution stages">
+      <div
+        className="pgs-stage-tabs"
+        role="tablist"
+        aria-label="Evolution stages"
+      >
         {STAGES.map((s) => (
           <button
             key={s.id}
@@ -380,14 +424,20 @@ export function HookPhaseExplorer() {
         ))}
       </div>
 
-      <div className="pgs-pipeline" role="img" aria-label={`Hook fires at: ${stage.hookPhase}`}>
+      <div
+        className="pgs-pipeline"
+        role="img"
+        aria-label={`Hook fires at: ${stage.hookPhase}`}
+      >
         {PIPELINE_NODES.map((node, i) => (
           <div key={node.id} className="pgs-pipeline-segment">
             <div
               className={[
                 "pgs-pipeline-node",
                 node.terminal ? "pgs-node-terminal" : "",
-                stage.hookPhase === node.id ? `pgs-node-hooked pgs-node-hooked-${stage.status}` : "",
+                stage.hookPhase === node.id
+                  ? `pgs-node-hooked pgs-node-hooked-${stage.status}`
+                  : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
@@ -400,7 +450,9 @@ export function HookPhaseExplorer() {
               )}
             </div>
             {i < PIPELINE_NODES.length - 1 && (
-              <div className="pgs-pipeline-arrow" aria-hidden="true">→</div>
+              <div className="pgs-pipeline-arrow" aria-hidden="true">
+                →
+              </div>
             )}
           </div>
         ))}

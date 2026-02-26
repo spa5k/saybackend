@@ -4,7 +4,7 @@ import Container from "@components/Container.astro";
 import { BLOG } from "@consts";
 import Layout from "@layouts/Layout.astro";
 import { type CollectionEntry, getCollection } from "astro:content";
-import { getTopicDefinitions } from "@lib/topics";
+import { getTopicDefinitions, getTopicPosts } from "@lib/topics";
 
 const data = (await getCollection("blog"))
   .filter((post) => !post.data.draft)
@@ -24,7 +24,13 @@ const posts = data.reduce((acc: Acc, post) => {
 }, {});
 
 const years = Object.keys(posts).sort((a, b) => parseInt(b) - parseInt(a));
-const topics = getTopicDefinitions();
+const topics = getTopicDefinitions()
+  .map((topic) => ({
+    ...topic,
+    count: getTopicPosts(data, topic).length,
+  }))
+  .filter((topic) => topic.count > 0)
+  .sort((a, b) => b.count - a.count);
 ---
 
 <Layout title={BLOG.TITLE} description={BLOG.DESCRIPTION}>
@@ -75,7 +81,7 @@ const topics = getTopicDefinitions();
                     class="border-structural hover:bg-foreground hover:text-background group border p-4 transition-all duration-200"
                   >
                     <div class="text-muted-foreground mb-2 font-mono text-[10px] tracking-wider uppercase">
-                      Hub page
+                      {topic.count} article{topic.count === 1 ? "" : "s"}
                     </div>
                     <div class="text-sm font-bold uppercase">{topic.name}</div>
                     <div class="text-muted-foreground group-hover:text-background/80 mt-2 line-clamp-2 font-mono text-xs">

@@ -1,0 +1,285 @@
+---
+import Container from "@components/Container.astro";
+import { HIRING } from "@consts";
+import Layout from "@layouts/Layout.astro";
+import pfp from "@components/pfp.png";
+---
+
+<Layout title={HIRING.TITLE} description={HIRING.DESCRIPTION}>
+  <script
+    type="application/ld+json"
+    set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebPage",
+          name: "Hiring Kamran Tahir",
+          description: HIRING.DESCRIPTION,
+          url: "https://www.saybackend.com/hiring/",
+          isPartOf: {
+            "@type": "WebSite",
+            "@id": "https://www.saybackend.com/#website",
+          },
+          mainEntity: {
+            "@id": "https://www.saybackend.com/#author",
+          },
+        },
+        {
+          "@type": "Person",
+          "@id": "https://www.saybackend.com/#author",
+          name: "Kamran Tahir",
+          jobTitle: "Senior Software Engineer",
+          description:
+            "Senior Software Engineer open to backend, full-stack, and frontend roles.",
+          image: new URL(pfp.src, Astro.site).href,
+          url: "https://www.saybackend.com/hiring/",
+          email: "hello@kamran.sh",
+          sameAs: [
+            "https://github.com/spa5k",
+            "https://linkedin.com/in/kamrantahir2",
+            "http://kamran.sh/",
+          ],
+          knowsAbout: [
+            "Backend Development",
+            "Frontend Development",
+            "Full-Stack Engineering",
+            "AWS",
+            "Microservices",
+            "Data Pipelines",
+            "AI Systems",
+            "PostgreSQL",
+            "TypeScript",
+            "Go",
+          ],
+        },
+        {
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Home",
+              item: "https://www.saybackend.com/",
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "Hiring",
+              item: "https://www.saybackend.com/hiring/",
+            },
+          ],
+        },
+      ],
+    })}
+  />
+
+  <div class="pt-20 pb-20 md:pt-24 md:pb-24">
+    <Container>
+      <div class="animate mx-auto max-w-5xl space-y-12 md:space-y-14">
+        <div class="space-y-6">
+          <p
+            class="border-accent/40 bg-accent/10 text-accent inline-flex w-fit items-center border px-3 py-1 font-mono text-[10px] tracking-widest uppercase"
+          >
+            Open to work now
+          </p>
+          <h1
+            class="text-foreground text-4xl leading-[0.85] font-black tracking-tighter uppercase md:text-6xl lg:text-7xl"
+          >
+            Hiring?
+          </h1>
+          <p
+            class="text-foreground max-w-4xl text-lg leading-relaxed md:text-2xl md:leading-snug"
+          >
+            I am actively interviewing for Software Engineering roles across
+            Backend, Full-Stack, and Frontend teams.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <span
+              class="border-border bg-surface text-muted-foreground inline-flex items-center border px-3 py-1 font-mono text-[10px] tracking-wider uppercase"
+              >Backend</span
+            >
+            <span
+              class="border-border bg-surface text-muted-foreground inline-flex items-center border px-3 py-1 font-mono text-[10px] tracking-wider uppercase"
+              >Full-Stack</span
+            >
+            <span
+              class="border-border bg-surface text-muted-foreground inline-flex items-center border px-3 py-1 font-mono text-[10px] tracking-wider uppercase"
+              >Frontend</span
+            >
+            <span
+              class="border-border bg-surface text-muted-foreground inline-flex items-center border px-3 py-1 font-mono text-[10px] tracking-wider uppercase"
+              >Platform Teams</span
+            >
+          </div>
+        </div>
+
+        <section
+          class="border-border bg-surface/50 grid gap-6 border p-6 md:grid-cols-[120px,1fr] md:items-start md:gap-8 md:p-8"
+        >
+          <img
+            src={pfp.src}
+            width={pfp.width}
+            height={pfp.height}
+            alt="Kamran Tahir"
+            loading="lazy"
+            decoding="async"
+            class="border-structural h-24 w-24 border object-cover md:h-28 md:w-28"
+          />
+          <div class="space-y-8">
+            <p
+              class="text-muted-foreground max-w-3xl text-base leading-relaxed md:text-lg"
+            >
+              I build reliable systems across product and platform layers, with
+              strong experience in AWS architectures, distributed services,
+              data-heavy workflows, and pragmatic delivery.
+            </p>
+
+            <ul class="space-y-3">
+              <li class="border-border/70 bg-background/50 border p-3">
+                <p
+                  class="text-accent font-mono text-[10px] tracking-widest uppercase"
+                >
+                  Experience
+                </p>
+                <p class="text-muted-foreground mt-1 font-mono text-sm">
+                  6+ years shipping production software
+                </p>
+              </li>
+              <li class="border-border/70 bg-background/50 border p-3">
+                <p
+                  class="text-accent font-mono text-[10px] tracking-widest uppercase"
+                >
+                  Backend depth
+                </p>
+                <p class="text-muted-foreground mt-1 font-mono text-sm">
+                  AWS, microservices, data pipelines, PostgreSQL
+                </p>
+              </li>
+              <li class="border-border/70 bg-background/50 border p-3">
+                <p
+                  class="text-accent font-mono text-[10px] tracking-widest uppercase"
+                >
+                  Delivery scope
+                </p>
+                <p class="text-muted-foreground mt-1 font-mono text-sm">
+                  Full-stack and frontend collaboration
+                </p>
+              </li>
+              <li class="border-border/70 bg-background/50 border p-3">
+                <p
+                  class="text-accent font-mono text-[10px] tracking-widest uppercase"
+                >
+                  Core stack
+                </p>
+                <p class="text-muted-foreground mt-1 font-mono text-sm">
+                  TypeScript, Go, and modern web stacks
+                </p>
+              </li>
+            </ul>
+
+            <div
+              class="border-border flex flex-wrap gap-3 border-t pt-6 font-mono text-xs tracking-wider uppercase"
+            >
+              <a
+                href="mailto:hello@kamran.sh"
+                class="border-structural bg-accent text-accent-foreground hover:border-accent-strong inline-flex h-12 items-center border px-6 transition-colors"
+              >
+                Email Kamran
+              </a>
+              <a
+                href="http://kamran.sh/"
+                class="border-structural hover:bg-foreground hover:text-background inline-flex h-12 items-center border px-6 transition-colors"
+                target="_blank"
+                rel="noreferrer"
+              >
+                View Resume
+              </a>
+              <a
+                href="https://linkedin.com/in/kamrantahir2"
+                class="border-structural hover:bg-foreground hover:text-background inline-flex h-12 items-center border px-6 transition-colors"
+                target="_blank"
+                rel="noreferrer"
+              >
+                LinkedIn
+              </a>
+              <a
+                href="/projects"
+                class="border-structural hover:bg-foreground hover:text-background inline-flex h-12 items-center border px-6 transition-colors"
+              >
+                Projects
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <div class="grid gap-6 md:grid-cols-2">
+          <section class="border-border bg-surface/50 border p-6">
+            <p
+              class="text-accent font-mono text-[10px] tracking-widest uppercase"
+            >
+              Positions
+            </p>
+            <h2 class="text-foreground text-xl font-black uppercase">
+              Role Focus
+            </h2>
+            <ul class="mt-4 space-y-2">
+              <li
+                class="border-border/70 bg-background/50 text-muted-foreground border px-3 py-2 font-mono text-sm"
+              >
+                Senior Software Engineer
+              </li>
+              <li
+                class="border-border/70 bg-background/50 text-muted-foreground border px-3 py-2 font-mono text-sm"
+              >
+                Backend Engineer
+              </li>
+              <li
+                class="border-border/70 bg-background/50 text-muted-foreground border px-3 py-2 font-mono text-sm"
+              >
+                Full-Stack Engineer
+              </li>
+              <li
+                class="border-border/70 bg-background/50 text-muted-foreground border px-3 py-2 font-mono text-sm"
+              >
+                Frontend Engineer
+              </li>
+            </ul>
+          </section>
+
+          <section class="border-border bg-surface/50 border p-6">
+            <p
+              class="text-accent font-mono text-[10px] tracking-widest uppercase"
+            >
+              Strengths
+            </p>
+            <h2 class="text-foreground text-xl font-black uppercase">
+              Technical Scope
+            </h2>
+            <ul class="mt-4 space-y-2">
+              <li
+                class="border-border/70 bg-background/50 text-muted-foreground border px-3 py-2 font-mono text-sm"
+              >
+                AWS architecture and serverless systems
+              </li>
+              <li
+                class="border-border/70 bg-background/50 text-muted-foreground border px-3 py-2 font-mono text-sm"
+              >
+                Distributed APIs and microservices
+              </li>
+              <li
+                class="border-border/70 bg-background/50 text-muted-foreground border px-3 py-2 font-mono text-sm"
+              >
+                Data pipelines and event-driven workflows
+              </li>
+              <li
+                class="border-border/70 bg-background/50 text-muted-foreground border px-3 py-2 font-mono text-sm"
+              >
+                Modern frontend and product engineering collaboration
+              </li>
+            </ul>
+          </section>
+        </div>
+      </div>
+    </Container>
+  </div>
+</Layout>

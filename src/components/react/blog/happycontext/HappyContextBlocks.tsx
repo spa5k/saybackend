@@ -1,11 +1,16 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
-import "./happycontext-blocks.css";
 import { useShikiHighlight } from "../useShikiHighlight";
+import "./happycontext-blocks.css";
 
 function GoCode({ code }: { code: string }) {
   const lines = useShikiHighlight(code, "go");
-  if (!lines) return <pre><code>{code}</code></pre>;
+  if (!lines)
+    return (
+      <pre>
+        <code>{code}</code>
+      </pre>
+    );
   return (
     <pre>
       <code className="shiki-code">
@@ -186,7 +191,9 @@ export function WideEventsBeforeAfter() {
         {activeView === "code" ? (
           <GoCode code={wideEventCode} />
         ) : (
-          <pre><code>{wideEventOutput}</code></pre>
+          <pre>
+            <code>{wideEventOutput}</code>
+          </pre>
         )}
         <p className="hcw-panel-note">
           One log, all context, emitted once at request completion.
@@ -533,7 +540,7 @@ export function WideEventBuilderSimulator() {
           </div>
           <div className="hcw-wide-builder-live">
             <div
-              className={`hcw-wide-builder-live-header${isError ? " is-error" : ""}`}
+              className={`hcw-wide-builder-live-header${isError ? "is-error" : ""}`}
             >
               <span>LIVE EVENT</span>
               <span>{fieldCount} FIELDS</span>

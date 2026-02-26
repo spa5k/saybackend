@@ -6,10 +6,13 @@ import { getTopicDefinitions, getTopicPosts } from "@lib/topics";
 
 const topics = getTopicDefinitions();
 const allPosts = await getCollection("blog", ({ data }) => !data.draft);
-const topicCards = topics.map((topic) => ({
-  ...topic,
-  count: getTopicPosts(allPosts, topic).length,
-}));
+const topicCards = topics
+  .map((topic) => ({
+    ...topic,
+    count: getTopicPosts(allPosts, topic).length,
+  }))
+  .filter((topic) => topic.count > 0)
+  .sort((a, b) => b.count - a.count);
 ---
 
 <Layout title="Topics" description="Content clusters and learning paths.">

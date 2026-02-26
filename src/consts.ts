@@ -33,6 +33,12 @@ export const ABOUT: Metadata = {
     "Meet Kamran Tahir, a Senior Software Engineer specializing in backend systems, AWS serverless architecture, PostgreSQL, and DevOps. 6+ years building scalable infrastructure and microservices.",
 };
 
+export const HIRING: Metadata = {
+  TITLE: "Hiring Kamran Tahir - Backend, Full-Stack, Frontend Engineer",
+  DESCRIPTION:
+    "Hiring page for Kamran Tahir. Senior Software Engineer open to backend, full-stack, and frontend roles across product engineering and platform teams.",
+};
+
 export const SOCIALS: Socials = [
   {
     NAME: "GitHub",

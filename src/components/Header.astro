@@ -3,6 +3,7 @@ import Container from "@components/Container.astro";
 import { SITE } from "@consts";
 
 const navLinks = [
+  { href: "/hiring", label: "Hiring?" },
   { href: "/blog", label: "Blog" },
   { href: "/topics", label: "Topics" },
   { href: "/about", label: "About" },
@@ -27,11 +28,11 @@ const navLinks = [
           type="button"
           aria-label="Toggle theme"
           aria-pressed="false"
-          class="group border-accent bg-accent text-accent-foreground hover:border-accent-strong inline-flex h-9 w-9 items-center justify-center border transition-colors"
+          class="border-accent bg-accent text-accent-foreground hover:border-accent-strong dark:bg-secondary dark:text-secondary-foreground inline-flex h-9 w-9 items-center justify-center border transition-colors"
         >
           <svg
             aria-hidden="true"
-            class="text-accent-foreground hover:text-accent-strong h-4 w-4 dark:hidden"
+            class="h-4 w-4 dark:hidden"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -51,7 +52,7 @@ const navLinks = [
           </svg>
           <svg
             aria-hidden="true"
-            class="text-accent hidden h-4 w-4 dark:block"
+            class="hidden h-4 w-4 dark:block"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -109,7 +110,11 @@ const navLinks = [
               href={link.href}
               target={link.external ? "_blank" : undefined}
               rel={link.external ? "noopener noreferrer" : undefined}
-              class="hover:text-accent font-mono text-sm tracking-widest uppercase transition-colors"
+              class={
+                link.href === "/hiring"
+                  ? "border-accent/50 bg-accent/10 text-accent hover:border-accent hover:bg-accent/20 inline-flex items-center border px-3 py-1 font-mono text-sm tracking-widest uppercase transition-colors"
+                  : "hover:text-accent font-mono text-sm tracking-widest uppercase transition-colors"
+              }
             >
               {link.label}
             </a>
@@ -120,11 +125,11 @@ const navLinks = [
           type="button"
           aria-label="Toggle theme"
           aria-pressed="false"
-          class="group border-accent bg-accent text-accent-foreground hover:border-accent-strong inline-flex items-center gap-2 border px-4 py-2 font-mono text-xs tracking-wider uppercase transition-colors"
+          class="border-accent bg-accent text-accent-foreground hover:border-accent-strong dark:bg-secondary dark:text-secondary-foreground inline-flex items-center gap-2 border px-4 py-2 font-mono text-xs tracking-wider uppercase transition-colors"
         >
           <svg
             aria-hidden="true"
-            class="text-accent-foreground hover:text-accent-strong h-5 w-5 dark:hidden"
+            class="h-5 w-5 dark:hidden"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -144,7 +149,7 @@ const navLinks = [
           </svg>
           <svg
             aria-hidden="true"
-            class="text-accent hidden h-5 w-5 dark:block"
+            class="hidden h-5 w-5 dark:block"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -169,7 +174,11 @@ const navLinks = [
               href={link.href}
               target={link.external ? "_blank" : undefined}
               rel={link.external ? "noopener noreferrer" : undefined}
-              class="hover:text-accent font-mono text-sm tracking-widest uppercase transition-colors"
+              class={
+                link.href === "/hiring"
+                  ? "border-accent/50 bg-accent/10 text-accent hover:border-accent hover:bg-accent/20 inline-flex w-fit items-center border px-3 py-2 font-mono text-sm tracking-widest uppercase transition-colors"
+                  : "hover:text-accent font-mono text-sm tracking-widest uppercase transition-colors"
+              }
             >
               {link.label}
             </a>
