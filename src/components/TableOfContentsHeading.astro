@@ -6,7 +6,7 @@ import Link from "./Link.astro";
 const { heading } = Astro.props;
 ---
 
-<li class="toc-item">
+<li class="toc-item" data-toc-item={heading.slug}>
   <Link
     href={"#" + heading.slug}
     underline={false}
@@ -30,24 +30,37 @@ const { heading } = Astro.props;
     top: 0.55rem;
     width: 4px;
     height: 4px;
+    background: var(--color-border);
+  }
+
+  .toc-item.is-active::before {
     background: var(--color-accent);
+    width: 6px;
+    height: 6px;
+    top: 0.5rem;
   }
 
   .toc-link {
+    display: block;
     font-family: var(--font-mono);
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--color-muted-foreground);
-    transition: color var(--duration-fast) var(--ease-mechanical);
+    line-height: 1.35;
+    transition:
+      color 120ms linear,
+      transform 120ms linear;
     text-decoration: none;
   }
 
   .toc-link:hover {
     color: var(--color-accent);
+    transform: translateX(1px);
   }
 
   .toc-link.is-active {
     color: var(--color-accent);
+    font-weight: 700;
   }
 </style>

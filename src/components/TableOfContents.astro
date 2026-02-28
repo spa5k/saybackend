@@ -27,7 +27,11 @@ function buildToc(headings: Heading[]) {
 }
 ---
 
-<nav class="animate border-border/30 bg-surface border p-4 text-sm">
+<nav
+  data-toc
+  aria-label="Table of contents"
+  class="animate border-border/30 bg-surface/80 max-h-[calc(100vh-10rem)] overflow-auto border p-4 text-sm backdrop-blur"
+>
   <div
     class="text-accent mb-4 font-mono text-[10px] tracking-[0.3em] uppercase"
   >
@@ -39,30 +43,55 @@ function buildToc(headings: Heading[]) {
 </nav>
 
 <script is:inline>
-  const toc = document.querySelector("nav");
-  if (toc) {
+  (() => {
+    const toc = document.querySelector("[data-toc]");
+    if (!toc) return;
+
     const links = Array.from(toc.querySelectorAll("[data-toc-link]"));
     const targets = links
       .map((link) => {
         const id = link.getAttribute("data-toc-link");
         const el = id ? document.getElementById(id) : null;
-        return el ? { link, el } : null;
+        return id && el ? { id, link, el } : null;
       })
-      .filter(Boolean);
+      .filter(Boolean)
+      .sort((a, b) => a.el.offsetTop - b.el.offsetTop);
 
-    if (targets.length) {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            const match = targets.find((t) => t.el === entry.target);
-            if (!match) return;
-            match.link.classList.toggle("is-active", entry.isIntersecting);
-          });
-        },
-        { rootMargin: "0px 0px -70% 0px", threshold: 0.1 },
-      );
+    if (!targets.length) return;
 
-      targets.forEach((t) => observer.observe(t.el));
-    }
-  }
+    const setActive = (id) => {
+      targets.forEach((t) => {
+        const isActive = t.id === id;
+        t.link.classList.toggle("is-active", isActive);
+        if (isActive) t.link.setAttribute("aria-current", "location");
+        else t.link.removeAttribute("aria-current");
+        const item = toc.querySelector(`[data-toc-item="${t.id}"]`);
+        item?.classList.toggle("is-active", isActive);
+      });
+    };
+
+    const headerOffset = 96;
+    const getActiveId = () => {
+      let activeId = targets[0].id;
+      for (const t of targets) {
+        const top = t.el.getBoundingClientRect().top;
+        if (top - headerOffset <= 0) activeId = t.id;
+        else break;
+      }
+      return activeId;
+    };
+
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        setActive(getActiveId());
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    onScroll();
+  })();
 </script>
