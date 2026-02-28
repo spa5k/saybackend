@@ -1,0 +1,250 @@
+---
+title: "happymode: a tiny macOS menu bar app that keeps Dark Mode on schedule"
+description: "A behind-the-scenes look at happymode: a native macOS menu bar utility that switches system appearance using sunrise/sunset (no external APIs) or custom daily times, with a weekly preview and permission-aware UX."
+date: "2026-02-28"
+slug: "happymode-macos-appearance-scheduler"
+oldPath: "12-happymode-macos-appearance-scheduler"
+ogImage: "/images/happymode-appearance-og.png"
+tags:
+  - "macos"
+  - "swift"
+  - "swiftui"
+  - "appkit"
+  - "menu-bar"
+  - "dark-mode"
+  - "light-mode"
+  - "sunrise"
+  - "sunset"
+  - "corelocation"
+  - "apple-events"
+  - "applescript"
+  - "automation-permissions"
+  - "login-items"
+  - "service-management"
+  - "developer-tools"
+faqs:
+  - question: "What does happymode do?"
+    answer: "happymode is a native macOS menu bar app that switches your system appearance between Light and Dark automatically, either based on sunrise/sunset at your location or based on custom daily times."
+  - question: "Does happymode call an external API for sunrise/sunset?"
+    answer: "No. Sunrise and sunset are calculated locally on-device using solar math. Location is only used to get coordinates."
+  - question: "Why does happymode need Automation permission?"
+    answer: "macOS appearance is toggled via Apple Events (System Events). That requires granting Automation permission to the app so it can change the system’s appearance setting."
+  - question: "What happens in polar night or midnight sun?"
+    answer: "If there’s no sunrise or sunset on a given day, happymode classifies the day as always-dark or always-light and switches behavior accordingly, including clear UI indicators."
+---
+
+import Callout from "@/components/Callout.astro";
+import GitHubRepoCard from "@/components/GitHubRepoCard.astro";
+import { Picture } from "astro:assets";
+
+import OgHero from "./og-hero.png";
+import MenuBarShot from "./menu.png";
+import GeneralShot from "./general-settings.png";
+import ScheduleShot from "./schedule-settings.png";
+import PermissionsShot from "./permissions-settings.png";
+import ArchitectureDiagram from "./happymode-architecture.svg";
+
+<Picture
+  src={OgHero}
+  alt="happymode: a macOS menu bar app that switches Light/Dark based on sunrise/sunset or custom times"
+  inferSize
+  loading="eager"
+  formats={["avif", "webp"]}
+/>
+
+<GitHubRepoCard
+  repo="happytoolin/happymode"
+  title="happytoolin/happymode"
+  description="Source code, releases, and install docs live on GitHub."
+/>
+
+## Why Not Just Use macOS “Auto” (or NightOwl)?
+
+I tried.
+
+On a couple of my machines, macOS’ built-in **Auto** appearance switching just… wasn’t reliable. Sometimes it wouldn’t flip when it should, and sometimes it felt like it “worked until it didn’t”.
+
+I also tried **NightOwl**. It’s a great app, but for what I wanted it felt:
+
+- a bit inconsistent (for my setup), and
+- a bit too configurable (lots of knobs for a problem I wanted to be boring).
+
+So I built something intentionally simple:
+
+- no global shortcuts / hotkeys
+- no automations beyond “switch at the right time”
+- no external APIs
+
+## Why I Built happymode
+
+I wanted my Mac to switch between Light and Dark automatically — and I wanted it to feel “native”, not like a background daemon with a dozen knobs.
+
+My personal wishlist was pretty small:
+
+- **No external services** (no “weather” API calls, no tracking, no accounts).
+- **Predictable schedules** (either solar-based or exact times I pick).
+- **Permission-aware UX** (macOS can be strict about Location + Automation).
+- **Menu bar-first** (fast, quiet, and out of the way).
+
+That became **happymode**: a menu bar app that switches appearance using **sunrise/sunset** (with local math) or **custom daily times**.
+
+<Callout type="info">
+  The loop is intentionally simple: get a coordinate (or use manual), compute
+  the next transition, and flip appearance when the clock crosses it.
+</Callout>
+
+## Architecture at a Glance
+
+<img
+  src={ArchitectureDiagram.src}
+  alt="Architecture diagram: location -> solar/custom schedule engine -> apply appearance -> menu bar + settings UI"
+  loading="lazy"
+/>
+
+At a high level:
+
+- **Menu bar UI** (left-click popover + right-click context menu)
+- **Settings window** with dedicated panes (General, Schedule, Location, Permissions, About)
+- **ThemeController** that:
+  - resolves location (or uses manual coordinates)
+  - computes sunrise/sunset or custom time transitions
+  - updates a countdown / “next switch” label
+  - applies the appearance change
+
+## Scheduling: Sunrise/Sunset Without Any API Calls
+
+Solar schedules sound “simple” until you hit edge cases:
+
+- The user denies location.
+- The user is traveling (time zone changes).
+- You’re in regions with **polar night** (no sunrise) or **midnight sun** (no sunset).
+
+happymode does the sunrise/sunset math locally.
+If sunrise or sunset is missing for a day, it classifies the day as **always-dark** or **always-light** and shows that in the UI instead of failing silently.
+
+Here’s the shape of that logic (simplified):
+
+```swift
+enum SolarDayType {
+  case normal(sunrise: Date, sunset: Date)
+  case alwaysDark
+  case alwaysLight
+}
+```
+
+<Callout type="default" title="Small modeling tip">
+  If you’re building anything time-based: model “no event exists” explicitly. It
+  keeps your scheduling logic honest, especially in weird calendar/latitude
+  situations.
+</Callout>
+
+## Scheduling: Custom Daily Times (Light at X, Dark at Y)
+
+Solar mode is great for “set and forget”, but sometimes you want “Dark at 7pm, always”.
+
+Custom scheduling is built around two daily transition times:
+
+- a **Light** time
+- a **Dark** time
+
+The scheduler finds:
+
+1. the most recent past event (that tells the current state), and
+2. the next upcoming event (that tells the next transition).
+
+The important part is handling cases like:
+
+- Light time is after Dark time (crosses midnight)
+- both events happen on the same day
+- user accidentally sets identical times (invalid schedule)
+
+## Actually Switching macOS Appearance (and Permissions)
+
+On macOS, changing system appearance programmatically goes through **System Events**.
+That means happymode needs **Automation permission**.
+
+When permission is missing, happymode doesn’t pretend everything is fine — it shows a clear warning and points you to the right System Settings screen.
+
+The mechanism is intentionally boring: an AppleScript command that toggles `dark mode`:
+
+```applescript
+tell application "System Events"
+  tell appearance preferences
+    set dark mode to true
+  end tell
+end tell
+```
+
+<Callout type="warning">
+  Automation permission is required to flip appearance. Location permission is
+  only required for automatic sunrise/sunset by detected coordinates (you can
+  still use manual coordinates or custom times without it).
+</Callout>
+
+## UI: Menu Bar First, Settings When You Need Them
+
+### Menu Bar Popover
+
+<Picture
+  src={MenuBarShot}
+  alt="happymode menu bar popover showing Auto/Light/Dark and next switch countdown"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+The popover is the main control surface:
+
+- switch between `Auto`, `Light`, and `Dark`
+- in Auto mode, pick `Sunrise/Sunset` or `Custom Times`
+- see what happens next (countdown + today’s times)
+
+### Settings: General, Schedule, Permissions
+
+<Picture
+  src={GeneralShot}
+  alt="happymode general settings"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+<Picture
+  src={ScheduleShot}
+  alt="happymode schedule settings showing weekly preview"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+<Picture
+  src={PermissionsShot}
+  alt="happymode permissions settings for Location and Automation"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+## Updates: Simple, Transparent, and Rate-Limited
+
+Auto-update frameworks are great, but for this app I kept update checks simple:
+
+- check **GitHub Releases** for the latest tag
+- rate-limit automatic checks to **once per day**
+- allow a manual **“Check for Updates…”** action
+
+That’s enough for a small utility — and it keeps the entire update story visible and debuggable.
+
+## Install and Source
+
+- Homebrew: `brew tap happytoolin/happytap` then `brew install --cask happymode`
+- Source: `happytoolin/happymode` on GitHub
+
+<Callout type="warning" title="Not notarized (yet)">
+  happymode is currently not notarized. On first launch, macOS Gatekeeper may
+  block it. If that happens, use **System Settings → Privacy &amp; Security →
+  Open Anyway**, or remove the quarantine attribute:
+</Callout>
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/happymode.app"
+```
+
+If you build macOS utilities for yourself, I highly recommend the menu bar route:
+you get fast interactions, minimal surface area, and a UX that feels at-home on macOS.

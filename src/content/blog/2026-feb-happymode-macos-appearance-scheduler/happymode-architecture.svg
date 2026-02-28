@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-label="happymode architecture diagram">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0b0f1a" />
+      <stop offset="100%" stop-color="#101827" />
+    </linearGradient>
+    <linearGradient id="card" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="#111c2e" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#000000" flood-opacity="0.35" />
+    </filter>
+    <style>
+      .title { font: 800 22px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; fill: #e5e7eb; letter-spacing: 0.5px; }
+      .label { font: 700 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; fill: #a3a3a3; letter-spacing: 0.9px; }
+      .text  { font: 600 14px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; fill: #d1d5db; }
+      .muted { fill: #94a3b8; font: 500 13px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+      .pill  { fill: #0b1220; stroke: #334155; stroke-width: 1; }
+      .box   { fill: url(#card); stroke: #243247; stroke-width: 1.2; rx: 18; filter: url(#shadow); }
+      .arrow { stroke: #60a5fa; stroke-width: 2.2; fill: none; opacity: 0.95; }
+      .arrow2 { stroke: #a78bfa; stroke-width: 2.2; fill: none; opacity: 0.95; }
+      .dot   { fill: #60a5fa; }
+      .dot2  { fill: #a78bfa; }
+    </style>
+    <marker id="arrowhead" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 z" fill="#60a5fa" />
+    </marker>
+    <marker id="arrowhead2" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 z" fill="#a78bfa" />
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="560" rx="28" fill="url(#bg)" />
+
+  <text x="64" y="70" class="title">happymode: How the app decides and applies Light/Dark</text>
+  <text x="64" y="96" class="muted">Location + schedule inputs → decision engine → system appearance change → UI feedback</text>
+
+  <!-- Inputs -->
+  <rect x="64" y="140" width="320" height="160" class="box" />
+  <text x="92" y="176" class="label">INPUTS</text>
+  <text x="92" y="206" class="text">Coordinate</text>
+  <text x="92" y="232" class="muted">Auto (CoreLocation) or manual lat/lng</text>
+  <text x="92" y="268" class="text">Schedule</text>
+  <text x="92" y="294" class="muted">Sunrise/Sunset or custom daily times</text>
+
+  <rect x="64" y="330" width="320" height="150" class="box" />
+  <text x="92" y="366" class="label">OVERRIDES</text>
+  <text x="92" y="396" class="text">Appearance Preference</text>
+  <text x="92" y="422" class="muted">Auto • Force Light • Force Dark</text>
+  <text x="92" y="452" class="muted">Persists in UserDefaults</text>
+
+  <!-- Engine -->
+  <rect x="440" y="140" width="370" height="340" class="box" />
+  <text x="468" y="176" class="label">ENGINE</text>
+  <text x="468" y="206" class="text">ThemeController</text>
+  <text x="468" y="232" class="muted">Calculates next transition + menu bar countdown</text>
+
+  <rect x="468" y="260" width="314" height="76" class="pill" />
+  <text x="488" y="290" class="text">SolarCalculator</text>
+  <text x="488" y="314" class="muted">Sunrise/sunset + polar day classification</text>
+
+  <rect x="468" y="350" width="314" height="76" class="pill" />
+  <text x="488" y="380" class="text">Custom Schedule</text>
+  <text x="488" y="404" class="muted">Daily Light-at / Dark-at transitions</text>
+
+  <!-- Output -->
+  <rect x="860" y="140" width="276" height="210" class="box" />
+  <text x="888" y="176" class="label">OUTPUT</text>
+  <text x="888" y="206" class="text">Apply Appearance</text>
+  <text x="888" y="232" class="muted">Apple Events → System Events</text>
+  <text x="888" y="258" class="muted">Requires Automation permission</text>
+
+  <rect x="860" y="370" width="276" height="110" class="box" />
+  <text x="888" y="406" class="label">UI</text>
+  <text x="888" y="436" class="text">Menu Bar + Settings</text>
+  <text x="888" y="462" class="muted">Popover, context menu, tabs, warnings</text>
+
+  <!-- Arrows -->
+  <path class="arrow" marker-end="url(#arrowhead)" d="M384 220 C 410 220, 412 220, 440 220" />
+  <circle cx="384" cy="220" r="5" class="dot" />
+
+  <path class="arrow" marker-end="url(#arrowhead)" d="M384 405 C 410 405, 412 405, 440 405" />
+  <circle cx="384" cy="405" r="5" class="dot" />
+
+  <path class="arrow2" marker-end="url(#arrowhead2)" d="M810 240 C 832 240, 836 240, 860 240" />
+  <circle cx="810" cy="240" r="5" class="dot2" />
+
+  <path class="arrow2" marker-end="url(#arrowhead2)" d="M810 420 C 832 420, 836 420, 860 420" />
+  <circle cx="810" cy="420" r="5" class="dot2" />
+
+  <!-- Small caption -->
+  <text x="64" y="525" class="muted">Design goal: the app stays useful even when permissions are denied (manual coordinates + custom times still work).</text>
+</svg>
+

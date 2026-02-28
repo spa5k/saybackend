@@ -13,7 +13,24 @@ const sitemapHref = import.meta.env.DEV
       class="flex flex-col items-start justify-between gap-8 md:flex-row md:items-center"
     >
       <div class="space-y-4">
-        <h3 class="text-xl font-black tracking-tight uppercase">
+        <h3
+          class="flex items-center gap-2 text-xl font-black tracking-tight uppercase"
+        >
+          <svg
+            aria-hidden="true"
+            class="text-accent h-5 w-5"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 14 14"
+            fill="none"
+          >
+            <path
+              d="M13.5 7.5V13.5H0.5V0.5H5.5V7.5H13.5Z M0.5 3.5H13.5 M10 7.5V0.5"
+              stroke="currentColor"
+              stroke-width="1.25"
+              stroke-linecap="butt"
+              stroke-linejoin="miter"
+              stroke-miterlimit="10"></path>
+          </svg>
           {SITE.TITLE}
         </h3>
         <p class="text-muted-foreground max-w-xs font-mono text-sm">

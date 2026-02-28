@@ -29,6 +29,7 @@ ogImage: "/images/uuidv7-postgres-og.png"
 ---
 
 import Callout from "@/components/Callout.astro";
+import GitHubRepoCard from "@/components/GitHubRepoCard.astro";
 import {
   MultiMetricRadarChart,
   PerformanceStorageScatterChart,
@@ -301,7 +302,13 @@ To provide real-world performance data, I created a comprehensive benchmark suit
 - **PostgreSQL Config**: 512MB shared_buffers, 2GB effective_cache_size, SSD optimizations
 - **Resource limits**: 2GB RAM, 2 CPU cores per container
 
-The full benchmark code and methodology are available at [github.com/spa5k/uuidv7-postgres-benchmark](https://github.com/spa5k/uuidv7-postgres-benchmark).
+If you want to reproduce everything locally, the full benchmark suite (code + methodology) lives here:
+
+<GitHubRepoCard
+  repo="spa5k/uuidv7-postgres-benchmark"
+  title="spa5k/uuidv7-postgres-benchmark"
+  description="Benchmark suite and methodology used for the UUIDv7 numbers in this post."
+/>
 
 ### Comprehensive Benchmark Results
 

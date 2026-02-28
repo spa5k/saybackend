@@ -30,6 +30,7 @@ ogImage: "/images/pg-strict-og.png"
 ---
 
 import Callout from "@/components/Callout.astro";
+import GitHubRepoCard from "@/components/GitHubRepoCard.astro";
 import Mermaid from "@/components/MermaidSSR.astro";
 import { Picture } from "astro:assets";
 import {
@@ -692,14 +693,13 @@ That's the full story. `pg_strict` is small on purpose, but the path to get ther
 
 ## GitHub
 
-<Callout type="info" title="Try pg_strict on GitHub">
-  - **Repository:** [github.com/spa5k/pg_strict](https://github.com/spa5k/pg_strict)
-  - **Releases (prebuilt binaries):** [github.com/spa5k/pg_strict/releases](https://github.com/spa5k/pg_strict/releases)
+<GitHubRepoCard
+  repo="spa5k/pg_strict"
+  title="spa5k/pg_strict"
+  description="A Postgres strictness layer that blocks UPDATE/DELETE without a WHERE clause."
+/>
 
-If this extension helps your team avoid accidental full-table updates or
-deletes, a GitHub star helps a lot.
-
-</Callout>
+If this extension helps your team avoid accidental full-table updates or deletes, a GitHub star helps a lot.
 
 ## Citation
 

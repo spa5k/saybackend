@@ -88,23 +88,48 @@ const marqueeText = `${marqueeItems.join(" /// ")} ///`;
   <!-- Hero Section -->
   <Section class="py-20 md:py-32">
     <Container>
-      <div class="max-w-4xl">
-        <h1
-          class="animate-fade-in-up text-foreground mb-8 text-[clamp(3.5rem,8vw,9rem)] leading-[0.85] font-black tracking-tighter uppercase"
-        >
-          Say<br />Backend
-        </h1>
-        <div
-          class="animate-fade-in-up border-border border-t pt-8"
-          style="animation-delay: 100ms;"
-        >
-          <p
-            class="text-muted-foreground max-w-xl font-mono text-sm leading-relaxed md:text-base"
+      <div
+        class="grid items-start gap-10 md:grid-cols-[1fr_auto] md:items-center"
+      >
+        <div class="max-w-4xl">
+          <h1
+            class="animate-fade-in-up text-foreground mb-8 text-[clamp(3.5rem,8vw,9rem)] leading-[0.85] font-black tracking-tighter uppercase"
           >
-            A blog dedicated to backend systems, DevOps, and structural data
-            patterns. Exploring the intersection of brutalist architecture and
-            clean code.
-          </p>
+            Say<br />Backend
+          </h1>
+          <div
+            class="animate-fade-in-up border-border border-t pt-8"
+            style="animation-delay: 100ms;"
+          >
+            <p
+              class="text-muted-foreground max-w-xl font-mono text-sm leading-relaxed md:text-base"
+            >
+              A blog dedicated to backend systems, DevOps, and structural data
+              patterns. Exploring the intersection of brutalist architecture and
+              clean code.
+            </p>
+          </div>
+        </div>
+
+        <div
+          class="animate-fade-in-up hidden md:block"
+          style="animation-delay: 150ms;"
+        >
+          <svg
+            aria-hidden="true"
+            class="text-accent h-40 w-40 lg:h-56 lg:w-56"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 14 14"
+            fill="none"
+          >
+            <path
+              d="M13.5 7.5V13.5H0.5V0.5H5.5V7.5H13.5Z M0.5 3.5H13.5 M10 7.5V0.5"
+              stroke="currentColor"
+              stroke-width="0.8"
+              stroke-linecap="butt"
+              stroke-linejoin="miter"
+              stroke-miterlimit="10"></path>
+          </svg>
         </div>
       </div>
     </Container>

@@ -51,6 +51,7 @@ draft: false
 ---
 
 import Callout from "@/components/Callout.astro";
+import GitHubRepoCard from "@/components/GitHubRepoCard.astro";
 import { Picture } from "astro:assets";
 import AppImage from "./app.png";
 import OgImage from "./nextjs_electron_og.png";
@@ -463,4 +464,8 @@ Current it's only packaging it as the dir, you can change it to deb, or dmg, or 
 
 ## GitHub Repository
 
-You can find the complete code for this blog in the GitHub repository [here](https://github.com/spa5k/nextjs_approuter_electron).
+<GitHubRepoCard
+  repo="spa5k/nextjs_approuter_electron"
+  title="spa5k/nextjs_approuter_electron"
+  description="Companion repo for this post: Next.js App Router + Electron (with Server Components)."
+/>

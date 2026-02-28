@@ -52,6 +52,7 @@ faqs:
 ---
 
 import Callout from "@/components/Callout.astro";
+import GitHubRepoCard from "@/components/GitHubRepoCard.astro";
 import {
   HappyContextHero,
   IntegrationsMatrix,
@@ -310,4 +311,8 @@ go get github.com/happytoolin/happycontext/adapter/slog
 go get github.com/happytoolin/happycontext/integration/std
 ```
 
-Repo: [github.com/happytoolin/happycontext](https://github.com/happytoolin/happycontext)
+<GitHubRepoCard
+  repo="happytoolin/happycontext"
+  title="happytoolin/happycontext"
+  description="Wide logging for Go: one canonical event per request, with router + logger adapters."
+/>
