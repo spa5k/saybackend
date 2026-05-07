@@ -1,0 +1,270 @@
+---
+title: "Using Factory Droid with Claude Max & OpenAI Codex Subscriptions via CLIProxyAPI"
+description: "Connect Factory Droid to your Claude Max and OpenAI Codex subscriptions using CLIProxyAPI as a local OAuth-to-API-key proxy. Covers installation, latest model configuration, and troubleshooting for Claude Opus 4.7, Sonnet 4.6, GPT-5.5, and more."
+date: "2026-05-07"
+slug: "cliproxyapi-factory-droid-byok"
+tags:
+  - "ai"
+  - "cli-tools"
+  - "developer-tools"
+  - "proxy"
+  - "openai"
+  - "anthropic"
+  - "factory-droid"
+  - "byok"
+  - "local-development"
+  - "devops"
+ogImage: "/images/cliproxyapi-factory-byok-og.png"
+faqs:
+  - question: "Can I use Factory Droid with a Claude Max subscription instead of API keys?"
+    answer: "Yes. Claude Max uses OAuth tokens, not API keys. CLIProxyAPI runs a local proxy that accepts API key requests from Factory Droid and converts them to OAuth-authenticated requests to Anthropic's API."
+  - question: "Does CLIProxyAPI work with both Claude and OpenAI Codex at the same time?"
+    answer: "Yes. CLIProxyAPI supports Claude Code OAuth, Codex OAuth, Gemini CLI, and more through the same proxy. It routes requests to the right provider based on the model name."
+  - question: "Why do I get a BYOK Error 404 in Factory Droid?"
+    answer: "The most common causes are: API key not matching your proxy's api-keys list, missing /v1 suffix in baseUrl, using legacy config.json instead of settings.json, or referencing models not available on your proxy."
+  - question: "Which Factory config file should I use for custom models?"
+    answer: "Use ~/.factory/settings.json with camelCase fields (customModels, baseUrl, apiKey). The legacy ~/.factory/config.json with snake_case fields still works but settings.json takes priority and supports environment variable expansion."
+  - question: "What provider should I set for OpenAI models in Factory BYOK?"
+    answer: "Use \"openai\" for GPT models and \"anthropic\" for Claude models. The provider field determines which API format Factory uses—OpenAI Responses API or Anthropic Messages API."
+---
+
+import Callout from "@/components/Callout.astro";
+import { Picture } from "astro:assets";
+import OgImage from "./cliproxyapi-factory-byok-og.svg";
+
+<Picture src={OgImage} alt="Factory Droid with Claude Max and OpenAI Codex subscriptions via CLIProxyAPI" inferSize formats={["avif", "webp"]} />
+
+## Why You Need This
+
+Factory Droid is a fast, agent-native coding tool that embeds AI into your IDE, terminal, CLI, Slack, and project manager. But it expects API keys for Anthropic and OpenAI -- while Claude Max and OpenAI Codex subscriptions use OAuth tokens.
+
+**CLIProxyAPI bridges this gap.** It runs a local proxy that accepts API key requests from Factory Droid and converts them to OAuth-authenticated requests. One proxy handles both Claude and Codex simultaneously.
+
+<Callout type="info">
+  Both Claude and Codex work through the same proxy at the same time. Switch models in Factory with `/model` -- no restart needed.
+</Callout>
+
+## Install CLIProxyAPI
+
+On macOS, it's a two-liner:
+
+```bash
+brew install cliproxyapi
+brew services start cliproxyapi
+```
+
+That spins up a local proxy on `http://localhost:8317` with automatic token rotation and credential pooling.
+
+The default config lives at `$(brew --prefix)/etc/cliproxyapi.conf` (typically `/opt/homebrew/etc/cliproxyapi.conf` on Apple Silicon).
+
+## Authenticate with Claude and Codex
+
+Log in to each provider:
+
+```bash
+cliproxyapi login claude
+cliproxyapi login codex
+```
+
+Each command opens your browser for OAuth. Tokens are saved to `~/.cli-proxy-api/` and the proxy picks them up automatically.
+
+## Check Available Models
+
+Before configuring Factory, see what your proxy actually serves. What you see depends on which providers you've logged into:
+
+```bash
+curl -s -H "Authorization: Bearer your-api-key-1" \
+  http://localhost:8317/v1/models | python3 -c \
+  "import sys,json; data=json.load(sys.stdin); \
+   [print(m['id']) for m in sorted(data['data'], key=lambda x: x['id'])]"
+```
+
+Only add models that appear in this list to your Factory config.
+
+## Configure Factory Droid
+
+Factory reads custom models from `~/.factory/settings.json` under a `customModels` array. Create or edit this file:
+
+<Callout type="info">
+  Use `~/.factory/settings.json` with camelCase fields (`customModels`, `baseUrl`, `apiKey`). The legacy `~/.factory/config.json` with snake_case fields (`custom_models`, `base_url`, `api_key`) still works but takes lower priority and doesn't support environment variable expansion. Remove `config.json` if you have both.
+</Callout>
+
+### Minimal Configuration
+
+```json
+{
+  "customModels": [
+    {
+      "model": "claude-opus-4-7",
+      "displayName": "Claude Opus 4.7",
+      "baseUrl": "http://localhost:8317/v1",
+      "apiKey": "your-api-key-1",
+      "provider": "anthropic"
+    },
+    {
+      "model": "gpt-5.5",
+      "displayName": "GPT-5.5",
+      "baseUrl": "http://localhost:8317/v1",
+      "apiKey": "your-api-key-1",
+      "provider": "openai"
+    }
+  ]
+}
+```
+
+The `apiKey` must match one of the keys in your proxy's `api-keys` list in `cliproxyapi.conf`. The default config ships with `your-api-key-1`, `your-api-key-2`, and `your-api-key-3`. You can also use environment variable syntax: `"apiKey": "${PROVIDER_API_KEY}"`.
+
+### Full Configuration with Latest Models
+
+Here's a complete `settings.json` with all current Claude and OpenAI models:
+
+```json
+{
+  "customModels": [
+    {
+      "model": "claude-opus-4-7",
+      "displayName": "Claude Opus 4.7",
+      "baseUrl": "http://localhost:8317/v1",
+      "apiKey": "your-api-key-1",
+      "provider": "anthropic"
+    },
+    {
+      "model": "claude-sonnet-4-6",
+      "displayName": "Claude Sonnet 4.6",
+      "baseUrl": "http://localhost:8317/v1",
+      "apiKey": "your-api-key-1",
+      "provider": "anthropic"
+    },
+    {
+      "model": "claude-opus-4-6",
+      "displayName": "Claude Opus 4.6",
+      "baseUrl": "http://localhost:8317/v1",
+      "apiKey": "your-api-key-1",
+      "provider": "anthropic"
+    },
+    {
+      "model": "claude-haiku-4-5-20251001",
+      "displayName": "Claude Haiku 4.5",
+      "baseUrl": "http://localhost:8317/v1",
+      "apiKey": "your-api-key-1",
+      "provider": "anthropic"
+    },
+    {
+      "model": "claude-sonnet-4-5-20250929",
+      "displayName": "Claude Sonnet 4.5",
+      "baseUrl": "http://localhost:8317/v1",
+      "apiKey": "your-api-key-1",
+      "provider": "anthropic"
+    },
+    {
+      "model": "claude-opus-4-5-20251101",
+      "displayName": "Claude Opus 4.5",
+      "baseUrl": "http://localhost:8317/v1",
+      "apiKey": "your-api-key-1",
+      "provider": "anthropic"
+    },
+    {
+      "model": "gpt-5.5",
+      "displayName": "GPT-5.5",
+      "baseUrl": "http://localhost:8317/v1",
+      "apiKey": "your-api-key-1",
+      "provider": "openai"
+    },
+    {
+      "model": "gpt-5.4",
+      "displayName": "GPT-5.4",
+      "baseUrl": "http://localhost:8317/v1",
+      "apiKey": "your-api-key-1",
+      "provider": "openai"
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "displayName": "GPT-5.4 Mini",
+      "baseUrl": "http://localhost:8317/v1",
+      "apiKey": "your-api-key-1",
+      "provider": "openai"
+    }
+  ]
+}
+```
+
+## Provider Types
+
+The `provider` field determines which API format Factory uses to talk to the proxy:
+
+| Provider | API Format | Use For |
+|---|---|---|
+| `anthropic` | Anthropic Messages API (`/v1/messages`) | Claude models |
+| `openai` | OpenAI Responses API (`/v1/responses`) | GPT models |
+| `generic-chat-completion-api` | OpenAI Chat Completions (`/v1/chat/completions`) | OpenRouter, Ollama, vLLM, etc. |
+
+CLIProxyAPI supports all three formats and routes based on the model name regardless of which provider type Factory uses.
+
+## Using Your Models
+
+Factory detects `settings.json` changes automatically via file watching. Switch models with:
+
+```
+/model
+```
+
+Your custom models appear in a separate "Custom models" section. Pick one and start coding.
+
+To verify the proxy is responding correctly:
+
+```bash
+# Claude
+curl -s -H "x-api-key: your-api-key-1" \
+  http://localhost:8317/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{"model":"claude-opus-4-7","messages":[{"role":"user","content":"hi"}],"max_tokens":10}'
+
+# OpenAI
+curl -s -H "Authorization: Bearer your-api-key-1" \
+  http://localhost:8317/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-5.5","messages":[{"role":"user","content":"hi"}],"max_tokens":10}'
+```
+
+## Updating to New Models
+
+When new Claude or OpenAI models launch, you don't need to rebuild or reinstall anything:
+
+1. Make sure CLIProxyAPI is up to date: `brew upgrade cliproxyapi`
+2. Restart the proxy: `brew services restart cliproxyapi`
+3. Check available models with the `/v1/models` endpoint
+4. Add the new model to your `settings.json`
+
+Factory picks up config changes automatically -- no restart needed on the Droid side either.
+
+## Troubleshooting
+
+### "BYOK Error: 404"
+
+Check these in order:
+
+1. **Proxy running?** -- `brew services list | grep cliproxyapi`
+2. **API key matches?** -- The `apiKey` in `settings.json` must match an entry in your proxy's `api-keys` list in `cliproxyapi.conf`
+3. **baseUrl has /v1?** -- Must be `http://localhost:8317/v1`, not `http://localhost:8317`
+4. **Model available?** -- Query `/v1/models` to verify the model exists on your proxy
+5. **Correct config file?** -- Use `settings.json` (camelCase), not the legacy `config.json` (snake_case)
+6. **Correct provider?** -- `anthropic` for Claude, `openai` for GPT
+
+### OAuth token expired
+
+Re-authenticate:
+
+```bash
+cliproxyapi login claude
+cliproxyapi login codex
+```
+
+Tokens are saved to `~/.cli-proxy-api/` and picked up automatically.
+
+### Model not appearing in Factory selector
+
+Check JSON syntax in `settings.json`. Factory watches this file and should detect changes within seconds. Verify all required fields are present: `model`, `baseUrl`, `apiKey`, and `provider`.
+
+### "Invalid API key" from proxy
+
+The proxy validates every request against its `api-keys` list. Make sure the `apiKey` in your Factory config matches exactly. You can edit the list in `cliproxyapi.conf` if needed.
