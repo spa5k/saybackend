@@ -23,6 +23,7 @@ pnpm-debug.log*
 # jetbrains setting folder
 .idea/
 .vercel
+.wrangler
 .aider*
 .specstory/
 uuidv7-postgres-benchmark

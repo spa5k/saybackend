@@ -5,7 +5,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "saybackend",
-  "main": "./dist/_worker.js/index.js",
   "minify": true,
 
   /**
