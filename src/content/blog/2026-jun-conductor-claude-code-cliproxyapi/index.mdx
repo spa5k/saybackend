@@ -1,0 +1,484 @@
+---
+title: "Making Conductor's Claude Code use my OpenAI business plan through CLIProxyAPI"
+description: "How I routed Conductor's bundled Claude Code through CLIProxyAPI so Conductor worktrees could use my company OpenAI/Codex plan, while my normal Codex CLI stayed on its own plan."
+date: "2026-06-10"
+slug: "conductor-claude-code-cliproxyapi-openai-business-plan"
+ogImage: "/images/conductor-claude-code-cliproxyapi-og.png"
+tags:
+  - "ai"
+  - "claude-code"
+  - "codex"
+  - "conductor"
+  - "cliproxyapi"
+  - "developer-tools"
+  - "worktrees"
+  - "local-development"
+  - "proxy"
+  - "openai"
+  - "anthropic"
+faqs:
+  - question: "Why use CLIProxyAPI with Conductor?"
+    answer: "Conductor has a nice worktree-based agent workflow, but its Claude Code runner expects Anthropic-style configuration. CLIProxyAPI can expose a local Anthropic-compatible endpoint backed by Codex/OpenAI OAuth, so Conductor can keep using Claude Code while requests route to your Codex-backed models."
+  - question: "Does this replace my normal Codex CLI setup?"
+    answer: "No. The point of this setup is separation. Codex CLI can keep using your normal plan and configuration, while Conductor's Claude Code uses CLIProxyAPI and a separate account or business plan."
+  - question: "Why did Conductor still send claude-opus model names?"
+    answer: "Conductor may keep model choices in its own session state and still ask Claude Code for Claude model IDs. The practical fix is to configure CLIProxyAPI aliases so those Claude-looking model IDs resolve to Codex-backed GPT models."
+  - question: "Where should the Claude Code environment variables live?"
+    answer: "For Conductor, put them in ~/.claude/settings.json under the env key, and optionally mirror them in Conductor's Environment settings. New Conductor windows or sessions are needed for changes to take effect."
+---
+
+import Callout from "@/components/Callout.astro";
+import Mermaid from "@/components/MermaidSSR.astro";
+
+<img
+  src="/images/conductor-claude-code-cliproxyapi-og.png"
+  alt="Conductor routing Claude Code through CLIProxyAPI to a Codex business plan while Codex CLI keeps its default plan"
+  loading="eager"
+/>
+
+I like Conductor's worktree setup.
+
+It gives me a clean way to spin up separate coding contexts without constantly disturbing the main checkout I am already using from Codex. That matters more than it sounds. When I have a Codex session with a plan, context, and local state already lined up, switching the whole machine back and forth between accounts or tools is just friction.
+
+The setup I wanted was:
+
+- **normal Codex CLI** keeps using my default plan and config
+- **Conductor** keeps using its bundled Claude Code runner and worktree UI
+- **Conductor's Claude Code** routes through CLIProxyAPI
+- **CLIProxyAPI** uses my company/business OpenAI/Codex login
+
+So the chain becomes:
+
+```text
+Conductor worktree
+  -> bundled Claude Code
+  -> http://localhost:8317
+  -> CLIProxyAPI
+  -> OpenAI/Codex OAuth-backed models
+```
+
+<Mermaid
+  code={`
+flowchart LR
+    A[Conductor worktree] --> B[Claude Code]
+    B --> C[CLIProxyAPI]
+    C --> D[OpenAI Codex business plan]
+    E[Codex CLI] --> F[Default Codex plan]
+`}
+/>
+
+This post is the version that finally worked.
+
+<Callout type="info">
+  The annoying part was not Claude Code itself. The standalone Claude CLI worked
+  quickly. The annoying part was Conductor continuing to send Claude-looking
+  model IDs even after the UI/config said GPT. The proxy had to handle that.
+</Callout>
+
+## Install and log in to CLIProxyAPI
+
+On macOS:
+
+```bash
+brew install cliproxyapi
+brew services start cliproxyapi
+```
+
+Then log in with the account you want Conductor to use.
+
+For me, that was my company/business Codex account:
+
+```bash
+cliproxyapi -codex-login
+```
+
+CLIProxyAPI stores auth files under:
+
+```text
+~/.cli-proxy-api/
+```
+
+The proxy config is usually:
+
+```text
+/opt/homebrew/etc/cliproxyapi.conf
+```
+
+The local API server listens on:
+
+```text
+http://localhost:8317
+```
+
+Check that it is alive:
+
+```bash
+brew services info cliproxyapi
+lsof -nP -iTCP:8317 -sTCP:LISTEN
+```
+
+## Confirm the proxy model list
+
+Do not copy random model names from old docs. Query your local proxy.
+
+Get one of your local proxy API keys from `cliproxyapi.conf`, then:
+
+```bash
+curl -sS \
+  -H "Authorization: Bearer YOUR_LOCAL_PROXY_KEY" \
+  http://localhost:8317/v1/models | jq -r '.data[]?.id'
+```
+
+In my case, the useful Codex-backed models included:
+
+```text
+gpt-5.5
+gpt-5.4
+gpt-5.4-mini
+```
+
+The older `gpt-5-codex(...)` examples were stale for this setup.
+
+## Configure Claude Code directly
+
+Conductor exposes this in its UI as:
+
+```text
+Claude Code executable path
+Claude settings
+~/.claude/settings.json
+```
+
+So the most reliable place to configure the Anthropic-compatible proxy is Claude Code's own settings file.
+
+Edit:
+
+```text
+~/.claude/settings.json
+```
+
+Use this shape:
+
+```json
+{
+  "theme": "dark",
+  "model": "gpt-5.5",
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "YOUR_LOCAL_PROXY_KEY",
+    "ANTHROPIC_BASE_URL": "http://localhost:8317",
+    "API_TIMEOUT_MS": "3000000",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "gpt-5.5",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "gpt-5.5",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "gpt-5.4",
+    "ANTHROPIC_MODEL": "gpt-5.5",
+    "ANTHROPIC_SMALL_FAST_MODEL": "gpt-5.4"
+  }
+}
+```
+
+Because this file contains a key, lock it down:
+
+```bash
+chmod 600 ~/.claude/settings.json
+```
+
+Then test Claude Code without relying on your shell environment:
+
+```bash
+env \
+  -u ANTHROPIC_AUTH_TOKEN \
+  -u ANTHROPIC_API_KEY \
+  -u ANTHROPIC_BASE_URL \
+  -u ANTHROPIC_MODEL \
+  -u ANTHROPIC_SMALL_FAST_MODEL \
+  -u ANTHROPIC_DEFAULT_OPUS_MODEL \
+  -u ANTHROPIC_DEFAULT_SONNET_MODEL \
+  -u ANTHROPIC_DEFAULT_HAIKU_MODEL \
+  claude -p "Reply exactly: ok" \
+  --output-format text \
+  --no-session-persistence
+```
+
+Expected:
+
+```text
+ok
+```
+
+If that works, Claude Code itself is fine.
+
+## Mirror the env in Conductor if needed
+
+Conductor also has Environment settings. In my case, putting the values only in `~/.claude/settings.json` was not enough for every Conductor run, so I mirrored the provider env values into Conductor's local environment store.
+
+From the UI, add local/shared env vars equivalent to:
+
+```text
+ANTHROPIC_BASE_URL=http://localhost:8317
+ANTHROPIC_AUTH_TOKEN=YOUR_LOCAL_PROXY_KEY
+ANTHROPIC_API_KEY=YOUR_LOCAL_PROXY_KEY
+API_TIMEOUT_MS=3000000
+ANTHROPIC_DEFAULT_OPUS_MODEL=gpt-5.5
+ANTHROPIC_DEFAULT_SONNET_MODEL=gpt-5.5
+ANTHROPIC_DEFAULT_HAIKU_MODEL=gpt-5.4
+ANTHROPIC_MODEL=gpt-5.5
+ANTHROPIC_SMALL_FAST_MODEL=gpt-5.4
+```
+
+I kept the model names plain here. Reasoning/effort can be controlled by Conductor or CLIProxyAPI, but the first goal is to make routing boring.
+
+## Configure Conductor's defaults
+
+Conductor's settings file lives at:
+
+```text
+~/.conductor/settings.toml
+```
+
+Mine ended up like this:
+
+```toml
+"$schema" = "https://conductor.build/schemas/settings.schema.json"
+claude_provider = "anthropic"
+codex_provider = "default"
+
+[git]
+branch_prefix_type = "github_username"
+
+[models]
+default = "gpt-5.5"
+review = "gpt-5.5"
+
+[models.claude_code]
+default_effort_level = "medium"
+review_effort_level = "xhigh"
+
+[models.codex]
+default_thinking_level = "high"
+review_thinking_level = "high"
+```
+
+This handles the Conductor side of the UI. But it was not the final fix.
+
+## The real gotcha: Conductor still sent Claude model IDs
+
+Even after changing the settings above, Conductor kept sending requests like:
+
+```json
+{
+  "model": "claude-opus-4-8"
+}
+```
+
+CLIProxyAPI then did the reasonable thing:
+
+```text
+providers=claude, model=claude-opus-4-8
+```
+
+But I had only logged in with Codex/OpenAI, not Claude. So CLIProxyAPI returned:
+
+```text
+503 auth_unavailable: no auth available
+```
+
+This is the point where the architecture becomes clearer:
+
+- Conductor may keep insisting on Claude-looking model IDs.
+- Claude Code may accept those IDs.
+- CLIProxyAPI routes by model name.
+- If the model name starts with `claude-*`, CLIProxyAPI tries Claude auth unless told otherwise.
+
+So the proxy itself needs to translate those Claude-looking names into Codex-backed models.
+
+## Add CLIProxyAPI aliases for Conductor
+
+Edit:
+
+```text
+/opt/homebrew/etc/cliproxyapi.conf
+```
+
+Add:
+
+```yaml
+# Route Claude Code / Conductor Claude model IDs to Codex OAuth models.
+# Conductor may still send claude-* IDs even when configured for GPT models.
+oauth-model-alias:
+  codex:
+    - name: "gpt-5.5"
+      alias: "claude-opus-4-8"
+      fork: true
+    - name: "gpt-5.5"
+      alias: "claude-opus-4-8-1m"
+      fork: true
+    - name: "gpt-5.5"
+      alias: "claude-opus-4-7"
+      fork: true
+    - name: "gpt-5.5"
+      alias: "claude-opus-4-7-1m"
+      fork: true
+    - name: "gpt-5.5"
+      alias: "claude-opus-4-6"
+      fork: true
+    - name: "gpt-5.5"
+      alias: "claude-opus-4-6-1m"
+      fork: true
+    - name: "gpt-5.5"
+      alias: "claude-sonnet-4-6"
+      fork: true
+    - name: "gpt-5.5"
+      alias: "claude-sonnet-4-6-1m"
+      fork: true
+    - name: "gpt-5.4"
+      alias: "claude-haiku-4-5-20251001"
+      fork: true
+
+oauth-excluded-models:
+  claude:
+    - "claude-*"
+```
+
+Then restart the proxy:
+
+```bash
+brew services restart cliproxyapi
+```
+
+If Homebrew gets stuck stopping the service, run the restart outside a sandboxed shell or restart the LaunchAgent from your normal terminal.
+
+## Test the exact model Conductor sends
+
+This was the important test:
+
+```bash
+curl -sS \
+  -H "Authorization: Bearer YOUR_LOCAL_PROXY_KEY" \
+  -H "Content-Type: application/json" \
+  -H "anthropic-version: 2023-06-01" \
+  http://localhost:8317/v1/messages \
+  -d '{
+    "model": "claude-opus-4-8",
+    "max_tokens": 24,
+    "messages": [
+      {
+        "role": "user",
+        "content": "reply ok"
+      }
+    ]
+  }'
+```
+
+Once this returned `200`, Conductor worked.
+
+I also tested the other names Conductor might send:
+
+```text
+claude-opus-4-8
+claude-opus-4-8-1m
+claude-sonnet-4-6
+claude-sonnet-4-6-1m
+claude-haiku-4-5-20251001
+```
+
+All returned `200` after the alias config.
+
+## Keep your shell clean
+
+I initially put the Anthropic env vars in `~/.zshrc`. That worked for a normal terminal, but it was the wrong level of config for this goal.
+
+The whole point was separation:
+
+- Codex CLI keeps its existing setup.
+- Conductor gets its own route through Claude Code and CLIProxyAPI.
+- Shell startup does not secretly override everything.
+
+So I removed the `ANTHROPIC_*` block from `~/.zshrc` after `~/.claude/settings.json` and Conductor's environment were correct.
+
+## Debug checklist
+
+If this setup fails, check in this order.
+
+### 1. Does CLIProxyAPI run?
+
+```bash
+brew services info cliproxyapi
+lsof -nP -iTCP:8317 -sTCP:LISTEN
+```
+
+### 2. Does the local key work?
+
+```bash
+curl -sS \
+  -H "Authorization: Bearer YOUR_LOCAL_PROXY_KEY" \
+  http://localhost:8317/v1/models
+```
+
+You should get `200`.
+
+### 3. Does Claude Code read `~/.claude/settings.json`?
+
+```bash
+env \
+  -u ANTHROPIC_AUTH_TOKEN \
+  -u ANTHROPIC_API_KEY \
+  -u ANTHROPIC_BASE_URL \
+  claude -p "Reply exactly: ok" \
+  --output-format text \
+  --no-session-persistence
+```
+
+### 4. What model is Conductor actually sending?
+
+Look at CLIProxyAPI logs:
+
+```bash
+ls -lt ~/.cli-proxy-api/logs | head
+```
+
+Open the newest `error-v1-messages-*.log` and search for:
+
+```text
+"model":
+```
+
+If you see `claude-opus-4-8`, your Conductor settings are not the deciding layer. Add a proxy alias.
+
+### 5. Test that exact model directly
+
+```bash
+curl -sS \
+  -H "Authorization: Bearer YOUR_LOCAL_PROXY_KEY" \
+  -H "Content-Type: application/json" \
+  -H "anthropic-version: 2023-06-01" \
+  http://localhost:8317/v1/messages \
+  -d '{"model":"claude-opus-4-8","max_tokens":24,"messages":[{"role":"user","content":"reply ok"}]}'
+```
+
+If this returns `200`, the proxy side is fixed.
+
+## Why this is worth it
+
+This sounds like a lot of plumbing for one tool, but the end state is clean.
+
+I get to keep Codex CLI exactly how I already had it: same plan, same model defaults, same ongoing context. I do not need to switch credentials just because I want to use Conductor's worktree UI for a separate thread of work.
+
+Conductor gets its own path:
+
+```text
+Conductor -> Claude Code -> CLIProxyAPI -> company OpenAI/Codex plan
+```
+
+Codex CLI keeps its own path:
+
+```text
+Codex CLI -> default Codex config/plan
+```
+
+That separation is the win. It lets each tool be good at what I wanted it for:
+
+- Codex for the main, continuous coding session
+- Conductor for isolated worktree-based experiments
+- CLIProxyAPI as the routing layer between subscription-style logins and API-shaped tools
+
+No global shell env switching. No account juggling. No destroying the current agent context just to try a different workflow.
