@@ -2,7 +2,7 @@ import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
 import pagefind from "astro-pagefind";
-import { defineConfig } from "astro/config";
+import { defineConfig, sessionDrivers } from "astro/config";
 
 import react from "@astrojs/react";
 import solidJs from "@astrojs/solid-js";
@@ -40,6 +40,11 @@ export default defineConfig({
   },
 
   prefetch: true,
+
+  session: {
+    // Avoid the Cloudflare adapter's default KV session binding for this static site.
+    driver: sessionDrivers.lruCache(),
+  },
 
   markdown: {
     syntaxHighlight: {
