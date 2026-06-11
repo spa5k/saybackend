@@ -18,7 +18,7 @@ tags:
   - "anthropic"
 faqs:
   - question: "Why use CLIProxyAPI with Conductor?"
-    answer: "Conductor has a nice worktree-based agent workflow, but its Claude Code runner expects Anthropic-style configuration. CLIProxyAPI can expose a local Anthropic-compatible endpoint backed by Codex/OpenAI OAuth, so Conductor can keep using Claude Code while requests route to your Codex-backed models."
+    answer: "Conductor can run Codex directly too. This setup is specifically for its Claude Code runner, which expects Anthropic-style configuration. CLIProxyAPI can expose a local Anthropic-compatible endpoint backed by Codex/OpenAI OAuth, so that Claude Code path can route to Codex-backed models."
   - question: "Does this require a separate Anthropic API key?"
     answer: "No. The point of this setup is to expose an Anthropic-compatible local endpoint through CLIProxyAPI, while the actual model requests route to Codex/OpenAI OAuth-backed models."
   - question: "Why did Conductor still send claude-opus model names?"
@@ -36,28 +36,21 @@ import Mermaid from "@/components/MermaidSSR.astro";
   loading="eager"
 />
 
-Claude Code and Conductor expect Anthropic-style configuration. CLIProxyAPI can sit in the middle and expose a local Anthropic-compatible endpoint while routing requests to Codex-backed OpenAI models.
+Claude Code expects Anthropic-style configuration. Conductor can run Codex directly, but if you want to use Conductor's Claude Code runner with a Codex subscription, CLIProxyAPI can sit in the middle and expose a local Anthropic-compatible endpoint while routing requests to Codex-backed OpenAI models.
 
 The setup is:
 
 - **Claude Code** points at CLIProxyAPI
-- **Conductor** keeps using its Claude Code runner
+- **Conductor's Claude Code runner** uses that Claude Code config
 - **CLIProxyAPI** maps Claude-looking model names to Codex-backed models
 
 So the chain becomes:
 
-```text
-Claude Code / Conductor
-  -> http://localhost:8317
-  -> CLIProxyAPI
-  -> OpenAI/Codex OAuth-backed models
-```
-
 <Mermaid
   code={`
 flowchart LR
-    A[Claude Code] --> C[CLIProxyAPI]
-    B[Conductor] --> A
+    B[Conductor Claude Code runner] --> A[Claude Code]
+    A --> C[CLIProxyAPI]
     C --> D[Codex-backed models]
 `}
 />
@@ -68,6 +61,7 @@ This post is the version that finally worked.
   The annoying part was not Claude Code itself. The standalone Claude CLI worked
   quickly. The annoying part was Conductor continuing to send Claude-looking
   model IDs even after the UI/config said GPT. The proxy had to handle that.
+  Conductor wasn't respecting the ANTHROPIC_DEFAULT_OPUS_MODEL type envs.
 </Callout>
 
 ## Install and log in to CLIProxyAPI
@@ -446,10 +440,15 @@ If this returns `200`, the proxy side is fixed.
 
 ## Final shape
 
-Once the aliases are in place, both Claude Code and Conductor can use the same local proxy path:
+Once the aliases are in place, the Claude Code runner path in Conductor can use the same local proxy path:
 
-```text
-Conductor -> Claude Code -> CLIProxyAPI -> Codex-backed models
-```
+<Mermaid
+  code={`
+flowchart LR
+    A[Conductor Claude Code runner] --> B[Claude Code]
+    B --> C[CLIProxyAPI]
+    C --> D[Codex-backed models]
+`}
+/>
 
 The main trick is not the Claude Code env. It is making sure the proxy translates the Claude model IDs that Conductor actually sends.
