@@ -1,8 +1,8 @@
 ---
-title: "Making Conductor's Claude Code use my OpenAI business plan through CLIProxyAPI"
-description: "How I routed Conductor's bundled Claude Code through CLIProxyAPI so Conductor worktrees could use my company OpenAI/Codex plan, while my normal Codex CLI stayed on its own plan."
+title: "How to run a Codex subscription in Claude Code and Conductor"
+description: "A simple CLIProxyAPI setup for using Codex-backed models from Claude Code and Conductor."
 date: "2026-06-10"
-slug: "conductor-claude-code-cliproxyapi-openai-business-plan"
+slug: "codex-subscription-claude-code-conductor"
 ogImage: "/images/conductor-claude-code-cliproxyapi-og.png"
 tags:
   - "ai"
@@ -19,8 +19,8 @@ tags:
 faqs:
   - question: "Why use CLIProxyAPI with Conductor?"
     answer: "Conductor has a nice worktree-based agent workflow, but its Claude Code runner expects Anthropic-style configuration. CLIProxyAPI can expose a local Anthropic-compatible endpoint backed by Codex/OpenAI OAuth, so Conductor can keep using Claude Code while requests route to your Codex-backed models."
-  - question: "Does this replace my normal Codex CLI setup?"
-    answer: "No. The point of this setup is separation. Codex CLI can keep using your normal plan and configuration, while Conductor's Claude Code uses CLIProxyAPI and a separate account or business plan."
+  - question: "Does this require a separate Anthropic API key?"
+    answer: "No. The point of this setup is to expose an Anthropic-compatible local endpoint through CLIProxyAPI, while the actual model requests route to Codex/OpenAI OAuth-backed models."
   - question: "Why did Conductor still send claude-opus model names?"
     answer: "Conductor may keep model choices in its own session state and still ask Claude Code for Claude model IDs. The practical fix is to configure CLIProxyAPI aliases so those Claude-looking model IDs resolve to Codex-backed GPT models."
   - question: "Where should the Claude Code environment variables live?"
@@ -32,26 +32,22 @@ import Mermaid from "@/components/MermaidSSR.astro";
 
 <img
   src="/images/conductor-claude-code-cliproxyapi-og.png"
-  alt="Conductor routing Claude Code through CLIProxyAPI to a Codex business plan while Codex CLI keeps its default plan"
+  alt="How to run a Codex subscription in Claude Code and Conductor"
   loading="eager"
 />
 
-I like Conductor's worktree setup.
+Claude Code and Conductor expect Anthropic-style configuration. CLIProxyAPI can sit in the middle and expose a local Anthropic-compatible endpoint while routing requests to Codex-backed OpenAI models.
 
-It gives me a clean way to spin up separate coding contexts without constantly disturbing the main checkout I am already using from Codex. That matters more than it sounds. When I have a Codex session with a plan, context, and local state already lined up, switching the whole machine back and forth between accounts or tools is just friction.
+The setup is:
 
-The setup I wanted was:
-
-- **normal Codex CLI** keeps using my default plan and config
-- **Conductor** keeps using its bundled Claude Code runner and worktree UI
-- **Conductor's Claude Code** routes through CLIProxyAPI
-- **CLIProxyAPI** uses my company/business OpenAI/Codex login
+- **Claude Code** points at CLIProxyAPI
+- **Conductor** keeps using its Claude Code runner
+- **CLIProxyAPI** maps Claude-looking model names to Codex-backed models
 
 So the chain becomes:
 
 ```text
-Conductor worktree
-  -> bundled Claude Code
+Claude Code / Conductor
   -> http://localhost:8317
   -> CLIProxyAPI
   -> OpenAI/Codex OAuth-backed models
@@ -60,10 +56,9 @@ Conductor worktree
 <Mermaid
   code={`
 flowchart LR
-    A[Conductor worktree] --> B[Claude Code]
-    B --> C[CLIProxyAPI]
-    C --> D[OpenAI Codex business plan]
-    E[Codex CLI] --> F[Default Codex plan]
+    A[Claude Code] --> C[CLIProxyAPI]
+    B[Conductor] --> A
+    C --> D[Codex-backed models]
 `}
 />
 
@@ -84,9 +79,7 @@ brew install cliproxyapi
 brew services start cliproxyapi
 ```
 
-Then log in with the account you want Conductor to use.
-
-For me, that was my company/business Codex account:
+Then log in with the Codex/OpenAI account you want to use:
 
 ```bash
 cliproxyapi -codex-login
@@ -385,15 +378,9 @@ All returned `200` after the alias config.
 
 ## Keep your shell clean
 
-I initially put the Anthropic env vars in `~/.zshrc`. That worked for a normal terminal, but it was the wrong level of config for this goal.
+I initially put the Anthropic env vars in `~/.zshrc`. That worked for a normal terminal, but it is cleaner to keep this setup in `~/.claude/settings.json` and Conductor's own environment settings.
 
-The whole point was separation:
-
-- Codex CLI keeps its existing setup.
-- Conductor gets its own route through Claude Code and CLIProxyAPI.
-- Shell startup does not secretly override everything.
-
-So I removed the `ANTHROPIC_*` block from `~/.zshrc` after `~/.claude/settings.json` and Conductor's environment were correct.
+That way shell startup does not secretly override unrelated tools.
 
 ## Debug checklist
 
@@ -457,28 +444,12 @@ curl -sS \
 
 If this returns `200`, the proxy side is fixed.
 
-## Why this is worth it
+## Final shape
 
-This sounds like a lot of plumbing for one tool, but the end state is clean.
-
-I get to keep Codex CLI exactly how I already had it: same plan, same model defaults, same ongoing context. I do not need to switch credentials just because I want to use Conductor's worktree UI for a separate thread of work.
-
-Conductor gets its own path:
+Once the aliases are in place, both Claude Code and Conductor can use the same local proxy path:
 
 ```text
-Conductor -> Claude Code -> CLIProxyAPI -> company OpenAI/Codex plan
+Conductor -> Claude Code -> CLIProxyAPI -> Codex-backed models
 ```
 
-Codex CLI keeps its own path:
-
-```text
-Codex CLI -> default Codex config/plan
-```
-
-That separation is the win. It lets each tool be good at what I wanted it for:
-
-- Codex for the main, continuous coding session
-- Conductor for isolated worktree-based experiments
-- CLIProxyAPI as the routing layer between subscription-style logins and API-shaped tools
-
-No global shell env switching. No account juggling. No destroying the current agent context just to try a different workflow.
+The main trick is not the Claude Code env. It is making sure the proxy translates the Claude model IDs that Conductor actually sends.

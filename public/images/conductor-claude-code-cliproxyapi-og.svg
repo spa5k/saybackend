@@ -8,8 +8,7 @@
   aria-labelledby="title desc"
 >
   <title id="title">
-    Making Conductor's Claude Code use my OpenAI business plan through
-    CLIProxyAPI
+    How to run a Codex subscription in Claude Code and Conductor
   </title>
   <desc id="desc">SayBackend Open Graph image with the article title.</desc>
 
@@ -124,9 +123,9 @@
     font-weight="800"
     letter-spacing="0"
   >
-    <tspan x="96" dy="0">Making Conductor's Claude</tspan>
-    <tspan x="96" dy="78">Code use my OpenAI business</tspan>
-    <tspan x="96" dy="78">plan through CLIProxyAPI</tspan>
+    <tspan x="96" dy="0">How to run a Codex</tspan>
+    <tspan x="96" dy="78">subscription in Claude Code</tspan>
+    <tspan x="96" dy="78">and Conductor</tspan>
   </text>
 
   <rect x="96" y="520" width="1008" height="1.5" fill="#bfdbfe" />
