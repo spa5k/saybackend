@@ -5,8 +5,8 @@
   "compatibility_date": "2025-09-15",
   "routes": [
     {
-      "custom_domain": true,
-      "pattern": "www.saybackend.com",
+      "pattern": "www.saybackend.com/*",
+      "zone_name": "saybackend.com",
     },
   ],
 }
