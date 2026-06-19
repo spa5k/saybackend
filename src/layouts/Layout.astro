@@ -11,9 +11,10 @@ type Props = {
   title: string;
   description: string;
   image?: string;
+  noindex?: boolean;
 };
 
-const { title, description, image } = Astro.props;
+const { title, description, image, noindex = false } = Astro.props;
 ---
 
 <!doctype html>
@@ -23,6 +24,7 @@ const { title, description, image } = Astro.props;
       title={`${title} | ${SITE.TITLE}`}
       description={description}
       image={image}
+      noindex={noindex}
     />
     <style is:global>
       /* Add styles for modal handling */

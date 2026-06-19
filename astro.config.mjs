@@ -17,7 +17,17 @@ export default defineConfig({
   site: "https://saybackend.com",
 
   integrations: [
-    sitemap(),
+    sitemap({
+      serialize(item) {
+        const pathname = new URL(item.url).pathname;
+
+        if (pathname === "/tags/" || pathname.startsWith("/tags/")) {
+          return undefined;
+        }
+
+        return item;
+      },
+    }),
     mdx(),
     pagefind(),
     compress(),

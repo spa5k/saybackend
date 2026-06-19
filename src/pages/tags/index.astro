@@ -5,16 +5,17 @@ import { getCollection } from "astro:content";
 
 const posts = await getCollection("blog", ({ data }) => !data.draft);
 const tags = [...new Set(posts.flatMap((post) => post.data.tags || []))].sort();
+const tagHref = (tag: string) => `/tags/${encodeURIComponent(tag)}`;
 ---
 
-<Layout title="Tags" description="List of tags used.">
+<Layout title="Tags" description="List of tags used." noindex>
   <Container>
     <div class="space-y-10">
       <h1 class="animate font-semibold">All Tags</h1>
       <div class="animate flex flex-wrap gap-2">
         {
           tags.map((tag) => (
-            <a href={`/tags/${tag}`} class="tag-pill">
+            <a href={tagHref(tag)} class="tag-pill">
               {tag}{" "}
               <span class="tag-pill-count">
                 ({posts.filter((post) => post.data.tags?.includes(tag)).length})

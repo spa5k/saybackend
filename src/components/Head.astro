@@ -10,11 +10,17 @@ interface Props {
   title: string;
   description: string;
   image?: string;
+  noindex?: boolean;
 }
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
-const { title, description, image = "/images/blog.png" } = Astro.props;
+const {
+  title,
+  description,
+  image = "/images/blog.png",
+  noindex = false,
+} = Astro.props;
 ---
 
 <!-- Global Metadata -->
@@ -65,6 +71,7 @@ const { title, description, image = "/images/blog.png" } = Astro.props;
 <title>{title}</title>
 <meta name="title" content={title} />
 <meta name="description" content={description} />
+{noindex && <meta name="robots" content="noindex,follow" />}
 
 <!-- Open Graph / Facebook -->
 <meta property="og:type" content="website" />
