@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "saybackend-www-redirect",
+  "main": "./src/www-redirect-worker.js",
+  "compatibility_date": "2025-09-15",
+  "routes": [
+    {
+      "custom_domain": true,
+      "pattern": "www.saybackend.com",
+    },
+  ],
+}
