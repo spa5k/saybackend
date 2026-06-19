@@ -35,10 +35,10 @@ const posts = Astro.props.posts ?? [];
           "@type": "CollectionPage",
           name: topic.title,
           description: topic.description,
-          url: `https://www.saybackend.com/topics/${topic.slug}/`,
+          url: `https://saybackend.com/topics/${topic.slug}/`,
           isPartOf: {
             "@type": "WebSite",
-            "@id": "https://www.saybackend.com/#website",
+            "@id": "https://saybackend.com/#website",
           },
           about: topic.keywords,
           mainEntity: {
@@ -46,7 +46,7 @@ const posts = Astro.props.posts ?? [];
             itemListElement: posts.map((post: any, index: number) => ({
               "@type": "ListItem",
               position: index + 1,
-              url: `https://www.saybackend.com/blog/${post.id.replace(
+              url: `https://saybackend.com/blog/${post.id.replace(
                 /\/index$/,
                 "",
               )}/`,
@@ -61,13 +61,13 @@ const posts = Astro.props.posts ?? [];
               "@type": "ListItem",
               position: 1,
               name: "Home",
-              item: "https://www.saybackend.com/",
+              item: "https://saybackend.com/",
             },
             {
               "@type": "ListItem",
               position: 2,
               name: "Topics",
-              item: "https://www.saybackend.com/topics/",
+              item: "https://saybackend.com/topics/",
             },
             {
               "@type": "ListItem",

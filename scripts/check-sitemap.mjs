@@ -7,7 +7,7 @@ const origin = (baseUrl || defaultBaseUrl || "").trim().replace(/\/+$/, "");
 
 if (!origin) {
   console.error(
-    "Missing site URL. Provide `SITE_URL=https://www.saybackend.com` or `--url=https://www.saybackend.com`.",
+    "Missing site URL. Provide `SITE_URL=https://saybackend.com` or `--url=https://saybackend.com`.",
   );
   process.exit(2);
 }

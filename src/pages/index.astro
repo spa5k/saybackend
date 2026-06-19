@@ -37,32 +37,32 @@ const marqueeText = `${marqueeItems.join(" /// ")} ///`;
       "@graph": [
         {
           "@type": "WebSite",
-          "@id": "https://www.saybackend.com/#website",
-          url: "https://www.saybackend.com/",
+          "@id": "https://saybackend.com/#website",
+          url: "https://saybackend.com/",
           name: "SayBackend",
           description:
             "A engineering blog dedicated to backend systems, DevOps, and structural data patterns",
           publisher: {
-            "@id": "https://www.saybackend.com/#organization",
+            "@id": "https://saybackend.com/#organization",
           },
           potentialAction: {
             "@type": "SearchAction",
             target: {
               "@type": "EntryPoint",
               urlTemplate:
-                "https://www.saybackend.com/pagefind/?q={search_term_string}",
+                "https://saybackend.com/pagefind/?q={search_term_string}",
             },
             "query-input": "required name=search_term_string",
           },
         },
         {
           "@type": "Organization",
-          "@id": "https://www.saybackend.com/#organization",
+          "@id": "https://saybackend.com/#organization",
           name: "SayBackend",
-          url: "https://www.saybackend.com/",
+          url: "https://saybackend.com/",
           logo: {
             "@type": "ImageObject",
-            url: "https://www.saybackend.com/favicon.ico",
+            url: "https://saybackend.com/favicon.ico",
           },
           sameAs: ["https://github.com/spa5k"],
           contactPoint: {
@@ -78,7 +78,7 @@ const marqueeText = `${marqueeItems.join(" /// ")} ///`;
               "@type": "ListItem",
               position: 1,
               name: "Home",
-              item: "https://www.saybackend.com/",
+              item: "https://saybackend.com/",
             },
           ],
         },

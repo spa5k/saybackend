@@ -9,6 +9,7 @@
     "check": "astro check",
     "preview": "astro preview",
     "astro": "astro",
+    "deploy": "wrangler deploy --config wrangler.deploy.jsonc",
     "format": "prettier --write .",
     "check:sitemap": "node scripts/check-sitemap.mjs"
   },

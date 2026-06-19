@@ -14,7 +14,7 @@ import cloudflare from "@astrojs/cloudflare";
 
 /** @type {import('astro').AstroConfig} */
 export default defineConfig({
-  site: "https://www.saybackend.com",
+  site: "https://saybackend.com",
 
   integrations: [
     sitemap(),
