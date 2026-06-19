@@ -1,6 +1,6 @@
 ---
-title: "Running Kafka Locally with Docker and KRaft Mode"
-description: "Learn how to set up and run Apache Kafka locally using Docker with the new KRaft mode, eliminating the need for Zookeeper."
+title: "Run Kafka Locally with Docker Compose and KRaft Mode"
+description: "Start Apache Kafka locally with Docker Compose and KRaft mode, avoid ZooKeeper, configure advertised listeners, and verify the broker with Kafka UI."
 date: "2025-01-28"
 oldPath: "05-kafka-in-docker-kraft"
 tags:
@@ -8,31 +8,7 @@ tags:
   - "docker"
   - "kraft"
   - "streaming"
-  - "message-queue"
   - "apache-kafka"
-  - "kafka-docker"
-  - "kafka-kraft-mode"
-  - "kafka-without-zookeeper"
-  - "local-kafka-setup"
-  - "docker-compose-kafka"
-  - "kafka-streaming-platform"
-  - "kafka-cluster-docker"
-  - "kafka-development-environment"
-  - "kafka-local-development"
-  - "kafka-docker-compose"
-  - "kafka-kraft-configuration"
-  - "kafka-broker-setup"
-  - "kafka-docker-tutorial"
-  - "kafka-kraft-cluster"
-  - "kafka-docker-configuration"
-  - "kafka-local-cluster"
-  - "kafka-docker-setup"
-  - "kafka-kraft-mode-tutorial"
-  - "kafka-with-docker"
-  - "kafka-local-development-setup"
-  - "kafka-kraft-mode-docker"
-  - "kafka-docker-cluster"
-  - "kafka-kraft-mode-configuration"
 faqs:
   - question: "What is KRaft mode in Kafka?"
     answer: "KRaft (Kafka Raft) replaces ZooKeeper with Kafka’s built-in metadata quorum. It simplifies local setups and aligns with Kafka’s newer architecture."
@@ -65,6 +41,13 @@ import KafkaZookeeperKraft from "./kafka_zookeeper_kraft.jpg";
 
 ## Why KRaft Mode Matters
 
+<Callout type="info">
+  **Direct answer:** For local Kafka development in 2026, use a single Kafka
+  broker in KRaft mode plus Kafka UI. The critical setting is
+  `KAFKA_ADVERTISED_LISTENERS`; if it points at the wrong host or port, clients
+  will connect once and then fail on broker metadata.
+</Callout>
+
 Kafka Raft Metadata (KRaft) is a new mode for Apache Kafka that eliminates the need for Zookeeper. It was introduced in KIP-500 to remove the kafka dependency on Zookeeper.
 Apache Kafka traditionally required Zookeeper for cluster coordination - until KRaft (Kafka Raft Metadata) mode arrived. This update eliminates Zookeeper dependencies while improving:
 
@@ -82,6 +65,8 @@ Apache Kafka traditionally required Zookeeper for cluster coordination - until K
 - **Easier scaling**: More predictable cluster behavior
 
 I recently wanted to setup Kafka for my local development, and after quite a few tries, ngl, I was finally able to do it. Let's show you how it went.
+
+This guide focuses on the local broker loop. If you are also tightening deployment fundamentals, see the [Next.js self-hosting guide](/blog/2024-sep-nextjs-deploy-any-server/) and the [Go Docker image optimization guide](/blog/2024-jun-golang-dockerfile-optimized/) for the same container-first production mindset.
 
 ## Prerequisites
 

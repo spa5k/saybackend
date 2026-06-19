@@ -1,6 +1,6 @@
 ---
-title: "PostgreSQL UUIDv7 Performance Benchmark: Native vs Custom Implementations"
-description: "Comprehensive analysis of modern time-ordered identifiers in PostgreSQL: UUIDv7, ULID, and TypeID implementations with real performance benchmarks, PostgreSQL 18 native support, and practical recommendations for choosing the right identifier for your project."
+title: "PostgreSQL UUIDv7: Native UUIDv7 vs Extensions and Benchmarks"
+description: "Compare PostgreSQL 18 native UUIDv7 with custom UUIDv7, ULID, and TypeID implementations using real benchmark data, index locality tradeoffs, and practical primary-key recommendations."
 date: "2025-06-13"
 draft: false
 wip: false
@@ -65,11 +65,21 @@ import OgImage from "./uuidv7-postgres-og.png";
 
 ## Introduction
 
+<Callout type="info">
+  **Direct answer:** UUIDv7 is usually the best UUID-shaped primary key for new
+  PostgreSQL systems that need globally unique IDs and better index locality
+  than UUIDv4. PostgreSQL 18's native `uuidv7()` is the cleanest option when you
+  can run it; older versions can use application-side generation or a measured
+  custom function.
+</Callout>
+
 Choosing the right unique identifier strategy is critical for database performance and application scalability. While UUIDv4 has been the go-to choice for distributed systems, the new UUIDv7 standard introduces time-ordered identifiers that maintain randomness while providing natural sorting capabilities.
 
 PostgreSQL 18's introduction of native UUIDv7 support marks a turning point in this landscape. Our comprehensive benchmarking shows the native implementation lands within ~4% of UUIDv4 while adding time-ordered benefits that were previously considered a performance trade-off.
 
 This analysis examines five different identifier implementations with real-world performance data, helping you make informed decisions for your PostgreSQL applications.
+
+If you are evaluating PostgreSQL behavior beyond ID generation, the related [pg_strict in Rust experiment](/blog/recreating-planetscale-pg-strict-in-rust/) covers safer query execution patterns and the tradeoffs of enforcing database guardrails closer to Postgres.
 
 <Callout type="info">
   **TL;DR:** PostgreSQL 18's native **uuidv7() now ships and matches UUIDv4

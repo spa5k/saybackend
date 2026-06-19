@@ -1,6 +1,6 @@
 ---
-title: "Deploying a Next.js App to Production in any server"
-description: "Build a docker image of your nextjs app that can be deployed to any server, without any propreitary cloud provider lock-in."
+title: "Deploy Next.js Without Vercel: Self-Hosting Production Guide"
+description: "Deploy a Next.js app without Vercel using standalone output, Docker, and a production-ready Node server that can run on any VM, container host, or cloud."
 date: "2024-09-06"
 updated: "2025-04-03"
 oldPath: "04-deploy-nextjs-to-production-without-vercel"
@@ -8,43 +8,9 @@ tags:
   - "nextjs"
   - "ssr"
   - "rsc"
-  - "react-server-components"
-  - "vercel"
+  - "docker"
   - "production"
   - "deployment"
-  - "serverless"
-  - "Next.js"
-  - "Production deployment"
-  - "Next.js without Vercel"
-  - "AWS deployment"
-  - "Server-side rendering (SSR)"
-  - "React Server Components"
-  - "Serverless architecture"
-  - "Next.js production setup"
-  - "Cloud deployment"
-  - "Node.js hosting"
-  - "Self-hosting Next.js"
-  - "Standalone Next.js build"
-  - "CI/CD for Next.js"
-  - "Deployment strategies"
-  - "Optimizing Next.js for production"
-  - "Next.js production setup"
-  - "Cloud deployment"
-  - "Node.js hosting"
-  - "Self-hosting Next.js"
-  - "Standalone Next.js build"
-  - "CI/CD for Next.js"
-  - "Nextjs in aws"
-  - "Nextjs in docker"
-  - "Nextjs in production"
-  - "Nextjs in vercel"
-  - "Nextjs in any server"
-  - "Nextjs in any cloud"
-  - "Nextjs in any hosting"
-  - "Nextjs in any platform"
-  - "Nextjs in any cloud"
-  - "Updated for Next.js 15"
-  - "Next.js 15"
 faqs:
   - question: "Can I deploy Next.js without Vercel?"
     answer: "Yes. You can ship Next.js as a Dockerized Node server (or a platform-native build) and run it anywhere you can run containers or Node—VMs, Kubernetes, or your own servers."
@@ -83,6 +49,13 @@ import OgImage from "./nextjs_docker_og.jpg";
 
 ## Introduction
 
+<Callout type="info">
+  **Direct answer:** Yes, you can deploy Next.js without Vercel. The most
+  portable path is `output: "standalone"`, a small Docker image, runtime
+  environment variables, and a regular Node process behind your reverse proxy or
+  load balancer.
+</Callout>
+
 Updated for Next.js 15. When it comes to deploying a Next.js app to production, generally everyone thinking starts from Vercel, and ends with Netlify, Firebase type providers. Not only are these providers very expensive, but they also have a lot of limitations.
 A wrong configuration in your serverless function can lead to a big bill, like this [story](https://www.youtube.com/watch?v=SCIfWhAheVw) where a Solo developer got a $100000 bill from Vercel because her app went viral.
 
@@ -92,6 +65,8 @@ Unlike frameworks like Remix, you can not easily deploy a Next.js without going 
 But, the good news is that vercel hasn't left you without options. There is a simple way on how you can run a Next.js app using Node.js, without any serverless functions drama, direclty in optmized way.
 
 We will go through steps by steps, this time on how we can make the most efficient Dockerized Next.js app.
+
+If you are comparing production deployment patterns, the related [Go Dockerfile optimization guide](/blog/2024-jun-golang-dockerfile-optimized/) covers image-size tradeoffs, and the [Next.js Electron Server Components guide](/blog/2024-aug-nextjs-electron-server-components/) shows where standalone server output matters outside a normal hosted web app.
 
 ## Setting up the project
 
