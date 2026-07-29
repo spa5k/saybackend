@@ -78,7 +78,7 @@ readingTime: "45 minutes"
 ---
 
 import Callout from "@/components/Callout.astro";
-import Mermaid from "@/components/react/Mermaid";
+import InteractiveDiagram from "@/components/react/InteractiveDiagram";
 
 ## Introduction
 
@@ -204,8 +204,7 @@ Setting up the right infrastructure is crucial for a successful self-hosted Next
 
 ### System Architecture Overview
 
-<Mermaid
-  client:only="react"
+<InteractiveDiagram
   code={`
 graph TB
     subgraph "Load Balancer"
@@ -445,8 +444,7 @@ The solution involves deploying two components:
 1. **Backend Data Routes** (`/_next/data/{{buildId}}/`)
 2. **Main Application Server** (handles all other routes)
 
-<Mermaid
-  client:only="react"
+<InteractiveDiagram
   code={`
 graph LR
     subgraph "Phase 1"
@@ -744,8 +742,7 @@ Optimizing your Next.js application's performance is crucial for providing a gre
 
 ### Caching Strategies
 
-<Mermaid
-  client:only="react"
+<InteractiveDiagram
   code={`
 graph TB
     subgraph "Client"
@@ -1218,8 +1215,7 @@ export function PerformanceMonitor() {
 
 ## Security Considerations
 
-<Mermaid
-  client:only="react"
+<InteractiveDiagram
   code={`
 graph TB
     subgraph "External"

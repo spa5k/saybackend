@@ -1,0 +1,366 @@
+.interactive-diagram {
+  margin: 2.5rem 0;
+  border: 1px solid var(--rule);
+  background: var(--paper-raised);
+  box-shadow: 0 18px 50px rgb(25 32 27 / 8%);
+  color: var(--ink);
+}
+
+.post-body .interactive-diagram svg {
+  width: auto;
+  height: auto;
+  border: 0;
+  background: transparent;
+}
+
+.interactive-diagram__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  border-bottom: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--paper-raised) 94%, transparent);
+  padding: 1.15rem 1.25rem;
+}
+
+.interactive-diagram__header h3 {
+  margin: 0.3rem 0 0;
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: clamp(1.25rem, 3vw, 1.7rem);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.interactive-diagram__header > p,
+.interactive-diagram__eyebrow,
+.interactive-diagram__groups,
+.interactive-diagram__index,
+.interactive-diagram__group,
+.interactive-diagram__focus > span,
+.interactive-diagram__connections > span,
+.interactive-diagram__connections button > span,
+.interactive-diagram__hint {
+  font-family: var(--font-mono);
+}
+
+.interactive-diagram__header > p {
+  flex: none;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.interactive-diagram__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--green);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.interactive-diagram__eyebrow svg,
+.interactive-diagram__groups svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.interactive-diagram__groups {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--green-soft);
+  padding: 0.6rem 1.25rem;
+  color: var(--green);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+}
+
+.interactive-diagram__map {
+  display: grid;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding: 1.25rem;
+  scrollbar-color: var(--green) transparent;
+}
+
+.interactive-diagram__map--horizontal {
+  grid-auto-columns: minmax(10.5rem, 1fr);
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, auto);
+}
+
+.interactive-diagram__map--vertical {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+}
+
+.interactive-diagram__step {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.interactive-diagram__node {
+  display: grid;
+  width: 100%;
+  min-height: 6.15rem;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 0.8rem;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule);
+  border-radius: 0;
+  background: var(--paper-raised);
+  padding: 0.85rem;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+.interactive-diagram__node:hover {
+  border-color: var(--green);
+  transform: translateY(-2px);
+}
+
+.interactive-diagram__node.is-selected {
+  border-color: var(--green);
+  border-left-color: var(--green);
+  background: var(--green-soft);
+  box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--green) 36%, transparent);
+}
+
+.interactive-diagram__node.is-connected {
+  border-left-color: color-mix(in srgb, var(--green) 65%, var(--rule));
+}
+
+.interactive-diagram__node.is-muted {
+  opacity: 0.58;
+}
+
+.interactive-diagram__node--decision {
+  border-left-color: var(--brick);
+}
+
+.interactive-diagram__node--terminal {
+  border-left-color: var(--green);
+}
+
+.interactive-diagram__node--datastore {
+  border-left-color: var(--chart-5);
+}
+
+.interactive-diagram__index {
+  color: var(--green);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+}
+
+.interactive-diagram__node-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-family: var(--font-serif);
+  font-size: 0.98rem;
+  font-weight: 650;
+  line-height: 1.25;
+  white-space: pre-line;
+}
+
+.interactive-diagram__group {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.interactive-diagram__connector {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--green);
+}
+
+.interactive-diagram__connector svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.interactive-diagram__inspector {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  border-top: 1px solid var(--rule);
+  background: var(--paper-raised);
+}
+
+.interactive-diagram__focus,
+.interactive-diagram__connections {
+  min-width: 0;
+  padding: 1.1rem 1.25rem;
+}
+
+.interactive-diagram__focus {
+  border-right: 1px solid var(--rule);
+}
+
+.interactive-diagram__focus > span,
+.interactive-diagram__connections > span {
+  color: var(--green);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.interactive-diagram__focus strong {
+  display: block;
+  margin-top: 0.45rem;
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  line-height: 1.25;
+}
+
+.interactive-diagram__focus p {
+  margin: 0.55rem 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.interactive-diagram__connections ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.interactive-diagram__connections li {
+  margin: 0;
+}
+
+.interactive-diagram__connections button {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(3.5rem, auto) 1fr auto;
+  align-items: center;
+  gap: 0.7rem;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: transparent;
+  padding: 0.45rem 0.2rem;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.interactive-diagram__connections button:hover {
+  color: var(--green);
+}
+
+.interactive-diagram__connections button > span {
+  color: var(--muted);
+  font-size: 0.63rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.interactive-diagram__connections button strong {
+  font-size: 0.85rem;
+  line-height: 1.25;
+}
+
+.interactive-diagram__connections button svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.interactive-diagram__hint {
+  margin: 0;
+  border-top: 1px solid var(--rule);
+  padding: 0.65rem 1.25rem;
+  color: var(--muted);
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+}
+
+.interactive-diagram-fallback {
+  margin: 2rem 0;
+  border: 1px solid var(--rule);
+  background: var(--paper-raised);
+  padding: 1rem;
+}
+
+.interactive-diagram-fallback p {
+  margin-top: 0;
+  color: var(--brick);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.interactive-diagram-fallback pre {
+  margin-bottom: 0;
+  overflow-x: auto;
+}
+
+@media (max-width: 760px) {
+  .interactive-diagram__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .interactive-diagram__map,
+  .interactive-diagram__map--horizontal,
+  .interactive-diagram__map--vertical {
+    display: flex;
+    overflow: visible;
+    flex-direction: column;
+  }
+
+  .interactive-diagram__step {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .interactive-diagram__connector {
+    padding-left: 1rem;
+    justify-content: flex-start;
+  }
+
+  .interactive-diagram__connector svg {
+    transform: rotate(90deg);
+  }
+
+  .interactive-diagram__inspector {
+    grid-template-columns: 1fr;
+  }
+
+  .interactive-diagram__focus {
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interactive-diagram__node {
+    transition: none;
+  }
+}

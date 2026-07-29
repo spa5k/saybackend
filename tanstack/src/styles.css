@@ -44,6 +44,8 @@
   --color-border: var(--border);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-primary: var(--green);
+  --color-primary-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-success: #2e7b47;
   --color-warning: #9a641d;
@@ -824,11 +826,27 @@ img {
   min-height: 1.65em;
 }
 
-html.dark .post-body .shiki,
+.post-body .shiki {
+  color: var(--shiki-light) !important;
+  background-color: var(--shiki-light-bg) !important;
+}
+
+.post-body .shiki span,
+.shiki-code span {
+  color: var(--shiki-light) !important;
+  font-style: var(--shiki-light-font-style) !important;
+  font-weight: var(--shiki-light-font-weight) !important;
+  text-decoration: var(--shiki-light-text-decoration) !important;
+}
+
+html.dark .post-body .shiki {
+  color: var(--shiki-dark) !important;
+  background-color: var(--shiki-dark-bg) !important;
+}
+
 html.dark .post-body .shiki span,
 html.dark .shiki-code span {
   color: var(--shiki-dark) !important;
-  background-color: var(--shiki-dark-bg) !important;
   font-style: var(--shiki-dark-font-style) !important;
   font-weight: var(--shiki-dark-font-weight) !important;
   text-decoration: var(--shiki-dark-text-decoration) !important;

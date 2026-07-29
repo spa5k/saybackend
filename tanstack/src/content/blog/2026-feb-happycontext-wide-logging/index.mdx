@@ -63,16 +63,8 @@ import {
   WideEventBuilderSimulator,
   WideEventValueCards,
 } from "@/components/react/blog/happycontext/HappyContextBlocks";
-import BlueIntegrations from "./blue-integrations.svg?url";
-import BlueSampling from "./blue-sampling.svg?url";
-import BlueWideEvents from "./blue-wide-events.svg?url";
 
 <HappyContextHero />
-<img
-  src={BlueWideEvents}
-  alt="Minimal blue diagram comparing fragmented logs to one wide event"
-  loading="eager"
-/>
 <WideEventValueCards />
 
 ## Why I Built This
@@ -225,11 +217,6 @@ func main() {
 `happycontext` intentionally separates router middleware from logger adapters.
 
 <IntegrationsMatrix />
-<img
-  src={BlueIntegrations}
-  alt="Blue minimal router and logger adapter architecture for happycontext"
-  loading="lazy"
-/>
 
 ### Router integrations
 
@@ -270,11 +257,6 @@ mw := stdhc.Middleware(hc.Config{
 <SamplingTrap client:load />
 
 <SamplingDecisionPanel />
-<img
-  src={BlueSampling}
-  alt="Blue minimal tail-sampling decision path for happycontext"
-  loading="lazy"
-/>
 
 ## Benchmark Snapshot
 

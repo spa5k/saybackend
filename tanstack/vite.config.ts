@@ -29,12 +29,6 @@ const config = defineConfig({
         ),
       },
       {
-        find: '@/components/MermaidSSR.astro',
-        replacement: fileURLToPath(
-          new URL('./src/components/react/Mermaid.tsx', import.meta.url),
-        ),
-      },
-      {
         find: 'astro:assets',
         replacement: fileURLToPath(
           new URL('./src/components/mdx/AstroAssets.tsx', import.meta.url),

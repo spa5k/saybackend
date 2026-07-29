@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "vite dev --port 3000",
     "generate-routes": "tsr generate",
-    "build": "vite build && pagefind --site dist/client && node scripts/finalize-static-build.mjs",
+    "build": "node scripts/prepare-static-build.mjs && vite build && pagefind --site dist/client && node scripts/finalize-static-build.mjs",
     "preview": "vite preview",
     "verify:routes": "node scripts/verify-routes.mjs",
     "lint": "eslint",
@@ -26,7 +26,6 @@
     "@tanstack/react-router": "latest",
     "@tanstack/react-router-devtools": "latest",
     "@tanstack/react-start": "latest",
-    "beautiful-mermaid": "^1.1.3",
     "chart.js": "^4.5.1",
     "chartjs-adapter-date-fns": "^3.0.0",
     "class-variance-authority": "^0.7.1",

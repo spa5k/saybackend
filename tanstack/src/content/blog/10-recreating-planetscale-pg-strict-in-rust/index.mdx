@@ -31,7 +31,7 @@ ogImage: "/images/pg-strict-og.png"
 
 import Callout from "@/components/Callout.astro";
 import GitHubRepoCard from "@/components/GitHubRepoCard.astro";
-import Mermaid from "@/components/MermaidSSR.astro";
+import InteractiveDiagram from "@/components/react/InteractiveDiagram";
 import { Picture } from "astro:assets";
 import {
   HookPhaseExplorer,
@@ -97,7 +97,8 @@ This is valid SQL and a data incident waiting to happen. The extension should:
 
 Before the build log, here is the mental model that made the rest of the decisions obvious. Postgres processes queries in distinct stages, and `pgrx` allows us to hook into them.
 
-<Mermaid
+<InteractiveDiagram
+  title="Postgres query pipeline and hook points"
   code={`
 graph TB
     SQL[SQL Query Text] --> Parser[Parser]
@@ -155,7 +156,8 @@ To start, I just wanted to verify I could intercept a query at all. I set up a b
 
 The goal here was simple: Can I see the SQL string and stop execution?
 
-<Mermaid
+<InteractiveDiagram
+  title="Stage 0 · Executor hook proof of concept"
   code={`
 graph LR
     Start[SQL Query] --> Hook[ExecutorRun Hook]
@@ -178,7 +180,8 @@ This worked. I verified that `pgrx` hooks were wired correctly. Now I needed to 
 
 My first instinct for parsing was **Tree-sitter**. It's modern, fast, and I've used it before. I tried to pull in `tree-sitter-sql` (or Postgres specific grammars) inside the hook to analyze the string.
 
-<Mermaid
+<InteractiveDiagram
+  title="Stage 1 · Tree-sitter attempt"
   code={`
 graph LR
     Start[SQL Query Text] --> Hook[Executor Hook]
@@ -227,7 +230,8 @@ impl QueryAnalyzer {
 }
 ```
 
-<Mermaid
+<InteractiveDiagram
+  title="Stage 2 · External sqlparser approach"
   code={`
 graph LR
     Start[SQL Query] --> PG[Postgres Parses ①]
@@ -286,7 +290,8 @@ This solved **correctness**. Edge cases like `DELETE ... USING` or complex CTEs 
 
 **But it was inefficient.**
 
-<Mermaid
+<InteractiveDiagram
+  title="Stage 3 · Postgres parser at the executor phase"
   code={`
 graph LR
     Start[SQL Query] --> Parse1[Postgres Parses Query]
@@ -382,7 +387,8 @@ That means a `WHERE` clause inside a CTE does **not** count. A `WHERE ... IN (SE
   formats={["avif", "webp"]}
 />
 
-<Mermaid
+<InteractiveDiagram
+  title="Stage 4 · Parse-time enforcement"
   code={`
 graph LR
     Start[SQL Query] --> Parse[Parse Query Once]
@@ -497,7 +503,8 @@ pub fn init_gucs() {
 
 Now the extension flows like this:
 
-<Mermaid
+<InteractiveDiagram
+  title="pg_strict decision flow"
   code={`
 graph TB
     Start([post_parse_analyze_hook fires]) --> GetMode[Read GUC Settings]
@@ -557,7 +564,8 @@ The architecture is deliberately simple:
 - **hooks.rs**: The `post_parse_analyze_hook` that reads the `Query` tree.
 - **analyzer.rs**: Contains the safe wrappers around Postgres internals (used mostly for unit testing the logic without running a full DB).
 
-<Mermaid
+<InteractiveDiagram
+  title="pg_strict extension architecture"
   code={`
 graph TB
     subgraph "Extension Components"

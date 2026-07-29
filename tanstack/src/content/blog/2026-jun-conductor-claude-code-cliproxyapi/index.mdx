@@ -28,7 +28,7 @@ faqs:
 ---
 
 import Callout from "@/components/Callout.astro";
-import Mermaid from "@/components/MermaidSSR.astro";
+import InteractiveDiagram from "@/components/react/InteractiveDiagram";
 
 <img
   src="/images/conductor-claude-code-cliproxyapi-og.png"
@@ -46,7 +46,8 @@ The setup is:
 
 So the chain becomes:
 
-<Mermaid
+<InteractiveDiagram
+  title="Codex subscription routing chain"
   code={`
 flowchart LR
     B[Conductor Claude Code runner] --> A[Claude Code]
@@ -442,7 +443,8 @@ If this returns `200`, the proxy side is fixed.
 
 Once the aliases are in place, the Claude Code runner path in Conductor can use the same local proxy path:
 
-<Mermaid
+<InteractiveDiagram
+  title="Working Conductor routing chain"
   code={`
 flowchart LR
     A[Conductor Claude Code runner] --> B[Claude Code]
