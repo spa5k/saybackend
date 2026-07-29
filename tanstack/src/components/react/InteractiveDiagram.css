@@ -1,4 +1,6 @@
 .interactive-diagram {
+  container-name: interactive-diagram;
+  container-type: inline-size;
   margin: 2.5rem 0;
   border: 1px solid var(--rule);
   background: var(--paper-raised);
@@ -7,8 +9,6 @@
 }
 
 .post-body .interactive-diagram svg {
-  width: auto;
-  height: auto;
   border: 0;
   background: transparent;
 }
@@ -83,34 +83,112 @@
 }
 
 .interactive-diagram__map {
-  display: grid;
-  gap: 0.75rem;
-  overflow-x: auto;
-  padding: 1.25rem;
-  scrollbar-color: var(--green) transparent;
+  position: relative;
+  height: 19rem;
+  overflow: hidden;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--paper-raised) 97%, var(--green)),
+      var(--paper-raised)
+    );
 }
 
-.interactive-diagram__map--horizontal {
-  grid-auto-columns: minmax(10.5rem, 1fr);
-  grid-auto-flow: column;
-  grid-template-rows: repeat(2, auto);
+.interactive-diagram__map.is-compact {
+  height: 33rem;
 }
 
-.interactive-diagram__map--vertical {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+.interactive-diagram__map .react-flow {
+  width: 100%;
+  height: 100%;
 }
 
-.interactive-diagram__step {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 0.7rem;
+.interactive-diagram__loading {
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(circle, var(--rule) 1px, transparent 1px)
+    0 0 / 18px 18px;
+}
+
+.interactive-diagram__map .react-flow__edges {
+  width: 100%;
+  height: 100%;
+}
+
+.interactive-diagram__map .react-flow__edge-path {
+  transition:
+    stroke 150ms ease,
+    opacity 150ms ease;
+}
+
+.interactive-diagram__map .react-flow__edge-text {
+  text-transform: uppercase;
+}
+
+.interactive-diagram__map .react-flow__node-default {
+  width: 11rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  font: inherit;
+}
+
+.interactive-diagram__map .react-flow__pane {
+  cursor: grab;
+}
+
+.interactive-diagram__map .react-flow__pane:active {
+  cursor: grabbing;
+}
+
+.interactive-diagram__map .react-flow__controls {
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  box-shadow: 0 8px 20px rgb(25 32 27 / 9%);
+}
+
+.interactive-diagram__map .react-flow__controls-button {
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+
+.interactive-diagram__map .react-flow__controls-button:last-child {
+  border-bottom: 0;
+}
+
+.interactive-diagram__map .react-flow__controls-button:hover {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.interactive-diagram__map .react-flow__controls-button svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  fill: currentcolor;
+}
+
+.interactive-diagram__map .react-flow__handle {
+  width: 1px;
+  min-width: 1px;
+  height: 1px;
+  min-height: 1px;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .interactive-diagram__node {
   display: grid;
   width: 100%;
-  min-height: 6.15rem;
+  min-height: 5.25rem;
   grid-template-columns: auto 1fr;
   align-items: start;
   gap: 0.8rem;
@@ -188,19 +266,6 @@
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
-}
-
-.interactive-diagram__connector {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  color: var(--green);
-}
-
-.interactive-diagram__connector svg {
-  width: 1.05rem;
-  height: 1.05rem;
 }
 
 .interactive-diagram__inspector {
@@ -320,35 +385,7 @@
   overflow-x: auto;
 }
 
-@media (max-width: 760px) {
-  .interactive-diagram__header {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0.65rem;
-  }
-
-  .interactive-diagram__map,
-  .interactive-diagram__map--horizontal,
-  .interactive-diagram__map--vertical {
-    display: flex;
-    overflow: visible;
-    flex-direction: column;
-  }
-
-  .interactive-diagram__step {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .interactive-diagram__connector {
-    padding-left: 1rem;
-    justify-content: flex-start;
-  }
-
-  .interactive-diagram__connector svg {
-    transform: rotate(90deg);
-  }
-
+@container interactive-diagram (max-width: 54rem) {
   .interactive-diagram__inspector {
     grid-template-columns: 1fr;
   }
@@ -356,6 +393,14 @@
   .interactive-diagram__focus {
     border-right: 0;
     border-bottom: 1px solid var(--rule);
+  }
+}
+
+@media (max-width: 760px) {
+  .interactive-diagram__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.65rem;
   }
 }
 

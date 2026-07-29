@@ -26,6 +26,7 @@
     "@tanstack/react-router": "latest",
     "@tanstack/react-router-devtools": "latest",
     "@tanstack/react-start": "latest",
+    "@xyflow/react": "^12.11.2",
     "chart.js": "^4.5.1",
     "chartjs-adapter-date-fns": "^3.0.0",
     "class-variance-authority": "^0.7.1",

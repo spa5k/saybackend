@@ -1,19 +1,33 @@
 "use client";
 
 import {
-  ArrowDown,
   ArrowRight,
   GitBranch,
   Path,
 } from "@phosphor-icons/react";
 import {
+  Background,
+  BackgroundVariant,
+  Controls,
+  MarkerType,
+  Position,
+  ReactFlow,
+} from "@xyflow/react";
+import type {
+  Edge as FlowEdge,
+  Node as FlowNode,
+  ReactFlowInstance,
+} from "@xyflow/react";
+import {
+  useEffect,
   useId,
   useMemo,
   useRef,
   useState,
 } from "react";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 
+import "@xyflow/react/dist/style.css";
 import "./InteractiveDiagram.css";
 
 type NodeKind = "decision" | "process" | "terminal" | "datastore";
@@ -49,6 +63,8 @@ type ParsedNode = {
   node: DiagramNode;
   length: number;
 };
+
+type DiagramFlowNode = FlowNode<{ label: ReactNode }, "default">;
 
 const ARROW_RE = /^(-->|---|-\.-?>|==>|<-->)/;
 const ID_RE = /^[A-Za-z0-9_./-]+/;
@@ -350,10 +366,14 @@ export default function InteractiveDiagram({
   title = "Process map",
 }: Props) {
   const diagramId = useId();
+  const flowInstanceId = `${diagramId}-flow`.replace(/:/g, "");
   const diagram = useMemo(() => parseDiagram(code), [code]);
+  const mapRef = useRef<HTMLDivElement>(null);
   const [activeId, setActiveId] = useState<string | null>(
     diagram.nodes[0]?.id ?? null,
   );
+  const [compact, setCompact] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const nodeRefs = useRef(new Map<string, HTMLButtonElement>());
   const nodeById = useMemo(
     () => new Map(diagram.nodes.map((node) => [node.id, node])),
@@ -371,6 +391,27 @@ export default function InteractiveDiagram({
       ),
     [depths, diagram.nodes],
   );
+  const nodeOrder = useMemo(
+    () => new Map(orderedNodes.map((node, index) => [node.id, index])),
+    [orderedNodes],
+  );
+
+  useEffect(() => {
+    const element = mapRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+
+    const updateLayout = (width: number) => {
+      setCompact(width < 640);
+    };
+    updateLayout(element.clientWidth);
+    setMounted(true);
+
+    const observer = new ResizeObserver(([entry]) => {
+      updateLayout(entry.contentRect.width);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   if (!diagram.nodes.length || !diagram.edges.length) {
     return (
@@ -395,22 +436,27 @@ export default function InteractiveDiagram({
     (node) => node.id === activeNode.id,
   );
 
-  const selectAndFocus = (node: DiagramNode) => {
+  const selectAndFocus = (
+    node: DiagramNode,
+    focus = true,
+  ) => {
     setActiveId(node.id);
-    nodeRefs.current.get(node.id)?.focus();
+    if (focus) nodeRefs.current.get(node.id)?.focus();
   };
 
   const handleNodeKeyDown = (
+    node: DiagramNode,
     event: KeyboardEvent<HTMLButtonElement>,
   ) => {
-    let nextIndex = activeIndex;
+    const currentIndex = nodeOrder.get(node.id) ?? activeIndex;
+    let nextIndex = currentIndex;
     if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-      nextIndex = Math.min(activeIndex + 1, orderedNodes.length - 1);
+      nextIndex = Math.min(currentIndex + 1, orderedNodes.length - 1);
     } else if (
       event.key === "ArrowLeft" ||
       event.key === "ArrowUp"
     ) {
-      nextIndex = Math.max(activeIndex - 1, 0);
+      nextIndex = Math.max(currentIndex - 1, 0);
     } else if (event.key === "Home") {
       nextIndex = 0;
     } else if (event.key === "End") {
@@ -421,6 +467,149 @@ export default function InteractiveDiagram({
 
     event.preventDefault();
     selectAndFocus(orderedNodes[nextIndex]);
+  };
+
+  const nodesByDepth = new Map<number, DiagramNode[]>();
+  orderedNodes.forEach((node) => {
+    const depth = depths.get(node.id) ?? 0;
+    nodesByDepth.set(depth, [...(nodesByDepth.get(depth) ?? []), node]);
+  });
+  const maxStageSize = Math.max(
+    1,
+    ...[...nodesByDepth.values()].map((nodes) => nodes.length),
+  );
+
+  const flowNodes: DiagramFlowNode[] = orderedNodes.map((node, index) => {
+    const depth = depths.get(node.id) ?? 0;
+    const peers = nodesByDepth.get(depth) ?? [node];
+    const peerIndex = peers.findIndex((peer) => peer.id === node.id);
+    const centeredOffset = (maxStageSize - peers.length) / 2;
+    const position = compact
+      ? {
+          x: (centeredOffset + peerIndex) * 190,
+          y: depth * 128,
+        }
+      : {
+          x: depth * 220,
+          y: (centeredOffset + peerIndex) * 112,
+        };
+
+    return {
+      id: node.id,
+      type: "default",
+      position,
+      width: 176,
+      height: 84,
+      sourcePosition: compact ? Position.Bottom : Position.Right,
+      targetPosition: compact ? Position.Top : Position.Left,
+      draggable: false,
+      selectable: false,
+      connectable: false,
+      focusable: false,
+      data: {
+        label: (
+          <button
+            ref={(element) => {
+              if (element) nodeRefs.current.set(node.id, element);
+              else nodeRefs.current.delete(node.id);
+            }}
+            type="button"
+            className={[
+              "interactive-diagram__node",
+              `interactive-diagram__node--${node.kind}`,
+              node.id === activeNode.id ? "is-selected" : "",
+              node.id !== activeNode.id && connectedIds.has(node.id)
+                ? "is-connected"
+                : "",
+              node.id !== activeNode.id && !connectedIds.has(node.id)
+                ? "is-muted"
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            aria-pressed={node.id === activeNode.id}
+            aria-label={`${node.label}. ${nodeSummary(
+              node,
+              diagram.edges,
+              nodeById,
+            )}`}
+            onClick={() => selectAndFocus(node, false)}
+            onFocus={() => selectAndFocus(node, false)}
+            onKeyDown={(event) => handleNodeKeyDown(node, event)}
+          >
+            <span className="interactive-diagram__index">
+              {String(index + 1).padStart(2, "0")}
+            </span>
+            <span className="interactive-diagram__node-copy">
+              {node.group ? (
+                <span className="interactive-diagram__group">
+                  {node.group}
+                </span>
+              ) : null}
+              <span>{node.label}</span>
+            </span>
+          </button>
+        ),
+      },
+    };
+  });
+
+  const flowEdges: FlowEdge[] = diagram.edges.map((edge, index) => {
+    const isActive =
+      edge.from === activeNode.id || edge.to === activeNode.id;
+    const stroke = isActive ? "var(--green)" : "var(--rule)";
+
+    return {
+      id: `${edge.from}-${edge.to}-${index}`,
+      source: edge.from,
+      target: edge.to,
+      type: "smoothstep",
+      label: edge.label,
+      ariaLabel: `${nodeById.get(edge.from)?.label ?? edge.from} to ${
+        nodeById.get(edge.to)?.label ?? edge.to
+      }${edge.label ? ` via ${edge.label}` : ""}`,
+      style: {
+        stroke,
+        strokeWidth: isActive ? 2 : 1.35,
+        strokeDasharray: edge.dashed ? "5 5" : undefined,
+        opacity: isActive ? 1 : 0.48,
+      },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: stroke,
+        width: 14,
+        height: 14,
+      },
+      labelStyle: {
+        fill: isActive ? "var(--green)" : "var(--muted)",
+        fontFamily: "var(--font-mono)",
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: "0.08em",
+        textTransform: "uppercase",
+      },
+      labelBgStyle: {
+        fill: "var(--paper-raised)",
+        fillOpacity: 0.96,
+      },
+      labelBgPadding: [5, 3],
+      labelBgBorderRadius: 2,
+      pathOptions: {
+        borderRadius: 12,
+        offset: 18,
+      },
+    };
+  });
+
+  const fitFlow = (
+    instance: ReactFlowInstance<DiagramFlowNode, FlowEdge>,
+  ) => {
+    requestAnimationFrame(() => {
+      void instance.fitView({
+        padding: compact ? 0.12 : 0.08,
+        maxZoom: 1,
+      });
+    });
   };
 
   return (
@@ -449,71 +638,52 @@ export default function InteractiveDiagram({
       ) : null}
 
       <div
-        className={`interactive-diagram__map interactive-diagram__map--${diagram.direction}`}
-        aria-label={`${title}. Use the arrow keys to move between steps.`}
+        ref={mapRef}
+        className={[
+          "interactive-diagram__map",
+          compact ? "is-compact" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        role="group"
+        aria-label={`${title}. Use the arrow keys to move between steps. Drag the canvas to pan, or use the diagram controls to zoom.`}
       >
-        {orderedNodes.map((node, index) => {
-          const selected = node.id === activeNode.id;
-          const connected = connectedIds.has(node.id);
-          const nextNode = orderedNodes[index + 1];
-          const showConnector =
-            index < orderedNodes.length - 1 &&
-            diagram.edges.some(
-              (edge) =>
-                edge.from === node.id && edge.to === nextNode.id,
-            );
-
-          return (
-            <div className="interactive-diagram__step" key={node.id}>
-              <button
-                ref={(element) => {
-                  if (element) nodeRefs.current.set(node.id, element);
-                  else nodeRefs.current.delete(node.id);
-                }}
-                type="button"
-                className={[
-                  "interactive-diagram__node",
-                  `interactive-diagram__node--${node.kind}`,
-                  selected ? "is-selected" : "",
-                  !selected && connected ? "is-connected" : "",
-                  !selected && !connected ? "is-muted" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                aria-pressed={selected}
-                aria-label={`${node.label}. ${nodeSummary(
-                  node,
-                  diagram.edges,
-                  nodeById,
-                )}`}
-                onClick={() => setActiveId(node.id)}
-                onFocus={() => setActiveId(node.id)}
-                onKeyDown={handleNodeKeyDown}
-              >
-                <span className="interactive-diagram__index">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <span className="interactive-diagram__node-copy">
-                  {node.group ? (
-                    <span className="interactive-diagram__group">
-                      {node.group}
-                    </span>
-                  ) : null}
-                  <span>{node.label}</span>
-                </span>
-              </button>
-              {showConnector ? (
-                <span className="interactive-diagram__connector" aria-hidden="true">
-                  {diagram.direction === "horizontal" ? (
-                    <ArrowRight weight="bold" />
-                  ) : (
-                    <ArrowDown weight="bold" />
-                  )}
-                </span>
-              ) : null}
-            </div>
-          );
-        })}
+        {mounted ? (
+          <ReactFlow<DiagramFlowNode, FlowEdge>
+            key={compact ? "compact" : "wide"}
+            id={flowInstanceId}
+            nodes={flowNodes}
+            edges={flowEdges}
+            onInit={fitFlow}
+            fitView
+            fitViewOptions={{ padding: compact ? 0.12 : 0.08, maxZoom: 1 }}
+            minZoom={0.45}
+            maxZoom={1.4}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            elementsSelectable={false}
+            panOnDrag
+            panOnScroll={false}
+            zoomOnScroll={false}
+            zoomOnDoubleClick={false}
+            preventScrolling={false}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background
+              variant={BackgroundVariant.Dots}
+              color="var(--rule)"
+              gap={18}
+              size={1}
+            />
+            <Controls
+              position="bottom-right"
+              showInteractive={false}
+              fitViewOptions={{ padding: compact ? 0.12 : 0.08 }}
+            />
+          </ReactFlow>
+        ) : (
+          <div className="interactive-diagram__loading" aria-hidden="true" />
+        )}
       </div>
 
       <div className="interactive-diagram__inspector" aria-live="polite">
