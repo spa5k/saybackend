@@ -29,14 +29,14 @@ faqs:
 ---
 
 import Callout from "@/components/Callout.astro";
-import { Picture } from "astro:assets";
+import { Image } from "astro:assets";
 import OgImage from "./cliproxyapi-factory-byok-og.svg";
 
-<Picture
+<Image
   src={OgImage}
   alt="Factory Droid with Claude Max and OpenAI Codex subscriptions via CLIProxyAPI"
   inferSize
-  formats={["avif", "webp"]}
+  format="svg"
 />
 
 ## Why You Need This
