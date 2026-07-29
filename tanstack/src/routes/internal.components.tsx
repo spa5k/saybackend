@@ -46,8 +46,8 @@ import PerformanceTable from '@/components/react/tables/PerformanceTable'
 import analysisData from '@/content/blog/07-uuidv7-postgres/data/analysis-data.json'
 import decisionData from '@/content/blog/07-uuidv7-postgres/data/decision-matrix.json'
 import featureData from '@/content/blog/07-uuidv7-postgres/data/feature-comparison.json'
-import performanceData from '@/content/blog/07-uuidv7-postgres/benchmark_data/performance_summary.json'
 import rankingData from '@/content/blog/07-uuidv7-postgres/data/ranking-data.json'
+import performanceData from '@/data/performance_summary.json'
 import { seo } from '@/lib/site'
 import galleryCss from './internal-components.css?url'
 
@@ -92,10 +92,18 @@ function ComponentPreview({
   return (
     <article className="component-preview">
       <header className="component-preview-header">
-        <h3>{name}</h3>
-        <span data-kind={kind}>{kind}</span>
+        <div>
+          <p>{kind}</p>
+          <h3>{name}</h3>
+        </div>
+        <span>Workbench</span>
       </header>
-      <div className="component-preview-canvas">{children}</div>
+      <section
+        aria-label={`${name} workbench`}
+        className="component-preview-surface"
+      >
+        <div className="component-preview-canvas">{children}</div>
+      </section>
     </article>
   )
 }
@@ -104,20 +112,21 @@ function ComponentGallery() {
   return (
     <main className="component-gallery page-frame" data-pagefind-ignore="all">
       <header className="component-gallery-intro">
-        <p className="eyebrow">Internal</p>
-        <h1>Blog component gallery</h1>
-        <p>
-          One place to review every blog-facing component in light and dark
-          themes. This route is intentionally absent from navigation, feeds,
-          sitemaps, and search.
-        </p>
-        <nav aria-label="Component groups">
-          {groups.map((group) => (
-            <a href={group.href} key={group.href}>
-              {group.label}
-            </a>
-          ))}
-        </nav>
+        <div className="component-gallery-intro-copy">
+          <p className="eyebrow">Internal · component inventory</p>
+          <h1>The component workbench.</h1>
+          <p>
+            One canonical view of every component as it ships in SayBackend
+            articles.
+          </p>
+          <nav aria-label="Component groups">
+            {groups.map((group) => (
+              <a href={group.href} key={group.href}>
+                {group.label}
+              </a>
+            ))}
+          </nav>
+        </div>
       </header>
 
       <section className="component-gallery-group" id="mdx">
@@ -172,7 +181,10 @@ function ComponentGallery() {
         <ComponentPreview name="WideEventsBeforeAfter" kind="interactive">
           <WideEventsBeforeAfter />
         </ComponentPreview>
-        <ComponentPreview name="WideEventBuilderSimulator" kind="interactive">
+        <ComponentPreview
+          name="WideEventBuilderSimulator"
+          kind="interactive"
+        >
           <WideEventBuilderSimulator />
         </ComponentPreview>
         <ComponentPreview name="IntegrationsMatrix" kind="static">
@@ -271,7 +283,7 @@ function ComponentGallery() {
           />
         </ComponentPreview>
         <ComponentPreview name="PerformanceTable" kind="static">
-          <PerformanceTable data={performanceData.summary_statistics} />
+          <PerformanceTable data={performanceData.performance_summary} />
         </ComponentPreview>
         <ComponentPreview name="PerformanceRankingTable" kind="static">
           <PerformanceRankingTable data={rankingData.performance_rankings} />
@@ -281,7 +293,7 @@ function ComponentGallery() {
         </ComponentPreview>
         <ComponentPreview name="ComprehensivePerformanceTable" kind="static">
           <ComprehensivePerformanceTable
-            data={performanceData.summary_statistics}
+            data={performanceData.performance_summary}
           />
         </ComponentPreview>
         <ComponentPreview name="DecisionMatrixTable" kind="static">
