@@ -29,12 +29,28 @@ function GoCode({ code }: { code: string }) {
   );
 }
 
-const traditionalLogging = `logger.Info(ctx, "Request started")
-logger.Info(ctx, "user authenticated", "user_id", userID)
-logger.Info(ctx, "fetching cart", "cart_id", cartID)
-logger.Info(ctx, "processing payment")
-logger.Info(ctx, "payment successful")
-logger.Info(ctx, "request completed")`;
+const traditionalLogLines = [
+  'logger.Info(ctx, "Request started")',
+  'logger.Info(ctx, "user authenticated", "user_id", userID)',
+  'logger.Info(ctx, "fetching cart", "cart_id", cartID)',
+  'logger.Info(ctx, "processing payment")',
+  'logger.Info(ctx, "payment successful")',
+  'logger.Info(ctx, "request completed")',
+];
+
+const routerIntegrations = [
+  "integration/std (net/http)",
+  "integration/gin",
+  "integration/echo",
+  "integration/fiber (v2)",
+  "integration/fiberv3 (v3)",
+];
+
+const loggerAdapters = [
+  "adapter/slog",
+  "adapter/zap",
+  "adapter/zerolog",
+];
 
 const wideEventCode = `// server/api/checkout.post.ts
 func checkout(w http.ResponseWriter, r *http.Request) {
@@ -156,7 +172,17 @@ export function WideEventsBeforeAfter() {
         <header>
           <p>Traditional logging</p>
         </header>
-        <GoCode code={traditionalLogging} />
+        <ol className="hcw-log-sequence">
+          {traditionalLogLines.map((line, index) => (
+            <li key={line}>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <code>{line}</code>
+            </li>
+          ))}
+        </ol>
+        <p className="hcw-panel-note">
+          Six emissions. Reconstructing one request stays manual.
+        </p>
       </article>
 
       <article className="hcw-compare-panel hcw-compare-panel-highlighted">
@@ -206,37 +232,48 @@ export function WideEventsBeforeAfter() {
 export function IntegrationsMatrix() {
   return (
     <section
-      className="hcw-panel not-typography"
+      className="hcw-panel hcw-matrix not-typography"
       aria-label="Integrations and adapters matrix"
     >
-      <h3 className="hcw-section-title">Router + Adapter Matrix</h3>
-      <div className="hcw-integration-grid">
-        <div>
-          <p className="hcw-column-title">Router integrations</p>
-          <ul>
-            <li>integration/std (net/http)</li>
-            <li>integration/gin</li>
-            <li>integration/echo</li>
-            <li>integration/fiber (v2)</li>
-            <li>integration/fiberv3 (v3)</li>
-          </ul>
-        </div>
-
-        <div className="hcw-multiply" aria-hidden="true">
-          x
-        </div>
-
-        <div>
-          <p className="hcw-column-title">Logger adapters</p>
-          <ul>
-            <li>adapter/slog</li>
-            <li>adapter/zap</li>
-            <li>adapter/zerolog</li>
-          </ul>
-        </div>
+      <header className="hcw-matrix-header">
+        <h3 className="hcw-section-title">Router + Adapter Matrix</h3>
+        <p>
+          <strong>15/15</strong>
+          supported pairs
+        </p>
+      </header>
+      <div
+        className="hcw-matrix-table-wrap"
+        aria-label="Router and adapter compatibility table"
+        tabIndex={0}
+      >
+        <table className="hcw-matrix-table">
+          <thead>
+            <tr>
+              <th scope="col">Router integration</th>
+              {loggerAdapters.map((adapter) => (
+                <th key={adapter} scope="col">
+                  {adapter}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {routerIntegrations.map((router) => (
+              <tr key={router}>
+                <th scope="row">{router}</th>
+                {loggerAdapters.map((adapter) => (
+                  <td key={adapter}>
+                    <span>Yes</span>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
       <p className="hcw-panel-note">
-        15 combinations without rewriting domain handlers.
+        Every router can switch logger without rewriting domain handlers.
       </p>
     </section>
   );

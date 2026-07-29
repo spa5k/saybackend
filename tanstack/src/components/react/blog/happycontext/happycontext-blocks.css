@@ -46,14 +46,12 @@
   border-bottom: 0;
 }
 
-.typography .hcw-integration-grid ul,
 .typography .hcw-sampling-grid ul {
   margin-top: 0;
   margin-left: 0;
   list-style: none;
 }
 
-.typography .hcw-integration-grid li,
 .typography .hcw-sampling-grid li {
   margin-top: 0;
 }
@@ -146,6 +144,8 @@
 }
 
 .hcw-compare-panel {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
   border: 1px solid var(--color-border);
   background: var(--color-card);
   overflow: hidden;
@@ -197,6 +197,47 @@
   white-space: pre;
 }
 
+.hcw-log-sequence {
+  display: grid;
+  align-content: start;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: color-mix(
+    in oklab,
+    var(--color-muted) 90%,
+    var(--color-background) 10%
+  );
+}
+
+.hcw-log-sequence li {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 1.65rem minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: baseline;
+  padding: 0.68rem 0.85rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.hcw-log-sequence li:last-child {
+  border-bottom: 0;
+}
+
+.hcw-log-sequence span {
+  color: var(--color-muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+}
+
+.hcw-log-sequence code {
+  font-size: 0.74rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .hcw-tab-row {
   display: inline-flex;
   border: 1px solid var(--color-border);
@@ -239,56 +280,125 @@
   letter-spacing: 0.08em;
 }
 
-.hcw-integration-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: 0.75rem;
-  align-items: stretch;
+.hcw-matrix {
+  padding: 0;
 }
 
-.hcw-integration-grid > div {
-  border: 1px solid var(--color-border);
-  padding: 0.85rem;
+.hcw-matrix-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.hcw-matrix-header .hcw-section-title,
+.hcw-matrix-header p {
+  margin: 0;
+}
+
+.hcw-matrix-header p {
+  display: grid;
+  justify-items: end;
+  color: var(--color-muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hcw-matrix-header strong {
+  color: var(--color-primary);
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.hcw-matrix-table-wrap {
+  overflow-x: auto;
+}
+
+.hcw-matrix-table-wrap:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.hcw-matrix-table {
+  width: 100%;
+  min-width: 38rem;
+  border-collapse: collapse;
   background: var(--color-card);
 }
 
-.hcw-column-title {
-  margin: 0 0 0.6rem;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--color-muted-foreground);
+.hcw-matrix-table th,
+.hcw-matrix-table td {
+  padding: 0.65rem 0.8rem;
+  border-bottom: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  text-align: left;
 }
 
-.hcw-integration-grid ul,
+.hcw-matrix-table tr > :last-child {
+  border-right: 0;
+}
+
+.hcw-matrix-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.hcw-matrix-table thead th {
+  color: var(--color-muted-foreground);
+  background: color-mix(
+    in oklab,
+    var(--color-muted) 72%,
+    var(--color-card) 28%
+  );
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.hcw-matrix-table tbody th {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+.hcw-matrix-table td {
+  text-align: center;
+}
+
+.hcw-matrix-table td span {
+  color: var(--color-primary);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hcw-matrix .hcw-panel-note {
+  border-top: 1px solid var(--color-border);
+}
+
 .hcw-sampling-grid ul {
+  display: grid;
+  gap: 0.45rem;
   margin: 0;
   padding: 0;
   list-style: none;
-  display: grid;
-  gap: 0.45rem;
 }
 
-.hcw-integration-grid li,
 .hcw-sampling-grid li {
   padding: 0.35rem 0.45rem;
   border: 1px solid var(--color-border);
-  font-family: var(--font-mono);
-  font-size: 0.77rem;
   background: color-mix(
     in oklab,
     var(--color-muted) 80%,
     var(--color-card) 20%
   );
-}
-
-.hcw-multiply {
-  display: grid;
-  place-items: center;
-  font-size: 1.7rem;
   font-family: var(--font-mono);
-  color: var(--color-muted-foreground);
+  font-size: 0.77rem;
 }
 
 .hcw-lifecycle {
@@ -773,14 +883,6 @@
     border-bottom: 0;
   }
 
-  .hcw-integration-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .hcw-multiply {
-    display: none;
-  }
-
   .hcw-metric-grid {
     grid-template-columns: 1fr;
   }
@@ -828,5 +930,11 @@
   .hcw-st-table th {
     font-size: 0.62rem;
     letter-spacing: 0.04em;
+  }
+}
+
+@container component-preview (max-width: 56rem) {
+  .hcw-compare {
+    grid-template-columns: 1fr;
   }
 }
