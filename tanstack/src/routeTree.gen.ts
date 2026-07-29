@@ -19,6 +19,7 @@ import { Route as Sitemap0DotxmlRouteImport } from './routes/sitemap-0[.]xml'
 import { Route as SitemapIndexDotxmlRouteImport } from './routes/sitemap-index[.]xml'
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
+import { Route as InternalComponentsRouteImport } from './routes/internal.components'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsSlugRouteImport } from './routes/projects.$slug'
 import { Route as TagsIndexRouteImport } from './routes/tags.index'
@@ -76,6 +77,11 @@ const BlogSlugRoute = BlogSlugRouteImport.update({
   path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InternalComponentsRoute = InternalComponentsRouteImport.update({
+  id: '/internal/components',
+  path: '/internal/components',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
   id: '/projects/',
   path: '/projects/',
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/sitemap-0.xml': typeof Sitemap0DotxmlRoute
   '/sitemap-index.xml': typeof SitemapIndexDotxmlRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/internal/components': typeof InternalComponentsRoute
   '/projects/$slug': typeof ProjectsSlugRoute
   '/tags/$tag': typeof TagsTagRoute
   '/topics/$topic': typeof TopicsTopicRoute
@@ -135,6 +142,7 @@ export interface FileRoutesByTo {
   '/sitemap-0.xml': typeof Sitemap0DotxmlRoute
   '/sitemap-index.xml': typeof SitemapIndexDotxmlRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/internal/components': typeof InternalComponentsRoute
   '/projects/$slug': typeof ProjectsSlugRoute
   '/tags/$tag': typeof TagsTagRoute
   '/topics/$topic': typeof TopicsTopicRoute
@@ -154,6 +162,7 @@ export interface FileRoutesById {
   '/sitemap-0.xml': typeof Sitemap0DotxmlRoute
   '/sitemap-index.xml': typeof SitemapIndexDotxmlRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/internal/components': typeof InternalComponentsRoute
   '/projects/$slug': typeof ProjectsSlugRoute
   '/tags/$tag': typeof TagsTagRoute
   '/topics/$topic': typeof TopicsTopicRoute
@@ -174,6 +183,7 @@ export interface FileRouteTypes {
     | '/sitemap-0.xml'
     | '/sitemap-index.xml'
     | '/blog/$slug'
+    | '/internal/components'
     | '/projects/$slug'
     | '/tags/$tag'
     | '/topics/$topic'
@@ -192,6 +202,7 @@ export interface FileRouteTypes {
     | '/sitemap-0.xml'
     | '/sitemap-index.xml'
     | '/blog/$slug'
+    | '/internal/components'
     | '/projects/$slug'
     | '/tags/$tag'
     | '/topics/$topic'
@@ -210,6 +221,7 @@ export interface FileRouteTypes {
     | '/sitemap-0.xml'
     | '/sitemap-index.xml'
     | '/blog/$slug'
+    | '/internal/components'
     | '/projects/$slug'
     | '/tags/$tag'
     | '/topics/$topic'
@@ -229,6 +241,7 @@ export interface RootRouteChildren {
   Sitemap0DotxmlRoute: typeof Sitemap0DotxmlRoute
   SitemapIndexDotxmlRoute: typeof SitemapIndexDotxmlRoute
   BlogSlugRoute: typeof BlogSlugRoute
+  InternalComponentsRoute: typeof InternalComponentsRoute
   ProjectsSlugRoute: typeof ProjectsSlugRoute
   TagsTagRoute: typeof TagsTagRoute
   TopicsTopicRoute: typeof TopicsTopicRoute
@@ -310,6 +323,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/internal/components': {
+      id: '/internal/components'
+      path: '/internal/components'
+      fullPath: '/internal/components'
+      preLoaderRoute: typeof InternalComponentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projects/': {
       id: '/projects/'
       path: '/projects'
@@ -365,6 +385,7 @@ const rootRouteChildren: RootRouteChildren = {
   Sitemap0DotxmlRoute: Sitemap0DotxmlRoute,
   SitemapIndexDotxmlRoute: SitemapIndexDotxmlRoute,
   BlogSlugRoute: BlogSlugRoute,
+  InternalComponentsRoute: InternalComponentsRoute,
   ProjectsSlugRoute: ProjectsSlugRoute,
   TagsTagRoute: TagsTagRoute,
   TopicsTopicRoute: TopicsTopicRoute,
