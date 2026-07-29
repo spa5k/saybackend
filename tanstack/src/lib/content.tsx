@@ -104,6 +104,7 @@ export const posts: Array<Post> = Object.entries(blogFrontmatter)
       }),
     }
   })
+  .filter((post) => !post.draft)
   .sort((a, b) => Date.parse(b.date) - Date.parse(a.date))
 
 export const projects: Array<Project> = Object.entries(projectFrontmatter)

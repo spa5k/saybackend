@@ -45,6 +45,7 @@
     "vite-plugin-svgr": "^5.2.0"
   },
   "devDependencies": {
+    "@shikijs/rehype": "^4.3.1",
     "@tanstack/devtools-vite": "latest",
     "@tanstack/eslint-config": "latest",
     "@tanstack/router-cli": "^1.132.0",

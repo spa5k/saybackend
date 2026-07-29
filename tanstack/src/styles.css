@@ -808,6 +808,32 @@ img {
   line-height: 1.65;
 }
 
+.post-body pre.shiki {
+  position: relative;
+  border-color: color-mix(in srgb, var(--green) 34%, var(--rule));
+  box-shadow: inset 4px 0 0 color-mix(in srgb, var(--green) 72%, transparent);
+  tab-size: 2;
+}
+
+.post-body pre.shiki code {
+  display: grid;
+  min-width: max-content;
+}
+
+.post-body pre.shiki .line {
+  min-height: 1.65em;
+}
+
+html.dark .post-body .shiki,
+html.dark .post-body .shiki span,
+html.dark .shiki-code span {
+  color: var(--shiki-dark) !important;
+  background-color: var(--shiki-dark-bg) !important;
+  font-style: var(--shiki-dark-font-style) !important;
+  font-weight: var(--shiki-dark-font-weight) !important;
+  text-decoration: var(--shiki-dark-text-decoration) !important;
+}
+
 .post-body :not(pre) > code {
   background: var(--green-soft);
   padding: 0.15em 0.35em;

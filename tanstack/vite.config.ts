@@ -6,6 +6,7 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 
 import mdx from '@mdx-js/rollup'
 import viteReact from '@vitejs/plugin-react'
+import rehypeShiki from '@shikijs/rehype'
 import tailwindcss from '@tailwindcss/vite'
 import remarkFrontmatter from 'remark-frontmatter'
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
@@ -59,6 +60,18 @@ const config = defineConfig({
       remarkPlugins: [
         remarkFrontmatter,
         [remarkMdxFrontmatter, { name: 'frontmatter' }],
+      ],
+      rehypePlugins: [
+        [
+          rehypeShiki,
+          {
+            themes: {
+              light: 'everforest-light',
+              dark: 'everforest-dark',
+            },
+            defaultColor: false,
+          },
+        ],
       ],
     }),
     tailwindcss(),

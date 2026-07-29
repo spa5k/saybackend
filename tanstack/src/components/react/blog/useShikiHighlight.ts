@@ -9,7 +9,7 @@ let _hlPromise: Promise<Highlighter> | null = null;
 function getHighlighter(): Promise<Highlighter> {
   if (!_hlPromise) {
     _hlPromise = createHighlighter({
-      themes: ["github-light", "github-dark"],
+      themes: ["everforest-light", "everforest-dark"],
       langs: ["go", "sql"],
     });
   }
@@ -37,7 +37,7 @@ export function useShikiHighlight(
       if (cancelled) return;
       const result = hl.codeToTokens(code, {
         lang,
-        themes: { light: "github-light", dark: "github-dark" },
+        themes: { light: "everforest-light", dark: "everforest-dark" },
         defaultColor: false,
       });
       setLines(
