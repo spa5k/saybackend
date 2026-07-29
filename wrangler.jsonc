@@ -7,6 +7,7 @@
   "name": "saybackend",
   "main": "./src/worker.js",
   "minify": true,
+  "preview_urls": true,
 
   /**
    * Compatibility
