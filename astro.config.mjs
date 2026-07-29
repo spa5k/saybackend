@@ -2,7 +2,7 @@ import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
 import pagefind from "astro-pagefind";
-import { defineConfig, sessionDrivers } from "astro/config";
+import { defineConfig } from "astro/config";
 
 import react from "@astrojs/react";
 import solidJs from "@astrojs/solid-js";
@@ -10,11 +10,10 @@ import compress from "astro-compress";
 
 import partytown from "@astrojs/partytown";
 
-import cloudflare from "@astrojs/cloudflare";
-
 /** @type {import('astro').AstroConfig} */
 export default defineConfig({
   site: "https://saybackend.com",
+  outDir: "./dist/client",
 
   integrations: [
     sitemap({
@@ -51,11 +50,6 @@ export default defineConfig({
 
   prefetch: true,
 
-  session: {
-    // Avoid the Cloudflare adapter's default KV session binding for this static site.
-    driver: sessionDrivers.lruCache(),
-  },
-
   markdown: {
     syntaxHighlight: {
       type: "shiki",
@@ -76,10 +70,4 @@ export default defineConfig({
       entrypoint: "astro/assets/services/sharp",
     },
   },
-
-  adapter: cloudflare({
-    platformProxy: {
-      enabled: true,
-    },
-  }),
 });

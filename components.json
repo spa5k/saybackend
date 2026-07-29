@@ -12,7 +12,7 @@
   "iconLibrary": "lucide",
   "aliases": {
     "components": "src/components/ui",
-    "utils": "src/lib/utils"
+    "utils": "@/lib/utils"
   },
   "registries": {
     "@kibo-ui": "https://www.kibo-ui.com/r/{name}.json"

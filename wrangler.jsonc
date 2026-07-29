@@ -5,7 +5,9 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "saybackend",
+  "main": "./src/worker.js",
   "minify": true,
+  "preview_urls": true,
 
   /**
    * Compatibility
@@ -20,7 +22,8 @@
    */
   "assets": {
     "binding": "ASSETS",
-    "directory": "./dist",
+    "directory": "./dist/client",
+    "run_worker_first": true,
   },
 
   /**
@@ -30,12 +33,6 @@
   "observability": {
     "enabled": false,
   },
-
-  /**
-   * Smart Placement
-   * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
-   */
-  "placement": { "mode": "smart" },
 
   /**
    * Bindings
@@ -58,10 +55,6 @@
     {
       "custom_domain": true,
       "pattern": "saybackend.com",
-    },
-    {
-      "custom_domain": true,
-      "pattern": "www.saybackend.com",
     },
   ],
   /**
