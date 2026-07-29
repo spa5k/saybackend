@@ -1,0 +1,39 @@
+{
+  "performance_rankings": [
+    {
+      "rank": 1,
+      "implementation": "UUIDv4 (gen_random_uuid, PG17)",
+      "avgTime": 71.4,
+      "throughput": 21425,
+      "performanceVsUuid4": "Baseline fastest"
+    },
+    {
+      "rank": 2,
+      "implementation": "UUIDv7 (uuidv7_custom, PG18)",
+      "avgTime": 71.8,
+      "throughput": 21688,
+      "performanceVsUuid4": "~0.6% slower latency, throughput parity"
+    },
+    {
+      "rank": 3,
+      "implementation": "UUIDv7 (uuid_generate_v7, PG18)",
+      "avgTime": 73.8,
+      "throughput": 21877,
+      "performanceVsUuid4": "~3% slower latency, top UUIDv7 throughput"
+    },
+    {
+      "rank": 4,
+      "implementation": "UUIDv7 (native uuidv7, PG18)",
+      "avgTime": 74.3,
+      "throughput": 21674,
+      "performanceVsUuid4": "~4% slower latency, throughput parity"
+    },
+    {
+      "rank": 5,
+      "implementation": "ULID (ulid_generate, PG17)",
+      "avgTime": 80.3,
+      "throughput": 23160,
+      "performanceVsUuid4": "~12% slower latency, throughput leader"
+    }
+  ]
+}

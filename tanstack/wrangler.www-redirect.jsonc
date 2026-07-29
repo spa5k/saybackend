@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "saybackend-www-redirect",
+  "main": "./src/www-redirect-worker.ts",
+  "compatibility_date": "2025-09-15",
+  "routes": [
+    {
+      "pattern": "www.saybackend.com/*",
+      "zone_name": "saybackend.com",
+    },
+  ],
+}

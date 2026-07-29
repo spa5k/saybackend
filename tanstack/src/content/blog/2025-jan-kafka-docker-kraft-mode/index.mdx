@@ -1,0 +1,278 @@
+---
+title: "Run Kafka Locally with Docker Compose and KRaft Mode"
+description: "Start Apache Kafka locally with Docker Compose and KRaft mode, avoid ZooKeeper, configure advertised listeners, and verify the broker with Kafka UI."
+date: "2025-01-28"
+oldPath: "05-kafka-in-docker-kraft"
+tags:
+  - "kafka"
+  - "docker"
+  - "kraft"
+  - "streaming"
+  - "apache-kafka"
+faqs:
+  - question: "What is KRaft mode in Kafka?"
+    answer: "KRaft (Kafka Raft) replaces ZooKeeper with Kafka’s built-in metadata quorum. It simplifies local setups and aligns with Kafka’s newer architecture."
+  - question: "Do I still need ZooKeeper for local development?"
+    answer: "Not if you use KRaft mode. This guide shows a Docker setup that runs Kafka without ZooKeeper."
+  - question: "How do I create topics in a local Kafka Docker setup?"
+    answer: "You can create topics via the Kafka CLI inside the container, or by using a UI tool connected to the broker. Either way, the broker must be reachable from your host/network."
+  - question: "What’s the most common Docker networking issue with Kafka?"
+    answer: "Advertised listeners. If the broker advertises the wrong host/port, clients can connect initially but fail when they receive the broker’s advertised address."
+  - question: "Is KRaft production-ready?"
+    answer: "It depends on your Kafka version and operational requirements. For local development, it’s an excellent default; for production, follow Kafka’s official guidance for your target version."
+ogImage: "/images/5-kafka-docker/kafka_docker_kraft_og.png"
+---
+
+import Callout from "@/components/Callout.astro";
+import { Picture } from "astro:assets";
+import TopicCreation from "./1_kafka_ui_topic_creation.png";
+import BasicTxt from "./2_basic_text_messages.png";
+import StructuredJson from "./3_json_message.png";
+import MessagesOnUI from "./4_messages_on_ui.png";
+import OgImage from "./kafka_docker_kraft_og.png";
+import KafkaZookeeperKraft from "./kafka_zookeeper_kraft.jpg";
+
+<Picture
+  src={OgImage}
+  alt="Laptop showing Kafka and Docker logos with KRaft mode enabled"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+## Why KRaft Mode Matters
+
+<Callout type="info">
+  **Direct answer:** For local Kafka development in 2026, use a single Kafka
+  broker in KRaft mode plus Kafka UI. The critical setting is
+  `KAFKA_ADVERTISED_LISTENERS`; if it points at the wrong host or port, clients
+  will connect once and then fail on broker metadata.
+</Callout>
+
+Kafka Raft Metadata (KRaft) is a new mode for Apache Kafka that eliminates the need for Zookeeper. It was introduced in KIP-500 to remove the kafka dependency on Zookeeper.
+Apache Kafka traditionally required Zookeeper for cluster coordination - until KRaft (Kafka Raft Metadata) mode arrived. This update eliminates Zookeeper dependencies while improving:
+
+<Picture
+  src={KafkaZookeeperKraft}
+  alt="Kafka Raft Metadata (KRaft) mode"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+> Image from [Kafka Raft Metadata (KRaft) mode](https://developer.confluent.io/learn/kraft/)
+
+- **Simplified architecture**: Fewer moving parts
+- **Faster recovery**: Metadata changes happen in milliseconds
+- **Easier scaling**: More predictable cluster behavior
+
+I recently wanted to setup Kafka for my local development, and after quite a few tries, ngl, I was finally able to do it. Let's show you how it went.
+
+This guide focuses on the local broker loop. If you are also tightening deployment fundamentals, see the [Next.js self-hosting guide](/blog/2024-sep-nextjs-deploy-any-server/) and the [Go Docker image optimization guide](/blog/2024-jun-golang-dockerfile-optimized/) for the same container-first production mindset.
+
+## Prerequisites
+
+- Docker (Latest version?)
+- 4GB+ free memory (Kafka containers can be hungry)
+
+## Complete Docker Compose Setup
+
+```yaml
+services:
+  kafka:
+    image: apache/kafka:latest
+    container_name: broker
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092,EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    ports:
+      - "9094:9094"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "./opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8088:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:9092
+      KAFKA_CLUSTERS_0_READONLY: "false"
+    depends_on:
+      kafka:
+        condition: service_healthy
+```
+
+**Kafka Configuration:**
+
+- `KAFKA_NODE_ID`: Unique identifier for the broker
+- `KAFKA_PROCESS_ROLES`: Broker and controller roles
+- `KAFKA_LISTENERS`: Listeners for different protocols
+- `KAFKA_ADVERTISED_LISTENERS`: Addresses advertised to clients
+- `KAFKA_LISTENER_SECURITY_PROTOCOL_MAP`: Security protocol map
+- `KAFKA_INTER_BROKER_LISTENER_NAME`: Inter-broker listener name
+- `KAFKA_CONTROLLER_QUORUM_VOTERS`: Controller quorum voters
+- `KAFKA_CONTROLLER_LISTENER_NAMES`: Controller listener names
+- `KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR`: Offsets topic replication factor
+- `KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR`: Transaction state log replication factor
+- `KAFKA_TRANSACTION_STATE_LOG_MIN_ISR`: Transaction state log minimum ISR
+
+## Cluster Management Commands
+
+**Start all services:**
+
+```bash
+docker-compose up -d
+```
+
+**Verify running containers:**
+
+```bash
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+```
+
+**Expected output:**
+
+```
+NAMES     STATUS              PORTS
+broker            Up 4 minutes (healthy)    9092/tcp, 0.0.0.0:9094->9094/tcp
+kafka-ui          Up 4 minutes              0.0.0.0:8088->8080/tcp
+```
+
+## Monitoring with Kafka UI
+
+After starting containers, access http://localhost:8088 to:
+
+- View real-time broker status
+- Inspect topic configurations
+- Monitor consumer lag
+- Explore message payloads
+- Manage ACLs (access control lists)
+
+## Connection URLs to use in your applications
+
+You will need to connect to the broker using the following URL:
+
+- If running outside of docker:
+
+```
+localhost:9094
+```
+
+- If running inside of docker:
+
+```
+broker:9092
+```
+
+## Topic Management: CLI vs UI
+
+**Command-line creation:**
+
+```bash
+docker exec broker /opt/kafka/bin/kafka-topics.sh \
+  --topic orders \
+  --create \
+  --bootstrap-server localhost:9092 \
+  --partitions 3 \
+  --replication-factor 1
+```
+
+**UI alternative:**
+
+1. Navigate to Topics → Create Topic
+2. Set partitions/replication
+3. Click "Submit"
+
+<Picture
+  src={TopicCreation}
+  alt="Kafka UI topic creation"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+## Message Production Patterns
+
+**Basic text messages:**
+
+```bash
+docker exec -it broker /opt/kafka/bin/kafka-console-producer.sh \
+  --topic orders \
+  --bootstrap-server localhost:9092
+```
+
+<Picture
+  src={BasicTxt}
+  alt="Kafka console producer"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+**Structured JSON:**
+
+```bash
+# Using jq for JSON formatting
+echo '{"id":1001, "amount":49.99}' | jq -c | docker exec -i broker /opt/kafka/bin/kafka-console-producer.sh \
+  --topic orders \
+  --bootstrap-server localhost:9092
+```
+
+<Picture
+  src={StructuredJson}
+  alt="Kafka console producer"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+You can also see the messages on the UI:
+
+<Picture
+  src={MessagesOnUI}
+  alt="Kafka messages on UI"
+  inferSize
+  formats={["avif", "webp"]}
+/>
+
+## Troubleshooting Checklist
+
+**Brokers not connecting?**
+
+- Check port conflicts with `netstat -tuln | grep 9092`
+
+**UI not showing topics?**
+
+- Ensure bootstrap servers match in UI config
+- Check container logs: `docker logs kafka-ui`
+
+## When to Choose This Setup
+
+**Good for:**
+
+- Local development
+- CI/CD pipelines
+- Prototyping new features
+
+**Not for:**
+
+- Production deployments
+- High-availability requirements
+- Sensitive data handling
+
+## Learn More
+
+- [Kafka Raft Metadata (KRaft) mode](https://developer.confluent.io/learn/kraft/)
+- [More details on KRaft](https://docs.confluent.io/platform/current/kafka-metadata/kraft.html#kraft-overview)

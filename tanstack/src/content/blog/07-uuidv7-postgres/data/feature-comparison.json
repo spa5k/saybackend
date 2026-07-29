@@ -1,0 +1,58 @@
+{
+  "feature_comparison": [
+    {
+      "feature": "Time Ordered",
+      "uuidv4": false,
+      "uuidv7_plpgsql": true,
+      "uuidv7_sql": true,
+      "uuidv7_subms": true,
+      "ulid": true,
+      "typeid": true
+    },
+    {
+      "feature": "Human Readable",
+      "uuidv4": false,
+      "uuidv7_plpgsql": false,
+      "uuidv7_sql": false,
+      "uuidv7_subms": false,
+      "ulid": true,
+      "typeid": false
+    },
+    {
+      "feature": "Type Safe",
+      "uuidv4": false,
+      "uuidv7_plpgsql": false,
+      "uuidv7_sql": false,
+      "uuidv7_subms": false,
+      "ulid": false,
+      "typeid": true
+    },
+    {
+      "feature": "Compact Binary",
+      "uuidv4": true,
+      "uuidv7_plpgsql": true,
+      "uuidv7_sql": true,
+      "uuidv7_subms": true,
+      "ulid": false,
+      "typeid": false
+    },
+    {
+      "feature": "PostgreSQL Native",
+      "uuidv4": true,
+      "uuidv7_plpgsql": false,
+      "uuidv7_sql": false,
+      "uuidv7_subms": false,
+      "ulid": false,
+      "typeid": false
+    },
+    {
+      "feature": "Lexicographic Sort",
+      "uuidv4": false,
+      "uuidv7_plpgsql": false,
+      "uuidv7_sql": false,
+      "uuidv7_subms": false,
+      "ulid": true,
+      "typeid": false
+    }
+  ]
+}

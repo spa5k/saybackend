@@ -1,0 +1,12 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /login/
+Disallow: /private/
+Disallow: /*?sort=
+Disallow: /*?filter=
+Disallow: /*.pdf$
+
+Sitemap: https://saybackend.com/sitemap-index.xml
+
+# Crawl-delay for non-Google bots
+Crawl-delay: 10

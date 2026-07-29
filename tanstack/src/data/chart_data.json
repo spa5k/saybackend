@@ -1,0 +1,113 @@
+{
+  "bar_chart": [
+    {
+      "implementation": "Native uuidv7()",
+      "avg_time": 58.1,
+      "throughput": 34127,
+      "storage": 36,
+      "pg_version": 18
+    },
+    {
+      "implementation": "Custom uuidv7()",
+      "avg_time": 87.3,
+      "throughput": 29456,
+      "storage": 36,
+      "pg_version": 17
+    },
+    {
+      "implementation": "UUIDv4",
+      "avg_time": 86.8,
+      "throughput": 29238,
+      "storage": 36,
+      "pg_version": 17
+    },
+    {
+      "implementation": "ULID",
+      "avg_time": 124.5,
+      "throughput": 24832,
+      "storage": 39,
+      "pg_version": 17
+    },
+    {
+      "implementation": "TypeID",
+      "avg_time": 198.7,
+      "throughput": 18943,
+      "storage": 42,
+      "pg_version": 17
+    }
+  ],
+  "area_chart": [
+    {
+      "implementation": "Native uuidv7()",
+      "throughput": 34127,
+      "concurrent_throughput": 29008,
+      "pg_version": 18
+    },
+    {
+      "implementation": "Custom uuidv7()",
+      "throughput": 29456,
+      "concurrent_throughput": 25038,
+      "pg_version": 17
+    },
+    {
+      "implementation": "UUIDv4",
+      "throughput": 29238,
+      "concurrent_throughput": 24852,
+      "pg_version": 17
+    },
+    {
+      "implementation": "ULID",
+      "throughput": 24832,
+      "concurrent_throughput": 21107,
+      "pg_version": 17
+    },
+    {
+      "implementation": "TypeID",
+      "throughput": 18943,
+      "concurrent_throughput": 16102,
+      "pg_version": 17
+    }
+  ],
+  "radar_chart": [
+    {
+      "implementation": "Native uuidv7()",
+      "performance": 100.0,
+      "throughput": 100.0,
+      "storage_efficiency": 100.0,
+      "overall": 100.0,
+      "pg_version": 18
+    },
+    {
+      "implementation": "Custom uuidv7()",
+      "performance": 66.6,
+      "throughput": 86.3,
+      "storage_efficiency": 100.0,
+      "overall": 84.3,
+      "pg_version": 17
+    },
+    {
+      "implementation": "UUIDv4",
+      "performance": 66.9,
+      "throughput": 85.7,
+      "storage_efficiency": 100.0,
+      "overall": 84.2,
+      "pg_version": 17
+    },
+    {
+      "implementation": "ULID",
+      "performance": 46.7,
+      "throughput": 72.8,
+      "storage_efficiency": 92.3,
+      "overall": 70.6,
+      "pg_version": 17
+    },
+    {
+      "implementation": "TypeID",
+      "performance": 29.2,
+      "throughput": 55.5,
+      "storage_efficiency": 85.7,
+      "overall": 56.8,
+      "pg_version": 17
+    }
+  ]
+}
