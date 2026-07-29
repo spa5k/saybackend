@@ -1,29 +1,24 @@
 import { MagnifyingGlass, X } from '@phosphor-icons/react'
 import { useCallback, useEffect, useRef } from 'react'
 
-function mountPagefind(container: HTMLDivElement) {
-  if (container.dataset.ready || !window.PagefindUI) return
-  new window.PagefindUI({
-    element: container,
-    showSubResults: true,
-    showImages: false,
-  })
-  container.dataset.ready = 'true'
-}
+import { mountPagefind } from '@/lib/pagefind'
 
 export function SearchDialog() {
   const dialog = useRef<HTMLDialogElement>(null)
   const container = useRef<HTMLDivElement>(null)
 
-  const open = useCallback(() => {
+  const open = useCallback(async () => {
     if (!dialog.current || !container.current) return
-    mountPagefind(container.current)
     dialog.current.showModal()
-    window.setTimeout(() => {
+    try {
+      await mountPagefind(container.current)
       container.current
-        ?.querySelector<HTMLInputElement>('.pagefind-ui__search-input')
+        .querySelector<HTMLInputElement>('.pagefind-ui__search-input')
         ?.focus()
-    }, 0)
+    } catch {
+      container.current.textContent =
+        'Search could not load. Please refresh and try again.'
+    }
   }, [])
 
   const close = useCallback(() => dialog.current?.close(), [])
@@ -40,7 +35,7 @@ export function SearchDialog() {
         ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k')
       ) {
         event.preventDefault()
-        open()
+        void open()
       }
     }
     document.addEventListener('keydown', handleKeyboard)
@@ -53,7 +48,7 @@ export function SearchDialog() {
         className="search-toggle"
         type="button"
         aria-label="Search articles"
-        onClick={open}
+        onClick={() => void open()}
       >
         <MagnifyingGlass size={18} weight="regular" aria-hidden="true" />
       </button>

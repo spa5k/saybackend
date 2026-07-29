@@ -40,15 +40,18 @@ export type Project = Frontmatter & {
 const blogFrontmatter = {
   ...import.meta.glob<Frontmatter>('../content/blog/07-*/index.mdx', {
     eager: true,
-    import: 'frontmatter',
+    import: 'default',
+    query: '?frontmatter-only',
   }),
   ...import.meta.glob<Frontmatter>('../content/blog/10-*/index.mdx', {
     eager: true,
-    import: 'frontmatter',
+    import: 'default',
+    query: '?frontmatter-only',
   }),
   ...import.meta.glob<Frontmatter>('../content/blog/20*/index.mdx', {
     eager: true,
-    import: 'frontmatter',
+    import: 'default',
+    query: '?frontmatter-only',
   }),
 }
 const blogModules = {
@@ -58,7 +61,11 @@ const blogModules = {
 }
 const projectFrontmatter = import.meta.glob<Frontmatter>(
   '../content/projects/**/index.md',
-  { eager: true, import: 'frontmatter' },
+  {
+    eager: true,
+    import: 'default',
+    query: '?frontmatter-only',
+  },
 )
 const projectModules = import.meta.glob<ContentModule>(
   '../content/projects/**/index.md',

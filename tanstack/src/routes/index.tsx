@@ -65,6 +65,10 @@ function Home() {
             alt=""
             className="rail-illustration"
             aria-hidden="true"
+            width={1536}
+            height={1024}
+            loading="lazy"
+            decoding="async"
           />
           <p className="rail-intro">
             Notes on systems, patterns, and the daily work of building reliable
@@ -118,6 +122,9 @@ function Home() {
               src="/images/editorial-still-life.png"
               alt="Etched illustration of technical books, coffee, and an open notebook"
               className="featured-illustration"
+              width={1536}
+              height={1024}
+              fetchPriority="high"
             />
           </article>
 

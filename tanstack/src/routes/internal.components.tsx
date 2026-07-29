@@ -181,10 +181,7 @@ function ComponentGallery() {
         <ComponentPreview name="WideEventsBeforeAfter" kind="interactive">
           <WideEventsBeforeAfter />
         </ComponentPreview>
-        <ComponentPreview
-          name="WideEventBuilderSimulator"
-          kind="interactive"
-        >
+        <ComponentPreview name="WideEventBuilderSimulator" kind="interactive">
           <WideEventBuilderSimulator />
         </ComponentPreview>
         <ComponentPreview name="IntegrationsMatrix" kind="static">

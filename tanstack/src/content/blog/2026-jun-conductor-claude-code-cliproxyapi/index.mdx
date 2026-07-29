@@ -33,7 +33,10 @@ import InteractiveDiagram from "@/components/react/InteractiveDiagram";
 <img
   src="/images/conductor-claude-code-cliproxyapi-og.png"
   alt="How to run a Codex subscription in Claude Code and Conductor"
+  width="1200"
+  height="630"
   loading="eager"
+  fetchPriority="high"
 />
 
 Claude Code expects Anthropic-style configuration. Conductor can run Codex directly, but if you want to use Conductor's Claude Code runner with a Codex subscription, CLIProxyAPI can sit in the middle and expose a local Anthropic-compatible endpoint while routing requests to Codex-backed OpenAI models.

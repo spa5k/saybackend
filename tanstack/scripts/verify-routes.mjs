@@ -60,14 +60,20 @@ for (const path of pagePaths) {
   const html = await response.text()
   const expectedCanonical = canonicalFor(path)
   const actualCanonical = attribute(html, 'link', 'href', 'rel', 'canonical')
+  const isArticle = path.startsWith('/blog/') && path !== '/blog/'
 
   if (
     response.status !== 200 ||
     !html.includes('<title>') ||
     !html.includes('name="description"') ||
+    !html.includes('name="robots"') ||
     !html.includes('property="og:title"') ||
     !html.includes('name="twitter:card"') ||
-    actualCanonical !== expectedCanonical
+    actualCanonical !== expectedCanonical ||
+    (isArticle &&
+      (!html.includes('property="og:type" content="article"') ||
+        !html.includes('property="article:published_time"') ||
+        !html.includes('"@type":"BlogPosting"')))
   ) {
     failures.push({
       path,
@@ -76,6 +82,24 @@ for (const path of pagePaths) {
       actualCanonical,
     })
   }
+}
+
+const homeResponse = await fetch(baseUrl)
+const home = await homeResponse.text()
+const unexpectedCriticalAssets = [
+  '/pagefind/pagefind-ui.css',
+  '/pagefind/pagefind-ui.js',
+  'HappyContextBlocks',
+  'InteractiveDiagram',
+  'PgStrictBlocks',
+  'useShikiHighlight',
+].filter((asset) => home.includes(asset))
+
+if (unexpectedCriticalAssets.length > 0) {
+  failures.push({
+    path: '/',
+    unexpectedCriticalAssets,
+  })
 }
 
 for (const [from, expectedPath] of Object.entries(legacyRedirects)) {

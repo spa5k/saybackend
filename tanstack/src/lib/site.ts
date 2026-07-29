@@ -34,6 +34,12 @@ export const PAGE_META = {
   },
 } as const
 
+export const NOT_FOUND_META = {
+  title: '404 — Not Found',
+  description: 'The page you are looking for does not exist.',
+  path: '/404',
+} as const
+
 type SeoInput = {
   title: string
   description: string
@@ -41,6 +47,9 @@ type SeoInput = {
   image?: string
   type?: 'website' | 'article'
   noindex?: boolean
+  publishedTime?: string
+  modifiedTime?: string
+  tags?: Array<string>
   schema?: unknown
 }
 
@@ -51,20 +60,29 @@ export function seo({
   image = '/images/blog.png',
   type = 'website',
   noindex = false,
+  publishedTime,
+  modifiedTime,
+  tags = [],
   schema,
 }: SeoInput) {
   const canonicalPath = path === '/' || path.endsWith('/') ? path : `${path}/`
   const canonical = new URL(canonicalPath, SITE.origin).href
   const socialImage = new URL(image, SITE.origin).href
-  const documentTitle = `${title} | ${SITE.title}`
+  const documentTitle = title.toLowerCase().includes(SITE.title.toLowerCase())
+    ? title
+    : `${title} | ${SITE.title}`
+  const robots = noindex
+    ? 'noindex,follow'
+    : 'index,follow,max-image-preview:large'
 
   return {
     meta: [
       { title: documentTitle },
       { name: 'title', content: documentTitle },
       { name: 'description', content: description },
-      ...(noindex ? [{ name: 'robots', content: 'noindex,follow' }] : []),
+      { name: 'robots', content: robots },
       { property: 'og:type', content: type },
+      { property: 'og:locale', content: 'en_US' },
       { property: 'og:url', content: canonical },
       { property: 'og:title', content: documentTitle },
       { property: 'og:description', content: description },
@@ -73,6 +91,35 @@ export function seo({
       { property: 'og:image:width', content: '1200' },
       { property: 'og:image:height', content: '630' },
       { property: 'og:site_name', content: SITE.title },
+      ...(type === 'article'
+        ? [
+            { name: 'author', content: 'Kamran Tahir' },
+            ...(publishedTime
+              ? [
+                  {
+                    property: 'article:published_time',
+                    content: publishedTime,
+                  },
+                ]
+              : []),
+            ...(modifiedTime
+              ? [
+                  {
+                    property: 'article:modified_time',
+                    content: modifiedTime,
+                  },
+                ]
+              : []),
+            {
+              property: 'article:author',
+              content: `${SITE.origin}/about/`,
+            },
+            ...tags.map((tag) => ({
+              property: 'article:tag',
+              content: tag,
+            })),
+          ]
+        : []),
       { name: 'twitter:card', content: 'summary_large_image' },
       { name: 'twitter:url', content: canonical },
       { name: 'twitter:title', content: documentTitle },

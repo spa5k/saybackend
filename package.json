@@ -3,16 +3,14 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "dev": "astro dev",
-    "start": "astro dev",
-    "build": "astro build",
-    "check": "astro check",
-    "check:ui": "node scripts/check-ui-regressions.mjs",
-    "preview": "astro preview",
-    "astro": "astro",
-    "deploy": "wrangler deploy --config wrangler.deploy.jsonc && wrangler deploy --config wrangler.www-redirect.jsonc",
-    "format": "prettier --write .",
-    "check:sitemap": "node scripts/check-sitemap.mjs"
+    "dev": "npm --prefix tanstack run dev",
+    "start": "npm --prefix tanstack run dev",
+    "build": "npm --prefix tanstack run build",
+    "check": "npm --prefix tanstack run check && npm --prefix tanstack run lint",
+    "preview": "npm --prefix tanstack run preview",
+    "deploy": "npm --prefix tanstack run deploy",
+    "format": "npm --prefix tanstack run format",
+    "verify:routes": "npm --prefix tanstack run verify:routes"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.9",

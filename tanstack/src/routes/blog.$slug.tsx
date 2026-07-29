@@ -39,12 +39,17 @@ export const Route = createFileRoute('/blog/$slug')({
   },
   head: ({ loaderData }) => {
     if (!loaderData) return {}
-    const url = `${SITE.origin}/blog/${loaderData.slug}`
+    const url = `${SITE.origin}/blog/${loaderData.slug}/`
+    const articleTags = loaderData.tags.slice(0, 12)
     return seo({
       title: loaderData.title,
       description: loaderData.description,
       path: `/blog/${loaderData.slug}`,
       image: loaderData.ogImage,
+      type: 'article',
+      publishedTime: loaderData.date,
+      modifiedTime: loaderData.updated ?? loaderData.date,
+      tags: articleTags,
       schema: {
         '@context': 'https://schema.org',
         '@graph': [
@@ -55,7 +60,13 @@ export const Route = createFileRoute('/blog/$slug')({
               loaderData.ogImage ?? '/images/blog.png',
               SITE.origin,
             ).href,
-            author: { '@id': `${SITE.origin}/#author` },
+            url,
+            author: {
+              '@type': 'Person',
+              '@id': `${SITE.origin}/#author`,
+              name: 'Kamran Tahir',
+              url: `${SITE.origin}/about/`,
+            },
             publisher: {
               '@type': 'Organization',
               '@id': `${SITE.origin}/#organization`,
@@ -70,8 +81,8 @@ export const Route = createFileRoute('/blog/$slug')({
             description: loaderData.description,
             mainEntityOfPage: { '@type': 'WebPage', '@id': url },
             inLanguage: 'en-US',
-            about: loaderData.tags,
-            keywords: loaderData.tags.join(', '),
+            about: articleTags,
+            keywords: articleTags.join(', '),
           },
           breadcrumb([
             { name: 'Home', path: '/' },

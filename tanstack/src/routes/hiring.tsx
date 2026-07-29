@@ -85,7 +85,13 @@ function Hiring() {
         </p>
       </header>
       <div className="hiring-profile">
-        <img src="/images/pfp.png" alt="Kamran Tahir" />
+        <img
+          src="/images/pfp.png"
+          alt="Kamran Tahir"
+          width={1024}
+          height={1536}
+          decoding="async"
+        />
         <div>
           <h2>Senior engineer, product-minded delivery.</h2>
           <p>

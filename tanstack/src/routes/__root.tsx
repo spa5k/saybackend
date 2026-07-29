@@ -1,7 +1,8 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 
+import { NotFoundPage } from '@/components/NotFoundPage'
 import { SiteShell } from '@/components/SiteShell'
-import { PAGE_META } from '@/lib/site'
+import { NOT_FOUND_META, PAGE_META, SITE } from '@/lib/site'
 import appCss from '../styles.css?url'
 
 export const Route = createRootRoute({
@@ -30,19 +31,13 @@ export const Route = createRootRoute({
         href: '/apple-touch-icon.png',
       },
       { rel: 'manifest', href: '/site.webmanifest' },
-      { rel: 'stylesheet', href: '/pagefind/pagefind-ui.css' },
     ],
     scripts: [
       {
         children: `(()=>{try{const saved=localStorage.getItem("saybackend-theme")||localStorage.getItem("theme");const followsSystem=!saved||saved==="auto";const dark=saved==="dark"||(followsSystem&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",dark)}catch{}})();`,
       },
-      { src: '/pagefind/pagefind-ui.js' },
       {
-        src: 'https://www.googletagmanager.com/gtag/js?id=G-5XS7E70997',
-        async: true,
-      },
-      {
-        children: `window.dataLayer=window.dataLayer||[];window.gtag=function(){dataLayer.push(arguments)};gtag("js",new Date());gtag("config","G-5XS7E70997");`,
+        children: `(()=>{window.dataLayer=window.dataLayer||[];window.gtag=function(){dataLayer.push(arguments)};gtag("js",new Date());gtag("config","G-5XS7E70997");const load=()=>{const script=document.createElement("script");script.async=true;script.src="https://www.googletagmanager.com/gtag/js?id=G-5XS7E70997";document.head.append(script)};if(document.readyState==="complete")load();else addEventListener("load",load,{once:true})})();`,
       },
     ],
   }),
@@ -67,24 +62,14 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 function NotFound() {
   return (
     <>
-      <title>404 — Not Found | SayBackend</title>
-      <meta
-        name="description"
-        content="The page you are looking for does not exist."
-      />
+      <title>{`${NOT_FOUND_META.title} | ${SITE.title}`}</title>
+      <meta name="description" content={NOT_FOUND_META.description} />
       <meta name="robots" content="noindex,follow" />
-      <link rel="canonical" href="https://saybackend.com/404/" />
-      <section className="page-frame simple-page not-found">
-        <p className="eyebrow">404</p>
-        <h1>That page wandered off.</h1>
-        <p>
-          The address may have changed, or the page may no longer exist. The
-          archive is the best place to pick up the trail.
-        </p>
-        <a className="text-link" href="/blog">
-          Browse the blog →
-        </a>
-      </section>
+      <link
+        rel="canonical"
+        href={new URL(`${NOT_FOUND_META.path}/`, SITE.origin).href}
+      />
+      <NotFoundPage />
     </>
   )
 }

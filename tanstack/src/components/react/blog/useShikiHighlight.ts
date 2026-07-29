@@ -1,16 +1,23 @@
 import { useEffect, useState } from "react";
-import { createHighlighter, type Highlighter } from "shiki";
+import go from "@shikijs/langs/go";
+import sql from "@shikijs/langs/sql";
+import everforestDark from "@shikijs/themes/everforest-dark";
+import everforestLight from "@shikijs/themes/everforest-light";
+import { createHighlighterCore } from "shiki/core";
+import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
+import type { HighlighterCore } from "@shikijs/types";
 
 export type TokenStyle = Record<string, string>;
 export type TokenLine = { content: string; style: TokenStyle }[];
 
-let _hlPromise: Promise<Highlighter> | null = null;
+let _hlPromise: Promise<HighlighterCore> | null = null;
 
-function getHighlighter(): Promise<Highlighter> {
+function getHighlighter(): Promise<HighlighterCore> {
   if (!_hlPromise) {
-    _hlPromise = createHighlighter({
-      themes: ["everforest-light", "everforest-dark"],
-      langs: ["go", "sql"],
+    _hlPromise = createHighlighterCore({
+      themes: [everforestLight, everforestDark],
+      langs: [go, sql],
+      engine: createJavaScriptRegexEngine(),
     });
   }
   return _hlPromise;

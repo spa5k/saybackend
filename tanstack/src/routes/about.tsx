@@ -75,7 +75,13 @@ function About() {
         </p>
       </header>
       <div className="profile-intro">
-        <img src="/images/pfp.png" alt="Kamran Tahir" />
+        <img
+          src="/images/pfp.png"
+          alt="Kamran Tahir"
+          width={1024}
+          height={1536}
+          decoding="async"
+        />
         <div>
           <p>
             I’m a Senior Software Engineer focused on reliable systems, clean

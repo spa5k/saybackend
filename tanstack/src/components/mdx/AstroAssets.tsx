@@ -1,7 +1,9 @@
 import type { ComponentType, ImgHTMLAttributes, SVGProps } from 'react'
 
 type AssetSource =
-  string | { src?: string } | ComponentType<SVGProps<SVGSVGElement>>
+  | string
+  | { src?: string }
+  | ComponentType<SVGProps<SVGSVGElement>>
 
 type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
   src: AssetSource
@@ -11,6 +13,8 @@ type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
 
 export function Picture({
   src,
+  // Kept for source compatibility with Astro-authored MDX. The Vite transform
+  // adds intrinsic dimensions to local raster images before MDX compilation.
   formats: _formats,
   inferSize: _inferSize,
   ...props
@@ -21,7 +25,14 @@ export function Picture({
   }
 
   const resolved = typeof src === 'string' ? src : src.src
-  return <img src={resolved} {...props} />
+  return (
+    <img
+      src={resolved}
+      loading={props.loading ?? 'lazy'}
+      decoding={props.decoding ?? 'async'}
+      {...props}
+    />
+  )
 }
 
 export const Image = Picture
