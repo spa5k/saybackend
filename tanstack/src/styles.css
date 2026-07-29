@@ -51,7 +51,9 @@
   --color-warning: #9a641d;
   --color-error: #a33931;
   --color-purple: #74587f;
-  --radius: 0.25rem;
+  --radius: 1rem;
+  --radius-sm: 0.7rem;
+  --radius-lg: 1.4rem;
 }
 
 .dark {
@@ -277,7 +279,7 @@ img {
   --pagefind-ui-border: var(--rule);
   --pagefind-ui-tag: var(--green-soft);
   --pagefind-ui-border-width: 1px;
-  --pagefind-ui-border-radius: 0;
+  --pagefind-ui-border-radius: 16px;
   --pagefind-ui-font: var(--font-serif);
 }
 
