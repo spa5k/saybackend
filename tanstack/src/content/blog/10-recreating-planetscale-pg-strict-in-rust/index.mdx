@@ -99,7 +99,6 @@ Before the build log, here is the mental model that made the rest of the decisio
 
 <InteractiveDiagram
   title="Postgres query pipeline and hook points"
-  variant="journey"
   code={`
 graph TB
     SQL[SQL Query Text] --> Parser[Parser]
@@ -159,7 +158,6 @@ The goal here was simple: Can I see the SQL string and stop execution?
 
 <InteractiveDiagram
   title="Stage 0 · Executor hook proof of concept"
-  variant="journey"
   code={`
 graph LR
     Start[SQL Query] --> Hook[ExecutorRun Hook]
@@ -184,7 +182,6 @@ My first instinct for parsing was **Tree-sitter**. It's modern, fast, and I've u
 
 <InteractiveDiagram
   title="Stage 1 · Tree-sitter attempt"
-  variant="journey"
   code={`
 graph LR
     Start[SQL Query Text] --> Hook[Executor Hook]
@@ -235,7 +232,6 @@ impl QueryAnalyzer {
 
 <InteractiveDiagram
   title="Stage 2 · External sqlparser approach"
-  variant="journey"
   code={`
 graph LR
     Start[SQL Query] --> PG[Postgres Parses ①]
@@ -296,7 +292,6 @@ This solved **correctness**. Edge cases like `DELETE ... USING` or complex CTEs 
 
 <InteractiveDiagram
   title="Stage 3 · Postgres parser at the executor phase"
-  variant="journey"
   code={`
 graph LR
     Start[SQL Query] --> Parse1[Postgres Parses Query]
@@ -394,7 +389,6 @@ That means a `WHERE` clause inside a CTE does **not** count. A `WHERE ... IN (SE
 
 <InteractiveDiagram
   title="Stage 4 · Parse-time enforcement"
-  variant="journey"
   code={`
 graph LR
     Start[SQL Query] --> Parse[Parse Query Once]
@@ -511,7 +505,6 @@ Now the extension flows like this:
 
 <InteractiveDiagram
   title="pg_strict decision flow"
-  variant="decision"
   code={`
 graph TB
     Start([post_parse_analyze_hook fires]) --> GetMode[Read GUC Settings]
@@ -573,7 +566,6 @@ The architecture is deliberately simple:
 
 <InteractiveDiagram
   title="pg_strict extension architecture"
-  variant="architecture"
   code={`
 graph TB
     subgraph "Extension Components"

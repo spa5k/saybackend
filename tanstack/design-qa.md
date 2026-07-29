@@ -1,82 +1,70 @@
 # Design QA
 
-## Comparison targets
+## Evidence
 
-- HappyContext source visual truth: `/Users/atlantic/.codex/visualizations/2026/07/29/019fadce-a53d-7040-8c31-4d06c09ac6e2/mockup-happycontext-interactions.png`
-- HappyContext implementation: `/Users/atlantic/.codex/visualizations/2026/07/29/019fadce-a53d-7040-8c31-4d06c09ac6e2/implementation-happycontext-accumulator.png`
-- HappyContext combined comparison: `/Users/atlantic/.codex/visualizations/2026/07/29/019fadce-a53d-7040-8c31-4d06c09ac6e2/qa-pair-happycontext.png`
-- pg_strict source visual truth: `/Users/atlantic/.codex/visualizations/2026/07/29/019fadce-a53d-7040-8c31-4d06c09ac6e2/mockup-pgstrict-workbench.png`
-- pg_strict implementation: `/Users/atlantic/.codex/visualizations/2026/07/29/019fadce-a53d-7040-8c31-4d06c09ac6e2/implementation-pgstrict-workbench.png`
-- pg_strict combined comparison: `/Users/atlantic/.codex/visualizations/2026/07/29/019fadce-a53d-7040-8c31-4d06c09ac6e2/qa-pair-pgstrict.png`
-- Final focused pg_strict control/result evidence: `/Users/atlantic/.codex/visualizations/2026/07/29/019fadce-a53d-7040-8c31-4d06c09ac6e2/implementation-pgstrict-run-control.png`
-- Final focused HappyContext evidence: `/Users/atlantic/.codex/visualizations/2026/07/29/019fadce-a53d-7040-8c31-4d06c09ac6e2/implementation-happycontext-error-stage.png`
-- Sampling benchmark evidence: `/Users/atlantic/.codex/visualizations/2026/07/29/019fadce-a53d-7040-8c31-4d06c09ac6e2/implementation-sampling-rounded.png`
+- Source visual truth: `/Users/atlantic/.codex/generated_images/019fadce-a53d-7040-8c31-4d06c09ac6e2/call_es5cVkqSqSd1Kw4nGIvuTFD8.png`
+- Normalized source: `/Users/atlantic/Developer/saybackend/tanstack/design-reference-1440x1024.png`
+- Rendered implementation: `/Users/atlantic/Developer/saybackend/tanstack/implementation-home-1440x1024-normalized.png`
+- Side-by-side comparison: `/Users/atlantic/Developer/saybackend/tanstack/design-comparison.png`
+- Route: `/`
+- State: desktop, light theme, navigation closed
+- CSS viewport: 1440 × 1024
+- Source pixels: 1487 × 1058, normalized to 1440 × 1024
+- Implementation pixels: 1440 × 1024
+- Density normalization: both artifacts compared at 1× and equal pixel dimensions
 
-## Normalization
+## Full-view comparison
 
-- Browser viewport: 952 × 935 CSS px.
-- Browser-reported device pixel ratio: 2.
-- Browser capture output: 952 × 935 px, normalized by the in-app browser to CSS-pixel density.
-- HappyContext source: 1448 × 1086 px.
-- pg_strict source: 1536 × 1024 px.
-- Combined comparison canvases: each source and implementation was independently fit into an 860 × 860 px cell with no crop, then placed side by side.
-- State: dark theme, desktop article route, default workbench state unless the evidence filename names a focused state.
+The implementation preserves the selected Working Journal composition: restrained masthead, narrow editorial rail, serif-led feature story, etched green illustration, ruled article ledger, and low-contrast paper palette. The content hierarchy, column boundaries, archive density, and header controls remain visually coherent at the target viewport.
 
-## Full-view comparison evidence
+## Focused comparison
 
-The side-by-side comparisons confirm the intended composition survived implementation:
-
-- HappyContext retains the mockup's editorial heading, rounded outer shell, step progression, explanatory left panel, accumulating live event, and restrained Everforest palette. It intentionally expands from four conceptual stages to six article-specific stages.
-- pg_strict retains the mockup's rounded workbench, query presets, enforcement control, SQL editor, explicit run action, and a pipeline that visibly stops at analysis for unsafe statements.
-- The implementation sits inside the real article column rather than a standalone presentation canvas, so it uses the site's existing serif/mono typography and narrower content width.
-
-## Focused region comparison evidence
-
-- HappyContext error-stage capture verifies completed-step state, current-stage emphasis, newly added field chips, semantic error colors, and a growing live event.
-- pg_strict run-control capture verifies the previously clipped action is fully visible, the Phosphor play icon renders correctly, and the blocked pipeline/result remain legible.
-- Sampling capture verifies the accepted interaction was preserved while the shell, chart, segmented control, table, and warning surfaces were rounded.
-- Hero capture verifies the outcome switcher uses the article's actual HTTP and business context rather than generic placeholder data.
+The full-view composite is readable enough to assess the principal fidelity surfaces. The masthead, rail typography, feature title, illustration, article rows, dividers, topic labels, and controls are all visible at native comparison size, so a second crop was not needed.
 
 ## Required fidelity surfaces
 
-- Fonts and typography: Passed. Existing Newsreader/mono hierarchy is preserved; component headings, small labels, code, and status text follow the article's optical hierarchy without introducing a new font.
-- Spacing and layout rhythm: Passed. Outer shells use 1.4–1.45rem radii, inner surfaces use 0.7–1rem radii, and spacing matches the source mockups while fitting the live article width.
-- Colors and tokens: Passed. Components use the site's paper/ink/Everforest tokens with semantic green, amber, and red states. No gradients were introduced.
-- Image quality and asset fidelity: Passed. The visual targets were used as design references, Phosphor provides all interface icons, and the two new OG assets are native 1200 × 630 generated illustrations in the Working Journal art direction.
-- Copy and content: Passed. Interaction copy explains the actual article concepts, SQL semantics, request fields, and hook behavior without changing article meaning.
-- Icons: Passed after iteration. All UI icons come from Phosphor and now have explicit sizing, transparent backgrounds, and consistent weight.
-- Interaction and accessibility: Passed. Tabs, radio groups, switches, range input, SQL editor, explicit Run Query action, previous/next controls, `aria-live` results, focus-visible states, and keyboard diagram traversal are present.
-- Responsiveness: Passed for the tested desktop viewport with no horizontal page overflow. Narrow-layout CSS explicitly stacks workbenches and inspectors and converts long stage tracks to horizontal scroll regions.
+- Fonts and typography: Newsreader provides the editorial serif hierarchy; Geist Mono handles dates, topics, and small navigation metadata. Optical weights, line height, and title wrapping are consistent with the source direction.
+- Spacing and layout rhythm: the two-column frame, vertical divider, feature-to-ledger transition, row spacing, and edge margins follow the source structure without overlap or clipping.
+- Colors and tokens: warm paper, near-black ink, muted gray, and restrained green accents match the mock's visual balance. No gradients or generic elevated cards were introduced.
+- Image quality and asset fidelity: the generated etched still-life matches the source subject, palette, transparency, and print-like treatment. The final asset has a clean transparent background and no visible halo at the target size.
+- Copy and content: dynamic article titles, summaries, dates, topics, and project names intentionally use the real migrated content rather than the mock's illustrative wording.
+- Icons and controls: the search, theme, and mobile-menu icons use one consistent library and align cleanly with the masthead.
+- Responsiveness and accessibility: desktop, 390 × 844 mobile, open mobile navigation, dark theme, focus outlines, semantic navigation, and reduced-motion behavior were checked.
 
 ## Comparison history
 
-1. P1 — pg_strict configuration icon rendered at intrinsic SVG size.
-   - Fix: constrained panel-header icons to 1rem and removed inherited SVG backgrounds.
-   - Post-fix evidence: `implementation-pgstrict-workbench.png`.
-2. P1 — pg_strict Run Query control was clipped because the configuration body used `height: 100%` in addition to its header.
-   - Fix: made the configuration panel a flex column and the body a flexible child.
-   - Post-fix evidence: `implementation-pgstrict-run-control.png`.
-3. P2 — action and status SVGs inherited article-level backgrounds, producing square icon artifacts.
-   - Fix: explicitly reset component SVG borders/backgrounds and size the HappyContext and pg_strict icons.
-   - Post-fix evidence: `implementation-pgstrict-run-control.png` and `implementation-happycontext-error-stage.png`.
-4. Semantic review — cross-layer architecture selection, branching journey edges, ARIA tab semantics, and mobile connector direction needed tightening.
-   - Fix: synchronized architecture group and node selection with deferred focus; rendered explicit interactive branch chips for non-linear journey edges; converted custom tab roles to correctly labeled pressed-button groups; rotated only horizontal connectors on mobile.
-   - Post-fix evidence: `implementation-diagram-branches.png`, final production build, and the component accessibility tree.
+### Pass 1 — blocked
 
-## Findings
+- [P2] Feature title was oversized and wrapped into four to five lines, materially increasing the hero height and pushing the article ledger below the source composition.
+- [P2] The rail introduction used a prominent green italic treatment that competed with the feature story and drifted from the source's quieter editorial hierarchy.
 
-No actionable P0, P1, or P2 visual differences remain.
+Fixes:
 
-## Follow-up polish
+- Reduced the desktop feature-title scale and widened its text track.
+- Rebalanced the feature grid, tightened the hero height, and returned the rail introduction to the primary ink color and roman style.
+- Increased the illustration's visual scale and added a consistent `:focus-visible` treatment.
 
-- P3: A dedicated 430 px browser-emulation pass would add extra evidence for the mobile CSS, although the responsive rules and desktop overflow checks are in place.
+Post-fix evidence:
 
-## Verification
+- `/Users/atlantic/Developer/saybackend/tanstack/implementation-home-1440x1024-normalized.png`
+- `/Users/atlantic/Developer/saybackend/tanstack/design-comparison.png`
 
-- Production build passed.
-- Route verification passed for 34 content pages, 9 legacy redirects, and 4 feed/discovery endpoints.
-- All 16 content articles have explicit `ogImage` metadata.
-- Both new OG images are 1200 × 630.
-- Primary interactions tested: request outcome switcher, accumulator stage selection, pg_strict preset/run result, and sampling mode controls.
+### Pass 2 — passed
+
+No actionable P0, P1, or P2 differences remain. Real-content length and the absence of the mock's small secondary rail illustration are acceptable content/asset differences; the primary generated still-life carries the intended art direction.
+
+## Primary interactions tested
+
+- Desktop navigation links
+- Search dialog, keyboard-ready input, and populated Pagefind results
+- Light/dark theme toggle
+- Mobile menu open/close state
+- Article rendering with migrated MDX, images, and interactive article widgets
+- Legacy redirects and canonical metadata through the route parity check
+- Fresh production Pagefind indexing from the prerendered TanStack output
+
+## Console check
+
+The migrated Astro image compatibility warning was fixed by consuming Astro-only `inferSize` and `formats` props before rendering the native image element. SVG URL imports, visible FAQ content, and the final homepage capture were checked after the production build.
 
 final result: passed
