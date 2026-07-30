@@ -107,11 +107,12 @@ for (const [from, expectedPath] of Object.entries(legacyRedirects)) {
     redirect: 'manual',
   })
   const location = response.headers.get('location')
-  if (response.status !== 301 || location !== expectedPath) {
+  const expectedLocation = new URL(`${expectedPath}/`, baseUrl).href
+  if (response.status !== 301 || location !== expectedLocation) {
     failures.push({
       path: `/blog/${from}`,
       status: response.status,
-      expectedLocation: expectedPath,
+      expectedLocation,
       actualLocation: location,
     })
   }
