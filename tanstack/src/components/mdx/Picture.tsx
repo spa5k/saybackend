@@ -13,7 +13,7 @@ type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
 
 export function Picture({
   src,
-  // Kept for source compatibility with Astro-authored MDX. The Vite transform
+  // Kept for source compatibility with migrated MDX. The Vite transform
   // adds intrinsic dimensions to local raster images before MDX compilation.
   formats: _formats,
   inferSize: _inferSize,

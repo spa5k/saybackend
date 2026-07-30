@@ -65,6 +65,6 @@ No actionable P0, P1, or P2 differences remain. Real-content length and the abse
 
 ## Console check
 
-The migrated Astro image compatibility warning was fixed by consuming Astro-only `inferSize` and `formats` props before rendering the native image element. SVG URL imports, visible FAQ content, and the final homepage capture were checked after the production build.
+The migrated image compatibility warning was fixed by consuming legacy `inferSize` and `formats` props before rendering the native image element. SVG URL imports, visible FAQ content, and the final homepage capture were checked after the production build.
 
 final result: passed

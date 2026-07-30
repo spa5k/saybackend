@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 
 import { Giscus } from '@/components/Giscus'
-import { Picture } from '@/components/mdx/AstroAssets'
+import { Picture } from '@/components/mdx/Picture'
 import Callout from '@/components/mdx/Callout'
 import GitHubRepoCard from '@/components/mdx/GitHubRepoCard'
 import InteractiveDiagram from '@/components/react/InteractiveDiagram'

@@ -1,3 +1,4 @@
+import type { Plugin } from 'vite'
 import { defineConfig } from 'vite'
 import { cloudflare } from '@cloudflare/vite-plugin'
 import { devtools } from '@tanstack/devtools-vite'
@@ -95,7 +96,7 @@ function mdxImageDimensions() {
   }
 }
 
-function frontmatterOnly() {
+function frontmatterOnly(): Plugin {
   return {
     name: 'saybackend-frontmatter-only',
     enforce: 'pre' as const,
@@ -126,24 +127,6 @@ const config = defineConfig({
   resolve: {
     tsconfigPaths: true,
     alias: [
-      {
-        find: '@/components/Callout.astro',
-        replacement: fileURLToPath(
-          new URL('./src/components/mdx/Callout.tsx', import.meta.url),
-        ),
-      },
-      {
-        find: '@/components/GitHubRepoCard.astro',
-        replacement: fileURLToPath(
-          new URL('./src/components/mdx/GitHubRepoCard.tsx', import.meta.url),
-        ),
-      },
-      {
-        find: 'astro:assets',
-        replacement: fileURLToPath(
-          new URL('./src/components/mdx/AstroAssets.tsx', import.meta.url),
-        ),
-      },
       {
         find: '@components',
         replacement: fileURLToPath(

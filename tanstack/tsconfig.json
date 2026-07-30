@@ -6,6 +6,7 @@
     "prettier.config.js",
     "vite.config.js"
   ],
+  "exclude": ["worker-configuration.d.ts"],
 
   "compilerOptions": {
     "target": "ES2022",
