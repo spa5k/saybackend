@@ -746,12 +746,12 @@ img {
 }
 
 .post-body {
-  width: min(100% - 40px, 760px);
+  width: min(100% - 40px, 820px);
   border-top: 1px solid var(--rule);
   padding-top: 46px;
   padding-bottom: 80px;
   font-size: 18px;
-  line-height: 1.75;
+  line-height: 1.68;
 }
 
 .post-body h1,
@@ -764,15 +764,17 @@ img {
 }
 
 .post-body h2 {
-  margin: 2.3em 0 0.7em;
-  padding-bottom: 10px;
+  margin: 2.5rem 0 0.75rem;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--rule);
-  font-size: 36px;
+  font-size: clamp(26px, 2.4vw, 28px);
+  line-height: 1.16;
 }
 
 .post-body h3 {
-  margin: 2em 0 0.55em;
-  font-size: 27px;
+  margin: 2.25rem 0 0.65rem;
+  font-size: 24px;
+  line-height: 1.2;
 }
 
 .post-body p,
@@ -782,8 +784,30 @@ img {
 .post-body blockquote,
 .post-body table,
 .post-body figure {
-  margin-top: 1.4em;
-  margin-bottom: 1.4em;
+  margin-top: 1.1em;
+  margin-bottom: 1.1em;
+}
+
+.post-body ul,
+.post-body ol {
+  padding-inline-start: 1.35em;
+}
+
+.post-body ul {
+  list-style: disc;
+}
+
+.post-body ol {
+  list-style: decimal;
+}
+
+.post-body li + li {
+  margin-top: 0.3em;
+}
+
+.post-body li::marker {
+  color: var(--green);
+  font-weight: 600;
 }
 
 .post-body a {
