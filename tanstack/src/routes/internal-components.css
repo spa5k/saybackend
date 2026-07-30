@@ -1,0 +1,224 @@
+.component-gallery {
+  width: min(100% - 2rem, 104rem);
+  padding-block: clamp(2.5rem, 6vw, 5rem);
+}
+
+.component-gallery-intro {
+  max-width: 68rem;
+  padding-bottom: clamp(3rem, 6vw, 5rem);
+}
+
+.component-gallery-intro-copy {
+  max-width: 58rem;
+}
+
+.component-gallery-intro h1 {
+  max-width: 14ch;
+  margin-block: 0.5rem 1rem;
+  font-size: clamp(2.8rem, 6vw, 5.75rem);
+  line-height: 0.94;
+  letter-spacing: -0.06em;
+}
+
+.component-gallery-intro-copy > p:last-of-type {
+  max-width: 42rem;
+  color: var(--muted);
+  font-size: clamp(1rem, 1.4vw, 1.12rem);
+}
+
+.component-gallery-intro nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.75rem;
+}
+
+.component-gallery-intro nav a {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.48rem 0.75rem;
+  border: 1px solid var(--rule);
+  border-radius: 0.55rem;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.component-gallery-intro nav a:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.component-gallery-group {
+  display: grid;
+  gap: clamp(2.5rem, 5vw, 4.5rem);
+  padding-block: clamp(3rem, 7vw, 6rem);
+  scroll-margin-top: 2rem;
+}
+
+.component-gallery-group + .component-gallery-group {
+  border-top: 1px solid var(--rule);
+}
+
+.component-gallery-heading {
+  display: grid;
+  grid-template-columns: 3rem 1fr;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.component-gallery-heading .eyebrow {
+  margin: 0;
+}
+
+.component-gallery-heading h2 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  letter-spacing: -0.045em;
+}
+
+.component-gallery-grid {
+  display: grid;
+  gap: clamp(2.5rem, 5vw, 4.5rem);
+}
+
+.component-preview {
+  min-width: 0;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 38rem;
+}
+
+.component-preview-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.component-preview-header div,
+.component-preview-header p {
+  margin: 0;
+}
+
+.component-preview-header p,
+.component-preview-header > span {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.component-preview-header h3 {
+  margin: 0.22rem 0 0;
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+}
+
+.component-preview-header > span {
+  flex: none;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--rule);
+  border-radius: 0.2rem;
+  color: var(--ink);
+  background: var(--paper-raised);
+}
+
+.component-preview-surface {
+  min-width: 0;
+  overflow: hidden;
+  margin-top: 1rem;
+  border: 1px solid var(--rule);
+  border-radius: 0.35rem;
+  background-color: color-mix(
+    in srgb,
+    var(--paper-raised) 94%,
+    var(--accent) 6%
+  );
+  background-image:
+    linear-gradient(
+      color-mix(in srgb, var(--rule) 35%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--rule) 35%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 1.25rem 1.25rem;
+}
+
+.component-preview-canvas {
+  --radius: 0.2rem;
+  --border: color-mix(in srgb, var(--rule) 72%, var(--accent) 28%);
+  --color-border: var(--border);
+
+  container-name: component-preview;
+  container-type: inline-size;
+  min-width: 0;
+  padding: clamp(0.75rem, 1.6vw, 1.2rem);
+}
+
+.component-preview-canvas > :first-child {
+  margin-top: 0;
+}
+
+.component-preview-canvas > :last-child {
+  margin-bottom: 0;
+}
+
+.component-preview-canvas > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0.15rem;
+}
+
+.component-preview-canvas :where(button, input, textarea, select) {
+  border-radius: 0.2rem;
+}
+
+.component-preview-canvas :where(table) {
+  font-size: 0.82rem;
+}
+
+.component-gallery-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .component-gallery {
+    width: min(100% - 1rem, 104rem);
+    padding-top: 2rem;
+  }
+
+  .component-gallery-intro h1 {
+    font-size: clamp(2.5rem, 13vw, 4rem);
+  }
+
+  .component-gallery-heading {
+    grid-template-columns: 2rem 1fr;
+  }
+
+  .component-preview-header {
+    align-items: start;
+  }
+
+  .component-preview-header > span {
+    margin-top: 0.15rem;
+  }
+
+  .component-preview-surface {
+    border-radius: 0.35rem;
+  }
+
+  .component-preview-canvas {
+    padding: 0.75rem;
+  }
+}
