@@ -34,7 +34,15 @@ function SiteHeader() {
     <header className="site-header">
       <div className="page-frame header-inner">
         <Link to="/" className="wordmark" aria-label="SayBackend home">
-          SayBackend
+          <img
+            className="wordmark-icon"
+            src="/favicon.svg"
+            width="34"
+            height="34"
+            alt=""
+            aria-hidden="true"
+          />
+          <span>SayBackend</span>
         </Link>
         <button
           className="mobile-menu-button"

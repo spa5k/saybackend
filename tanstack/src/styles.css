@@ -142,11 +142,20 @@ img {
 }
 
 .wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-family: var(--font-serif);
   font-size: 22px;
   font-weight: 750;
   letter-spacing: 0.07em;
   text-transform: uppercase;
+}
+
+.wordmark-icon {
+  width: 34px;
+  height: 34px;
+  flex: none;
 }
 
 .main-nav {
