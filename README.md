@@ -50,6 +50,11 @@ redirect worker. The production build prerenders public routes and generates the
 Pagefind index. Run `npm run verify:routes` against a preview before release to
 check canonical URLs, redirects, feeds, discovery files, and article metadata.
 
+The application follows Cloudflare's TanStack Start integration: the Cloudflare
+Vite plugin builds the SSR Worker, `src/worker.ts` extends TanStack's default
+server entry with legacy redirects, and `wrangler.jsonc` defines the production
+Worker. Regenerate binding types with `npm --prefix tanstack run cf-typegen`.
+
 ## License
 
 MIT

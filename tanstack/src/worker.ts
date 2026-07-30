@@ -1,3 +1,5 @@
+import handler from '@tanstack/react-start/server-entry'
+
 const legacyPosts = new Map([
   ['00-saybackend-changelog', '/blog/2024-jun-saybackend-changelog'],
   ['01-zustand-url-state', '/blog/2023-dec-zustand-url-state-sharing'],
@@ -20,10 +22,7 @@ const legacyPosts = new Map([
 ])
 
 export default {
-  async fetch(
-    request: Request,
-    env: { ASSETS: { fetch: (request: Request) => Promise<Response> } },
-  ) {
+  async fetch(request: Request) {
     const url = new URL(request.url)
     const match = url.pathname.match(/^\/blog\/([^/]+)\/?$/)
     const destination = match ? legacyPosts.get(match[1]) : undefined
@@ -33,6 +32,6 @@ export default {
       return Response.redirect(url.href, 301)
     }
 
-    return env.ASSETS.fetch(request)
+    return handler.fetch(request)
   },
 }

@@ -2,7 +2,10 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "saybackend-www-redirect",
   "main": "./src/www-redirect-worker.ts",
-  "compatibility_date": "2025-09-15",
+  "compatibility_date": "2026-07-29",
+  "observability": {
+    "enabled": true,
+  },
   "routes": [
     {
       "pattern": "www.saybackend.com/*",

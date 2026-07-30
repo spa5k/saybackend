@@ -2,12 +2,10 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "saybackend",
   "main": "./src/worker.ts",
-  "compatibility_date": "2025-09-15",
+  "compatibility_date": "2026-07-29",
   "compatibility_flags": ["nodejs_compat"],
-  "assets": {
-    "binding": "ASSETS",
-    "directory": "./dist/client",
-    "run_worker_first": true,
+  "observability": {
+    "enabled": true,
   },
   "routes": [
     {

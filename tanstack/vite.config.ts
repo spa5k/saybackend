@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import { cloudflare } from '@cloudflare/vite-plugin'
 import { devtools } from '@tanstack/devtools-vite'
 import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
@@ -156,6 +157,7 @@ const config = defineConfig({
     ],
   },
   plugins: [
+    cloudflare({ viteEnvironment: { name: 'ssr' } }),
     devtools(),
     frontmatterOnly(),
     mdxImageDimensions(),

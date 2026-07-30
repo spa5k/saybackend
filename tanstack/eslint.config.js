@@ -18,6 +18,7 @@ export default [
     ignores: [
       'dist/**',
       'public/pagefind/**',
+      'worker-configuration.d.ts',
       'src/components/react/**',
       'src/components/ui/**',
       'eslint.config.js',

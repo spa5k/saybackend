@@ -1,5 +1,6 @@
 dist
 public/pagefind
+worker-configuration.d.ts
 src/components/react
 src/components/ui
 src/content
