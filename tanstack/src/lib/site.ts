@@ -28,9 +28,9 @@ export const PAGE_META = {
       'Meet Kamran Tahir, a Senior Software Engineer specializing in backend systems, AWS serverless architecture, PostgreSQL, and DevOps. 6+ years building scalable infrastructure and microservices.',
   },
   hiring: {
-    title: 'Hiring Kamran Tahir - Backend, Full-Stack, Frontend Engineer',
+    title: 'Hire Kamran Tahir - Senior Software Engineer',
     description:
-      'Hiring page for Kamran Tahir. Senior Software Engineer open to backend, full-stack, and frontend roles across product engineering and platform teams.',
+      'Kamran Tahir is a Senior Software Engineer available for backend, full-stack, frontend, and platform engineering roles.',
   },
 } as const
 

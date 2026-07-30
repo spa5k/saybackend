@@ -12,7 +12,7 @@ export const Route = createFileRoute('/hiring')({
         '@graph': [
           {
             '@type': 'WebPage',
-            name: 'Hiring Kamran Tahir',
+            name: 'Hire Kamran Tahir',
             description: PAGE_META.hiring.description,
             url: `${SITE.origin}/hiring/`,
             isPartOf: {
@@ -51,7 +51,7 @@ export const Route = createFileRoute('/hiring')({
           },
           breadcrumb([
             { name: 'Home', path: '/' },
-            { name: 'Hiring', path: '/hiring/' },
+            { name: 'Hire Me', path: '/hiring/' },
           ]),
         ],
       },
@@ -77,7 +77,7 @@ function Hiring() {
   return (
     <section className="page-frame hiring-page">
       <header className="page-heading">
-        <p className="eyebrow hiring-status">Open to work now</p>
+        <p className="eyebrow hiring-status">Available for the right team</p>
         <h1>Let’s build reliable products together.</h1>
         <p>
           I’m actively interviewing for software engineering roles across
@@ -100,7 +100,7 @@ function Hiring() {
             data-heavy workflows, and pragmatic delivery.
           </p>
           <div className="profile-actions">
-            <a href={`mailto:${SITE.email}`}>Email Kamran</a>
+            <a href={`mailto:${SITE.email}`}>Start a conversation</a>
             <a href="http://kamran.sh/" target="_blank" rel="noreferrer">
               View resume
             </a>

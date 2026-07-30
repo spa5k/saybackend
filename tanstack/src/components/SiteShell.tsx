@@ -75,7 +75,7 @@ function SiteHeader() {
             ),
           )}
           <Link to="/hiring" className="hiring-link">
-            Hiring
+            Hire Me
           </Link>
           <SearchDialog />
           <ThemeToggle />
