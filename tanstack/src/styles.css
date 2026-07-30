@@ -1,13 +1,7 @@
-@import '@fontsource-variable/newsreader/wght.css';
+@import '@fontsource-variable/fraunces/wght.css';
+@import '@fontsource/dm-mono/400.css';
+@import '@fontsource/dm-mono/500.css';
 @import 'tailwindcss';
-
-@font-face {
-  font-family: 'Geist Mono';
-  src: url('/fonts/geist-mono.woff2') format('woff2');
-  font-display: swap;
-  font-style: normal;
-  font-weight: 400 700;
-}
 
 :root {
   color-scheme: light;
@@ -19,8 +13,8 @@
   --green: #285f3b;
   --green-soft: #e4ebe3;
   --brick: #9d3a32;
-  --font-serif: 'Newsreader Variable', Georgia, serif;
-  --font-mono: 'Geist Mono', ui-monospace, monospace;
+  --font-serif: 'Fraunces Variable', Georgia, serif;
+  --font-mono: 'DM Mono', ui-monospace, monospace;
   --background: var(--paper);
   --foreground: var(--ink);
   --card: var(--paper-raised);
