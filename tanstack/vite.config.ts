@@ -13,11 +13,19 @@ import mdx from '@mdx-js/rollup'
 import viteReact from '@vitejs/plugin-react'
 import rehypeShiki from '@shikijs/rehype'
 import tailwindcss from '@tailwindcss/vite'
+import type { ShikiTransformer } from 'shiki'
 import remarkFrontmatter from 'remark-frontmatter'
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
 import svgr from 'vite-plugin-svgr'
 
 const frontmatterModulePrefix = '\0saybackend-frontmatter:'
+
+const codeWindowTransformer: ShikiTransformer = {
+  name: 'saybackend-code-window',
+  pre(node) {
+    node.properties['data-language'] = this.options.lang
+  },
+}
 
 function readImageDimensions(buffer: Buffer) {
   if (
@@ -160,6 +168,7 @@ const config = defineConfig({
               dark: 'everforest-dark',
             },
             defaultColor: false,
+            transformers: [codeWindowTransformer],
           },
         ],
       ],

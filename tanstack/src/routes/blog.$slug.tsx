@@ -14,6 +14,7 @@ import {
   posts,
 } from '@/lib/content'
 import { Giscus } from '@/components/Giscus'
+import CodeWindow from '@/components/mdx/CodeWindow'
 import { SITE, breadcrumb, seo } from '@/lib/site'
 
 export const Route = createFileRoute('/blog/$slug')({
@@ -149,7 +150,7 @@ function PostPage() {
       ) : null}
       <div className="post-body page-frame" data-pagefind-body>
         <Suspense fallback={<p>Loading article…</p>}>
-          <Content />
+          <Content components={{ pre: CodeWindow }} />
         </Suspense>
         {post.faqs?.length ? (
           <section className="post-faq" aria-labelledby="frequently-asked">

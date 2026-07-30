@@ -1,5 +1,9 @@
 import { lazy } from 'react'
-import type { ComponentType } from 'react'
+import type { ComponentType, ElementType } from 'react'
+
+type MdxContentProps = {
+  components?: Record<string, ElementType>
+}
 
 type Frontmatter = {
   title: string
@@ -18,7 +22,7 @@ type Frontmatter = {
 }
 
 type ContentModule = {
-  default: ComponentType
+  default: ComponentType<MdxContentProps>
   frontmatter: Frontmatter
 }
 
@@ -27,14 +31,14 @@ export type Post = Frontmatter & {
   slug: string
   href: string
   readingMinutes: number
-  Content: ComponentType
+  Content: ComponentType<MdxContentProps>
 }
 
 export type Project = Frontmatter & {
   id: string
   slug: string
   href: string
-  Content: ComponentType
+  Content: ComponentType<MdxContentProps>
 }
 
 const blogFrontmatter = {
