@@ -1,4 +1,4 @@
-import { copyFile, cp, stat } from 'node:fs/promises'
+import { copyFile, cp, mkdir, stat, writeFile } from 'node:fs/promises'
 
 const output = new URL('../dist/client/', import.meta.url)
 const notFoundSource = new URL('404/index.html', output)
@@ -31,4 +31,14 @@ await cp(
     recursive: true,
     force: true,
   },
+)
+
+const deployDirectory = new URL('../../.wrangler/deploy/', import.meta.url)
+await mkdir(deployDirectory, { recursive: true })
+await writeFile(
+  new URL('config.json', deployDirectory),
+  `${JSON.stringify({
+    configPath: '../../tanstack/dist/server/wrangler.json',
+    auxiliaryWorkers: [],
+  })}\n`,
 )
