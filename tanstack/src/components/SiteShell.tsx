@@ -10,6 +10,7 @@ const navigation = [
   { label: 'About', to: '/about' },
   { label: 'Projects', to: '/projects' },
   { label: 'Portfolio', href: 'https://kamran.sh/' },
+  { label: 'Hire Me', to: '/hiring' },
 ]
 
 export function SiteShell({ children }: { children: React.ReactNode }) {
@@ -74,9 +75,6 @@ function SiteHeader() {
               </a>
             ),
           )}
-          <Link to="/hiring" className="hiring-link">
-            Hire Me
-          </Link>
           <SearchDialog />
           <ThemeToggle />
         </nav>

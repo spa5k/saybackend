@@ -185,16 +185,6 @@ img {
   transform: scaleX(1);
 }
 
-.main-nav .hiring-link {
-  border: 1px solid var(--green);
-  padding: 9px 14px;
-  color: var(--green);
-}
-
-.main-nav .hiring-link::after {
-  display: none;
-}
-
 .theme-toggle,
 .search-toggle,
 .mobile-menu-button {
@@ -1371,11 +1361,6 @@ html.dark .shiki-code span {
 
   .main-nav > a::after {
     display: none;
-  }
-
-  .main-nav .hiring-link {
-    margin: 8px 0;
-    text-align: center;
   }
 
   .theme-toggle,
