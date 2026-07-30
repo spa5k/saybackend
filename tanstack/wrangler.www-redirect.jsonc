@@ -1,5 +1,5 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
+  "$schema": "../node_modules/wrangler/config-schema.json",
   "name": "saybackend-www-redirect",
   "main": "./src/www-redirect-worker.ts",
   "compatibility_date": "2026-07-29",

@@ -18,11 +18,12 @@ Workers.
 ## Development
 
 ```bash
-npm install --prefix tanstack
+npm clean-install
 npm run dev
 ```
 
-The root scripts delegate to the application in `tanstack/`:
+The repository is an npm workspace, and the root scripts delegate to the
+application in `tanstack/`:
 
 ```bash
 npm run build

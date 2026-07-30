@@ -2,6 +2,10 @@
   "name": "saybackend",
   "type": "module",
   "version": "0.0.1",
+  "private": true,
+  "workspaces": [
+    "tanstack"
+  ],
   "scripts": {
     "dev": "npm --prefix tanstack run dev",
     "start": "npm --prefix tanstack run dev",
