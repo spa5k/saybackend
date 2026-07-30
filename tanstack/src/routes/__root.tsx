@@ -3,6 +3,7 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { NotFoundPage } from '@/components/NotFoundPage'
 import { SiteShell } from '@/components/SiteShell'
 import { NOT_FOUND_META, PAGE_META, SITE } from '@/lib/site'
+import newsreaderFont from '@fontsource-variable/newsreader/files/newsreader-latin-wght-normal.woff2?url'
 import appCss from '../styles.css?url'
 
 export const Route = createRootRoute({
@@ -16,6 +17,13 @@ export const Route = createRootRoute({
       { title: PAGE_META.home.title },
     ],
     links: [
+      {
+        rel: 'preload',
+        href: newsreaderFont,
+        as: 'font',
+        type: 'font/woff2',
+        crossOrigin: 'anonymous',
+      },
       { rel: 'stylesheet', href: appCss },
       { rel: 'icon', href: '/favicon.ico', sizes: 'any' },
       { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
@@ -37,7 +45,7 @@ export const Route = createRootRoute({
         children: `(()=>{try{const saved=localStorage.getItem("saybackend-theme")||localStorage.getItem("theme");const followsSystem=!saved||saved==="auto";const dark=saved==="dark"||(followsSystem&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",dark)}catch{}})();`,
       },
       {
-        children: `(()=>{window.dataLayer=window.dataLayer||[];window.gtag=function(){dataLayer.push(arguments)};gtag("js",new Date());gtag("config","G-5XS7E70997");const load=()=>{const script=document.createElement("script");script.async=true;script.src="https://www.googletagmanager.com/gtag/js?id=G-5XS7E70997";document.head.append(script)};if(document.readyState==="complete")load();else addEventListener("load",load,{once:true})})();`,
+        children: `(()=>{window.dataLayer=window.dataLayer||[];window.gtag=function(){dataLayer.push(arguments)};gtag("js",new Date());gtag("config","G-5XS7E70997");let loaded=false;const events=["pointerdown","keydown","touchstart","scroll"];const cleanup=()=>events.forEach(event=>removeEventListener(event,load));const load=()=>{if(loaded)return;loaded=true;cleanup();const script=document.createElement("script");script.async=true;script.src="https://www.googletagmanager.com/gtag/js?id=G-5XS7E70997";document.head.append(script)};events.forEach(event=>addEventListener(event,load,{once:true,passive:true}));const schedule=()=>setTimeout(load,15000);if(document.readyState==="complete")schedule();else addEventListener("load",schedule,{once:true})})();`,
       },
     ],
   }),

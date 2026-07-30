@@ -61,12 +61,12 @@ function Home() {
       <section className="page-frame journal-home">
         <aside className="journal-rail">
           <img
-            src="/images/editorial-still-life.png"
+            src="/images/editorial-still-life-320.webp"
             alt=""
             className="rail-illustration"
             aria-hidden="true"
-            width={1536}
-            height={1024}
+            width={320}
+            height={213}
             loading="lazy"
             decoding="async"
           />
@@ -119,11 +119,12 @@ function Home() {
               </Link>
             </div>
             <img
-              src="/images/editorial-still-life.png"
+              src="/images/editorial-still-life-640.webp"
               alt="Etched illustration of technical books, coffee, and an open notebook"
               className="featured-illustration"
-              width={1536}
-              height={1024}
+              width={640}
+              height={427}
+              decoding="async"
               fetchPriority="high"
             />
           </article>
