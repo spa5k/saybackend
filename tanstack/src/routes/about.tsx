@@ -22,7 +22,7 @@ export const Route = createFileRoute('/about')({
             sameAs: [
               'https://github.com/spa5k',
               'https://linkedin.com/in/kamrantahir2',
-              'http://kamran.sh/',
+              'https://kamran.sh/',
             ],
             email: SITE.email,
             knowsLanguage: ['en'],
@@ -90,7 +90,7 @@ function About() {
           </p>
           <div className="profile-actions">
             <a href={`mailto:${SITE.email}`}>Email</a>
-            <a href="http://kamran.sh/" target="_blank" rel="noreferrer">
+            <a href="https://kamran.sh/" target="_blank" rel="noreferrer">
               Resume
             </a>
             <a

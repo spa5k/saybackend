@@ -1,10 +1,11 @@
 import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 
-import { formatDate, posts } from '@/lib/content'
+import { formatDate, isNavigableTag, posts } from '@/lib/content'
 import { seo } from '@/lib/site'
 
 export const Route = createFileRoute('/tags/$tag')({
   loader: ({ params }) => {
+    if (!isNavigableTag(params.tag)) throw notFound()
     const tagPosts = posts.filter((post) => post.tags?.includes(params.tag))
     if (!tagPosts.length) throw notFound()
     return {

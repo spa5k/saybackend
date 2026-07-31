@@ -142,6 +142,7 @@ function SiteFooter() {
         <span>© {new Date().getFullYear()} SayBackend</span>
         <div>
           <a href="/rss.xml">RSS</a>
+          <a href="/llms.txt">LLMs</a>
           <a href="/sitemap-index.xml">Sitemap</a>
           <a href="mailto:hello@kamran.sh">Email</a>
         </div>

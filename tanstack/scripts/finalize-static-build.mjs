@@ -8,6 +8,7 @@ await copyFile(notFoundSource, notFoundTarget)
 
 const requiredArtifacts = [
   '404.html',
+  'llms.txt',
   'rss.xml',
   'sitemap-index.xml',
   'sitemap-0.xml',

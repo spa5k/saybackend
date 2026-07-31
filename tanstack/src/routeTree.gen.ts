@@ -13,15 +13,18 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as R404RouteImport } from './routes/404'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as HiringRouteImport } from './routes/hiring'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as PagefindRouteImport } from './routes/pagefind'
 import { Route as RssDotxmlRouteImport } from './routes/rss[.]xml'
 import { Route as Sitemap0DotxmlRouteImport } from './routes/sitemap-0[.]xml'
 import { Route as SitemapIndexDotxmlRouteImport } from './routes/sitemap-index[.]xml'
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
+import { Route as BlogChar123slugChar125DotmdRouteImport } from './routes/blog.{$slug}[.]md'
 import { Route as InternalComponentsRouteImport } from './routes/internal.components'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsSlugRouteImport } from './routes/projects.$slug'
+import { Route as ProjectsChar123slugChar125DotmdRouteImport } from './routes/projects.{$slug}[.]md'
 import { Route as TagsIndexRouteImport } from './routes/tags.index'
 import { Route as TagsTagRouteImport } from './routes/tags.$tag'
 import { Route as TopicsIndexRouteImport } from './routes/topics.index'
@@ -45,6 +48,11 @@ const AboutRoute = AboutRouteImport.update({
 const HiringRoute = HiringRouteImport.update({
   id: '/hiring',
   path: '/hiring',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PagefindRoute = PagefindRouteImport.update({
@@ -77,6 +85,12 @@ const BlogSlugRoute = BlogSlugRouteImport.update({
   path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BlogChar123slugChar125DotmdRoute =
+  BlogChar123slugChar125DotmdRouteImport.update({
+    id: '/blog/{$slug}.md',
+    path: '/blog/{$slug}.md',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const InternalComponentsRoute = InternalComponentsRouteImport.update({
   id: '/internal/components',
   path: '/internal/components',
@@ -92,6 +106,12 @@ const ProjectsSlugRoute = ProjectsSlugRouteImport.update({
   path: '/projects/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProjectsChar123slugChar125DotmdRoute =
+  ProjectsChar123slugChar125DotmdRouteImport.update({
+    id: '/projects/{$slug}.md',
+    path: '/projects/{$slug}.md',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const TagsIndexRoute = TagsIndexRouteImport.update({
   id: '/tags/',
   path: '/tags/',
@@ -118,13 +138,16 @@ export interface FileRoutesByFullPath {
   '/404': typeof R404Route
   '/about': typeof AboutRoute
   '/hiring': typeof HiringRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/pagefind': typeof PagefindRoute
   '/rss.xml': typeof RssDotxmlRoute
   '/sitemap-0.xml': typeof Sitemap0DotxmlRoute
   '/sitemap-index.xml': typeof SitemapIndexDotxmlRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/blog/{$slug}.md': typeof BlogChar123slugChar125DotmdRoute
   '/internal/components': typeof InternalComponentsRoute
   '/projects/$slug': typeof ProjectsSlugRoute
+  '/projects/{$slug}.md': typeof ProjectsChar123slugChar125DotmdRoute
   '/tags/$tag': typeof TagsTagRoute
   '/topics/$topic': typeof TopicsTopicRoute
   '/blog/': typeof BlogIndexRoute
@@ -137,13 +160,16 @@ export interface FileRoutesByTo {
   '/404': typeof R404Route
   '/about': typeof AboutRoute
   '/hiring': typeof HiringRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/pagefind': typeof PagefindRoute
   '/rss.xml': typeof RssDotxmlRoute
   '/sitemap-0.xml': typeof Sitemap0DotxmlRoute
   '/sitemap-index.xml': typeof SitemapIndexDotxmlRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/blog/{$slug}.md': typeof BlogChar123slugChar125DotmdRoute
   '/internal/components': typeof InternalComponentsRoute
   '/projects/$slug': typeof ProjectsSlugRoute
+  '/projects/{$slug}.md': typeof ProjectsChar123slugChar125DotmdRoute
   '/tags/$tag': typeof TagsTagRoute
   '/topics/$topic': typeof TopicsTopicRoute
   '/blog': typeof BlogIndexRoute
@@ -157,13 +183,16 @@ export interface FileRoutesById {
   '/404': typeof R404Route
   '/about': typeof AboutRoute
   '/hiring': typeof HiringRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/pagefind': typeof PagefindRoute
   '/rss.xml': typeof RssDotxmlRoute
   '/sitemap-0.xml': typeof Sitemap0DotxmlRoute
   '/sitemap-index.xml': typeof SitemapIndexDotxmlRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/blog/{$slug}.md': typeof BlogChar123slugChar125DotmdRoute
   '/internal/components': typeof InternalComponentsRoute
   '/projects/$slug': typeof ProjectsSlugRoute
+  '/projects/{$slug}.md': typeof ProjectsChar123slugChar125DotmdRoute
   '/tags/$tag': typeof TagsTagRoute
   '/topics/$topic': typeof TopicsTopicRoute
   '/blog/': typeof BlogIndexRoute
@@ -178,13 +207,16 @@ export interface FileRouteTypes {
     | '/404'
     | '/about'
     | '/hiring'
+    | '/llms.txt'
     | '/pagefind'
     | '/rss.xml'
     | '/sitemap-0.xml'
     | '/sitemap-index.xml'
     | '/blog/$slug'
+    | '/blog/{$slug}.md'
     | '/internal/components'
     | '/projects/$slug'
+    | '/projects/{$slug}.md'
     | '/tags/$tag'
     | '/topics/$topic'
     | '/blog/'
@@ -197,13 +229,16 @@ export interface FileRouteTypes {
     | '/404'
     | '/about'
     | '/hiring'
+    | '/llms.txt'
     | '/pagefind'
     | '/rss.xml'
     | '/sitemap-0.xml'
     | '/sitemap-index.xml'
     | '/blog/$slug'
+    | '/blog/{$slug}.md'
     | '/internal/components'
     | '/projects/$slug'
+    | '/projects/{$slug}.md'
     | '/tags/$tag'
     | '/topics/$topic'
     | '/blog'
@@ -216,13 +251,16 @@ export interface FileRouteTypes {
     | '/404'
     | '/about'
     | '/hiring'
+    | '/llms.txt'
     | '/pagefind'
     | '/rss.xml'
     | '/sitemap-0.xml'
     | '/sitemap-index.xml'
     | '/blog/$slug'
+    | '/blog/{$slug}.md'
     | '/internal/components'
     | '/projects/$slug'
+    | '/projects/{$slug}.md'
     | '/tags/$tag'
     | '/topics/$topic'
     | '/blog/'
@@ -236,13 +274,16 @@ export interface RootRouteChildren {
   R404Route: typeof R404Route
   AboutRoute: typeof AboutRoute
   HiringRoute: typeof HiringRoute
+  LlmsDottxtRoute: typeof LlmsDottxtRoute
   PagefindRoute: typeof PagefindRoute
   RssDotxmlRoute: typeof RssDotxmlRoute
   Sitemap0DotxmlRoute: typeof Sitemap0DotxmlRoute
   SitemapIndexDotxmlRoute: typeof SitemapIndexDotxmlRoute
   BlogSlugRoute: typeof BlogSlugRoute
+  BlogChar123slugChar125DotmdRoute: typeof BlogChar123slugChar125DotmdRoute
   InternalComponentsRoute: typeof InternalComponentsRoute
   ProjectsSlugRoute: typeof ProjectsSlugRoute
+  ProjectsChar123slugChar125DotmdRoute: typeof ProjectsChar123slugChar125DotmdRoute
   TagsTagRoute: typeof TagsTagRoute
   TopicsTopicRoute: typeof TopicsTopicRoute
   BlogIndexRoute: typeof BlogIndexRoute
@@ -279,6 +320,13 @@ declare module '@tanstack/react-router' {
       path: '/hiring'
       fullPath: '/hiring'
       preLoaderRoute: typeof HiringRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms.txt': {
+      id: '/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/llms.txt'
+      preLoaderRoute: typeof LlmsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pagefind': {
@@ -323,6 +371,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blog/{$slug}.md': {
+      id: '/blog/{$slug}.md'
+      path: '/blog/{$slug}.md'
+      fullPath: '/blog/{$slug}.md'
+      preLoaderRoute: typeof BlogChar123slugChar125DotmdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/internal/components': {
       id: '/internal/components'
       path: '/internal/components'
@@ -342,6 +397,13 @@ declare module '@tanstack/react-router' {
       path: '/projects/$slug'
       fullPath: '/projects/$slug'
       preLoaderRoute: typeof ProjectsSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/{$slug}.md': {
+      id: '/projects/{$slug}.md'
+      path: '/projects/{$slug}.md'
+      fullPath: '/projects/{$slug}.md'
+      preLoaderRoute: typeof ProjectsChar123slugChar125DotmdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tags/': {
@@ -380,13 +442,16 @@ const rootRouteChildren: RootRouteChildren = {
   R404Route: R404Route,
   AboutRoute: AboutRoute,
   HiringRoute: HiringRoute,
+  LlmsDottxtRoute: LlmsDottxtRoute,
   PagefindRoute: PagefindRoute,
   RssDotxmlRoute: RssDotxmlRoute,
   Sitemap0DotxmlRoute: Sitemap0DotxmlRoute,
   SitemapIndexDotxmlRoute: SitemapIndexDotxmlRoute,
   BlogSlugRoute: BlogSlugRoute,
+  BlogChar123slugChar125DotmdRoute: BlogChar123slugChar125DotmdRoute,
   InternalComponentsRoute: InternalComponentsRoute,
   ProjectsSlugRoute: ProjectsSlugRoute,
+  ProjectsChar123slugChar125DotmdRoute: ProjectsChar123slugChar125DotmdRoute,
   TagsTagRoute: TagsTagRoute,
   TopicsTopicRoute: TopicsTopicRoute,
   BlogIndexRoute: BlogIndexRoute,

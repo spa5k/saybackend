@@ -53,6 +53,12 @@ const sitemapPaths = Array.from(
 const pagePaths = [
   ...new Set([...sitemapPaths, '/tags/', '/hiring/', '/pagefind']),
 ]
+const markdownPaths = sitemapPaths
+  .filter(
+    (path) =>
+      /^\/blog\/[^/]+\/$/.test(path) || /^\/projects\/[^/]+\/$/.test(path),
+  )
+  .map((path) => `${path.slice(0, -1)}.md`)
 const failures = []
 
 for (const path of pagePaths) {
@@ -61,6 +67,18 @@ for (const path of pagePaths) {
   const expectedCanonical = canonicalFor(path)
   const actualCanonical = attribute(html, 'link', 'href', 'rel', 'canonical')
   const isArticle = path.startsWith('/blog/') && path !== '/blog/'
+  const publishedTime = isArticle
+    ? attribute(html, 'meta', 'content', 'property', 'article:published_time')
+    : undefined
+  const modifiedTime = isArticle
+    ? attribute(html, 'meta', 'content', 'property', 'article:modified_time')
+    : undefined
+  const hasMarkdownDocument =
+    (path.startsWith('/blog/') && path !== '/blog/') ||
+    (path.startsWith('/projects/') && path !== '/projects/')
+  const markdownAlternate = hasMarkdownDocument
+    ? `${productionOrigin}${path.replace(/\/$/, '')}.md`
+    : undefined
 
   if (
     response.status !== 200 ||
@@ -70,9 +88,14 @@ for (const path of pagePaths) {
     !html.includes('property="og:title"') ||
     !html.includes('name="twitter:card"') ||
     actualCanonical !== expectedCanonical ||
+    (hasMarkdownDocument &&
+      !html.includes(
+        `rel="alternate" type="text/markdown" href="${markdownAlternate}"`,
+      )) ||
     (isArticle &&
       (!html.includes('property="og:type" content="article"') ||
-        !html.includes('property="article:published_time"') ||
+        !publishedTime?.match(/T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$/) ||
+        !modifiedTime?.match(/T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$/) ||
         !html.includes('"@type":"BlogPosting"')))
   ) {
     failures.push({
@@ -82,6 +105,50 @@ for (const path of pagePaths) {
       actualCanonical,
     })
   }
+}
+
+for (const path of markdownPaths) {
+  const response = await fetch(new URL(path, baseUrl))
+  const source = await response.text()
+  const canonicalPath = `${path.slice(0, -3)}/`
+  const canonical = canonicalFor(canonicalPath)
+  const link = response.headers.get('link')
+
+  if (
+    response.status !== 200 ||
+    !response.headers.get('content-type')?.startsWith('text/markdown') ||
+    response.headers.get('x-robots-tag') !== 'noindex, follow' ||
+    link !== `<${canonical}>; rel="canonical"; type="text/html"` ||
+    !source.startsWith('---') ||
+    /^import\s+.+from\s+['"]@?\//m.test(source) ||
+    /^<[A-Z][A-Za-z0-9]*\b/m.test(source) ||
+    /^\s*\/>\s*$/m.test(source)
+  ) {
+    failures.push({
+      path,
+      status: response.status,
+      contentType: response.headers.get('content-type'),
+      link,
+    })
+  }
+}
+
+const missingMarkdownResponse = await fetch(
+  `${baseUrl}/blog/not-a-real-article.md`,
+)
+if (missingMarkdownResponse.status !== 404) {
+  failures.push({
+    path: '/blog/not-a-real-article.md',
+    status: missingMarkdownResponse.status,
+  })
+}
+
+const singleUseTagResponse = await fetch(`${baseUrl}/tags/backend`)
+if (singleUseTagResponse.status !== 404) {
+  failures.push({
+    path: '/tags/backend',
+    status: singleUseTagResponse.status,
+  })
 }
 
 const homeResponse = await fetch(baseUrl)
@@ -120,6 +187,7 @@ for (const [from, expectedPath] of Object.entries(legacyRedirects)) {
 
 for (const endpoint of [
   '/rss.xml',
+  '/llms.txt',
   '/sitemap-index.xml',
   '/sitemap-0.xml',
   '/robots.txt',
@@ -135,6 +203,7 @@ if (failures.length > 0) {
   process.exitCode = 1
 } else {
   console.log(
-    `Verified ${pagePaths.length} content pages, ${Object.keys(legacyRedirects).length} legacy redirects, and 4 feed/discovery endpoints.`,
+    `Verified ${pagePaths.length} content pages, ${Object.keys(legacyRedirects).length} legacy redirects, and 5 feed/discovery endpoints.`,
+    `Verified ${markdownPaths.length} Markdown documents.`,
   )
 }
