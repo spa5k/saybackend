@@ -34,7 +34,7 @@ export const Route = createFileRoute('/hiring')({
             sameAs: [
               'https://github.com/spa5k',
               'https://linkedin.com/in/kamrantahir2',
-              'http://kamran.sh/',
+              'https://kamran.sh/',
             ],
             knowsAbout: [
               'Backend Development',
@@ -101,7 +101,7 @@ function Hiring() {
           </p>
           <div className="profile-actions">
             <a href={`mailto:${SITE.email}`}>Start a conversation</a>
-            <a href="http://kamran.sh/" target="_blank" rel="noreferrer">
+            <a href="https://kamran.sh/" target="_blank" rel="noreferrer">
               View resume
             </a>
             <Link to="/projects">Projects</Link>

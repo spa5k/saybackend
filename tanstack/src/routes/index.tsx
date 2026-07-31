@@ -18,7 +18,7 @@ export const Route = createFileRoute('/')({
             url: `${SITE.origin}/`,
             name: SITE.title,
             description:
-              'A engineering blog dedicated to backend systems, DevOps, and structural data patterns',
+              'An engineering blog dedicated to backend systems, DevOps, and structural data patterns',
             publisher: { '@id': `${SITE.origin}/#organization` },
             potentialAction: {
               '@type': 'SearchAction',
@@ -38,7 +38,11 @@ export const Route = createFileRoute('/')({
               '@type': 'ImageObject',
               url: `${SITE.origin}/favicon.ico`,
             },
-            sameAs: ['https://github.com/spa5k'],
+            sameAs: [
+              'https://github.com/spa5k',
+              'https://linkedin.com/in/kamrantahir2',
+              'https://kamran.sh/',
+            ],
             contactPoint: {
               '@type': 'ContactPoint',
               email: SITE.email,
@@ -120,6 +124,8 @@ function Home() {
             </div>
             <img
               src="/images/editorial-still-life-640.webp"
+              srcSet="/images/editorial-still-life-320.webp 320w, /images/editorial-still-life-640.webp 640w"
+              sizes="(max-width: 1050px) 0px, 320px"
               alt="Etched illustration of technical books, coffee, and an open notebook"
               className="featured-illustration"
               width={640}

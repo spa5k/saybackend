@@ -21,6 +21,7 @@ export const Route = createFileRoute('/projects/$slug')({
           title: loaderData.title,
           description: loaderData.description,
           path: `/projects/${loaderData.slug}`,
+          markdownPath: `/projects/${loaderData.slug}.md`,
         })
       : {},
   component: ProjectPage,
@@ -39,7 +40,16 @@ function ProjectPage() {
         </Link>
         <h1>{project.title}</h1>
         <p>{project.description}</p>
-        <time dateTime={project.date}>{formatDate(project.date)}</time>
+        <div className="post-byline">
+          <time dateTime={project.date}>{formatDate(project.date)}</time>
+          <a
+            href={`/projects/${project.slug}.md`}
+            rel="alternate"
+            type="text/markdown"
+          >
+            Markdown
+          </a>
+        </div>
       </header>
       <div className="post-body page-frame">
         <Suspense fallback={<p>Loading project…</p>}>

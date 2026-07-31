@@ -44,6 +44,7 @@ type SeoInput = {
   title: string
   description: string
   path: string
+  markdownPath?: string
   image?: string
   type?: 'website' | 'article'
   noindex?: boolean
@@ -57,6 +58,7 @@ export function seo({
   title,
   description,
   path,
+  markdownPath,
   image = '/images/blog.png',
   type = 'website',
   noindex = false,
@@ -74,6 +76,12 @@ export function seo({
   const robots = noindex
     ? 'noindex,follow'
     : 'index,follow,max-image-preview:large'
+  const publishedDateTime = publishedTime
+    ? toIsoDateTime(publishedTime)
+    : undefined
+  const modifiedDateTime = modifiedTime
+    ? toIsoDateTime(modifiedTime)
+    : undefined
 
   return {
     meta: [
@@ -94,19 +102,19 @@ export function seo({
       ...(type === 'article'
         ? [
             { name: 'author', content: 'Kamran Tahir' },
-            ...(publishedTime
+            ...(publishedDateTime
               ? [
                   {
                     property: 'article:published_time',
-                    content: publishedTime,
+                    content: publishedDateTime,
                   },
                 ]
               : []),
-            ...(modifiedTime
+            ...(modifiedDateTime
               ? [
                   {
                     property: 'article:modified_time',
-                    content: modifiedTime,
+                    content: modifiedDateTime,
                   },
                 ]
               : []),
@@ -127,7 +135,19 @@ export function seo({
       { name: 'twitter:image', content: socialImage },
       { name: 'twitter:image:alt', content: documentTitle },
     ],
-    links: [{ rel: 'canonical', href: canonical }],
+    links: [
+      { rel: 'canonical', href: canonical },
+      ...(markdownPath
+        ? [
+            {
+              rel: 'alternate',
+              type: 'text/markdown',
+              href: new URL(markdownPath, SITE.origin).href,
+              title: `${documentTitle} — Markdown`,
+            },
+          ]
+        : []),
+    ],
     scripts: schema
       ? [
           {
@@ -137,6 +157,19 @@ export function seo({
         ]
       : [],
   }
+}
+
+export function toIsoDateTime(date: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return `${date}T00:00:00Z`
+  }
+
+  if (/(?:Z|[+-]\d{2}:\d{2})$/.test(date)) {
+    return date
+  }
+
+  const parsed = new Date(date)
+  return Number.isNaN(parsed.valueOf()) ? date : parsed.toISOString()
 }
 
 export function breadcrumb(items: Array<{ name: string; path?: string }>) {

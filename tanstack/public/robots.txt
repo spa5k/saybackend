@@ -7,6 +7,3 @@ Disallow: /*?filter=
 Disallow: /*.pdf$
 
 Sitemap: https://saybackend.com/sitemap-index.xml
-
-# Crawl-delay for non-Google bots
-Crawl-delay: 10

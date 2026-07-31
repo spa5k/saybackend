@@ -10,12 +10,13 @@ import {
   formatDate,
   getPost,
   getRelatedPosts,
+  isNavigableTag,
   legacyPostRedirects,
   posts,
 } from '@/lib/content'
 import { Giscus } from '@/components/Giscus'
 import CodeWindow from '@/components/mdx/CodeWindow'
-import { SITE, breadcrumb, seo } from '@/lib/site'
+import { SITE, breadcrumb, seo, toIsoDateTime } from '@/lib/site'
 
 export const Route = createFileRoute('/blog/$slug')({
   beforeLoad: ({ params }) => {
@@ -46,6 +47,7 @@ export const Route = createFileRoute('/blog/$slug')({
       title: loaderData.title,
       description: loaderData.description,
       path: `/blog/${loaderData.slug}`,
+      markdownPath: `/blog/${loaderData.slug}.md`,
       image: loaderData.ogImage,
       type: 'article',
       publishedTime: loaderData.date,
@@ -77,8 +79,8 @@ export const Route = createFileRoute('/blog/$slug')({
                 url: `${SITE.origin}/images/saybackend.png`,
               },
             },
-            datePublished: loaderData.date,
-            dateModified: loaderData.updated ?? loaderData.date,
+            datePublished: toIsoDateTime(loaderData.date),
+            dateModified: toIsoDateTime(loaderData.updated ?? loaderData.date),
             description: loaderData.description,
             mainEntityOfPage: { '@type': 'WebPage', '@id': url },
             inLanguage: 'en-US',
@@ -134,13 +136,24 @@ function PostPage() {
           <span>By Kamran Tahir</span>
           <time dateTime={post.date}>{formatDate(post.date)}</time>
           <span>{post.readingMinutes} min read</span>
+          <a
+            href={`/blog/${post.slug}.md`}
+            rel="alternate"
+            type="text/markdown"
+          >
+            Markdown
+          </a>
         </div>
         <div className="post-tags">
-          {(post.tags ?? []).slice(0, 6).map((tag) => (
-            <Link key={tag} to="/tags/$tag" params={{ tag }}>
-              {tag}
-            </Link>
-          ))}
+          {(post.tags ?? []).slice(0, 6).map((tag) =>
+            isNavigableTag(tag) ? (
+              <Link key={tag} to="/tags/$tag" params={{ tag }}>
+                {tag}
+              </Link>
+            ) : (
+              <span key={tag}>{tag}</span>
+            ),
+          )}
         </div>
       </header>
       {post.wip ? (

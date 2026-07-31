@@ -19,6 +19,7 @@ import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
 import svgr from 'vite-plugin-svgr'
 
 const frontmatterModulePrefix = '\0saybackend-frontmatter:'
+const contentSourceModulePrefix = '\0saybackend-content-source:'
 
 const codeWindowTransformer: ShikiTransformer = {
   name: 'saybackend-code-window',
@@ -110,15 +111,26 @@ function frontmatterOnly(): Plugin {
     enforce: 'pre' as const,
     async resolveId(id: string, importer: string | undefined) {
       const [source, query = ''] = id.split('?', 2)
-      if (!new URLSearchParams(query).has('frontmatter-only')) return
+      const params = new URLSearchParams(query)
+      const prefix = params.has('frontmatter-only')
+        ? frontmatterModulePrefix
+        : params.has('content-source-only')
+          ? contentSourceModulePrefix
+          : undefined
+      if (!prefix) return
 
       const resolved = await this.resolve(source, importer, { skipSelf: true })
       if (!resolved) return
-      return `${frontmatterModulePrefix}${resolved.id}`
+      return `${prefix}${resolved.id}`
     },
     async load(id: string) {
-      if (!id.startsWith(frontmatterModulePrefix)) return
+      if (id.startsWith(contentSourceModulePrefix)) {
+        const file = id.slice(contentSourceModulePrefix.length)
+        const source = await readFile(file, 'utf8')
+        return `export default ${JSON.stringify(source)}`
+      }
 
+      if (!id.startsWith(frontmatterModulePrefix)) return
       const file = id.slice(frontmatterModulePrefix.length)
       const source = await readFile(file, 'utf8')
       const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)
@@ -178,6 +190,7 @@ const config = defineConfig({
       pages: [
         { path: '/404' },
         { path: '/rss.xml' },
+        { path: '/llms.txt' },
         { path: '/sitemap-index.xml' },
         { path: '/sitemap-0.xml' },
       ],
@@ -185,6 +198,7 @@ const config = defineConfig({
         enabled: true,
         crawlLinks: true,
         autoStaticPathsDiscovery: true,
+        filter: ({ path }) => !path.endsWith('.md'),
         failOnError: true,
       },
     }),

@@ -725,7 +725,8 @@ img {
   margin-top: 18px;
 }
 
-.post-tags a {
+.post-tags a,
+.post-tags > span {
   border: 1px solid var(--rule);
   padding: 5px 8px;
 }
