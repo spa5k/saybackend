@@ -396,7 +396,7 @@
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 860px) {
   .interactive-diagram__header {
     align-items: flex-start;
     flex-direction: column;

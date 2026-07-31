@@ -132,6 +132,7 @@
 .pgs-sql-editor {
   flex: 1;
   display: grid;
+  min-width: 0;
   border: 1px solid var(--color-border);
   background: color-mix(
     in oklab,
@@ -155,6 +156,9 @@
   line-height: 1.65;
   padding: 0.75rem;
   margin: 0;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   tab-size: 2;
   white-space: pre;
   word-break: normal;
@@ -591,7 +595,7 @@
 
 /* ─── Responsive ─────────────────────────────────────────────────────────── */
 
-@media (max-width: 700px) {
+@media (max-width: 820px) {
   /* Playground: stack editor and config panels */
   .pgs-panels {
     grid-template-columns: 1fr;
