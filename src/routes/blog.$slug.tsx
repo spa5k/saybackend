@@ -20,6 +20,7 @@ import ResponsiveTable from '@/components/mdx/ResponsiveTable'
 import { SITE, breadcrumb, seo, toIsoDateTime } from '@/lib/site'
 
 export const Route = createFileRoute('/blog/$slug')({
+  ssr: true,
   beforeLoad: ({ params }) => {
     const destination = legacyPostRedirects[params.slug]
     if (destination) {
@@ -163,7 +164,7 @@ function PostPage() {
         </div>
       ) : null}
       <div className="post-body page-frame" data-pagefind-body>
-        <Suspense fallback={<p>Loading article…</p>}>
+        <Suspense fallback={null}>
           <Content components={{ pre: CodeWindow, table: ResponsiveTable }} />
         </Suspense>
         {post.faqs?.length ? (
@@ -183,7 +184,11 @@ function PostPage() {
       </div>
       <nav className="post-navigation page-frame" aria-label="More articles">
         {newerPost ? (
-          <Link to="/blog/$slug" params={{ slug: newerPost.slug }}>
+          <Link
+            to="/blog/$slug"
+            params={{ slug: newerPost.slug }}
+            reloadDocument
+          >
             <span>← Newer</span>
             <strong>{newerPost.title}</strong>
           </Link>
@@ -191,7 +196,11 @@ function PostPage() {
           <span />
         )}
         {olderPost ? (
-          <Link to="/blog/$slug" params={{ slug: olderPost.slug }}>
+          <Link
+            to="/blog/$slug"
+            params={{ slug: olderPost.slug }}
+            reloadDocument
+          >
             <span>Older →</span>
             <strong>{olderPost.title}</strong>
           </Link>
@@ -206,6 +215,7 @@ function PostPage() {
                 key={item.slug}
                 to="/blog/$slug"
                 params={{ slug: item.slug }}
+                reloadDocument
               >
                 <span>{item.tags?.[0] ?? 'Article'}</span>
                 <strong>{item.title}</strong>

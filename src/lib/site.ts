@@ -96,8 +96,6 @@ export function seo({
       { property: 'og:description', content: description },
       { property: 'og:image', content: socialImage },
       { property: 'og:image:alt', content: documentTitle },
-      { property: 'og:image:width', content: '1200' },
-      { property: 'og:image:height', content: '630' },
       { property: 'og:site_name', content: SITE.title },
       ...(type === 'article'
         ? [

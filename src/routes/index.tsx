@@ -109,7 +109,11 @@ function Home() {
             <div className="featured-copy">
               <p className="eyebrow">Latest essay</p>
               <h1>
-                <Link to="/blog/$slug" params={{ slug: featured.slug }}>
+                <Link
+                  to="/blog/$slug"
+                  params={{ slug: featured.slug }}
+                  reloadDocument
+                >
                   {featured.title}
                 </Link>
               </h1>
@@ -118,6 +122,7 @@ function Home() {
                 to="/blog/$slug"
                 params={{ slug: featured.slug }}
                 className="text-link featured-link"
+                reloadDocument
               >
                 Read the essay →
               </Link>
@@ -143,7 +148,11 @@ function Home() {
                   <span>{post.readingMinutes} min read</span>
                 </div>
                 <h2>
-                  <Link to="/blog/$slug" params={{ slug: post.slug }}>
+                  <Link
+                    to="/blog/$slug"
+                    params={{ slug: post.slug }}
+                    reloadDocument
+                  >
                     {post.title}
                   </Link>
                 </h2>

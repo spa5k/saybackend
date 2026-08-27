@@ -747,16 +747,16 @@ img {
   line-height: 1.68;
 }
 
-.post-body h1,
-.post-body h2,
-.post-body h3,
-.post-body h4 {
+.post-body h1:not(.not-typography *),
+.post-body h2:not(.not-typography *),
+.post-body h3:not(.not-typography *),
+.post-body h4:not(.not-typography *) {
   scroll-margin-top: 24px;
   font-weight: 580;
   line-height: 1.15;
 }
 
-.post-body h2 {
+.post-body h2:not(.not-typography *) {
   margin: 2.5rem 0 0.75rem;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--rule);
@@ -764,54 +764,54 @@ img {
   line-height: 1.16;
 }
 
-.post-body h3 {
+.post-body h3:not(.not-typography *) {
   margin: 2.25rem 0 0.65rem;
   font-size: 24px;
   line-height: 1.2;
 }
 
-.post-body p,
-.post-body ul,
-.post-body ol,
-.post-body pre,
-.post-body blockquote,
-.post-body table,
-.post-body figure {
+.post-body p:not(.not-typography *),
+.post-body ul:not(.not-typography *),
+.post-body ol:not(.not-typography *),
+.post-body pre:not(.not-typography *),
+.post-body blockquote:not(.not-typography *),
+.post-body table:not(.not-typography *),
+.post-body figure:not(.not-typography *) {
   margin-top: 1.1em;
   margin-bottom: 1.1em;
 }
 
-.post-body ul,
-.post-body ol {
+.post-body ul:not(.not-typography *),
+.post-body ol:not(.not-typography *) {
   padding-inline-start: 1.35em;
 }
 
-.post-body ul {
+.post-body ul:not(.not-typography *) {
   list-style: disc;
 }
 
-.post-body ol {
+.post-body ol:not(.not-typography *) {
   list-style: decimal;
 }
 
-.post-body li + li {
+.post-body li:not(.not-typography *) + li:not(.not-typography *) {
   margin-top: 0.3em;
 }
 
-.post-body li::marker {
+.post-body li:not(.not-typography *)::marker {
   color: var(--green);
   font-weight: 600;
 }
 
-.post-body a {
+.post-body a:not(.not-typography *) {
   color: var(--green);
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
 
-.post-body img,
-.post-body svg {
+.post-body img:not(.not-typography *),
+.post-body svg:not(.not-typography *) {
   width: 100%;
   height: auto;
   border: 1px solid var(--rule);
@@ -934,7 +934,7 @@ html.dark .shiki-code span {
   text-decoration: var(--shiki-dark-text-decoration) !important;
 }
 
-.post-body :not(pre) > code {
+.post-body :not(pre) > code:not(.not-typography *) {
   border-radius: 5px;
   background: color-mix(in srgb, var(--green-soft) 82%, var(--paper-raised));
   padding: 0.14em 0.38em;
@@ -942,7 +942,7 @@ html.dark .shiki-code span {
   font-size: 0.84em;
 }
 
-.post-body blockquote {
+.post-body blockquote:not(.not-typography *) {
   border: 0;
   border-radius: 12px;
   margin-left: 0;
@@ -953,7 +953,7 @@ html.dark .shiki-code span {
   font-style: italic;
 }
 
-.post-body table {
+.post-body table:not(.not-typography *) {
   display: block;
   max-width: 100%;
   overflow-x: auto;
@@ -986,8 +986,8 @@ html.dark .shiki-code span {
   box-shadow: none;
 }
 
-.post-body th,
-.post-body td {
+.post-body th:not(.not-typography *),
+.post-body td:not(.not-typography *) {
   border: 0;
   border-right: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
@@ -995,12 +995,12 @@ html.dark .shiki-code span {
   text-align: left;
 }
 
-.post-body th:last-child,
-.post-body td:last-child {
+.post-body th:not(.not-typography *):last-child,
+.post-body td:not(.not-typography *):last-child {
   border-right: 0;
 }
 
-.post-body tr:last-child td {
+.post-body tr:last-child td:not(.not-typography *) {
   border-bottom: 0;
 }
 
@@ -1120,8 +1120,9 @@ html.dark .shiki-code span {
 
 .related-posts {
   max-width: 1040px;
-  border-top: 1px solid var(--rule);
   padding: 36px 0 48px;
+  background: linear-gradient(var(--rule), var(--rule)) no-repeat top center /
+    min(100%, 820px) 1px;
 }
 
 .related-posts > div {
@@ -1174,7 +1175,7 @@ html.dark .shiki-code span {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  max-width: 860px;
+  max-width: 820px;
   margin-top: 0;
   padding-top: 32px;
   border-top: 1px solid var(--rule);
@@ -1211,7 +1212,7 @@ html.dark .shiki-code span {
 }
 
 .post-comments {
-  max-width: 860px;
+  max-width: 820px;
   margin-top: 32px;
   margin-bottom: 80px;
   padding-top: 32px;

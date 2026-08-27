@@ -52,7 +52,11 @@ function TagPage() {
               <time dateTime={post.date}>{formatDate(post.date)}</time>
               <div>
                 <h3>
-                  <Link to="/blog/$slug" params={{ slug: post.slug }}>
+                  <Link
+                    to="/blog/$slug"
+                    params={{ slug: post.slug }}
+                    reloadDocument
+                  >
                     {post.title}
                   </Link>
                 </h3>
