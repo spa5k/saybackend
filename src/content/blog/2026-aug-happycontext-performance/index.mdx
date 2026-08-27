@@ -1,6 +1,6 @@
 ---
-title: "How We Made happycontext Up to 77× Faster Without Breaking Its API"
-description: "A profiling-led Go performance pass that cut hot-path allocations, removed policy scans, eliminated sampler contention, and made filtered log writes up to 77x faster."
+title: "How We Used AI to Make happycontext Up to 77× Faster Without Breaking Its API"
+description: "How we used AI, profiling, adversarial tests, and repeatable Go benchmarks to cut hot-path work and make filtered log writes up to 77x faster."
 date: "2026-08-27"
 slug: "happycontext-go-performance"
 ogImage: "/images/happycontext-performance-og.png"
@@ -34,7 +34,7 @@ import GitHubRepoCard from "@/components/mdx/GitHubRepoCard";
 
 <img
   src="/images/happycontext-performance-og.png"
-  alt="happycontext performance improvements of up to 77 times"
+  alt="AI-assisted happycontext performance improvements of up to 77 times"
   width="1200"
   height="630"
   loading="eager"
@@ -77,6 +77,14 @@ _ = http.ListenAndServe(":8080", mw(mux))
 ```
 
 The middleware emits one final structured event. The `slog` adapter shown here can be replaced with the existing `zap` or `zerolog` adapter.
+
+## How We Used AI
+
+We used an AI coding agent to turn profiling results into a ranked plan, inspect affected callers, implement two stacked pull requests, and create adversarial tests. It also ran before-and-after benchmarks in separate Git worktrees, repeated race and compatibility checks, and challenged headline claims when timings changed between Go versions.
+
+AI was a collaborator, not the source of truth. Measurements decided what shipped. We rejected an HTTP status fast path that saved about 0.33 ns and a custom sampler threshold that improved the new path by less than 3%. A final AI-assisted simplification pass also removed 73 production lines that had become redundant across the stacked changes.
+
+CodeRabbit provided a second AI review. We checked each finding against the code and benchmark results instead of accepting it automatically.
 
 <Callout type="info">
   The main result was not one clever algorithm. It was a series of small cuts:
