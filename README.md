@@ -22,9 +22,6 @@ npm clean-install
 npm run dev
 ```
 
-The repository is an npm workspace, and the root scripts delegate to the
-application in `tanstack/`:
-
 ```bash
 npm run build
 npm run check
@@ -35,7 +32,6 @@ npm run preview
 ## Project structure
 
 ```text
-tanstack/
 ├── src/components/       # Shared UI and MDX components
 ├── src/content/blog/     # Blog posts and article media
 ├── src/lib/              # Content, metadata, and search helpers
@@ -54,7 +50,7 @@ check canonical URLs, redirects, feeds, discovery files, and article metadata.
 The application follows Cloudflare's TanStack Start integration: the Cloudflare
 Vite plugin builds the SSR Worker, `src/worker.ts` extends TanStack's default
 server entry with legacy redirects, and `wrangler.jsonc` defines the production
-Worker. Regenerate binding types with `npm --prefix tanstack run cf-typegen`.
+Worker. Regenerate binding types with `npm run cf-typegen`.
 
 ## License
 

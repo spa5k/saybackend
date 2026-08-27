@@ -2,10 +2,10 @@
 
 ## Evidence
 
-- Source visual truth: `/Users/atlantic/.codex/generated_images/019fadce-a53d-7040-8c31-4d06c09ac6e2/call_es5cVkqSqSd1Kw4nGIvuTFD8.png`
-- Normalized source: `/Users/atlantic/Developer/saybackend/tanstack/design-reference-1440x1024.png`
-- Rendered implementation: `/Users/atlantic/Developer/saybackend/tanstack/implementation-home-1440x1024-normalized.png`
-- Side-by-side comparison: `/Users/atlantic/Developer/saybackend/tanstack/design-comparison.png`
+- Source visual truth: `design-reference-1440x1024.png`
+- Normalized source: `design-reference-1440x1024.png`
+- Rendered implementation: `implementation-home-1440x1024-normalized.png`
+- Side-by-side comparison: `design-comparison.png`
 - Route: `/`
 - State: desktop, light theme, navigation closed
 - CSS viewport: 1440 × 1024
@@ -46,8 +46,8 @@ Fixes:
 
 Post-fix evidence:
 
-- `/Users/atlantic/Developer/saybackend/tanstack/implementation-home-1440x1024-normalized.png`
-- `/Users/atlantic/Developer/saybackend/tanstack/design-comparison.png`
+- `implementation-home-1440x1024-normalized.png`
+- `design-comparison.png`
 
 ### Pass 2 — passed
 

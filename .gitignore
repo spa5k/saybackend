@@ -22,6 +22,15 @@ pnpm-debug.log*
 .idea/
 .vercel
 .wrangler
+.nitro/
+.tanstack/
+.output/
+.vinxi/
+dist-ssr/
+*.local
+__unconfig*
+todos.json
+implementation-home-1440x1024.png
 .aider*
 .specstory/
 uuidv7-postgres-benchmark

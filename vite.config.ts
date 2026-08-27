@@ -15,6 +15,7 @@ import rehypeShiki from '@shikijs/rehype'
 import tailwindcss from '@tailwindcss/vite'
 import type { ShikiTransformer } from 'shiki'
 import remarkFrontmatter from 'remark-frontmatter'
+import remarkGfm from 'remark-gfm'
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
 import svgr from 'vite-plugin-svgr'
 
@@ -169,6 +170,7 @@ const config = defineConfig({
       include: /\.mdx?$/,
       remarkPlugins: [
         remarkFrontmatter,
+        remarkGfm,
         [remarkMdxFrontmatter, { name: 'frontmatter' }],
       ],
       rehypePlugins: [

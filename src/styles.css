@@ -966,6 +966,26 @@ html.dark .shiki-code span {
   font-size: 14px;
 }
 
+.post-body .mdx-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: 12px;
+  margin: 1.1em 0;
+  background: var(--paper-raised);
+  box-shadow: inset 0 0 0 1px var(--rule);
+}
+
+.post-body .mdx-table-scroll table {
+  display: table;
+  width: 100%;
+  min-width: max-content;
+  overflow: visible;
+  border-radius: 0;
+  margin: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .post-body th,
 .post-body td {
   border: 0;

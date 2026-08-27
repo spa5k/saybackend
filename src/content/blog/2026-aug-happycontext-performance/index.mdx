@@ -1,0 +1,302 @@
+---
+title: "How We Made happycontext Up to 77× Faster Without Breaking Its API"
+description: "A profiling-led Go performance pass that cut hot-path allocations, removed policy scans, eliminated sampler contention, and made filtered log writes up to 77x faster."
+date: "2026-08-27"
+slug: "happycontext-go-performance"
+ogImage: "/images/happycontext-performance-og.png"
+tags:
+  - "golang"
+  - "performance"
+  - "benchmarking"
+  - "profiling"
+  - "logging"
+  - "observability"
+  - "wide-events"
+  - "slog"
+  - "zap"
+  - "zerolog"
+  - "concurrency"
+  - "optimization"
+faqs:
+  - question: "Did the happycontext performance work change its public API?"
+    answer: "No. Version 0.4.0 keeps the public API, field names, value types, configuration isolation, sampling behavior, and logger integrations compatible with the previous release."
+  - question: "What produced the largest speedups?"
+    answer: "The largest gains came from skipping work. Logger adapters now check whether a write will be filtered before converting fields, operation finalization no longer scans every policy, and sampled-out events are dropped before their fields are cloned."
+  - question: "Why did happycontext replace its atomic sampler state with math/rand/v2?"
+    answer: "The shared atomic state became a contention point under parallel load. math/rand/v2 made the parallel sampler more than 30 times faster, with a small accepted slowdown in the serial microbenchmark."
+  - question: "How can I reproduce the happycontext benchmarks?"
+    answer: "Clone the repository and run the centralized benchmarks from the benches module. The repository includes core, adapter, router, stress, allocation, and race checks."
+---
+
+import Callout from "@/components/mdx/Callout";
+import BeforeAfterBenchmarkChart from "@/components/mdx/BeforeAfterBenchmarkChart";
+import GitHubRepoCard from "@/components/mdx/GitHubRepoCard";
+
+<img
+  src="/images/happycontext-performance-og.png"
+  alt="happycontext performance improvements of up to 77 times"
+  width="1200"
+  height="630"
+  loading="eager"
+  fetchPriority="high"
+/>
+
+[`happycontext`](https://github.com/happytoolin/happycontext) builds one wide event during a request and writes it when the request finishes. That makes production logs easier to query, but it also puts the event lifecycle on every request path.
+
+For version 0.4.0, we profiled that path and shipped two stacked performance changes: [PR 18](https://github.com/happytoolin/happycontext/pull/18) removed avoidable allocations, then [PR 19](https://github.com/happytoolin/happycontext/pull/19) stopped doing work that the result did not need.
+
+The public API did not change.
+
+## Typical happycontext Usage
+
+The original [happycontext wide-logging guide](/blog/happycontext-wide-logging-golang) covers the complete setup, integrations, and sampling model. A typical `net/http` service connects an existing logger, wraps the router, and adds business fields during the request:
+
+```go
+logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+mw := stdhc.Middleware(hc.Config{
+	Sink:         slogadapter.New(logger),
+	SamplingRate: 1.0,
+	Message:      "request_completed",
+})
+
+mux := http.NewServeMux()
+mux.HandleFunc("GET /orders/{id}", func(w http.ResponseWriter, r *http.Request) {
+	hc.Add(r.Context(), "user_id", "u_8472", "feature", "checkout")
+
+	if err := processOrder(r.Context()); err != nil {
+		hc.Error(r.Context(), err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+})
+
+_ = http.ListenAndServe(":8080", mw(mux))
+```
+
+The middleware emits one final structured event. The `slog` adapter shown here can be replaced with the existing `zap` or `zerolog` adapter.
+
+<Callout type="info">
+  The main result was not one clever algorithm. It was a series of small cuts:
+  fewer interface conversions, no repeated policy scans, no field conversion
+  for filtered log writes, no clone before a sampling drop, and no shared
+  atomic random-number state.
+</Callout>
+
+## Start With Profiles, Not Guesses
+
+The first CPU and allocation profiles pointed to ordinary Go costs:
+
+- Values stored in `map[string]any` were boxed into interfaces.
+- The `slog` adapter converted attributes into `[]any`.
+- Operation finalization normalized and cloned configuration maps again.
+- Policy selection scanned every configured domain.
+- Sampling used one shared atomic state across goroutines.
+- Logger adapters converted fields before they knew that the logger would filter the event.
+
+The profiles also showed where **not** to work. Fiber benchmark results were dominated by the `App.Test` and `fasthttp` harness. A proposed HTTP status switch saved about 0.33 ns. Neither was a useful optimization target.
+
+This distinction mattered. A microbenchmark can make almost any branch look important. The profiles told us which costs repeated across real request lifecycles.
+
+## Wave One: Remove Hot-Path Allocations
+
+The first change focused on allocations in the core lifecycle, middleware, and logger adapters.
+
+### Give `slog` the type it already expects
+
+The adapter built a `[]any` containing `slog.Attr` values and called the variadic logging API. Every attribute was boxed into an interface.
+
+We switched to `Logger.LogAttrs` and reused a bounded `[]slog.Attr` buffer. The handler still receives normal `slog.Attr` values, but the adapter no longer boxes each one into `any`.
+
+| `slog` benchmark | Before | After | Allocation result |
+| --- | ---: | ---: | --- |
+| Small write | 1,079 ns | 628 ns | 7 → 1 allocs, 336 → 48 B |
+| Medium write | 2,153 ns | 1,246 ns | 18 → 1 allocs, 1,297 → 480 B |
+
+The allocation counts reproduced exactly in later review runs. Timing varied with the Go version and machine state, so the important durable result is the removed allocation work.
+
+The pool has a size limit. A single unusually large event cannot leave a large backing array in the pool forever.
+
+### Keep public configuration isolated
+
+`NormalizeConfig` historically returns configuration that does not share mutable maps or rate pointers with its caller. We could not remove those copies from the public function without changing behavior.
+
+The request path was different. Middleware had already normalized its configuration, but operation finalization still repeated validation and cloning.
+
+We added an internal read-only fast path that reuses already-valid maps. The public function still makes isolated copies.
+
+| Operation finish with policies | Before | After | Result |
+| --- | ---: | ---: | --- |
+| Time | 881 ns | 597 ns | 32% faster |
+| Allocations | 17 | 9 | 47% fewer |
+| Bytes | 2,352 B | 976 B | 59% fewer |
+
+An adversarial test caught an early version that shared the caller's maps through the public API. That version never shipped.
+
+### Reuse fixed interface values
+
+Many lifecycle values repeat on every request: operation domains, outcomes, common HTTP methods, and common status codes. Converting the same fixed string or integer to `any` for every event created small but frequent allocations.
+
+The optimized path reuses pre-boxed values for known constants and falls back to a normal conversion for dynamic values. Tests confirm that consumers still see plain `string` and `int` values through type assertions, equality checks, formatting, and JSON output.
+
+This first wave also added stress checks for retained `slog` records, handler panics, concurrent buffer reuse, shared normalized configuration, sampling distribution, and heap stability.
+
+## Wave Two: Do Less Work
+
+After the allocation pass, the next profiles showed a simpler theme: several hot paths were still computing values that were discarded.
+
+### Select one policy instead of scanning all policies
+
+Operation finalization used to normalize the full policy map before it selected one domain. That made request cost grow with the number of configured policies.
+
+The new path normalizes the requested domain and performs one map lookup. It keeps the same alias and invalid-value rules.
+
+| Policy lookup | Before | After | Result |
+| --- | ---: | ---: | --- |
+| 1 policy | 407 ns | 376 ns | 7% faster |
+| 16 policies | 591 ns | 387 ns | 34% faster |
+| 128 policies | 1,842 ns | 395 ns | 79% faster |
+
+<BeforeAfterBenchmarkChart
+  title="Policy lookup: 79% faster at 128 policies"
+  unit="ns/op"
+  data={[
+    { label: "1 policy", before: 407, after: 376 },
+    { label: "16 policies", before: 591, after: 387 },
+    { label: "128 policies", before: 1842, after: 395 },
+  ]}
+/>
+
+The important part is the shape of the result. Finalization is now effectively constant-time as the policy map grows.
+
+### Reserve the fields that completion always adds
+
+Every finished operation adds three known fields. Reserving that capacity before the writes avoided one map growth in the representative lifecycle.
+
+The full lifecycle moved from 651 ns to 538 ns, from 1,936 B to 1,648 B, and from 15 allocations to 14 in the seven-sample comparison.
+
+### Sample before cloning
+
+Built-in sampling only needs a small snapshot. The old path cloned the full event before it decided to drop it.
+
+The new order is:
+
+1. Read the fields needed for sampling.
+2. Apply built-in sampling.
+3. Return immediately when the event is dropped.
+4. Clone fields only for events that continue to a custom sampler or sink.
+
+For an eight-field dropped event, this reduced the result from 636 ns, 1,904 B, and 13 allocations to 551 ns, 1,240 B, and 9 allocations.
+
+Custom samplers still receive the same pre-callback snapshot. Dropped events still retain their completion fields.
+
+### Remove sampler contention
+
+The rate sampler used a shared atomic pseudo-random state. It was cheap in one goroutine, but every concurrent request contended on the same cache line.
+
+Replacing it with the standard library's `math/rand/v2` source changed the trade-off:
+
+| Sampler benchmark | Before | After | Result |
+| --- | ---: | ---: | --- |
+| Parallel | 42 ns | 1.3 ns | More than 30× faster |
+| Serial | 3.12 ns | 6.66 ns | About 2.1× slower |
+
+We accepted the serial microbenchmark regression because request middleware is concurrent and the shared atomic state was the scaling limit. An integer-threshold alternative improved the new path by less than 3%, so we rejected the added code.
+
+### Check the logger before converting fields
+
+The adapters converted every event field before asking whether the logger would write that level.
+
+The new paths use the logger's native early check:
+
+- `slog` checks `Enabled`.
+- `zap` uses `Check`.
+- `zerolog` checks the event level before field conversion.
+
+This produced the largest headline ratios because a filtered write now returns almost immediately.
+
+A filtered log write is a call that the logger ignores because its level is below the configured minimum. For example, a logger set to `Info` ignores a `Debug` event.
+
+| Adapter path | Before | After | Result |
+| --- | ---: | ---: | --- |
+| Filtered `slog`, medium event | 163 ns | 3.39 ns | 48× faster |
+| Filtered `zap`, medium event | 354 ns | 24.3 ns | 15× faster |
+| Filtered `zerolog`, medium event | 237 ns | 3.07 ns | 77× faster, 0 B, 0 allocs |
+| `zerolog` Warn write | 271 ns | 157 ns | 42% faster, 0 B, 0 allocs |
+
+<BeforeAfterBenchmarkChart
+  title="Filtered log writes: up to 77× faster"
+  unit="ns/op"
+  data={[
+    { label: "slog", before: 163, after: 3.39 },
+    { label: "zap", before: 354, after: 24.3 },
+    { label: "zerolog", before: 237, after: 3.07 },
+  ]}
+/>
+
+The `zerolog` work also fixed a correctness issue. The adapter created an unused Info event before it created the real event. That extra event consumed a sampling decision. Removing it improved speed and restored one decision per emitted event.
+
+## What We Refused to Optimize
+
+A useful performance pass ends with rejected ideas, not only merged code.
+
+- We did not add a prepared-configuration abstraction. The internal lookup fast path solved the measured problem.
+- We rejected the HTTP status switch because it saved about 0.33 ns and added another branch.
+- We rejected generated cross-module adapter code. The modules use different dependency versions, and generation would add maintenance work.
+- We rejected a custom integer sampling threshold because it improved the new sampler by less than 3%.
+- We did not change the explicit-success-with-error outcome rule. That is a behavior change reserved for version 1.
+
+<Callout type="warning">
+  The percentages from the two pull requests must not be added together. They
+  use different baselines and some gains overlap. Each table above keeps its
+  original comparison boundary.
+</Callout>
+
+## Proving That Faster Still Means Correct
+
+The risk in this work was not a compiler error. It was a subtle behavior change caused by shared maps, pooled slices, sampling order, or logger-specific semantics.
+
+The final verification included:
+
+- Tests and `go vet` across every module at its declared minimum Go version.
+- Race-detector runs across the changed modules and the complete stack.
+- Staticcheck and golangci-lint with no reported issues.
+- Two million operation lifecycles followed by a heap-retention check.
+- Concurrent mixed API calls from 32 goroutines.
+- Sampler contention checks at 1%, 50%, and 99% rates across several `GOMAXPROCS` values.
+- Repeated adapter tests under the race detector.
+- 160,000 parallel `slog` writes retained without cloning to detect pooled-slice aliasing.
+- Deterministic and randomized configuration-equivalence tests for aliases, invalid levels, NaN, infinities, and signed zero.
+
+The benchmark code now lives in one `benches` module instead of being copied across adapters and integrations. A basic reproduction starts with:
+
+```bash
+cd benches
+
+go test -run '^$' -bench '^BenchmarkAdapter' -benchmem -count=5
+go test -run '^$' -bench '^BenchmarkRouter' -benchmem -count=3
+go test -run '^$' -bench '^Benchmark' -benchmem
+```
+
+For trustworthy before-and-after numbers, use separate Git worktrees, the same Go version, the same machine, multiple samples, and `benchstat`. Allocation counts were more stable than small timing differences during this work.
+
+## The General Lesson
+
+The fastest operation is often the one you can prove is unnecessary.
+
+The best gains in this pass came from changing the order of work:
+
+- Check the log level before field conversion.
+- Decide whether to sample before cloning.
+- Select one policy before normalization.
+- Reuse configuration only inside a read-only boundary.
+- Use the standard library instead of owning shared random state.
+
+That made `happycontext` faster under concurrent request load while keeping the public contract intact.
+
+<GitHubRepoCard
+  repo="happytoolin/happycontext"
+  title="happytoolin/happycontext"
+/>

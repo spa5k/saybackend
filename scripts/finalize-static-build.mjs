@@ -34,12 +34,12 @@ await cp(
   },
 )
 
-const deployDirectory = new URL('../../.wrangler/deploy/', import.meta.url)
+const deployDirectory = new URL('../.wrangler/deploy/', import.meta.url)
 await mkdir(deployDirectory, { recursive: true })
 await writeFile(
   new URL('config.json', deployDirectory),
   `${JSON.stringify({
-    configPath: '../../tanstack/dist/server/wrangler.json',
+    configPath: '../../dist/server/wrangler.json',
     auxiliaryWorkers: [],
   })}\n`,
 )

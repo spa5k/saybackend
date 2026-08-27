@@ -1,19 +1,76 @@
 {
   "name": "saybackend",
-  "type": "module",
   "version": "0.0.1",
   "private": true,
-  "workspaces": [
-    "tanstack"
-  ],
+  "type": "module",
+  "imports": {
+    "#/*": "./src/*"
+  },
   "scripts": {
-    "dev": "npm --prefix tanstack run dev",
-    "start": "npm --prefix tanstack run dev",
-    "build": "npm --prefix tanstack run build",
-    "check": "npm --prefix tanstack run check && npm --prefix tanstack run lint",
-    "preview": "npm --prefix tanstack run preview",
-    "deploy": "npm --prefix tanstack run deploy",
-    "format": "npm --prefix tanstack run format",
-    "verify:routes": "npm --prefix tanstack run verify:routes"
+    "dev": "vite dev --port 3000",
+    "start": "vite dev --port 3000",
+    "generate-routes": "tsr generate",
+    "build": "node scripts/prepare-static-build.mjs && vite build && pagefind --site dist/client && node scripts/finalize-static-build.mjs",
+    "preview": "vite preview",
+    "verify:routes": "node scripts/verify-routes.mjs",
+    "lint": "eslint",
+    "format": "prettier --write . && eslint --fix",
+    "check": "prettier --check . && eslint",
+    "deploy": "npm run build && wrangler deploy && wrangler deploy --config wrangler.www-redirect.jsonc",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "@fontsource-variable/fraunces": "^5.3.0",
+    "@fontsource/dm-mono": "^5.3.0",
+    "@mdx-js/rollup": "^3.1.1",
+    "@phosphor-icons/react": "^2.1.10",
+    "@radix-ui/react-collapsible": "^1.1.20",
+    "@tailwindcss/vite": "^4.1.18",
+    "@tanstack/react-devtools": "latest",
+    "@tanstack/react-router": "latest",
+    "@tanstack/react-router-devtools": "latest",
+    "@tanstack/react-start": "latest",
+    "@xyflow/react": "^12.11.2",
+    "chart.js": "^4.5.1",
+    "chartjs-adapter-date-fns": "^3.0.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.27.0",
+    "react": "^19.2.0",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "^19.2.0",
+    "reading-time": "^1.5.0",
+    "recharts": "^2.15.4",
+    "remark-frontmatter": "^5.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-mdx-frontmatter": "^5.2.0",
+    "shiki": "^4.3.1",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.1.18",
+    "vite-plugin-svgr": "^5.2.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.48.0",
+    "@shikijs/rehype": "^4.3.1",
+    "@tanstack/devtools-vite": "latest",
+    "@tanstack/eslint-config": "latest",
+    "@tanstack/router-cli": "^1.132.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "eslint": "^9.20.0",
+    "pagefind": "^1.5.2",
+    "prettier": "^3.8.1",
+    "typescript": "^6.0.2",
+    "vite": "^7.3.5",
+    "wrangler": "^4.115.0",
+    "yaml": "^2.9.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "lightningcss"
+    ]
   }
 }
