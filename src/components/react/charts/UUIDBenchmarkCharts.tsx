@@ -119,6 +119,10 @@ export function PerformanceComparisonChart() {
                 <ChartTooltipContent
                   className="!bg-background text-foreground"
                   formatter={(value) => {
+                    if (value === undefined) {
+                      return null;
+                    }
+
                     if (activeMetric === "avgTime") {
                       return `${value} μs`;
                     }

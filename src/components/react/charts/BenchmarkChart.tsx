@@ -42,9 +42,6 @@ export function BenchmarkChart({
   title = "UUID Implementation Performance",
   description = "Comparison of different UUID implementations",
 }: BenchmarkChartProps) {
-  const data =
-    type === "throughput" ? benchmarkData.area_chart : benchmarkData.bar_chart;
-
   if (type === "performance") {
     return (
       <Card className="w-full">
@@ -56,7 +53,7 @@ export function BenchmarkChart({
           <ChartContainer config={chartConfig}>
             <BarChart
               accessibilityLayer
-              data={data}
+              data={benchmarkData.bar_chart}
               margin={{
                 left: 12,
                 right: 12,
@@ -102,7 +99,7 @@ export function BenchmarkChart({
         <ChartContainer config={chartConfig}>
           <BarChart
             accessibilityLayer
-            data={data}
+            data={benchmarkData.area_chart}
             margin={{
               left: 12,
               right: 12,
