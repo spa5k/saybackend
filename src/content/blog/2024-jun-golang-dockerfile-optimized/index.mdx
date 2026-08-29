@@ -66,7 +66,9 @@ import OgImage from "./dockerfile-golang-og.png";
 
 ## Introduction
 
-Creating a Dockerfile for Golang to containerize your application is a good practice, but sometimes, you can optimize it even more by using various techniques that we will be discussing in this article.
+The usual Go Dockerfile works, but it often ships the compiler, build cache, and
+debug symbols with the application. We can remove most of that with a
+multi-stage build, dependency caching, and a stripped binary.
 
 ## Generic Dockerfile
 
@@ -171,7 +173,7 @@ It's just 20.39 MB, what more can you ask for? From 490MB to 20.39MB, that's a 9
 
 ### Explanation on the Dockerfile
 
-- **Multi-stage builds**: By using multi-stage builds, we can separate the build environment from the runtime environment. This helps in keeping the final image lightweight.
+- **Multi-stage builds**: The build environment stays separate from the runtime image, so the final image only needs the compiled binary.
 - **Alpine base image**: Using `alpine:latest` as the base image for the final stage ensures a minimal footprint.
 - **Environment variables**: Setting `CGO_ENABLED=0` and `GOOS=linux` ensures that the binary is statically linked and compatible with Linux.
 - **Caching**: Using multi stage builds, we can use the Docker multi stage build cache to cache the dependencies and intermediate layers, which speeds up the build process.
@@ -382,12 +384,14 @@ CMD ["/main"]
 
 ## Conclusion
 
-By following these optimization techniques, you can create a more efficient and faster Dockerfile for your Golang applications. This not only improves the performance but also reduces the size of your Docker images, making them easier to distribute and deploy.
+The final image is smaller, faster to pull, and no longer ships the Go toolchain.
+Pin the base images, keep dependency layers cacheable, and run the binary as a
+non-root user.
 
 <Callout type="info">
-  Remember, optimizing your Dockerfile is an ongoing process. Continuously
-  monitor and refine your Dockerfile to ensure it meets the needs of your
-  application and deployment environment.
+  Recheck the image whenever the Go version, base image, or deployment target
+  changes. The smallest image is not automatically the best one if it drops
+  certificates, timezone data, or debugging support your service needs.
 </Callout>
 
 <Callout type="warning">

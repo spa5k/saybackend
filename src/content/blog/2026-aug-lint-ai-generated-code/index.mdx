@@ -1,0 +1,681 @@
+---
+title: "Static Analysis for the Age of AI Slop"
+description: "How I turned repeated AI coding mistakes into Oxlint rules, measured the existing mess, and made touched files clean up their own warnings."
+date: "2026-08-29"
+slug: "lint-ai-generated-code"
+ogImage: "/images/lint-ai-generated-code-og.png"
+draft: false
+tags:
+  - "ai-coding"
+  - "linting"
+  - "oxlint"
+  - "typescript"
+  - "code-quality"
+  - "developer-tools"
+faqs:
+  - question: "Can linting stop AI-generated code slop?"
+    answer: "It can stop mechanically recognizable regressions and measure known smells. It cannot judge product intent, state ownership, or architecture on its own."
+  - question: "Should every new lint rule be an error?"
+    answer: "No. Zero-hit rules are good error candidates. Existing high-volume findings should start as warnings or use a baseline so the rule remains credible."
+  - question: "Why use type-aware linting for AI-generated code?"
+    answer: "Type-aware rules catch redundant checks and assertions that look defensive but contradict facts already proven by the type system."
+  - question: "How do you reduce a large warning backlog?"
+    answer: "Make staged files pass with warnings denied. The author owns warnings in files they touch, while unrelated legacy files remain outside the change."
+---
+
+import Callout from "@/components/mdx/Callout";
+
+## Introduction
+
+I use coding agents a lot. Recently, while working on a large TypeScript workflow builder, I noticed I was reviewing the same bad code again and again.
+
+The code compiled. The tests passed. It still looked like nobody had read it.
+
+There were guards around impossible states, casts to types TypeScript already knew, and a fresh `useEffect` whenever two values needed to stay in sync.
+
+I also kept getting tiny files, manual loading state beside mutations, and components controlled by a pile of boolean props. Every choice looked reasonable if you only read five lines around it.
+
+That is the annoying kind of slop. The app runs, the pull request looks busy, and you pay for it three months later.
+
+My first fix was to add more instructions. It helped for a while. Then a longer task opened an old file, copied the same patterns, and we were back where we started.
+
+So I moved the mechanical parts into Oxlint. This post is what worked, what went wrong, and the rules I kept after running them against the real repository.
+
+<Callout type="info">
+  I only linted mistakes where syntax or type information gave us good evidence.
+  Architecture and product intent still stay in review.
+</Callout>
+
+## Why `CLAUDE.md` was not enough
+
+Many of these rules were already in `CLAUDE.md` and our repository skills. The agent could quote the rule back to me and still generate the exact pattern it prohibited.
+
+An agent file makes a rule available to the model. Whether it follows that rule still depends on the files it opened, the prompt, and what survived a long context window.
+
+The repository was also giving it bad examples. Open a file full of mirrored pending state, raw `fetch`, or `as unknown as`, and the agent sees concrete code that compiled and passed review before.
+
+That example is easy to continue. The sentence in `CLAUDE.md` is somewhere else. Making the agent file longer improved the odds, but the bad patch was still valid code.
+
+```text
+prompt + agent instructions + retrieved source + nearby examples
+                              ↓
+                       generated patch
+                              ↓
+             syntax lint + type lint + project rules
+```
+
+Lint runs after the code is generated. The same AST node gets the same error whether it came from Claude, Cursor, another model, or me.
+
+I kept the agent files. They are still the right place to explain intent and name the preferred abstraction.
+
+For every instruction I could test mechanically, I added a rule too. Now the explanation lives in `CLAUDE.md`, and the gate runs locally and in CI.
+
+## Start with your own slop
+
+I did not begin with every strict preset I could find. I started with review comments I had already written more than once.
+
+My list included raw UI elements instead of design-system primitives, derived state synchronized through effects, manual mutation state, ad hoc query keys, tiny modules, and mega-components controlled by boolean props.
+
+Some were easy to detect. Others needed product context that a linter will never have.
+
+`<button>` outside the design system is an AST fact. A `useState(false)` variable named `isPending` next to a mutation is a strong local signal. A function with cyclomatic complexity 34 is measurable.
+
+For example, the linter cannot know if search should fire on every keystroke. It also cannot decide if a reset belongs in `key={id}` or in the event that changed the ID.
+
+I split the list into three classes before writing rules:
+
+| Class | Evidence | Enforcement |
+| --- | --- | --- |
+| Mechanical regression | Syntax or import graph is enough | Error |
+| Existing measurable smell | Signal is useful, backlog exists | Warning plus ratchet |
+| Intent or architecture | Correct answer depends on behavior | Review or tests |
+
+By ratchet, I mean the current count can stay for now, but it cannot go up. When somebody fixes a warning, the accepted count moves down with it.
+
+This split mattered more than the linter choice. If a rule fires everywhere and nobody trusts it, the first response will be `oxlint-disable`.
+
+## Measure the repository first
+
+I ran every candidate rule against both applications before adding it. I wanted the finding count and a few real examples from the repository.
+
+The first result was nice: a group of rules had zero findings in both apps.
+
+Those could become errors immediately. There was no migration diff; they only stopped the first regression.
+
+Examples included `oxc/no-accumulating-spread`, `oxc/only-used-in-recursion`, constant comparisons, missing throws, and several useless-control-flow rules.
+
+`no-accumulating-spread` is a particularly good agent rule. It catches the attractive `{ ...accumulator, [key]: value }` pattern inside a reduce loop, which quietly turns linear work into repeated copying.
+
+The probe found roughly 30 candidates. After checking the rule names and plugin behavior, 28 landed as errors.
+
+Pretty good, right? Not yet. That result hid an important failure.
+
+Two names in my first probe did not exist. Oxlint returned a config error, while my script only counted lines containing `: error`. The count was `0`, which looked exactly like a clean rule.
+
+Check the process exit before counting anything. I changed the probe to fail first and parse findings only after Oxlint accepted the command.
+
+```bash
+output_file="$(mktemp)"
+
+if ! npx oxlint -A all -W typescript/no-unnecessary-condition \
+  --type-aware src >"$output_file" 2>&1; then
+  sed -n '1,80p' "$output_file"
+  exit 1
+fi
+
+# Count or parse findings only after the command itself succeeds.
+```
+
+I also probe with warning severity. A valid run stays at exit code zero, while a bad rule name or config still fails.
+
+Finally, run `oxlint --print-config path/to/file.ts` on a real file. Plugin categories and nested configs can enable more than the one rule you think you are testing.
+
+## The three tiers
+
+After measuring the rules, I split them into three groups.
+
+### Tier 1: zero findings become errors
+
+If a rule has no legitimate hit, I make it an error immediately.
+
+This is the cheap part. There is no baseline to maintain and no unrelated cleanup to argue about.
+
+It also gives the agent feedback while the function is still in context. The code is generated, Oxlint points at the exact node, and the next attempt can fix it.
+
+### Tier 2: fix the small backlog, then error
+
+The next group had about 220 findings. I tried autofix on 152 of them. It removed 77 findings across 51 files, around 51%.
+
+Then I tried `oxlint --fix .`. Bad idea.
+
+It changed 248 files because warning-tier rules were fixable too. The output was valid, but the diff was useless for review, so I threw it away.
+
+I generated a temporary config with only the rules I was promoting. That brought the production diff down to 15 files. The remaining cases needed hand fixes.
+
+Since then, I keep rule discovery, broad autofix, and severity changes as separate steps.
+
+### Tier 3: warnings measure the backlog
+
+The last group had good signals and a large existing mess.
+
+| Rule | Findings | Signal |
+| --- | ---: | --- |
+| `typescript/no-unnecessary-condition` | 691 | Branches the type system says cannot vary |
+| `typescript/no-unnecessary-type-assertion` | 327 | Assertions that do not change the type |
+| `unicorn/no-useless-undefined` | 258 | Explicit `undefined` noise |
+| `typescript/prefer-nullish-coalescing` | 219 | `||` where `0` or `""` may be valid |
+| `unicorn/prefer-string-replace-all` | 175 | Regex machinery for global replacement |
+| `unicorn/catch-error-name` | 165 | Inconsistent error binding names |
+| `unicorn/no-negated-condition` | 85 | Branches written backwards |
+| `unicorn/consistent-function-scoping` | 57 | Nested functions with no closure dependency |
+
+The total was 1,977 findings. There was no sensible pull request where all of those became errors at once.
+
+As errors, they would stop almost every useful change. As normal warnings, they would become terminal decoration. I kept them as warnings and added a touched-file gate later.
+
+The first two rules alone found 1,018 places where code defended against states already excluded by types, or asserted a type it already had.
+
+Generated code does this a lot. A check looks safe. A cast looks precise. The type-aware rules ask a better question: did either one add information?
+
+Some fixes were one character. Removing that character made the type already proven by the program visible again.
+
+Oxlint runs these rules through its type-aware engine. It requires the extra `oxlint-tsgolint` package and TypeScript 7 or newer.
+
+```bash
+npm add -D oxlint@latest oxlint-tsgolint@latest
+npx oxlint --type-aware
+```
+
+Then I moved the same setting into the root config:
+
+```ts
+import { defineConfig } from "oxlint";
+
+export default defineConfig({
+  plugins: ["oxc", "typescript", "unicorn"],
+  options: {
+    typeAware: true,
+    reportUnusedDisableDirectives: "error",
+  },
+  rules: {
+    "oxc/no-accumulating-spread": "error",
+    "oxc/only-used-in-recursion": "error",
+    "typescript/no-unnecessary-condition": "warn",
+    "typescript/no-unnecessary-type-assertion": "warn",
+    "typescript/prefer-nullish-coalescing": "warn",
+    "unicorn/no-useless-undefined": "warn",
+  },
+});
+```
+
+Type-aware lint is slower and needs a correct TypeScript project graph. In a monorepo, declare build dependencies first and keep each `tsconfig` scoped. A root `include: ["**/*"]` can make this painfully slow.
+
+## What the bad code looked like
+
+Here are eight findings from the branch. I shortened a few names, but the bad pattern, fix, rule, and severity are the ones we shipped.
+
+### 1. Copying an accumulator on every loop
+
+Bad:
+
+```ts
+const rowsById = rows.reduce<Record<string, Row>>(
+  (acc, row) => ({ ...acc, [row.id]: row }),
+  {},
+);
+```
+
+Fixed:
+
+```ts
+const rowsById = Object.fromEntries(
+  rows.map((row) => [row.id, row]),
+);
+```
+
+That spread copies every property collected so far on every loop. The code looks linear and quietly does quadratic allocation work.
+
+`oxc/no-accumulating-spread` is an error. We had zero findings, so the first new one fails immediately.
+
+### 2. Erasing a type, then asserting a new one
+
+Bad:
+
+```ts
+readableSteps:
+  params.readableSteps as unknown as Record<string, unknown>[],
+```
+
+Fixed:
+
+```ts
+readableSteps: params.readableSteps.map(toSerializableStep),
+```
+
+`as unknown as` converts nothing and validates nothing. A typed adapter performs the shape change in code the compiler can check.
+
+`anti-slop/no-chained-type-assertions` is a warning. Touch this production file and the staged-file check turns it into a failure.
+
+### 3. Adding type syntax that proves nothing
+
+Bad:
+
+```ts
+const incoming = data[id]!;
+const typedItems = items as ItemInstance<TreeItemData>[];
+```
+
+Fixed:
+
+```ts
+const incoming = data[id];
+const typedItems = items;
+```
+
+The type-aware pass already knew `data[id]` was present and `items` had the asserted type. The extra punctuation was confidence theatre.
+
+The type-aware pass reports `typescript/no-unnecessary-type-assertion` as a warning. Changed files have to remove it.
+
+### 4. Mirroring mutation state by hand
+
+Bad:
+
+```tsx
+const mutation = useMutation({ mutationFn: save });
+const [isSubmitting, setIsSubmitting] = useState(false);
+
+async function onSave() {
+  setIsSubmitting(true);
+  try {
+    await mutation.mutateAsync();
+  } finally {
+    setIsSubmitting(false);
+  }
+}
+```
+
+Fixed:
+
+```tsx
+const mutation = useMutation({ mutationFn: save });
+
+return (
+  <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+    Save
+  </Button>
+);
+```
+
+Now there are two sources for the same lifecycle. They can disagree during retries, overlapping calls, or an exception between the updates.
+
+`company/no-manual-pending-state` is an error. It landed at zero findings and stops the duplicate state before review.
+
+### 5. Synchronizing derived state through an effect
+
+The usual shape is `a → effect → setB`. One value changes, the effect notices after render, and then a second state variable catches up.
+
+Bad:
+
+```tsx
+useEffect(() => {
+  setVisibleRows(filterRows(rows, query));
+}, [rows, query]);
+```
+
+Fixed:
+
+```tsx
+const visibleRows = filterRows(rows, query);
+```
+
+This adds a stale render, another state transition, and dependency bookkeeping for a value we can calculate during render.
+
+A second form stores the same fact twice:
+
+```tsx
+const [status, setStatus] = useState<"idle" | "running">("idle");
+const [isRunning, setIsRunning] = useState(false);
+
+useEffect(() => {
+  setIsRunning(status === "running");
+}, [status]);
+```
+
+Keep one model field and derive its view:
+
+```tsx
+const [status, setStatus] = useState<"idle" | "running">("idle");
+const isRunning = status === "running";
+```
+
+Effects also appear as delayed event handling:
+
+```tsx
+const [country, setCountry] = useState("");
+const [city, setCity] = useState("");
+
+useEffect(() => {
+  setCity("");
+}, [country]);
+```
+
+Reset the coupled value at the event that changes its cause:
+
+```tsx
+const [address, setAddress] = useState({ country: "", city: "" });
+
+function selectCountry(country: string) {
+  setAddress({ country, city: "" });
+}
+```
+
+Clean files get `company/no-use-effect` as an error. Allowlisted files need an `EFFECT:` justification and still have to pass the touched-file check.
+
+The rule does not understand the full `a → effect → setB` dataflow. It rejects the hook call. A real external sync needs an allowlist entry and an `EFFECT:` comment naming the system.
+
+### 6. Hiding control flow inside object spreads
+
+Bad:
+
+```ts
+const node = {
+  id,
+  ...(folderCount > 0 ? { folderCount } : {}),
+  ...(children.length > 0 ? { children } : {}),
+};
+```
+
+Fixed:
+
+```ts
+const node: FolderNode = { id };
+
+if (folderCount > 0) node.folderCount = folderCount;
+if (children.length > 0) node.children = children;
+```
+
+The first version creates throwaway objects and hides two branches inside punctuation. The assignments make the omission rule obvious when you debug it.
+
+`anti-slop/no-conditional-empty-object-spread` is a warning and becomes blocking when the file is touched.
+
+### 7. Bypassing the typed client with `fetch`
+
+Bad:
+
+```ts
+const response = await fetch(
+  `/api/icons?slugs=${encodeURIComponent(slugs.join(","))}`,
+);
+const icons = await response.json();
+```
+
+Fixed:
+
+```ts
+const icons = useQuery(
+  api.appIcons.queryOptions({ input: { slugs } }),
+);
+```
+
+The raw request rebuilds URL handling, errors, response typing, and cache behavior already owned by oRPC and TanStack Query.
+
+`company/no-client-fetch` is a warning and the touched-file check blocks it. Code that bootstraps the typed transport can keep a narrow suppression.
+
+### 8. Widening a known parameter to `object`
+
+Bad:
+
+```ts
+function mapDocument(raw: object) {
+  const document = raw as ProcessingDocument;
+  return normalize(document);
+}
+```
+
+Fixed:
+
+```ts
+function mapDocument(document: ProcessingDocument) {
+  return normalize(document);
+}
+```
+
+The caller knew the type already. The first function throws that information away and rebuilds it with an unchecked assertion.
+
+`anti-slop/no-object-parameters` stayed a warning because `object` is still the right bound for code such as `WeakSet<object>` cycle detection.
+
+## Project rules we needed
+
+The generic plugins covered a lot, but some problems only made sense inside this repository.
+
+### Complexity ceilings
+
+I wanted a complexity limit, but setting one number across an old codebase would fail immediately and teach everyone to ignore it.
+
+I set a reasonable limit for normal files. The known legacy files got explicit ceilings based on their current worst function.
+
+```ts
+export default defineConfig({
+  rules: {
+    complexity: ["error", 20],
+  },
+  overrides: [
+    {
+      files: ["src/features/legacy-runner.ts"],
+      rules: {
+        complexity: ["error", 34],
+      },
+    },
+  ],
+});
+```
+
+A function at 34 cannot become 35. New functions in that file also stay under 34. When the old function improves, its override moves down.
+
+I also tried `max-statements` and `max-params`. They produced 995 and 136 findings, mostly in the same dense files, with worse signal.
+
+I kept complexity and dropped the other two.
+
+### Rules with project names
+
+Next came the patterns that were specific enough to deserve names in this codebase.
+
+I kept these:
+
+- `no-manual-pending-state`: error at zero findings.
+- `no-memo-under-react-compiler`: warning with 315 findings.
+- `no-tiny-module`: warning with 8 carefully filtered findings.
+- `no-boolean-prop-explosion`: warning with 4 findings.
+- `react/forbid-elements`: warning with 91 raw UI elements outside primitive layers.
+
+The `no-manual-pending-state` example above is one of them. Mutation state stays the only source for that lifecycle.
+
+Writing the visitor was easy. Filtering the false positives took most of the time.
+
+The tiny-module rule excluded tests, type-only files, and framework entrypoints. The boolean-prop rule counted optional booleans only on `*Props` types, not DTOs or option bags.
+
+Raw elements were allowed in `src/components/ui` and the design system because those modules exist to wrap them.
+
+My first grep estimates were sometimes wrong by 10x. Once the rule had AST context, most of those matches disappeared.
+
+I did not keep a custom rule until it had positive tests, negative tests, and a count from the repository. Otherwise it was just my opinion hidden in a visitor.
+
+## Vendoring `anti-slop`
+
+After the local rules were working, I copied all 15 rules from [`dmmulroy/anti-slop`](https://github.com/dmmulroy/anti-slop/commit/6d53855) into `tools/oxlint/anti-slop/`.
+
+I pinned commit `6d53855` and included the MIT license. Our repository change landed in `05c03371`, so the exact source is easy to review later.
+
+The README recommends vendoring the plugin and changing it for the repository. That is exactly what I wanted.
+
+I did disagree with most of the example severities:
+
+| Policy | Upstream example | This repository |
+| --- | --- | --- |
+| Generic rules | All 15 at `error` | 3 `error`, 10 `warn`, 2 `off` |
+| Test files | No separate tier | Type-evidence tier exempted |
+| `no-module-mocking` | `error` | `warn` in `tests/integration` |
+| `no-runtime-typeof` | `error` | `off` |
+| Effect rules | Opt-in plugin | Skipped because the project does not use Effect |
+
+Enabling all 15 as errors produced roughly 2,400 failures here. `require-safety-comment-for-type-assertion` was 713 of them.
+
+At that point you do not have a gate. You have a large migration report that blocks all work.
+
+The counts picked the starting severity. Then I read the matches.
+
+One `no-object-parameters` hit was real. It widened a known value to `object` and immediately cast it back. The fixed version is in the examples above.
+
+Every `no-reflect-get` hit was `Reflect.get` inside a `Proxy` trap. Most `no-object-parameters` hits were `WeakSet<object>` cycle detectors, where `object` was the correct bound.
+
+So those rules stayed at warning. The AST match was real, but an error would reject correct code in this repository.
+
+The rollout found a more embarrassing problem too: `tools/oxlint` had no lint script. The plugins enforcing our rules were the only code skipping them.
+
+After fixing it, `turbo lint` covered eight packages instead of seven. The tooling package passed all 259 active rules.
+
+I left two exemptions on purpose.
+
+The vendored `anti-slop/**` directory stays ignored. I want to review upstream diffs without our formatter rewriting the copied source.
+
+Type-evidence rules are also off inside `company/**`. Oxlint JavaScript plugins receive AST nodes without TypeScript type information, so rule code has to narrow loose node shapes by hand.
+
+Forcing the rules there would mean recreating ESTree types locally. That would add noise without adding evidence.
+
+The tooling package still needed its own `jsPlugins` entries. The base config references those plugins, and Oxlint treats an unknown plugin name as a config error even inside the package that defines it.
+
+I skipped the README's `.claude/**` and `.cursor/**` ignores. Lint runs inside package directories here, so those folders were already out of scope.
+
+Vendoring made the rules inspectable. Reading the matches made them usable in this repository.
+
+## Making the backlog move
+
+### An allowlist only protects clean files
+
+We wanted to ban new `useEffect` calls.
+
+There were already 82 files using it, so I allowlisted those files and made `no-use-effect` an error everywhere else.
+
+That stopped a clean file from getting its first effect. It still allowed a file with 21 effects to add number 22.
+
+This is the problem with file exemptions. They freeze the file list, while the violations inside an exempt file can keep growing.
+
+A proper ratchet stores the current count and rejects an increase. When the count drops, the baseline follows it down. The file allowlist could not do that by itself.
+
+Within allowlisted files, a second rule required every effect to carry an `EFFECT:` comment naming the external system and cleanup behavior.
+
+The derived-state example above cannot name an external system honestly. It should not be an effect.
+
+A real external synchronization could explain itself:
+
+```tsx
+// EFFECT: subscribes to the run SSE stream; cleanup closes the connection.
+useEffect(() => {
+  const stream = connectToRun(runId);
+  return () => stream.close();
+}, [runId]);
+```
+
+The rule rejects comments under 15 characters and filler beginning with `needed`, `required`, or `todo`.
+
+Of course, somebody can still write a longer nonsense comment. The rule only makes the decision visible enough for review.
+
+### Touched files pay their warnings
+
+A warning count only goes down if the warning eventually blocks somebody.
+
+The repository kept its 1,977-warning backlog. Every staged file had to be clean.
+
+`lint-staged` made this automatic:
+
+```json
+{
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,mjs,cjs}": "oxlint --deny-warnings --no-ignore"
+  }
+}
+```
+
+Errors always block. Warnings become errors only for the staged files.
+
+This confused us at first. A normal `oxlint .` exits successfully with warnings. The pre-commit command needs `--deny-warnings` or nothing is being enforced.
+
+I measured the cleanup cost before enabling the hook:
+
+| Metric | Result |
+| --- | ---: |
+| Files with at least one warning | 605 of 1,192 |
+| Median warnings per affected file | 3 |
+| 90th percentile | 13 |
+| Worst file | 130 |
+
+Three warnings in the median file was fine. A file with 130 needed an escape hatch and an explicit note in the pull request.
+
+The new hook blocked the commit that added it. I had staged a WebSocket hook with nine existing warnings, so I had to fix or justify them before I could commit.
+
+It also found two warnings inside the custom rule package. An earlier autofix ran from the wrong directory and silently missed both.
+
+## Where lint stops
+
+### Keep the honest suppressions
+
+Some findings were correct code.
+
+One `useCallback` controlled the identity used by two effects. Removing it under React Compiler guidance would have recreated a WebSocket on every render.
+
+One raw `fetch` minted the token required by the project's typed transport. Routing it through that transport would create a dependency cycle.
+
+One object spread deliberately bypassed stale third-party types for an API field required at runtime. Removing it satisfied lint and caused TypeScript error `TS2353`, while also risking broken idempotency.
+
+I kept narrow suppressions at those sites and wrote down the reason.
+
+```ts
+// oxlint-disable-next-line project/no-client-fetch -- This request mints the
+// token required to construct the typed transport; using it here is cyclic.
+const token = await fetchToken();
+```
+
+I am fine with suppression comments when the comment carries more evidence than the code pattern it permits.
+
+Unused suppressions are errors. When the code changes, the old escape hatch has to disappear too.
+
+### Leave product decisions in review
+
+Three items from my original bad-practices list stayed review-only.
+
+The linter could not decide whether a prop-synchronized reset should become `key={id}`. It could not know whether an immediate Query key represented intentional live search.
+
+It also could not tell whether extra React state represented a cache, a draft, an optimistic overlay, or a real UI state machine.
+
+You can write heuristics for all three, but they will be noisy because the missing input is product intent.
+
+I left these for focused review, architecture tests around import boundaries, and small runtime tests. An AST rule should not cosplay as a product specification.
+
+## The setup I ended up with
+
+After all of that, the final setup was pretty boring:
+
+1. Fast syntax rules run in the editor and on every staged file.
+2. Zero-hit rules are errors and reject regressions immediately.
+3. Type-aware smells remain visible as measured warnings.
+4. Staged files run with warnings denied, burning the backlog down locally.
+5. Typecheck, tests, and production build remain separate gates.
+6. Review handles intent, ownership, and architecture.
+
+The agent gets the cheap error first, while the code is still in context. CI runs the slower checks. Review can spend time on design instead of finding the 300th redundant cast.
+
+Useful references are the [Oxlint config reference](https://oxc.rs/docs/guide/usage/linter/config-file-reference) and [type-aware linting guide](https://oxc.rs/docs/guide/usage/linter/type-aware.html).
+
+The [CLI reference](https://oxc.rs/docs/guide/usage/linter/cli) covers warning thresholds, `--deny-warnings`, formats, and config discovery.
+
+And that's it.
+
+Lint cannot keep a codebase clean by itself. It can stop the same mechanical mistake from reaching review forever.
+
+The part that worked was measuring first. Clean rules became errors, large backlogs stayed visible, and touched files had to pay their own warnings.
+
+Now the warning count moves down instead of sitting in terminal output that everybody ignores.
+
+AI makes code cheap to produce. That makes executable taste more useful.
+
+If you try this in your own repository, measure the rules first. I learned that after a fake zero and an autofix that touched 248 files.

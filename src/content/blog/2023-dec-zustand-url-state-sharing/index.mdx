@@ -85,7 +85,8 @@ import OgImage from "./zustand-og.png";
 **Updated now (Jan 28, 2026):** refreshed for Zustand v5 syntax and the current
 URL-hash storage recommendation.
 
-In this tutorial, we'll store Zustand state in the URL hash so your app becomes instantly shareable. Zustand keeps state simple, and the URL hash lets users copy a link, reload the page, or open a new tab and land in the exact same state.
+This stores a Zustand counter in the URL hash. Copy the link, reload it, or open
+it in another tab, and the store comes back in the same state.
 
 ## Code Setup
 
@@ -162,13 +163,13 @@ persisting only a subset (via `partialize`) or switching to `localStorage`.
 Now, when users interact with the useCounter store, the state will persist in the URL hash. For example, the URL might look like this:
 
 ```
-https://saybackend.com#counter=eyJzdGF0ZSI6eyJxdXJhblRleHRFZGl0aW9uIjoiYXJh
+https://saybackend.com#counter=%7B%22state%22%3A%7B%22count%22%3A1%7D%2C%22version%22%3A0%7D
 ```
 
-This enables users to reload the page or share the URL while maintaining a consistent state across all instances.
+Reloading or sharing the URL now restores the same counter state.
 
 ## Conclusion
 
-Implementing URL hash storage for Zustand allows you to create dynamic and shareable applications. By persisting the state in the URL, users can navigate across pages and even share the URL with others to see the same state. It enhances the user experience and provides a convenient way to maintain and communicate application state.
-
-I hope this tutorial has been helpful in understanding how to store Zustand state into the URL as a hash. Happy coding!
+The custom `StateStorage` adapter is the whole trick: Zustand's `persist`
+middleware writes JSON to the hash instead of `localStorage`. Keep the stored
+slice small, because the URL is now part of your application's state format.

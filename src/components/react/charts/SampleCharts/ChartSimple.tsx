@@ -204,6 +204,13 @@ export function ChartSimple() {
                   className="!bg-background text-foreground w-[150px]"
                   nameKey="views"
                   labelFormatter={(value) => {
+                    if (
+                      typeof value !== "string" &&
+                      typeof value !== "number"
+                    ) {
+                      return null;
+                    }
+
                     return new Date(value).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
