@@ -308,7 +308,7 @@ return (
 
 Now there are two sources for the same lifecycle. They can disagree during retries, overlapping calls, or an exception between the updates.
 
-`trelium/no-manual-pending-state` is an error. It landed at zero findings and stops the duplicate state before review.
+`company/no-manual-pending-state` is an error. It landed at zero findings and stops the duplicate state before review.
 
 ### 5. Synchronizing derived state through an effect
 
@@ -369,7 +369,7 @@ function selectCountry(country: string) {
 }
 ```
 
-Clean files get `trelium/no-use-effect` as an error. Allowlisted files need an `EFFECT:` justification and still have to pass the touched-file check.
+Clean files get `company/no-use-effect` as an error. Allowlisted files need an `EFFECT:` justification and still have to pass the touched-file check.
 
 The rule does not understand the full `a → effect → setB` dataflow. It rejects the hook call. A real external sync needs an allowlist entry and an `EFFECT:` comment naming the system.
 
@@ -419,7 +419,7 @@ const icons = useQuery(
 
 The raw request rebuilds URL handling, errors, response typing, and cache behavior already owned by oRPC and TanStack Query.
 
-`trelium/no-client-fetch` is a warning and the touched-file check blocks it. Code that bootstraps the typed transport can keep a narrow suppression.
+`company/no-client-fetch` is a warning and the touched-file check blocks it. Code that bootstraps the typed transport can keep a narrow suppression.
 
 ### 8. Widening a known parameter to `object`
 
@@ -538,7 +538,7 @@ I left two exemptions on purpose.
 
 The vendored `anti-slop/**` directory stays ignored. I want to review upstream diffs without our formatter rewriting the copied source.
 
-Type-evidence rules are also off inside `trelium/**`. Oxlint JavaScript plugins receive AST nodes without TypeScript type information, so rule code has to narrow loose node shapes by hand.
+Type-evidence rules are also off inside `company/**`. Oxlint JavaScript plugins receive AST nodes without TypeScript type information, so rule code has to narrow loose node shapes by hand.
 
 Forcing the rules there would mean recreating ESTree types locally. That would add noise without adding evidence.
 
