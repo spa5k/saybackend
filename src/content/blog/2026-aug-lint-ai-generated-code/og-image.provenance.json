@@ -1,0 +1,27 @@
+{
+  "title": "How to lint AI-generated code and keep it somewhat slop-free",
+  "canvas": {
+    "width": 1200,
+    "height": 630
+  },
+  "source": "/images/lint-ai-generated-code-og.svg",
+  "export": "/images/lint-ai-generated-code-og.png",
+  "render": "sharp SVG input at density 144, resized to 1200x630, PNG compression level 9",
+  "references": [
+    {
+      "name": "Oxc mark",
+      "url": "https://github.com/oxc-project/oxc-project.github.io/blob/d9009ef3c1bc41e548249219384d5428d5d4305f/public/logo-without-border.svg",
+      "usage": "Official silhouette path and primary cyan fill"
+    },
+    {
+      "name": "TypeScript mark",
+      "url": "https://github.com/microsoft/TypeScript-Website/blob/f407e1ae19e5e990d9901ac8064a32a8cc60edf0/packages/typescriptlang-org/static/branding/ts-logo-512.svg",
+      "usage": "Official square logo paths and brand blue"
+    }
+  ],
+  "styleReferences": [
+    "/images/happycontext-performance-og.png",
+    "/images/conductor-claude-code-cliproxyapi-og.png",
+    "/images/cliproxyapi-factory-byok-og.png"
+  ]
+}
