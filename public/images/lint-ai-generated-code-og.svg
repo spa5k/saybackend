@@ -10,13 +10,11 @@
   <g font-family="Arial, Helvetica, sans-serif">
     <text x="80" y="82" fill="#171714" font-size="26" font-weight="800" letter-spacing="3">BLOG—18</text>
 
-    <text x="80" y="160" fill="#171714" font-size="49" font-weight="900" letter-spacing="-1.6">HOW TO LINT</text>
-    <text x="80" y="226" fill="#FF5B00" font-size="57" font-weight="900" letter-spacing="-2.2">AI-GENERATED</text>
-    <text x="80" y="288" fill="#171714" font-size="57" font-weight="900" letter-spacing="-2.2">CODE</text>
-    <text x="80" y="345" fill="#171714" font-size="43" font-weight="900" letter-spacing="-1.4">KEEP IT SOMEWHAT</text>
-    <text x="80" y="414" fill="#171714" font-size="64" font-weight="900" letter-spacing="-2.4">SLOP-FREE</text>
-    <path stroke="#FF5B00" stroke-linecap="round" stroke-width="7" d="M81 435h330"/>
-    <path fill="#FF5B00" d="m410 425 19 10-19 10z"/>
+    <text x="80" y="172" fill="#171714" font-size="51" font-weight="900" letter-spacing="-1.7">HOW I LINT</text>
+    <text x="190" y="251" fill="#FF5B00" font-size="78" font-weight="900" letter-spacing="-2.8">AI CODE</text>
+    <text x="80" y="319" fill="#171714" font-size="50" font-weight="900" letter-spacing="-1.8">WITHOUT THE SLOP</text>
+    <path stroke="#FF5B00" stroke-linecap="round" stroke-linejoin="round" stroke-width="7" d="M-10 199c40-34 66-13 98 14 24 20 49 28 75 4"/>
+    <path stroke="#FF5B00" stroke-linecap="round" stroke-linejoin="round" stroke-width="7" d="m139 197 29 19-26 23"/>
 
     <g transform="translate(716 268) scale(1.25)">
       <path stroke="#171714" stroke-linecap="round" stroke-linejoin="round" stroke-width="5" d="m18 23-12 15 12 15M57 23l12 15-12 15M47 14 31 62"/>
@@ -39,6 +37,6 @@
     <rect width="560" height="108" x="54" y="500" fill="#FF5B00"/>
     <rect width="560" height="108" x="62" y="488" fill="#171714"/>
     <text x="342" y="557" fill="#FFF" font-size="58" font-weight="900" text-anchor="middle">SayBackend</text>
-    <text x="906" y="504" fill="#171714" font-size="15" font-weight="800" letter-spacing="1.6" text-anchor="middle">SYNTAX · TYPES · REVIEW</text>
+    <text x="906" y="518" fill="#171714" font-size="15" font-weight="800" letter-spacing="1.4" text-anchor="middle">agent · oxlint · TypeScript</text>
   </g>
 </svg>
