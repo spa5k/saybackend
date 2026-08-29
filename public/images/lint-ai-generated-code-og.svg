@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" fill="none" role="img" aria-labelledby="title desc" viewBox="0 0 1200 630">
-  <title id="title">How to Lint AI-Generated Code and Keep It Somewhat Slop-Free</title>
+  <title id="title">Static Analysis for the Age of AI Slop</title>
   <desc id="desc">SayBackend editorial poster with AI code, Oxlint, and TypeScript marks.</desc>
   <metadata>
     Oxc mark sourced from oxc-project/oxc-project.github.io public/logo-without-border.svg.
@@ -10,12 +10,11 @@
   <g font-family="Arial, Helvetica, sans-serif">
     <text x="80" y="82" fill="#19201B" font-size="26" font-weight="800" letter-spacing="3">BLOG—18</text>
 
-    <text x="80" y="150" fill="#19201B" font-size="44" font-weight="900" letter-spacing="-1.4">HOW TO LINT</text>
-    <text x="190" y="217" fill="#285F3B" font-size="50" font-weight="900" letter-spacing="-1.7">AI-GENERATED CODE</text>
-    <text x="80" y="277" fill="#19201B" font-size="42" font-weight="900" letter-spacing="-1.1">AND KEEP IT SOMEWHAT</text>
-    <text x="80" y="340" fill="#19201B" font-size="56" font-weight="900" letter-spacing="-1.8">SLOP-FREE</text>
-    <path stroke="#285F3B" stroke-linecap="round" stroke-linejoin="round" stroke-width="7" d="M-10 199c40-34 66-13 98 14 24 20 49 28 75 4"/>
-    <path stroke="#285F3B" stroke-linecap="round" stroke-linejoin="round" stroke-width="7" d="m139 197 29 19-26 23"/>
+    <text x="80" y="157" fill="#19201B" font-size="49" font-weight="900" letter-spacing="-1.6">STATIC ANALYSIS</text>
+    <text x="80" y="224" fill="#19201B" font-size="47" font-weight="900" letter-spacing="-1.5">FOR THE AGE OF</text>
+    <text x="190" y="315" fill="#285F3B" font-size="80" font-weight="900" letter-spacing="-2.8">AI SLOP</text>
+    <path stroke="#285F3B" stroke-linecap="round" stroke-linejoin="round" stroke-width="7" d="M-10 261c40-34 66-13 98 14 24 20 49 28 75 4"/>
+    <path stroke="#285F3B" stroke-linecap="round" stroke-linejoin="round" stroke-width="7" d="m139 259 29 19-26 23"/>
 
     <g transform="translate(716 268) scale(1.25)">
       <path stroke="#19201B" stroke-linecap="round" stroke-linejoin="round" stroke-width="5" d="m18 23-12 15 12 15M57 23l12 15-12 15M47 14 31 62"/>
