@@ -60,15 +60,21 @@ import OgImage from "./nextjs_docker_og.jpg";
   load balancer.
 </Callout>
 
-Updated for Next.js 15. When it comes to deploying a Next.js app to production, generally everyone thinking starts from Vercel, and ends with Netlify, Firebase type providers. Not only are these providers very expensive, but they also have a lot of limitations.
-A wrong configuration in your serverless function can lead to a big bill, like this [story](https://www.youtube.com/watch?v=SCIfWhAheVw) where a Solo developer got a $100000 bill from Vercel because her app went viral.
+Updated for Next.js 15. Production deployments usually start with Vercel, then
+move toward providers such as Netlify or Firebase. They are convenient, but
+their cost and platform limits can become a problem.
 
-So, you might be asking yourself, what we can do?
+A wrong serverless configuration can also lead to a large bill, like this
+[story](https://www.youtube.com/watch?v=SCIfWhAheVw) where a solo developer got a
+$100,000 Vercel bill after her app went viral.
 
-Unlike frameworks like Remix, you can not easily deploy a Next.js without going through hoops, especially if you checkout their .next folder.
-But, the good news is that vercel hasn't left you without options. There is a simple way on how you can run a Next.js app using Node.js, without any serverless functions drama, direclty in optmized way.
+So, what can we do?
 
-We will go through steps by steps, this time on how we can make the most efficient Dockerized Next.js app.
+The production deployment is not obvious from inspecting `.next`, but Next.js
+can emit a standalone Node server. It runs without serverless functions or a
+Vercel runtime.
+
+This post packages that standalone output into a small Docker image.
 
 If you are comparing production deployment patterns, the related [Go Dockerfile optimization guide](/blog/2024-jun-golang-dockerfile-optimized/) covers image-size tradeoffs, and the [Next.js Electron Server Components guide](/blog/2024-aug-nextjs-electron-server-components/) shows where standalone server output matters outside a normal hosted web app.
 
@@ -539,7 +545,8 @@ export async function GET(request: Request) {
 }
 ```
 
-Healthcheck is a good practice, it's not only for the container orchestrators, but also for the load balancers, so they can know if the container is healthy or not. Docker etc, can also use it to know if the container is healthy or not.
+A health check serves both container orchestrators and load balancers. Docker
+can also use it to decide when the container is ready to receive traffic.
 
 ## Using Github actions
 
@@ -795,15 +802,9 @@ The only difference is that middleware runs on your own infrastructure rather th
 
 ## Conclusion
 
-In this article, we learned how to deploy a Next.js app to production without using Vercel, and we also learned how to optimize the image size and the build time.
-
-We also saw how to use the cache handler to get similar behaviour to Vercel.
-
-I hope you enjoyed reading this article as much as I enjoyed writing it.
-
-You can now use this docker image to Coolify, Docker, Kubernetes, etc.
-
-Thank you for reading.
+The result is a standalone Next.js server in a small Docker image, with reusable
+build layers and a cache handler. It can run on Coolify, Docker, Kubernetes, or
+any host that can run a Node container.
 
 ### Updates
 

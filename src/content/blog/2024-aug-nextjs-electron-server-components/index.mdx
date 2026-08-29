@@ -72,11 +72,15 @@ import ConsoleImage from "./terminal.png";
 
 ## Introduction
 
-Building an app with Electron and Next.js can be challenging, especially if you want to use React Server Components (RSCs). The typical Static Site Generation (SSG) approach often results in losing a significant amount of functionality and dynamic content.
+Building an app with Electron and Next.js gets harder once React Server
+Components (RSCs) enter the picture. A static export loses much of the dynamic
+and server-rendered behavior we want from Next.js.
 
-Moreover, deploying the same codebase to both web and desktop can be complex. Using Vite in Electron and Next.js for SSR is an option, but it becomes cumbersome, especially with the advent of RSCs, using same components for both client and server is not possible without hacks.
+Running Vite in Electron and Next.js for SSR is another option, but sharing the
+same client and server components quickly becomes awkward.
 
-In this blog, we'll explore how to build an app with Next.js and Electron with Server Components support.
+The setup below keeps Next.js as the renderer, including RSCs, while Electron
+handles the native APIs.
 
 <Callout type="info">
   If you just want to see the code, you can find it
@@ -85,9 +89,12 @@ In this blog, we'll explore how to build an app with Next.js and Electron with S
 
 ## What are Server Components?
 
-Server Components, or RSCs, are a new way to build React apps that offload the rendering of components to the server. This means you can build your app with the same components used for client-side rendering, but the server will render them for you. This can help improve performance and reduce the amount of code you need to write.
+Server Components run on the server and send an RSC payload to the client. They
+can access server-side data directly without adding that component's code to the
+client JavaScript bundle.
 
-RSCs result in sending less JavaScript to the client, allowing the server to handle the heavy lifting of rendering the components. This is particularly useful for building websites that require a lot of dynamic content fetched from the server.
+For Electron, the important part is keeping that Next.js server available rather
+than reducing the application to a static export.
 
 <Callout type="info">
   This is just a quick info, but you can read more about React server components
@@ -409,7 +416,8 @@ Similarly you can also edit the Electron files and it will reload the app, the w
   formats={["avif", "webp"]}
 />
 
-As you can see, we are getting a perfectly running server component, a client component, and a way to call electron for native functionalities.
+The result has a server component, a client component, and a bridge to Electron's
+native APIs.
 
 ## Sending commands to Electron from Next.js
 
