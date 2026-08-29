@@ -230,6 +230,52 @@ Our initial grep estimates were often wrong by about 10x. AST context removed th
 
 This is why a custom rule should ship with positive tests, negative tests, and repository counts. Without all three, it is an opinion hidden in code.
 
+## Vendor the Rules, Then Disagree With Them
+
+Later, I vendored all 15 generic rules from [`dmmulroy/anti-slop`](https://github.com/dmmulroy/anti-slop/commit/6d53855) at commit `6d53855` into `tools/oxlint/anti-slop/`. The upstream MIT license came with them.
+
+The repository change landed in commit `05c03371`. Pinning the source made the policy reviewable and reproducible instead of silently changing with a package update.
+
+This is how `anti-slop` is designed to be used. Its README tells teams to vendor the plugin, read the rules, and change them to match local standards.
+
+We did exactly that, including disagreeing with the default severities.
+
+| Policy | Upstream example | This repository |
+| --- | --- | --- |
+| Generic rules | All 15 at `error` | 3 `error`, 10 `warn`, 2 `off` |
+| Test files | No separate tier | Type-evidence tier exempted |
+| `no-module-mocking` | `error` | `warn` in `tests/integration` |
+| `no-runtime-typeof` | `error` | `off` |
+| Effect rules | Opt-in plugin | Skipped because the project does not use Effect |
+
+The all-error configuration is a reasonable greenfield example. In this repository it produced roughly 2,400 errors. `require-safety-comment-for-type-assertion` accounted for 713 by itself.
+
+That is not enforcement. It is a migration inventory pretending to be a gate.
+
+Counts set the initial severity, but counts were not enough. I read the hits before deciding what they meant.
+
+Every `no-reflect-get` hit was `Reflect.get` inside a `Proxy` trap. Most `no-object-parameters` hits were `WeakSet<object>` cycle detectors, where `object` was the correct bound.
+
+Those rules dropped to warnings because the AST pattern was real but the policy claim was too broad for this codebase.
+
+The rollout also exposed a more embarrassing gap: `tools/oxlint` had no lint script. The two plugins enforcing our standards were the only code exempt from them.
+
+After fixing that, `turbo lint` covered eight packages instead of seven, and the tooling package passed all 259 active rules.
+
+There were two deliberate exemptions.
+
+The vendored `anti-slop/**` directory stayed ignored. We review its pinned upstream diff instead of reformatting third-party source, which also keeps future re-copies clean.
+
+Type-evidence rules stayed off for our `trelium/**` plugin. Oxlint JavaScript plugins receive AST nodes, not TypeScript types, so rule implementations must narrow loosely typed node shapes by hand.
+
+Requiring parsed domain types there would mean recreating ESTree node types locally. That is a property of the plugin boundary, not evidence that the rule code is careless.
+
+The tooling package also needed its own `jsPlugins` entries. Extending the base config inherited rules that referenced those plugins, and an unknown plugin name is a hard config error even when the package defines the plugin.
+
+I did not copy the README's agent-directory ignores. Lint runs from package directories rather than the repository root, so `.claude/**` and `.cursor/**` were already outside its scope.
+
+Vendoring gave us inspectable rules. Measurement, code reading, and execution scope turned them into a policy the repository could actually keep green.
+
 ## A File Allowlist Is Not a Ratchet
 
 We wanted to ban new `useEffect` calls.
