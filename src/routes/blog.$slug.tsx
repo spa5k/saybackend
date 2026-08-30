@@ -6,6 +6,8 @@ import {
 } from '@tanstack/react-router'
 import { Suspense } from 'react'
 
+import { MarkdownLogo } from '@phosphor-icons/react'
+
 import {
   formatDate,
   getPost,
@@ -135,14 +137,23 @@ function PostPage() {
         <h1>{post.title}</h1>
         <p>{post.description}</p>
         <div className="post-byline">
-          <span>By Kamran Tahir</span>
+          <a
+            href="https://kamran.sh/"
+            target="_blank"
+            rel="noreferrer"
+            title="Portfolio"
+          >
+            By Kamran Tahir
+          </a>
           <time dateTime={post.date}>{formatDate(post.date)}</time>
           <span>{post.readingMinutes} min read</span>
           <a
             href={`/blog/${post.slug}.md`}
             rel="alternate"
             type="text/markdown"
+            title="View this article as Markdown"
           >
+            <MarkdownLogo aria-hidden size={13} weight="bold" />
             Markdown
           </a>
         </div>
