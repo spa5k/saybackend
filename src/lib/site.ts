@@ -30,7 +30,7 @@ export const PAGE_META = {
   hiring: {
     title: 'Hire Kamran Tahir - Senior Software Engineer',
     description:
-      'Kamran Tahir is a Senior Software Engineer available for backend, full-stack, frontend, and platform engineering roles.',
+      'Kamran Tahir is a Senior Software Engineer, currently Member of Technical Staff at Trelium and happy to discuss scalable systems and architectural challenges.',
   },
 } as const
 

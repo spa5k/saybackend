@@ -717,6 +717,12 @@ img {
   color: var(--muted);
 }
 
+.post-byline a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .post-tags {
   display: flex;
   flex-wrap: wrap;
@@ -1230,7 +1236,7 @@ html.dark .shiki-code span {
 
 .profile-intro img,
 .hiring-profile img {
-  width: 160px;
+  width: 180px;
   aspect-ratio: 1;
   border: 1px solid var(--rule);
   object-fit: cover;
@@ -1248,6 +1254,7 @@ html.dark .shiki-code span {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  margin-top: 24px;
 }
 
 .profile-actions a {

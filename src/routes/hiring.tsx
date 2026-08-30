@@ -27,7 +27,7 @@ export const Route = createFileRoute('/hiring')({
             name: 'Kamran Tahir',
             jobTitle: 'Senior Software Engineer',
             description:
-              'Senior Software Engineer open to backend, full-stack, and frontend roles.',
+              'Senior Software Engineer, currently Member of Technical Staff at Trelium and happy to discuss scalable systems and architectural challenges.',
             image: `${SITE.origin}/images/pfp.png`,
             url: `${SITE.origin}/hiring/`,
             email: SITE.email,
@@ -77,11 +77,12 @@ function Hiring() {
   return (
     <section className="page-frame hiring-page">
       <header className="page-heading">
-        <p className="eyebrow hiring-status">Available for the right team</p>
+        <p className="eyebrow hiring-status">Currently at Trelium</p>
         <h1>Let’s build reliable products together.</h1>
         <p>
-          I’m actively interviewing for software engineering roles across
-          backend, full-stack, frontend, and platform teams.
+          I’m currently Member of Technical Staff at Trelium, building AI agent
+          platform workflows. I’m always happy to discuss scalable systems and
+          architectural challenges.
         </p>
       </header>
       <div className="hiring-profile">
@@ -100,7 +101,14 @@ function Hiring() {
             data-heavy workflows, and pragmatic delivery.
           </p>
           <div className="profile-actions">
-            <a href={`mailto:${SITE.email}`}>Start a conversation</a>
+            <a href={`mailto:${SITE.email}`}>Hiring? Email me</a>
+            <a
+              href="https://cal.com/kamrantahir"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Book intro call
+            </a>
             <a href="https://kamran.sh/" target="_blank" rel="noreferrer">
               View resume
             </a>
