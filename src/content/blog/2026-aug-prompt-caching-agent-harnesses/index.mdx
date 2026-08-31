@@ -1,6 +1,6 @@
 ---
 title: "Prompt Caching in Coding Agents: The Prefix Is the Product"
-description: "Every coding agent resends your full history each turn. The provider caches by exact prefix match, so the harness that keeps its prefix stable gets the fast turns. Here is what Claude Code documents, and what the others leave to the provider."
+description: "Every turn, a coding agent resends the full context. The provider caches by exact prefix match. So the harness that keeps its prefix stable gets the fast, cheap turns. Here is how each harness shapes that prefix, what invalidates it, and why the economics favor one over another."
 date: "2026-09-01"
 slug: "prompt-caching-agent-harnesses"
 draft: true
@@ -9,6 +9,7 @@ tags:
   - "prompt-caching"
   - "claude-code"
   - "codex"
+  - "opencode"
   - "ai-coding"
 faqs:
   - question: "Why does switching models make one turn slow?"
@@ -16,27 +17,92 @@ faqs:
   - question: "Does editing CLAUDE.md mid-session apply immediately?"
     answer: "In Claude Code, project context is read at session start, so mid-session edits wait for a new session or compaction boundary."
   - question: "Which harness caches best?"
-    answer: "The cache lives at the provider for all of them. The difference is how much each harness documents keeping the prefix stable. Claude Code documents it; the others leave it to the provider."
+    answer: "The cache lives at the provider for all of them. The difference is how much each harness keeps the prefix stable. Claude Code documents the invalidation list, pi and opencode v2 rebuild a shorter prefix on compaction, and the rest rely on provider defaults so session shape decides the hit rate."
 ---
 
 import { Picture } from "@/components/mdx/Picture";
-import Diagram from "./diagram.png";
+import ClaudeCode from "./claude-code.png";
+import Codex from "./codex.png";
+import Pi from "./pi.png";
+import Opencode from "./opencode.png";
+import PrefixCacheStructure from "@/components/mdx/PrefixCacheStructure";
+import PrefixCacheWorkflow from "@/components/mdx/PrefixCacheWorkflow";
+import CacheCostMultiplierChart from "@/components/mdx/CacheCostMultiplierChart";
+import CacheBreakevenChart from "@/components/mdx/CacheBreakevenChart";
 
-I run several coding agents on the same machine: Claude Code, Codex, pi, and opencode. A while ago I noticed a pattern that annoyed me. Some turns were fast and cheap. Some turns were slow for no visible reason. Same model. Same repo. Same me.
+Some turns are fast and cheap. Some turns are slow for no visible reason. Same model, same repo, same session. The difference is almost never the model. It is whether the start of the request still matches what the provider recently processed.
 
-The difference was the cache. More precisely, whether the start of my request still matched what the provider had recently processed.
+That start is the prefix. In agent workloads it is the part worth engineering.
 
-## Every turn resends everything
+## The prefix is the cache key
 
-The model does not remember your session. Every turn, the harness resends the full context: the system prompt, your project context, every prior message and tool result, plus the new message. That is why long sessions feel heavy, and it is why prompt caching matters so much in agent workloads. Most of each request is identical to the one before it.
+The model does not remember the session. Every turn, the harness resends the full context: the system prompt, the project context, every prior message and tool result, plus the new message. So most of each request is identical to the one before it.
 
-The provider avoids reprocessing that identical part by matching the start of the request, the prefix, against content it recently processed. Only what changed after the match is recomputed, and the cached part bills at a lower rate.
+The provider avoids reprocessing that identical part by matching the start of the request against content it recently processed. Only what changed after the match is recomputed. The cached part bills at a lower rate.
 
-The match is exact. A change anywhere in the prefix recomputes everything after it. There is no per-file or per-segment caching.
+The match is exact. A change anywhere in the prefix recomputes everything after it. There is no per-file or per-segment caching. That is the constraint every harness has to work within.
 
-## What Claude Code documents
+## What the engine actually caches
 
-Claude Code is the only harness I use that writes this down properly. It orders each request so rarely-changing content comes first:
+The mechanism is not a model that remembers. It is a cache of hidden state. During generation, an autoregressive model does two very different kinds of work.
+
+Prefill reads the whole prompt at once and computes the key-value state for every token in it. This is compute-heavy and parallel. Decode then generates one new token at a time, reading the key-value state built during prefill. Decode is memory-bound and serial. In a long request, prefill is a small fraction of the tokens but a large fraction of the compute.
+
+The key-value state is what the cache stores. It is not the text. It is the attention state the model computed for each token in the prefix: the keys and values that every later attention step reads. When a new request shares a prefix with one already processed, the engine reuses that stored key-value state instead of recomputing it, and starts decoding from the shared boundary.
+
+vLLM implements this as automatic prefix caching. It caches the key-value blocks of requests it has already processed, and reuses those blocks when a new request arrives with the same prefix. A new request that shares a prefix skips recomputation of the shared part.
+
+<PrefixCacheStructure title="The prefix cache data structure" caption="The block pool holds every block. The free block queue tracks blocks with no request using them. Cache blocks map a block hash to a block ID. Request blocks map a request to its allocated block IDs." />
+
+The match is not on the whole prompt. It is block by block. The engine splits the key-value state into fixed-size blocks. Each block is identified by a hash, and that hash depends on the tokens in the block plus the hash of the parent block before it. So the third block is not identified by its own tokens alone. It is identified by those tokens together with the hash of the first two blocks.
+
+<PrefixCacheWorkflow title="How a new request reuses the prefix" caption="The scheduler hashes the request prompt, looks up already-computed blocks, touches them so they are not evicted, then allocates the new tail." />
+
+That chained hash is what makes a prefix match exact. A request matches an existing cache entry only when, block by block, its hashes line up from the start. A single changed token changes that block and every parent-hash chain after it, and the match stops there. The engine only caches full blocks. So a prefix that ends partway through a block gains nothing from the partial block, no matter how much of it is shared.
+
+The hashing also carries the cache key beyond just text. The block hash includes extra inputs that make the block unique, such as a LoRA adapter ID, a multimodal image hash, or a cache salt. A cache salt isolates one request from another in a shared or multi-tenant environment, so only requests that agree on the same salt can reuse the cached blocks. That is both a correctness and a security boundary.
+
+The critical limit is which phase it helps. Prefix caching only reduces the prefilling phase. It does not reduce the decoding phase. So it gives a large win when the prompt is long and the answer is short, and it gives almost nothing when the answer is long, because most of the time is spent generating new tokens that were never in the cache. That is why caching is close to a free lunch in practice, but not for every request shape.
+
+This is why the harness comparison is not about the model. Every harness sends the same kind of request and hits the same cache. The harness decides how stable the prefix is, and the engine decides whether that stable prefix is already in the cache to reuse.
+
+## The cache economics are the score
+
+Prompt caching lowers the input token bill, not the output bill. On both major providers, a cache read is roughly 10% of the base input rate. A cache write costs a little more: 1.25x.
+
+That makes the numbers stark. Write a prefix once and read it once: about 1.35x the ordinary input cost, versus 2x to process the same prefix twice without caching. Across ten requests, one write and nine reads cost about 2.15x, versus 10x uncached.
+
+So the harness that keeps your prefix stable is not a nicety. It is the difference between a 2x and a 10x input bill on a long session. That is why one harness can score much better than another on the same model: not because the model is faster, but because more of each request is served from cache.
+
+<CacheCostMultiplierChart
+  title="The price of an unstable prefix"
+  caption="One cache write at 1.25x, then each re-read at 0.1x. The cached line flattens; the uncached line grows linearly with every turn that recomputes the same prefix."
+/>
+
+The numbers come from the providers' own pricing. On OpenAI, a cached read is discounted up to 90% off the uncached input rate, and a cache write costs 1.25x. On Anthropic, a cache read is 0.1x and a cache write is 1.25x. The shape is the same on both.
+
+The multiplier makes the prefix a real lever. A stable prefix pays for its write on the first re-read. So the question is not whether caching helps, but how much of your prefix you can keep stable, and whether you can afford to make it longer than the session would otherwise need.
+
+### When a longer prefix stops paying
+
+Expanding a prefix is not always free, because the extra content has to be written to the cache once before it can be read cheaply. OpenAI publishes the crossover: the shortest prefix length where expanding it to a 1024-token cache becomes cheaper than leaving it short. With a 0.1x read and a 1.25x write, the break-even is
+
+$$L = 102.4 + \frac{1177.6}{N}$$
+
+where N is the number of requests that reuse the prefix. Reuse drives the crossover down.
+
+<CacheBreakevenChart
+  title="The break-even prefix length"
+  caption="A prefix of at least 221 tokens is cheaper to cache once it is reused across ten requests. A 103-token prefix needs about two thousand requests to pay off. A prefix of 102 tokens or fewer never does, under these assumptions."
+/>
+
+Across ten requests, expanding an original prefix of at least 221 tokens to 1024 tokens is cheaper. As reuse grows, the crossover approaches 102.4 tokens. This is why a harness that keeps a huge system prompt stable wins on a long session, but a tiny session with no reuse never sees the payoff.
+
+One honest caveat: there is no published, apples-to-apples benchmark that measures prompt-cache hit rate across Claude Code, Codex, pi, and opencode on the same task. The cache sits at the provider, so a fair comparison would have to fix the model, the prompt, and the provider, then measure hit rate and cost per run. Nobody publishes that. What is citable is the provider economics above, plus each harness's documented prefix strategy. So the ranking in this post is about documented mechanism and the cost it produces, not a measured hit-rate score.
+
+## Claude Code documents the prefix
+
+Claude Code is the clearest example because it writes the strategy down. It orders each request so rarely-changing content comes first:
 
 | Layer | Content | Changes when |
 |---|---|---|
@@ -44,29 +110,94 @@ Claude Code is the only harness I use that writes this down properly. It orders 
 | Project context | CLAUDE.md, auto memory, rules | Session starts, or after clear/compact |
 | Conversation | Messages and tool results | Every turn |
 
-A change in the conversation layer keeps the first two layers cached. A change in the system prompt invalidates everything, because all later content now sits behind a different prefix.
+A change in the conversation layer keeps the first two layers cached. A change in the system prompt invalidates everything, because all later content now sits behind a different prefix. Plan mode and skill loading append their instructions as conversation messages, so they leave the cached prefix intact.
 
-Two settings are not part of the prompt text but are part of the cache key: the model and the effort level. Switch either mid-session and the identical prompt is a brand-new prefix. That is the slow turn after a model switch.
+Two settings are not part of the prompt text but are part of the cache key: the model and the effort level. Switch either mid-session and the identical prompt is a brand-new prefix. That is the slow turn after a model switch. Fast mode adds a request header that is also part of the key, so the first request with it on re-reads the whole conversation.
 
-It also documents which actions keep the cache and which break it. Editing files in your repo keeps it. Denying a whole tool, compacting, or connecting an MCP server can break it. That list is the closest thing to an operations manual for agent latency that I have seen.
+<Picture src={ClaudeCode} alt="Claude Code prompt-cache turns: stable layers stay cached, a changed system prompt recomputes the tail." />
 
-<Picture src={Diagram} alt="Request prefix layers: system prompt, project context, conversation. A change at one layer recomputes everything below it." />
+### What invalidates the cache
 
-## What the other harnesses document
+Claude Code documents the full invalidation list, which is the closest thing to an operations manual for agent latency. Any of these causes the next request to miss some or all of the cache, then rebuild it:
 
-Here is the honest comparison, checked 2026-08-31:
+- **Switching models**: each model has its own cache. The same prompt is a new prefix on the other model. Claude Code asks you to confirm the switch only while the cache is still warm. Once the TTL has passed, it switches without asking.
 
-| Harness | Where the cache lives | Documented prefix strategy |
-|---|---|---|
-| Claude Code | Provider serving the model | Yes: layer ordering, cache key, invalidation list |
-| Codex CLI | OpenAI automatic prompt caching | No public layering docs |
-| pi | Provider-managed | No public caching docs |
-| opencode | Provider-managed | No public caching docs |
+- **Changing effort level**: effort is part of the cache key for the same model.
 
-That is not a criticism. OpenAI and Anthropic both cache automatically, so every harness gets caching for free. The point is narrower: the harness decides how stable your prefix stays, and only one of them documents engineering that stability. The provider executes the cache. The harness earns the hit rate.
+- **Toggling fast mode**: adds a header that is part of the key.
 
-## Rules I follow now
+- **Connecting or disconnecting an MCP server**: tool definitions live in the system prompt. If the server loads tools into the prefix, the set changes and the cache invalidates. Deferred tools only append new content, so they keep it.
 
-Pick the model and effort level at the start of a session, and leave them there. Save compaction for natural breaks between tasks, because it rebuilds the prefix. Edit CLAUDE.md between sessions, not mid-task. And when a turn is slow, check the cache hit rate before blaming the model.
+- **Denying an entire tool**: removing a built-in tool from context changes the system prompt layer.
 
-That last one changed how I read agent performance. A slow turn is usually not a slow model. It is a cache miss you caused.
+- **Compacting the conversation**: the summary replaces the history, so the conversation layer no longer shares a prefix with the old one. The summarization request reuses the warm cache, so a mid-task compact costs a fraction of the context size. Compacting a long-ago session is the expensive case, because the cache has already expired and the full history is reprocessed.
+
+- **Upgrading Claude Code**: a new version changes the system prompt or tool definitions, so the first request rebuilds from the top.
+
+Some actions look like they should invalidate but do not. Editing files in the repo appends a file-change notice instead of rewriting history. Editing CLAUDE.md mid-session does not invalidate the cache, but the edit also does not apply until the next clear, compact, or restart. Switching permission mode is cache-safe, except plan mode with the opusplan setting, which swaps the model and is therefore a model switch. Rewinding truncates back to a prefix that is already cached, so it reads the older entry rather than building a new one.
+
+### Cache lifetime
+
+Cached prefixes expire after a period of inactivity, and each request that hits the cache resets the timer. So the cache stays warm while you work, and the first turn back after stepping away recomputes the full input.
+
+Claude Code picks the TTL per request bucket. On a Claude subscription within plan usage, the main conversation gets one hour and most helper requests get five minutes. With an API key, usage credits, or a cloud provider, the main conversation defaults to five minutes. You can set the TTL yourself with the promptCacheTtl and subagentPromptCacheTtl settings or their environment variables.
+
+The TTL choice is a real tradeoff. The one-hour TTL keeps a long idle session warm, but bills cache writes at a higher rate. It pays off when you leave a session and return. It costs more on short bursts that never idle past five minutes.
+
+The TTL is where the prefilling cost and the latency meet. A cache miss on a long system prompt does not only raise the bill. It also costs the first-response latency, because the shared prefix has to be recomputed before the model can start generating. Anthropic documents a pre-warm pattern for latency-sensitive apps: send a request with max_tokens set to 0 to load the prompt and write the cache, then return without generating. That removes the cache-miss latency penalty on the first real interaction and reduces time-to-first-token. The tradeoff is real: the warm-up request is a normal cache write, so it charges a write if the prefix is not already cached. It also costs a real provider request. This is the same tradeoff opencode v2 makes with its keep-alive warming.
+
+### Cache scope
+
+The cache is effectively scoped to one machine and one directory. The system prompt embeds the working directory, platform, shell, OS version, and memory paths, so two sessions in different directories build different prefixes and miss each other. Parallel sessions in the same directory read each other cache. The underlying provider cache is broader: it is isolated between organizations and sometimes between workspaces, but shared across any two requests with the same model and prefix.
+
+That scope explains a common gotcha. Worktrees of the same repo each have their own working directory, so they miss each other even though the repo is the same. A subagent starts its own conversation with its own system prompt and tool set, so its first request does not read the parent cache. A fork inherits the parent exactly, so it does.
+
+### Check the cache hit rate
+
+Cache performance shows up as two token counts the API reports on every response. Claude Code exposes them in the usage object, which you can read on a statusline or in /usage.
+
+- **cache_creation_input_tokens**: tokens written to the cache on this turn. These bill at the cache write rate.
+
+- **cache_read_input_tokens**: tokens served from cache on this turn. These bill at roughly 10% of the standard input rate.
+
+A high read-to-creation ratio means caching is working. If creation stays high turn after turn, something in your prefix is changing. That is the diagnosis. The invalidation list above tells you which action caused it.
+
+Claude Code treats this ratio as a service-level concern, not a curiosity. The run team monitors the cache hit rate as an internal SLA and alerts on it, because a few percentage points of miss rate can meaningfully change cost and latency across a fleet of agent sessions. That is why the harness spends so much effort keeping the prefix stable: at the scale Claude Code runs, an unstable prefix is not a few wasted cents, it is a measurable latency and cost regression. The provider's economics are the same for everyone. The harness's only job is to keep the hit rate high.
+
+For a per-session summary, run /usage after the first response. Claude Code adds a prompt-cache line to the session block with the hit ratio, the miss count, and whether the cache is warm now. This is the fastest way to confirm that a slow turn was a cache miss, not a slow model.
+
+## Codex relies on the provider
+
+Codex takes the other extreme. It does not document a prefix-ordering strategy. The caching is entirely OpenAI automatic prompt caching. The full rendered context is cached, and a cached prefix stays eligible for roughly 30 minutes after the last write or reuse. Older models hold it for 5-10 minutes up to an hour.
+
+<Picture src={Codex} alt="Codex prompt-cache turns: full context cached automatically, with a cached prefix eligible for about 30 minutes." />
+
+That means a long pause costs you the cache, not a code change. There is no harness-level layering to protect the system context, so the hit rate depends almost entirely on session shape: how much of the prefix stays byte-identical between turns and how short the gaps are.
+
+Codex also relies on the provider's other constraints. OpenAI caches individual machine state, and traffic above about 15 requests per minute can overflow to another machine. A request can only reuse a cached prefix if it lands on a machine that holds a matching, unexpired entry. So at high concurrency the cache hit rate is not only about a stable prefix. It is also about routing. OpenAI exposes a prompt cache key to help requests with the same prefix reach the same machine, but it does not pin or guarantee a read hit. This is the practical ceiling on exactly how much an agent can control its own hit rate.
+
+## pi compacts the prefix
+
+pi handles the long-session problem with compaction. Auto-compaction triggers when the estimated context exceeds the window minus a reserve. The default reserve is 16,384 tokens, and the default keep-recent window is 20,000 tokens, both configurable in settings.
+
+<Picture src={Pi} alt="pi prompt-cache turns: compaction rebuilds the prefix as system plus summary plus kept messages." />
+
+It walks backwards from the newest message until it reaches the keep-recent threshold, collects the older messages, and generates a structured summary. It then rebuilds the context for the next request as system plus summary plus the kept messages from the boundary onwards. The compaction call itself is a one-off prompt that is unlikely to be reused, so where the provider supports it, pi disables cache writes on that call.
+
+Compaction is a deliberate tradeoff: it produces a much shorter prefix, so subsequent requests bill on fewer input tokens, but that shorter prefix does not share a boundary with the old one, so the conversation cache restarts. The system prompt and any unchanged project context can still cache-hit.
+
+## opencode v2 warms and compacts
+
+opencode v2 combines both ideas. Session warming sends periodic keep-alive model requests that preserve the provider-side prompt cache while you pause. It is disabled by default. When enabled, it sends a warming request after four minutes idle, repeats while the session stays idle, and stops 30 minutes after the last non-warming request.
+
+<Picture src={Opencode} alt="opencode v2 prompt-cache turns: idle keep-alive warming, then automatic checkpoint compaction." />
+
+The warming request is a no-op the model is told not to do work and to reply with OK. It costs a real provider request, so it has a cost and count against rate limits. Its whole job is to keep a short-lived cache entry alive across a break.
+
+When the context does fill up, auto-compaction replaces an older part of the session with a checkpoint. The checkpoint holds a structured summary plus a serialized tail of recent context. It triggers when the estimated request size exceeds the context limit minus the larger of the requested output tokens or a buffer. V2 estimates by JSON-serializing the request and assuming four characters per token, then rebuilds the request from the latest checkpoint plus the messages after it and retries the step. Compaction is lossy, but it does not delete the earlier durable session messages.
+
+## The harness earns the hit rate
+
+The provider executes the cache. The harness decides how stable your prefix stays, and therefore how often your requests actually hit it. Claude Code documents the invalidation list, Codex leaves it to the provider, and pi and opencode v2 rebuild a shorter prefix on compaction to keep the input bill down.
+
+So when a turn is slow, check the cache hit rate before blaming the model. A slow turn is usually a cache miss you caused: a model switch, an edit to a rare-change layer, or a gap long enough to let the TTL expire. The fix is to keep the prefix stable, not to wait for a faster model.

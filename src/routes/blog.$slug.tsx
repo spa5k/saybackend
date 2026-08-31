@@ -122,10 +122,13 @@ function PostPage() {
   const { slug } = Route.useParams()
   const post = getPost(slug)
   if (!post) return null
-  const related = getRelatedPosts(post)
   const postIndex = posts.findIndex((item) => item.slug === post.slug)
   const newerPost = postIndex > 0 ? posts.at(postIndex - 1) : undefined
   const olderPost = posts.at(postIndex + 1)
+  const related = getRelatedPosts(post).filter(
+    (candidate) =>
+      candidate.slug !== newerPost?.slug && candidate.slug !== olderPost?.slug,
+  )
   const Content = post.Content
 
   return (
@@ -178,20 +181,6 @@ function PostPage() {
         <Suspense fallback={null}>
           <Content components={{ pre: CodeWindow, table: ResponsiveTable }} />
         </Suspense>
-        {post.faqs?.length ? (
-          <section className="post-faq" aria-labelledby="frequently-asked">
-            <p className="eyebrow">Quick answers</p>
-            <h2 id="frequently-asked">Frequently asked questions</h2>
-            <div>
-              {post.faqs.map((faq) => (
-                <details key={faq.question}>
-                  <summary>{faq.question}</summary>
-                  <p>{faq.answer}</p>
-                </details>
-              ))}
-            </div>
-          </section>
-        ) : null}
       </div>
       <nav className="post-navigation page-frame" aria-label="More articles">
         {newerPost ? (
@@ -217,6 +206,10 @@ function PostPage() {
           </Link>
         ) : null}
       </nav>
+      <section className="post-comments page-frame" aria-label="Comments">
+        <p className="eyebrow">Discussion</p>
+        <Giscus term={post.oldPath} />
+      </section>
       {related.length ? (
         <aside className="related-posts page-frame">
           <p className="eyebrow">Keep reading</p>
@@ -235,10 +228,6 @@ function PostPage() {
           </div>
         </aside>
       ) : null}
-      <section className="post-comments page-frame" aria-label="Comments">
-        <p className="eyebrow">Discussion</p>
-        <Giscus term={post.oldPath} />
-      </section>
     </article>
   )
 }
