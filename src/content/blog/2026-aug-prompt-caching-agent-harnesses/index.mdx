@@ -1,0 +1,72 @@
+---
+title: "Prompt Caching in Coding Agents: The Prefix Is the Product"
+description: "Every coding agent resends your full history each turn. The provider caches by exact prefix match, so the harness that keeps its prefix stable gets the fast turns. Here is what Claude Code documents, and what the others leave to the provider."
+date: "2026-08-31"
+slug: "prompt-caching-agent-harnesses"
+ogImage: "/images/prompt-caching-og.png"
+draft: true
+tags:
+  - "llm-inference"
+  - "prompt-caching"
+  - "claude-code"
+  - "codex"
+  - "ai-coding"
+faqs:
+  - question: "Why does switching models make one turn slow?"
+    answer: "Each model has its own cache. The identical prompt is a new prefix for the other model, so the whole request is recomputed."
+  - question: "Does editing CLAUDE.md mid-session apply immediately?"
+    answer: "In Claude Code, project context is read at session start, so mid-session edits wait for a new session or compaction boundary."
+  - question: "Which harness caches best?"
+    answer: "The cache lives at the provider for all of them. The difference is how much each harness documents keeping the prefix stable. Claude Code documents it; the others leave it to the provider."
+---
+
+import Diagram from "./diagram.png";
+
+I run several coding agents on the same machine: Claude Code, Codex, pi, and opencode. A while ago I noticed a pattern that annoyed me. Some turns were fast and cheap. Some turns were slow for no visible reason. Same model. Same repo. Same me.
+
+The difference was the cache. More precisely, whether the start of my request still matched what the provider had recently processed.
+
+## Every turn resends everything
+
+The model does not remember your session. Every turn, the harness resends the full context: the system prompt, your project context, every prior message and tool result, plus the new message. That is why long sessions feel heavy, and it is why prompt caching matters so much in agent workloads. Most of each request is identical to the one before it.
+
+The provider avoids reprocessing that identical part by matching the start of the request, the prefix, against content it recently processed. Only what changed after the match is recomputed, and the cached part bills at a lower rate.
+
+The match is exact. A change anywhere in the prefix recomputes everything after it. There is no per-file or per-segment caching.
+
+## What Claude Code documents
+
+Claude Code is the only harness I use that writes this down properly. It orders each request so rarely-changing content comes first:
+
+| Layer | Content | Changes when |
+|---|---|---|
+| System prompt | Core instructions, tool definitions, output style | Tools load or the CLI upgrades |
+| Project context | CLAUDE.md, auto memory, rules | Session starts, or after clear/compact |
+| Conversation | Messages and tool results | Every turn |
+
+A change in the conversation layer keeps the first two layers cached. A change in the system prompt invalidates everything, because all later content now sits behind a different prefix.
+
+Two settings are not part of the prompt text but are part of the cache key: the model and the effort level. Switch either mid-session and the identical prompt is a brand-new prefix. That is the slow turn after a model switch.
+
+It also documents which actions keep the cache and which break it. Editing files in your repo keeps it. Denying a whole tool, compacting, or connecting an MCP server can break it. That list is the closest thing to an operations manual for agent latency that I have seen.
+
+<Diagram alt="Request prefix layers: system prompt, project context, conversation. A change at one layer recomputes everything below it." />
+
+## What the other harnesses document
+
+Here is the honest comparison, checked 2026-08-31:
+
+| Harness | Where the cache lives | Documented prefix strategy |
+|---|---|---|
+| Claude Code | Provider serving the model | Yes: layer ordering, cache key, invalidation list |
+| Codex CLI | OpenAI automatic prompt caching | No public layering docs |
+| pi | Provider-managed | No public caching docs |
+| opencode | Provider-managed | No public caching docs |
+
+That is not a criticism. OpenAI and Anthropic both cache automatically, so every harness gets caching for free. The point is narrower: the harness decides how stable your prefix stays, and only one of them documents engineering that stability. The provider executes the cache. The harness earns the hit rate.
+
+## Rules I follow now
+
+Pick the model and effort level at the start of a session, and leave them there. Save compaction for natural breaks between tasks, because it rebuilds the prefix. Edit CLAUDE.md between sessions, not mid-task. And when a turn is slow, check the cache hit rate before blaming the model.
+
+That last one changed how I read agent performance. A slow turn is usually not a slow model. It is a cache miss you caused.
