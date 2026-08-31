@@ -817,7 +817,7 @@ img {
   text-underline-offset: 3px;
 }
 
-.post-body :where(img, svg):not(.not-typography *) {
+.post-body :where(img, svg):not(.not-typography *, .ts-chart) {
   width: 100%;
   height: auto;
   border: 1px solid var(--rule);
@@ -1697,6 +1697,27 @@ html.dark .shiki-code span {
 
 .post-faq details p {
   margin: 12px 0 0;
+}
+
+/* Blog charts (@tanstack/charts SVG renderer) */
+.post-body .ts-chart {
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.post-body .ts-chart text {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.post-body .ts-chart .ts-chart__grid {
+  stroke: var(--rule);
+  stroke-opacity: 1;
+}
+
+.post-body .ts-chart .ts-chart__axes line {
+  stroke: var(--rule);
 }
 
 @media (prefers-reduced-motion: reduce) {

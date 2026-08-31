@@ -1,4 +1,12 @@
-import { createChartScene, defineChart, lineY } from '@tanstack/charts'
+import {
+  areaY,
+  createChartScene,
+  defineChart,
+  dot,
+  lineY,
+  ruleY,
+  text,
+} from '@tanstack/charts'
 import { renderChartSvg } from '@tanstack/charts/svg'
 import { scaleLinear } from '@tanstack/charts/scales/linear'
 import { scalePoint } from '@tanstack/charts/scales/point'
@@ -24,22 +32,87 @@ const POINTS: CacheCostPoint[] = Array.from({ length: 10 }, (_, i) => {
   }
 })
 
+// The gap between the two lines: what caching saves per request.
+const SAVINGS = POINTS.map((p) => ({
+  requests: p.requests,
+  low: Math.min(p.cached, p.uncached),
+  high: Math.max(p.cached, p.uncached),
+}))
+
+const LAST = POINTS[POINTS.length - 1]
+
 const definition = defineChart({
   marks: [
+    areaY(SAVINGS, {
+      id: 'savings',
+      x: 'requests',
+      y1: 'low',
+      y2: 'high',
+      fill: 'var(--green)',
+      fillOpacity: 0.08,
+    }),
     lineY(POINTS, {
       id: 'cached',
       x: 'requests',
       y: 'cached',
       stroke: 'var(--green)',
-      strokeWidth: 3,
+      strokeWidth: 2.5,
     }),
     lineY(POINTS, {
       id: 'uncached',
       x: 'requests',
       y: 'uncached',
       stroke: 'var(--brick)',
-      strokeWidth: 3,
+      strokeWidth: 2.5,
       strokeDasharray: '6 4',
+    }),
+    ruleY([{ y: 1.25 }], {
+      id: 'write-cost',
+      y: 'y',
+      stroke: 'var(--muted)',
+      strokeOpacity: 0.6,
+      strokeWidth: 1,
+      strokeDasharray: '3 3',
+    }),
+    dot(POINTS, {
+      id: 'cached-dots',
+      x: 'requests',
+      y: 'cached',
+      r: 4,
+      fill: 'var(--card)',
+      stroke: 'var(--green)',
+      strokeWidth: 2,
+    }),
+    dot(POINTS, {
+      id: 'uncached-dots',
+      x: 'requests',
+      y: 'uncached',
+      r: 4,
+      fill: 'var(--card)',
+      stroke: 'var(--brick)',
+      strokeWidth: 2,
+    }),
+    text([{ x: 1, y: 1.25, label: '1.25×' }], {
+      x: 'x',
+      y: 'y',
+      text: 'label',
+      fill: 'var(--green)',
+      fontSize: 11,
+      fontWeight: 600,
+      anchor: 'start',
+      dx: 6,
+      dy: -14,
+    }),
+    text([{ x: LAST.requests, y: LAST.uncached, label: `${LAST.uncached}×` }], {
+      x: 'x',
+      y: 'y',
+      text: 'label',
+      fill: 'var(--brick)',
+      fontSize: 12,
+      fontWeight: 600,
+      anchor: 'start',
+      dx: 8,
+      dy: 16,
     }),
   ],
   scales: {
@@ -51,7 +124,10 @@ const definition = defineChart({
       scale: scaleLinear,
       nice: true,
       grid: true,
-      axis: { label: 'Relative input cost' },
+      axis: {
+        label: 'Relative input cost',
+        tickLabels: { opacity: 0.9 },
+      },
     },
   },
 })
@@ -75,20 +151,24 @@ export default function CacheCostMultiplierChart({ title, caption }: Props) {
           <strong className="font-serif text-lg">{title}</strong>
         </figcaption>
       )}
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-6">
+      <div className="rounded-xl bg-[var(--card)] p-4 shadow-sm sm:p-6">
         <div
           className="w-full"
           style={{ aspectRatio: `${WIDTH} / ${HEIGHT}` }}
           dangerouslySetInnerHTML={{ __html: svg }}
         />
-        <div className="mt-4 flex items-center gap-6 text-xs font-semibold">
+        <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-semibold">
           <span className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-[var(--green)]" />
-            Cached (1 write + re-reads at 0.1x)
+            Cached (1 write + re-reads at 0.1×)
           </span>
           <span className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-[var(--brick)]" />
             Uncached (full recompute each turn)
+          </span>
+          <span className="flex items-center gap-2 text-[var(--muted)]">
+            <span className="inline-block h-0 w-4 border-t border-dashed border-[var(--muted)]" />
+            First write at 1.25×
           </span>
         </div>
       </div>

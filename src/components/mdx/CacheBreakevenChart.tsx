@@ -1,6 +1,16 @@
-import { createChartScene, defineChart, lineY, ruleX } from '@tanstack/charts'
+import {
+  createChartScene,
+  defineChart,
+  dot,
+  d3Curve,
+  lineY,
+  ruleX,
+  ruleY,
+  text,
+} from '@tanstack/charts'
 import { renderChartSvg } from '@tanstack/charts/svg'
 import { scaleLinear } from '@tanstack/charts/scales/linear'
+import { curveMonotoneX } from 'd3-shape'
 import { scaleLog } from 'd3-scale'
 
 type BreakevenPoint = {
@@ -30,6 +40,13 @@ const POINTS: BreakevenPoint[] = [
   { requests: 1963, tokens: 103.0 },
 ].map((p) => ({ ...p, tokens: Number(p.tokens.toFixed(1)) }))
 
+const TEN_REQUESTS = POINTS.find((p) => p.requests === 10)!
+const ASYMPTOTE = POINTS[POINTS.length - 1]
+
+const X_TICKS = [2, 10, 50, 100, 500, 1000, 2000]
+const formatTick = (value: number) =>
+  value >= 1000 ? `${value / 1000}k` : String(value)
+
 const WIDTH = 720
 const HEIGHT = 288
 
@@ -40,31 +57,99 @@ const definition = defineChart({
       x: 'requests',
       y: 'tokens',
       stroke: 'var(--green)',
-      strokeWidth: 3,
+      strokeWidth: 2.5,
+      curve: d3Curve(curveMonotoneX),
     }),
-    ruleX([{ requests: 10 }], {
+    ruleX([{ requests: TEN_REQUESTS.requests }], {
       x: 'requests',
       stroke: 'var(--green)',
-      strokeDasharray: '4 4',
+      strokeOpacity: 0.45,
       strokeWidth: 1.5,
+      strokeDasharray: '4 4',
     }),
-    ruleX([{ requests: 1963 }], {
+    ruleX([{ requests: ASYMPTOTE.requests }], {
       x: 'requests',
       stroke: 'var(--brick)',
-      strokeDasharray: '4 4',
+      strokeOpacity: 0.45,
       strokeWidth: 1.5,
+      strokeDasharray: '4 4',
+    }),
+    ruleY([{ y: 102.4 }], {
+      y: 'y',
+      stroke: 'var(--muted)',
+      strokeOpacity: 0.55,
+      strokeWidth: 1,
+      strokeDasharray: '3 3',
+    }),
+    dot([TEN_REQUESTS], {
+      id: 'ten-dot',
+      x: 'requests',
+      y: 'tokens',
+      r: 4.5,
+      fill: 'var(--card)',
+      stroke: 'var(--green)',
+      strokeWidth: 2,
+    }),
+    dot([ASYMPTOTE], {
+      id: 'asymptote-dot',
+      x: 'requests',
+      y: 'tokens',
+      r: 4.5,
+      fill: 'var(--card)',
+      stroke: 'var(--brick)',
+      strokeWidth: 2,
+    }),
+    text([{ x: TEN_REQUESTS.requests, y: TEN_REQUESTS.tokens, label: '221' }], {
+      x: 'x',
+      y: 'y',
+      text: 'label',
+      fill: 'var(--green)',
+      fontSize: 11,
+      fontWeight: 600,
+      anchor: 'start',
+      dx: 8,
+      dy: -10,
+    }),
+    text([{ x: ASYMPTOTE.requests, y: ASYMPTOTE.tokens, label: '103' }], {
+      x: 'x',
+      y: 'y',
+      text: 'label',
+      fill: 'var(--brick)',
+      fontSize: 11,
+      fontWeight: 600,
+      anchor: 'end',
+      dx: -8,
+      dy: -12,
+    }),
+    text([{ x: 2, y: 102.4, label: 'asymptote 102.4' }], {
+      x: 'x',
+      y: 'y',
+      text: 'label',
+      fill: 'var(--muted)',
+      fontSize: 10,
+      anchor: 'start',
+      dx: 4,
+      dy: -6,
     }),
   ],
   scales: {
     x: {
-      scale: () => scaleLog().domain([2, 2100]).nice(),
-      axis: { label: 'Requests reusing the prefix (N)' },
+      scale: () => scaleLog().domain([2, 2200]),
+      axis: {
+        label: 'Requests reusing the prefix (N)',
+        ticks: { values: X_TICKS, format: formatTick },
+        tickLabels: { opacity: 0.9 },
+      },
     },
     y: {
       scale: scaleLinear,
-      domain: [100, 700],
+      domain: [100, 720],
       grid: true,
-      axis: { label: 'Longest prefix not worth caching (tokens)' },
+      axis: {
+        label: 'Longest prefix not worth caching (tokens)',
+        ticks: { values: [200, 300, 400, 500, 600, 700] },
+        tickLabels: { opacity: 0.9 },
+      },
     },
   },
 })
@@ -84,13 +169,13 @@ export default function CacheBreakevenChart({ title, caption }: Props) {
           <strong className="font-serif text-lg">{title}</strong>
         </figcaption>
       )}
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-6">
+      <div className="rounded-xl bg-[var(--card)] p-4 shadow-sm sm:p-6">
         <div
           className="w-full"
           style={{ aspectRatio: `${WIDTH} / ${HEIGHT}` }}
           dangerouslySetInnerHTML={{ __html: svg }}
         />
-        <div className="mt-4 flex items-center gap-6 text-xs font-semibold">
+        <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-semibold">
           <span className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-[var(--green)]" />
             Cheaper to cache (above the line)
