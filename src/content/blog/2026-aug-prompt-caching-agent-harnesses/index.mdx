@@ -1,10 +1,9 @@
 ---
 title: "Prompt Caching in Coding Agents: The Prefix Is the Product"
 description: "Every coding agent resends your full history each turn. The provider caches by exact prefix match, so the harness that keeps its prefix stable gets the fast turns. Here is what Claude Code documents, and what the others leave to the provider."
-date: "2026-08-31"
+date: "2026-09-01"
 slug: "prompt-caching-agent-harnesses"
-ogImage: "/images/prompt-caching-og.png"
-draft: true
+draft: false
 tags:
   - "llm-inference"
   - "prompt-caching"
@@ -20,6 +19,7 @@ faqs:
     answer: "The cache lives at the provider for all of them. The difference is how much each harness documents keeping the prefix stable. Claude Code documents it; the others leave it to the provider."
 ---
 
+import { Picture } from "@/components/mdx/Picture";
 import Diagram from "./diagram.png";
 
 I run several coding agents on the same machine: Claude Code, Codex, pi, and opencode. A while ago I noticed a pattern that annoyed me. Some turns were fast and cheap. Some turns were slow for no visible reason. Same model. Same repo. Same me.
@@ -50,7 +50,7 @@ Two settings are not part of the prompt text but are part of the cache key: the 
 
 It also documents which actions keep the cache and which break it. Editing files in your repo keeps it. Denying a whole tool, compacting, or connecting an MCP server can break it. That list is the closest thing to an operations manual for agent latency that I have seen.
 
-<Diagram alt="Request prefix layers: system prompt, project context, conversation. A change at one layer recomputes everything below it." />
+<Picture src={Diagram} alt="Request prefix layers: system prompt, project context, conversation. A change at one layer recomputes everything below it." />
 
 ## What the other harnesses document
 
