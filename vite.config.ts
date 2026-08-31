@@ -17,6 +17,8 @@ import type { ShikiTransformer } from 'shiki'
 import remarkFrontmatter from 'remark-frontmatter'
 import remarkGfm from 'remark-gfm'
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
 import svgr from 'vite-plugin-svgr'
 
 const frontmatterModulePrefix = '\0saybackend-frontmatter:'
@@ -171,9 +173,11 @@ const config = defineConfig({
       remarkPlugins: [
         remarkFrontmatter,
         remarkGfm,
+        remarkMath,
         [remarkMdxFrontmatter, { name: 'frontmatter' }],
       ],
       rehypePlugins: [
+        rehypeKatex,
         [
           rehypeShiki,
           {

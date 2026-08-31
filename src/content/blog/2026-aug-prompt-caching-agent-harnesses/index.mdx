@@ -27,6 +27,8 @@ import Pi from "./pi.png";
 import Opencode from "./opencode.png";
 import PrefixCacheStructure from "@/components/mdx/PrefixCacheStructure";
 import PrefixCacheWorkflow from "@/components/mdx/PrefixCacheWorkflow";
+import CacheCostMultiplierChart from "@/components/mdx/CacheCostMultiplierChart";
+import CacheBreakevenChart from "@/components/mdx/CacheBreakevenChart";
 
 Some turns are fast and cheap. Some turns are slow for no visible reason. Same model, same repo, same session. The difference is almost never the model. It is whether the start of the request still matches what the provider recently processed.
 
@@ -72,6 +74,32 @@ That makes the numbers stark. Write a prefix once and read it once: about 1.35x 
 
 So the harness that keeps your prefix stable is not a nicety. It is the difference between a 2x and a 10x input bill on a long session. That is why one harness can score much better than another on the same model: not because the model is faster, but because more of each request is served from cache.
 
+<CacheCostMultiplierChart
+  title="The price of an unstable prefix"
+  caption="One cache write at 1.25x, then each re-read at 0.1x. The cached line flattens; the uncached line grows linearly with every turn that recomputes the same prefix."
+/>
+
+The numbers come from the providers' own pricing. On OpenAI, a cached read is discounted up to 90% off the uncached input rate, and a cache write costs 1.25x. On Anthropic, a cache read is 0.1x and a cache write is 1.25x. The shape is the same on both.
+
+The multiplier makes the prefix a real lever. A stable prefix pays for its write on the first re-read. So the question is not whether caching helps, but how much of your prefix you can keep stable, and whether you can afford to make it longer than the session would otherwise need.
+
+### When a longer prefix stops paying
+
+Expanding a prefix is not always free, because the extra content has to be written to the cache once before it can be read cheaply. OpenAI publishes the crossover: the shortest prefix length where expanding it to a 1024-token cache becomes cheaper than leaving it short. With a 0.1x read and a 1.25x write, the break-even is
+
+$$L = 102.4 + \frac{1177.6}{N}$$
+
+where N is the number of requests that reuse the prefix. Reuse drives the crossover down.
+
+<CacheBreakevenChart
+  title="The break-even prefix length"
+  caption="A prefix of at least 221 tokens is cheaper to cache once it is reused across ten requests. A 103-token prefix needs about two thousand requests to pay off. A prefix of 102 tokens or fewer never does, under these assumptions."
+/>
+
+Across ten requests, expanding an original prefix of at least 221 tokens to 1024 tokens is cheaper. As reuse grows, the crossover approaches 102.4 tokens. This is why a harness that keeps a huge system prompt stable wins on a long session, but a tiny session with no reuse never sees the payoff.
+
+One honest caveat: there is no published, apples-to-apples benchmark that measures prompt-cache hit rate across Claude Code, Codex, pi, and opencode on the same task. The cache sits at the provider, so a fair comparison would have to fix the model, the prompt, and the provider, then measure hit rate and cost per run. Nobody publishes that. What is citable is the provider economics above, plus each harness's documented prefix strategy. So the ranking in this post is about documented mechanism and the cost it produces, not a measured hit-rate score.
+
 ## Claude Code documents the prefix
 
 Claude Code is the clearest example because it writes the strategy down. It orders each request so rarely-changing content comes first:
@@ -116,6 +144,8 @@ Claude Code picks the TTL per request bucket. On a Claude subscription within pl
 
 The TTL choice is a real tradeoff. The one-hour TTL keeps a long idle session warm, but bills cache writes at a higher rate. It pays off when you leave a session and return. It costs more on short bursts that never idle past five minutes.
 
+The TTL is where the prefilling cost and the latency meet. A cache miss on a long system prompt does not only raise the bill. It also costs the first-response latency, because the shared prefix has to be recomputed before the model can start generating. Anthropic documents a pre-warm pattern for latency-sensitive apps: send a request with max_tokens set to 0 to load the prompt and write the cache, then return without generating. That removes the cache-miss latency penalty on the first real interaction and reduces time-to-first-token. The tradeoff is real: the warm-up request is a normal cache write, so it charges a write if the prefix is not already cached. It also costs a real provider request. This is the same tradeoff opencode v2 makes with its keep-alive warming.
+
 ### Cache scope
 
 The cache is effectively scoped to one machine and one directory. The system prompt embeds the working directory, platform, shell, OS version, and memory paths, so two sessions in different directories build different prefixes and miss each other. Parallel sessions in the same directory read each other cache. The underlying provider cache is broader: it is isolated between organizations and sometimes between workspaces, but shared across any two requests with the same model and prefix.
@@ -132,6 +162,8 @@ Cache performance shows up as two token counts the API reports on every response
 
 A high read-to-creation ratio means caching is working. If creation stays high turn after turn, something in your prefix is changing. That is the diagnosis. The invalidation list above tells you which action caused it.
 
+Claude Code treats this ratio as a service-level concern, not a curiosity. The run team monitors the cache hit rate as an internal SLA and alerts on it, because a few percentage points of miss rate can meaningfully change cost and latency across a fleet of agent sessions. That is why the harness spends so much effort keeping the prefix stable: at the scale Claude Code runs, an unstable prefix is not a few wasted cents, it is a measurable latency and cost regression. The provider's economics are the same for everyone. The harness's only job is to keep the hit rate high.
+
 For a per-session summary, run /usage after the first response. Claude Code adds a prompt-cache line to the session block with the hit ratio, the miss count, and whether the cache is warm now. This is the fastest way to confirm that a slow turn was a cache miss, not a slow model.
 
 ## Codex relies on the provider
@@ -141,6 +173,8 @@ Codex takes the other extreme. It does not document a prefix-ordering strategy. 
 <Picture src={Codex} alt="Codex prompt-cache turns: full context cached automatically, with a cached prefix eligible for about 30 minutes." />
 
 That means a long pause costs you the cache, not a code change. There is no harness-level layering to protect the system context, so the hit rate depends almost entirely on session shape: how much of the prefix stays byte-identical between turns and how short the gaps are.
+
+Codex also relies on the provider's other constraints. OpenAI caches individual machine state, and traffic above about 15 requests per minute can overflow to another machine. A request can only reuse a cached prefix if it lands on a machine that holds a matching, unexpired entry. So at high concurrency the cache hit rate is not only about a stable prefix. It is also about routing. OpenAI exposes a prompt cache key to help requests with the same prefix reach the same machine, but it does not pin or guarantee a read hit. This is the practical ceiling on exactly how much an agent can control its own hit rate.
 
 ## pi compacts the prefix
 
