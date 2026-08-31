@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import go from "@shikijs/langs/go";
 import sql from "@shikijs/langs/sql";
-import everforestDark from "@shikijs/themes/everforest-dark";
-import everforestLight from "@shikijs/themes/everforest-light";
+import githubDarkDefault from "@shikijs/themes/github-dark-default";
+import githubLightDefault from "@shikijs/themes/github-light-default";
 import { createHighlighterCore } from "shiki/core";
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 import type { HighlighterCore } from "@shikijs/types";
@@ -15,7 +15,7 @@ let _hlPromise: Promise<HighlighterCore> | null = null;
 function getHighlighter(): Promise<HighlighterCore> {
   if (!_hlPromise) {
     _hlPromise = createHighlighterCore({
-      themes: [everforestLight, everforestDark],
+      themes: [githubLightDefault, githubDarkDefault],
       langs: [go, sql],
       engine: createJavaScriptRegexEngine(),
     });
@@ -44,7 +44,7 @@ export function useShikiHighlight(
       if (cancelled) return;
       const result = hl.codeToTokens(code, {
         lang,
-        themes: { light: "everforest-light", dark: "everforest-dark" },
+        themes: { light: "github-light-default", dark: "github-dark-default" },
         defaultColor: false,
       });
       setLines(

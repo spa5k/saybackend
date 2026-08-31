@@ -148,7 +148,7 @@ export default function CacheCostMultiplierChart({ title, caption }: Props) {
     <figure className="my-8">
       {title && (
         <figcaption className="mb-4 text-[var(--foreground)]">
-          <strong className="font-serif text-lg">{title}</strong>
+          <strong className="font-sans text-lg">{title}</strong>
         </figcaption>
       )}
       <div className="rounded-xl bg-[var(--card)] p-4 shadow-sm sm:p-6">

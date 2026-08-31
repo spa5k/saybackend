@@ -182,8 +182,8 @@ const config = defineConfig({
           rehypeShiki,
           {
             themes: {
-              light: 'everforest-light',
-              dark: 'everforest-dark',
+              light: 'github-light-default',
+              dark: 'github-dark-default',
             },
             defaultColor: false,
             transformers: [codeWindowTransformer],
