@@ -162,6 +162,37 @@ const config = defineConfig({
       },
     ],
   },
+  // Chart deps are only reachable through lazy-loaded MDX routes, so Vite
+  // cannot discover them in the startup scan. Without this list they are
+  // pre-bundled on first request, which forces a mid-request reload and
+  // breaks both the client dynamic import and the in-flight SSR render.
+  optimizeDeps: {
+    include: [
+      '@tanstack/charts',
+      '@tanstack/charts/svg',
+      '@tanstack/charts/scales/linear',
+      '@tanstack/charts/scales/point',
+      'd3-scale',
+      'd3-shape',
+    ],
+  },
+  // The Cloudflare plugin owns the SSR environment's optimizeDeps (its own
+  // entries/exclude), so the include list above does not reach it. Pre-bundle
+  // the same deps for that environment at startup.
+  environments: {
+    ssr: {
+      optimizeDeps: {
+        include: [
+          '@tanstack/charts',
+          '@tanstack/charts/svg',
+          '@tanstack/charts/scales/linear',
+          '@tanstack/charts/scales/point',
+          'd3-scale',
+          'd3-shape',
+        ],
+      },
+    },
+  },
   plugins: [
     cloudflare({ viteEnvironment: { name: 'ssr' } }),
     devtools(),

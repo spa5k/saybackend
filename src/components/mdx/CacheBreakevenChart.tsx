@@ -12,6 +12,7 @@ import { renderChartSvg } from '@tanstack/charts/svg'
 import { scaleLinear } from '@tanstack/charts/scales/linear'
 import { curveMonotoneX } from 'd3-shape'
 import { scaleLog } from 'd3-scale'
+import { EditorialFigure, LegendSwatch, fig } from './editorialFigure'
 
 type BreakevenPoint = {
   requests: number
@@ -48,7 +49,7 @@ const formatTick = (value: number) =>
   value >= 1000 ? `${value / 1000}k` : String(value)
 
 const WIDTH = 720
-const HEIGHT = 288
+const HEIGHT = 340
 
 const definition = defineChart({
   marks: [
@@ -56,28 +57,28 @@ const definition = defineChart({
       id: 'breakeven',
       x: 'requests',
       y: 'tokens',
-      stroke: 'var(--green)',
-      strokeWidth: 2.5,
+      stroke: fig.accent,
+      strokeWidth: 1.5,
       curve: d3Curve(curveMonotoneX),
     }),
     ruleX([{ requests: TEN_REQUESTS.requests }], {
       x: 'requests',
-      stroke: 'var(--green)',
-      strokeOpacity: 0.45,
-      strokeWidth: 1.5,
+      stroke: fig.accent,
+      strokeOpacity: 0.5,
+      strokeWidth: 1,
       strokeDasharray: '4 4',
     }),
     ruleX([{ requests: ASYMPTOTE.requests }], {
       x: 'requests',
-      stroke: 'var(--brick)',
-      strokeOpacity: 0.45,
-      strokeWidth: 1.5,
+      stroke: fig.muted,
+      strokeOpacity: 0.5,
+      strokeWidth: 1,
       strokeDasharray: '4 4',
     }),
     ruleY([{ y: 102.4 }], {
       y: 'y',
-      stroke: 'var(--muted)',
-      strokeOpacity: 0.55,
+      stroke: fig.lineStrong,
+      strokeOpacity: 0.7,
       strokeWidth: 1,
       strokeDasharray: '3 3',
     }),
@@ -85,27 +86,26 @@ const definition = defineChart({
       id: 'ten-dot',
       x: 'requests',
       y: 'tokens',
-      r: 4.5,
-      fill: 'var(--card)',
-      stroke: 'var(--green)',
-      strokeWidth: 2,
+      r: 3.5,
+      fill: fig.paper,
+      stroke: fig.accent,
+      strokeWidth: 1.25,
     }),
     dot([ASYMPTOTE], {
       id: 'asymptote-dot',
       x: 'requests',
       y: 'tokens',
-      r: 4.5,
-      fill: 'var(--card)',
-      stroke: 'var(--brick)',
-      strokeWidth: 2,
+      r: 3.5,
+      fill: fig.paper,
+      stroke: fig.muted,
+      strokeWidth: 1.25,
     }),
     text([{ x: TEN_REQUESTS.requests, y: TEN_REQUESTS.tokens, label: '221' }], {
       x: 'x',
       y: 'y',
       text: 'label',
-      fill: 'var(--green)',
-      fontSize: 11,
-      fontWeight: 600,
+      fill: fig.accent,
+      fontSize: 10.5,
       anchor: 'start',
       dx: 8,
       dy: -10,
@@ -114,9 +114,8 @@ const definition = defineChart({
       x: 'x',
       y: 'y',
       text: 'label',
-      fill: 'var(--brick)',
-      fontSize: 11,
-      fontWeight: 600,
+      fill: fig.muted,
+      fontSize: 10.5,
       anchor: 'end',
       dx: -8,
       dy: -12,
@@ -125,8 +124,8 @@ const definition = defineChart({
       x: 'x',
       y: 'y',
       text: 'label',
-      fill: 'var(--muted)',
-      fontSize: 10,
+      fill: fig.faint,
+      fontSize: 9.5,
       anchor: 'start',
       dx: 4,
       dy: -6,
@@ -138,7 +137,6 @@ const definition = defineChart({
       axis: {
         label: 'Requests reusing the prefix (N)',
         ticks: { values: X_TICKS, format: formatTick },
-        tickLabels: { opacity: 0.9 },
       },
     },
     y: {
@@ -148,7 +146,6 @@ const definition = defineChart({
       axis: {
         label: 'Longest prefix not worth caching (tokens)',
         ticks: { values: [200, 300, 400, 500, 600, 700] },
-        tickLabels: { opacity: 0.9 },
       },
     },
   },
@@ -163,32 +160,31 @@ const svg = renderChartSvg(
 
 export default function CacheBreakevenChart({ title, caption }: Props) {
   return (
-    <figure className="my-8">
-      {title && (
-        <figcaption className="mb-4 text-[var(--foreground)]">
-          <strong className="font-sans text-lg">{title}</strong>
-        </figcaption>
-      )}
-      <div className="rounded-xl bg-[var(--card)] p-4 shadow-sm sm:p-6">
+    <EditorialFigure title={title} caption={caption}>
+      <div style={{ color: '#8f8877', fontFamily: 'inherit' }}>
         <div
-          className="w-full"
           style={{ aspectRatio: `${WIDTH} / ${HEIGHT}` }}
           dangerouslySetInnerHTML={{ __html: svg }}
         />
-        <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-semibold">
-          <span className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[var(--green)]" />
-            Cheaper to cache (above the line)
-          </span>
-          <span className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[var(--brick)]" />
-            Not worth caching (below the line)
-          </span>
-        </div>
       </div>
-      {caption && (
-        <p className="mt-3 text-sm text-[var(--muted-foreground)]">{caption}</p>
-      )}
-    </figure>
+      <div
+        style={{
+          marginTop: 14,
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '10px 26px',
+        }}
+      >
+        <LegendSwatch
+          color={fig.accent}
+          label="Cheaper to cache — above the line"
+        />
+        <LegendSwatch
+          color={fig.muted}
+          dash
+          label="Not worth caching — below the line"
+        />
+      </div>
+    </EditorialFigure>
   )
 }

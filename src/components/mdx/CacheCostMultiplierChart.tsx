@@ -10,6 +10,12 @@ import {
 import { renderChartSvg } from '@tanstack/charts/svg'
 import { scaleLinear } from '@tanstack/charts/scales/linear'
 import { scalePoint } from '@tanstack/charts/scales/point'
+import {
+  EditorialFigure,
+  LegendSwatch,
+  fig,
+  accentTint,
+} from './editorialFigure'
 
 type CacheCostPoint = {
   requests: number
@@ -48,29 +54,29 @@ const definition = defineChart({
       x: 'requests',
       y1: 'low',
       y2: 'high',
-      fill: 'var(--green)',
-      fillOpacity: 0.08,
+      fill: accentTint(0.05),
+      fillOpacity: 1,
     }),
     lineY(POINTS, {
       id: 'cached',
       x: 'requests',
       y: 'cached',
-      stroke: 'var(--green)',
-      strokeWidth: 2.5,
+      stroke: fig.accent,
+      strokeWidth: 1.5,
     }),
     lineY(POINTS, {
       id: 'uncached',
       x: 'requests',
       y: 'uncached',
-      stroke: 'var(--brick)',
-      strokeWidth: 2.5,
-      strokeDasharray: '6 4',
+      stroke: fig.muted,
+      strokeWidth: 1.25,
+      strokeDasharray: '5 4',
     }),
     ruleY([{ y: 1.25 }], {
       id: 'write-cost',
       y: 'y',
-      stroke: 'var(--muted)',
-      strokeOpacity: 0.6,
+      stroke: fig.lineStrong,
+      strokeOpacity: 0.7,
       strokeWidth: 1,
       strokeDasharray: '3 3',
     }),
@@ -78,41 +84,49 @@ const definition = defineChart({
       id: 'cached-dots',
       x: 'requests',
       y: 'cached',
-      r: 4,
-      fill: 'var(--card)',
-      stroke: 'var(--green)',
-      strokeWidth: 2,
+      r: 3,
+      fill: fig.paper,
+      stroke: fig.accent,
+      strokeWidth: 1.25,
     }),
     dot(POINTS, {
       id: 'uncached-dots',
       x: 'requests',
       y: 'uncached',
-      r: 4,
-      fill: 'var(--card)',
-      stroke: 'var(--brick)',
-      strokeWidth: 2,
+      r: 3,
+      fill: fig.paper,
+      stroke: fig.muted,
+      strokeWidth: 1.25,
     }),
     text([{ x: 1, y: 1.25, label: '1.25×' }], {
       x: 'x',
       y: 'y',
       text: 'label',
-      fill: 'var(--green)',
-      fontSize: 11,
-      fontWeight: 600,
+      fill: fig.accent,
+      fontSize: 10.5,
       anchor: 'start',
       dx: 6,
       dy: -14,
     }),
-    text([{ x: LAST.requests, y: LAST.uncached, label: `${LAST.uncached}×` }], {
+    text([{ x: LAST.requests, y: LAST.cached, label: '2.15×' }], {
       x: 'x',
       y: 'y',
       text: 'label',
-      fill: 'var(--brick)',
-      fontSize: 12,
-      fontWeight: 600,
+      fill: fig.accent,
+      fontSize: 10.5,
+      anchor: 'end',
+      dx: -8,
+      dy: -12,
+    }),
+    text([{ x: LAST.requests, y: LAST.uncached, label: '10×' }], {
+      x: 'x',
+      y: 'y',
+      text: 'label',
+      fill: fig.muted,
+      fontSize: 10.5,
       anchor: 'start',
       dx: 8,
-      dy: 16,
+      dy: 14,
     }),
   ],
   scales: {
@@ -124,16 +138,13 @@ const definition = defineChart({
       scale: scaleLinear,
       nice: true,
       grid: true,
-      axis: {
-        label: 'Relative input cost',
-        tickLabels: { opacity: 0.9 },
-      },
+      axis: { label: 'Relative input cost' },
     },
   },
 })
 
 const WIDTH = 720
-const HEIGHT = 288
+const HEIGHT = 340
 
 const svg = renderChartSvg(
   createChartScene(definition, { width: WIDTH, height: HEIGHT }),
@@ -145,36 +156,41 @@ const svg = renderChartSvg(
 
 export default function CacheCostMultiplierChart({ title, caption }: Props) {
   return (
-    <figure className="my-8">
-      {title && (
-        <figcaption className="mb-4 text-[var(--foreground)]">
-          <strong className="font-sans text-lg">{title}</strong>
-        </figcaption>
-      )}
-      <div className="rounded-xl bg-[var(--card)] p-4 shadow-sm sm:p-6">
+    <EditorialFigure title={title} caption={caption}>
+      <div
+        style={{
+          color: '#8f8877',
+          fontFamily: 'inherit',
+        }}
+      >
         <div
-          className="w-full"
           style={{ aspectRatio: `${WIDTH} / ${HEIGHT}` }}
           dangerouslySetInnerHTML={{ __html: svg }}
         />
-        <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-semibold">
-          <span className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[var(--green)]" />
-            Cached (1 write + re-reads at 0.1×)
-          </span>
-          <span className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[var(--brick)]" />
-            Uncached (full recompute each turn)
-          </span>
-          <span className="flex items-center gap-2 text-[var(--muted)]">
-            <span className="inline-block h-0 w-4 border-t border-dashed border-[var(--muted)]" />
-            First write at 1.25×
-          </span>
-        </div>
       </div>
-      {caption && (
-        <p className="mt-3 text-sm text-[var(--muted-foreground)]">{caption}</p>
-      )}
-    </figure>
+      <div
+        style={{
+          marginTop: 14,
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '10px 26px',
+        }}
+      >
+        <LegendSwatch
+          color={fig.accent}
+          label="Cached — one write, re-reads at 0.1×"
+        />
+        <LegendSwatch
+          color={fig.muted}
+          dash
+          label="Uncached — full recompute each turn"
+        />
+        <LegendSwatch
+          color={fig.lineStrong}
+          dash
+          label="First write at 1.25×"
+        />
+      </div>
+    </EditorialFigure>
   )
 }

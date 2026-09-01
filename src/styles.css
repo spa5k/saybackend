@@ -824,12 +824,227 @@ img {
   text-underline-offset: 3px;
 }
 
-.post-body :where(img, svg):not(.not-typography *, .ts-chart) {
+.post-body
+  :where(img, svg):not(
+    .not-typography *,
+    .ts-chart,
+    .figure-plate svg,
+    .editorial-figure
+  ) {
   width: 100%;
   height: auto;
   border: 1px solid var(--rule);
   border-radius: 12px;
   background: var(--paper-raised);
+}
+
+/*
+ * Editorial figure plates: warm parchment ground (#f5f4ed, never pure
+ * white), a single ink-blue accent, hairline rules, serif labels.
+ */
+.figure-plate {
+  margin: 2.5rem 0;
+}
+
+.figure-plate__title {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+
+.figure-plate__canvas {
+  background: #f5f4ed;
+  border: 1px solid #c8c0a8;
+  border-radius: 6px;
+  padding: 1.5rem 1.75rem 1.25rem;
+  font-family: var(--font-sans);
+}
+
+.figure-plate__caption {
+  margin: 0.8rem 0 0;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/*
+ * Selection inside a plate: the global ::selection (dark green, white
+ * text) does not override SVG text fills, so the figures' fixed warm-gray
+ * labels would sit illegibly on it. Use a light ink-blue tint instead -
+ * the fixed inks stay readable on parchment, in both themes.
+ */
+.figure-plate ::selection {
+  background: rgba(27, 54, 93, 0.16);
+  color: #25221b;
+}
+
+.editorial-figure {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/*
+ * Interactive figure controls: flat chips, a hairline-divided control row,
+ * and a serif verdict line. Same editorial language as the plates.
+ */
+.fig-controls {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #d5cdb4;
+}
+
+.fig-controls__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.fig-hint {
+  display: block;
+  margin: 0.65rem 0 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7d7660;
+}
+
+.fig-controls > .fig-hint:first-child {
+  margin-top: 0;
+}
+
+.fig-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #b0a689;
+  border-radius: 3px;
+  background: transparent;
+  padding: 0.24rem 0.6rem;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  color: #57513f;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.fig-chip:hover:not(:disabled) {
+  border-color: #94896c;
+  color: #25221b;
+  background: #eae7d6;
+}
+
+.fig-chip[aria-pressed='true'] {
+  border-color: #1b365d;
+  color: #1b365d;
+  background: rgba(27, 54, 93, 0.06);
+}
+
+.fig-chip:disabled {
+  border-color: #d0c8b0;
+  color: #94896c;
+  cursor: default;
+}
+
+.fig-chip:focus-visible,
+.fig-slider:focus-visible {
+  outline: 2px solid #1b365d;
+  outline-offset: 2px;
+}
+
+.fig-slider {
+  width: 11rem;
+  height: 1rem;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.fig-slider::-webkit-slider-runnable-track {
+  height: 2px;
+  background: #b0a689;
+}
+
+.fig-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  margin-top: -5.5px;
+  border-radius: 50%;
+  border: 1px solid #1b365d;
+  background: #f5f4ed;
+  transition: background-color 150ms ease;
+}
+
+.fig-slider::-webkit-slider-thumb:hover {
+  background: rgba(27, 54, 93, 0.12);
+}
+
+.fig-slider::-moz-range-track {
+  height: 2px;
+  background: #b0a689;
+}
+
+.fig-slider::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1px solid #1b365d;
+  background: #f5f4ed;
+}
+
+.fig-slider__label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7d7660;
+}
+
+.fig-slider__readout {
+  min-width: 4.2rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: #57513f;
+}
+
+.fig-verdict {
+  margin: 0.85rem 0 0;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #57513f;
+}
+
+.fig-verdict--accent {
+  color: #1b365d;
+}
+
+/* Gentle in/out fades for state changes inside figures. */
+.fig-fade {
+  opacity: 1;
+  transition: opacity 200ms ease;
+}
+
+.fig-fade--out {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fig-chip,
+  .fig-slider__thumb,
+  .fig-fade {
+    transition: none;
+  }
 }
 
 .code-window {

@@ -3,7 +3,7 @@ title: "Prompt Caching in Coding Agents: The Prefix Is the Product"
 description: "Every turn, a coding agent resends the full context. The provider caches by exact prefix match. So the harness that keeps its prefix stable gets the fast, cheap turns. Here is how each harness shapes that prefix, what invalidates it, and why the economics favor one over another."
 date: "2026-09-01"
 slug: "prompt-caching-agent-harnesses"
-draft: true
+draft: false
 tags:
   - "llm-inference"
   - "prompt-caching"
@@ -25,6 +25,7 @@ import ClaudeCode from "./claude-code.png";
 import Codex from "./codex.png";
 import Pi from "./pi.png";
 import Opencode from "./opencode.png";
+import HarnessCacheSimulator from "@/components/mdx/HarnessCacheSimulator";
 import PrefixCacheStructure from "@/components/mdx/PrefixCacheStructure";
 import PrefixCacheWorkflow from "@/components/mdx/PrefixCacheWorkflow";
 import CacheCostMultiplierChart from "@/components/mdx/CacheCostMultiplierChart";
@@ -114,7 +115,10 @@ A change in the conversation layer keeps the first two layers cached. A change i
 
 Two settings are not part of the prompt text but are part of the cache key: the model and the effort level. Switch either mid-session and the identical prompt is a brand-new prefix. That is the slow turn after a model switch. Fast mode adds a request header that is also part of the key, so the first request with it on re-reads the whole conversation.
 
-<Picture src={ClaudeCode} alt="Claude Code prompt-cache turns: stable layers stay cached, a changed system prompt recomputes the tail." />
+<Picture
+  src={ClaudeCode}
+  alt="Claude Code prompt-cache turns: stable layers stay cached, a changed system prompt recomputes the tail."
+/>
 
 ### What invalidates the cache
 
@@ -170,7 +174,10 @@ For a per-session summary, run /usage after the first response. Claude Code adds
 
 Codex takes the other extreme. It does not document a prefix-ordering strategy. The caching is entirely OpenAI automatic prompt caching. The full rendered context is cached, and a cached prefix stays eligible for roughly 30 minutes after the last write or reuse. Older models hold it for 5-10 minutes up to an hour.
 
-<Picture src={Codex} alt="Codex prompt-cache turns: full context cached automatically, with a cached prefix eligible for about 30 minutes." />
+<Picture
+  src={Codex}
+  alt="Codex prompt-cache turns: full context cached automatically, with a cached prefix eligible for about 30 minutes."
+/>
 
 That means a long pause costs you the cache, not a code change. There is no harness-level layering to protect the system context, so the hit rate depends almost entirely on session shape: how much of the prefix stays byte-identical between turns and how short the gaps are.
 
@@ -180,7 +187,10 @@ Codex also relies on the provider's other constraints. OpenAI caches individual 
 
 pi handles the long-session problem with compaction. Auto-compaction triggers when the estimated context exceeds the window minus a reserve. The default reserve is 16,384 tokens, and the default keep-recent window is 20,000 tokens, both configurable in settings.
 
-<Picture src={Pi} alt="pi prompt-cache turns: compaction rebuilds the prefix as system plus summary plus kept messages." />
+<Picture
+  src={Pi}
+  alt="pi prompt-cache turns: compaction rebuilds the prefix as system plus summary plus kept messages."
+/>
 
 It walks backwards from the newest message until it reaches the keep-recent threshold, collects the older messages, and generates a structured summary. It then rebuilds the context for the next request as system plus summary plus the kept messages from the boundary onwards. The compaction call itself is a one-off prompt that is unlikely to be reused, so where the provider supports it, pi disables cache writes on that call.
 
@@ -190,7 +200,10 @@ Compaction is a deliberate tradeoff: it produces a much shorter prefix, so subse
 
 opencode v2 combines both ideas. Session warming sends periodic keep-alive model requests that preserve the provider-side prompt cache while you pause. It is disabled by default. When enabled, it sends a warming request after four minutes idle, repeats while the session stays idle, and stops 30 minutes after the last non-warming request.
 
-<Picture src={Opencode} alt="opencode v2 prompt-cache turns: idle keep-alive warming, then automatic checkpoint compaction." />
+<Picture
+  src={Opencode}
+  alt="opencode v2 prompt-cache turns: idle keep-alive warming, then automatic checkpoint compaction."
+/>
 
 The warming request is a no-op the model is told not to do work and to reply with OK. It costs a real provider request, so it has a cost and count against rate limits. Its whole job is to keep a short-lived cache entry alive across a break.
 
@@ -199,5 +212,7 @@ When the context does fill up, auto-compaction replaces an older part of the ses
 ## The harness earns the hit rate
 
 The provider executes the cache. The harness decides how stable your prefix stays, and therefore how often your requests actually hit it. Claude Code documents the invalidation list, Codex leaves it to the provider, and pi and opencode v2 rebuild a shorter prefix on compaction to keep the input bill down.
+
+<HarnessCacheSimulator />
 
 So when a turn is slow, check the cache hit rate before blaming the model. A slow turn is usually a cache miss you caused: a model switch, an edit to a rare-change layer, or a gap long enough to let the TTL expire. The fix is to keep the prefix stable, not to wait for a faster model.

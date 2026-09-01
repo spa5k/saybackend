@@ -1,116 +1,115 @@
+import { Arrow, Chip, EditorialFigure, T, fig } from './editorialFigure'
+
 type Props = {
   title?: string
   caption?: string
 }
 
-const stepBox = 'rounded-lg border border-[var(--border)] bg-[var(--card)] p-3'
-const stepTitle =
-  'mb-2 font-mono text-[11px] font-medium uppercase tracking-wide text-[var(--muted)]'
-const mono = 'font-mono text-xs'
+const W = 720
+const H = 340
+
+const COLUMNS = [
+  { x: 22, title: 'New request', mono: null },
+  { x: 200, title: 'Look up', mono: 'get_computed_blocks()' },
+  { x: 378, title: 'Allocate', mono: 'allocate_slots()' },
+  { x: 556, title: 'Result', mono: null },
+]
 
 export default function PrefixCacheWorkflow({ title, caption }: Props) {
   return (
-    <figure className="my-8">
-      {title && (
-        <figcaption className="mb-4 text-[var(--foreground)]">
-          <strong className="font-sans text-lg">{title}</strong>
-        </figcaption>
-      )}
-      <div className="space-y-4">
-        <div className={stepBox}>
-          <div className={stepTitle}>New request</div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`${mono} rounded border border-[var(--green)] bg-[var(--green-soft)] px-2 py-1 text-[var(--green)]`}
+    <EditorialFigure title={title} caption={caption}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label="How a new request reuses the prefix cache"
+        style={{ display: 'block', width: '100%', height: 'auto' }}
+      >
+        {/* Step markers and titles */}
+        {COLUMNS.map((col, i) => (
+          <g key={col.title}>
+            <rect
+              x={col.x}
+              y={56}
+              width={16}
+              height={16}
+              rx={2}
+              fill="none"
+              stroke={fig.lineStrong}
+              strokeWidth={1}
+            />
+            <T
+              x={col.x + 8}
+              y={68}
+              size={10}
+              weight={600}
+              color={fig.ink}
+              anchor="middle"
             >
-              prompt tokens
-            </span>
-            <span className="text-[var(--muted)]">→</span>
-            <span
-              className={`${mono} rounded border border-[var(--border)] px-2 py-1 text-[var(--foreground)]`}
-            >
-              hash each block
-            </span>
-          </div>
-        </div>
+              {i + 1}
+            </T>
+            <T x={col.x + 28} y={67} size={12} weight={600} color={fig.ink}>
+              {col.title}
+            </T>
+            {col.mono && (
+              <T x={col.x + 28} y={81} size={8.5} color={fig.faint} mono>
+                {col.mono}
+              </T>
+            )}
+            <line
+              x1={col.x}
+              y1={92}
+              x2={col.x + 150}
+              y2={92}
+              stroke={fig.line}
+            />
+          </g>
+        ))}
 
-        <div className={stepBox}>
-          <div className={stepTitle}>get_computed_blocks()</div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`${mono} rounded border border-[var(--green)] bg-[var(--green-soft)] px-2 py-1 text-[var(--green)]`}
-            >
-              lookup cache map
-            </span>
-            <span className="text-[var(--muted)]">→</span>
-            <span
-              className={`${mono} rounded border px-2 py-1 text-[var(--green)]`}
-              style={{ borderColor: 'var(--green)' }}
-            >
-              blk 0 · blk 1 · blk 2
-            </span>
-            <span className="text-[var(--muted)]">
-              returns computed sequence
-            </span>
-          </div>
-        </div>
+        {/* Arrows between steps */}
+        <Arrow x1={174} y1={150} x2={196} y2={150} />
+        <Arrow x1={352} y1={150} x2={374} y2={150} />
+        <Arrow x1={530} y1={150} x2={552} y2={150} />
 
-        <div className={stepBox}>
-          <div className={stepTitle}>allocate_slots()</div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <div className={`${mono} text-[var(--muted)]`}>
-                Touch computed blocks
-              </div>
-              <div className="mt-1 space-y-1">
-                {[
-                  'increment ref count',
-                  'remove from free queue if unused',
-                ].map((s) => (
-                  <div key={s} className={`${mono} flex items-center gap-2`}>
-                    <span className="h-1.5 w-1.5 rounded-full bg-[var(--green)]" />
-                    <span className="text-[var(--foreground)]">{s}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className={`${mono} text-[var(--muted)]`}>
-                Allocate new blocks
-              </div>
-              <div className="mt-1 flex flex-wrap gap-2">
-                <span
-                  className={`${mono} rounded border border-[var(--brick)] px-2 py-1 text-[var(--brick)]`}
-                >
-                  blk 3
-                </span>
-                <span
-                  className={`${mono} text-[var(--muted)]`}
-                >{`if pool has capacity`}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Step bodies */}
+        <Chip x={22} y={136} w={102} label="prompt tokens" />
+        <T x={22} y={216} size={9.5} color={fig.muted} mono>
+          hash each block
+        </T>
+        <T x={22} y={234} size={9.5} color={fig.faint}>
+          from the start, in order
+        </T>
 
-        <div className={stepBox}>
-          <div className={stepTitle}>Result</div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`${mono} rounded border border-[var(--green)] bg-[var(--green-soft)] px-2 py-1 text-[var(--green)]`}
-            >
-              reuse computed prefix
-            </span>
-            <span
-              className={`${mono} rounded border border-[var(--brick)] px-2 py-1 text-[var(--brick)]`}
-            >
-              decode new tail
-            </span>
-          </div>
-        </div>
-      </div>
-      {caption && (
-        <p className="mt-3 text-sm text-[var(--muted-foreground)]">{caption}</p>
-      )}
-    </figure>
+        <T x={200} y={124} size={9.5} color={fig.muted} mono>
+          lookup cache map
+        </T>
+        <Chip x={200} y={136} w={112} label="blk 0 · 1 · 2" state="new" />
+        <T x={200} y={216} size={9.5} color={fig.faint}>
+          shared prefix, already
+        </T>
+        <T x={200} y={234} size={9.5} color={fig.faint}>
+          computed by an earlier request
+        </T>
+
+        <T x={378} y={124} size={9.5} color={fig.muted} mono>
+          touch reused · free if unused
+        </T>
+        <Chip x={378} y={136} w={64} label="blk 3" state="new" />
+        <T x={378} y={216} size={9.5} color={fig.faint}>
+          touched blocks survive eviction
+        </T>
+        <T x={378} y={234} size={9.5} color={fig.faint}>
+          the tail allocates if there is room
+        </T>
+
+        <Chip x={556} y={136} w={104} label="reuse prefix" state="new" />
+        <Chip x={556} y={164} w={96} label="decode tail" state="computed" />
+        <T x={556} y={216} size={9.5} color={fig.faint}>
+          nothing below the boundary
+        </T>
+        <T x={556} y={234} size={9.5} color={fig.faint}>
+          is reprocessed
+        </T>
+      </svg>
+    </EditorialFigure>
   )
 }
