@@ -839,8 +839,10 @@ img {
 }
 
 /*
- * Editorial figure plates: warm parchment ground (#f5f4ed, never pure
- * white), a single ink-blue accent, hairline rules, serif labels.
+ * Editorial figure plates: lieflat structure with a custom cache-ink
+ * palette — warm paper #F7F2EB, ink-blue cache family, amber compute
+ * family, brand-brick rebuild events, warm-gray text and hairlines.
+ * No gradients, no shadows, no 3D.
  */
 .figure-plate {
   margin: 2.5rem 0;
@@ -848,38 +850,38 @@ img {
 
 .figure-plate__title {
   margin: 0 0 0.75rem;
-  font-family: var(--font-sans);
-  font-size: 1.02rem;
-  font-weight: 600;
+  font-family: 'Lexend Variable', var(--font-sans);
+  font-size: 1.06rem;
+  font-weight: 700;
   letter-spacing: -0.005em;
-  color: var(--ink);
+  color: #081f5c;
 }
 
 .figure-plate__canvas {
-  background: #f5f4ed;
-  border: 1px solid #c8c0a8;
-  border-radius: 6px;
-  padding: 1.5rem 1.75rem 1.25rem;
-  font-family: var(--font-sans);
+  background: #f7f2eb;
+  border: 1px solid #ddd6c8;
+  border-radius: 24px;
+  padding: 28px 28px 20px;
+  font-family: 'Lexend Variable', var(--font-sans);
 }
 
 .figure-plate__caption {
   margin: 0.8rem 0 0;
-  font-family: var(--font-sans);
-  font-size: 0.85rem;
+  font-family: 'Lexend Variable', var(--font-sans);
+  font-size: 0.88rem;
   line-height: 1.55;
-  color: var(--muted);
+  color: #6e655a;
 }
 
 /*
  * Selection inside a plate: the global ::selection (dark green, white
- * text) does not override SVG text fills, so the figures' fixed warm-gray
+ * text) does not override SVG text fills, so the figures' fixed ink
  * labels would sit illegibly on it. Use a light ink-blue tint instead -
- * the fixed inks stay readable on parchment, in both themes.
+ * the fixed inks stay readable on paper, in both themes.
  */
 .figure-plate ::selection {
-  background: rgba(27, 54, 93, 0.16);
-  color: #25221b;
+  background: rgba(8, 31, 92, 0.16);
+  color: #1f1b16;
 }
 
 .editorial-figure {
@@ -890,12 +892,12 @@ img {
 
 /*
  * Interactive figure controls: flat chips, a hairline-divided control row,
- * and a serif verdict line. Same editorial language as the plates.
+ * and a verdict line. Same lieflat structure, warm furniture tones.
  */
 .fig-controls {
   margin-top: 1rem;
   padding-top: 0.85rem;
-  border-top: 1px solid #d5cdb4;
+  border-top: 1px solid #e4ded2;
 }
 
 .fig-controls__row {
@@ -909,10 +911,10 @@ img {
   display: block;
   margin: 0.65rem 0 0.45rem;
   font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #7d7660;
+  color: #9c9386;
 }
 
 .fig-controls > .fig-hint:first-child {
@@ -923,13 +925,13 @@ img {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid #b0a689;
+  border: 1px solid #c0b7a4;
   border-radius: 3px;
   background: transparent;
   padding: 0.24rem 0.6rem;
-  font-family: var(--font-sans);
-  font-size: 0.7rem;
-  color: #57513f;
+  font-family: 'Lexend Variable', var(--font-sans);
+  font-size: 0.75rem;
+  color: #6e655a;
   cursor: pointer;
   transition:
     border-color 150ms ease,
@@ -938,26 +940,26 @@ img {
 }
 
 .fig-chip:hover:not(:disabled) {
-  border-color: #94896c;
-  color: #25221b;
-  background: #eae7d6;
+  border-color: #8f8675;
+  color: #1f1b16;
+  background: #f1ece1;
 }
 
 .fig-chip[aria-pressed='true'] {
-  border-color: #1b365d;
-  color: #1b365d;
-  background: rgba(27, 54, 93, 0.06);
+  border-color: #081f5c;
+  color: #081f5c;
+  background: rgba(8, 31, 92, 0.08);
 }
 
 .fig-chip:disabled {
-  border-color: #d0c8b0;
-  color: #94896c;
+  border-color: #e0d9cc;
+  color: #b8af9f;
   cursor: default;
 }
 
 .fig-chip:focus-visible,
 .fig-slider:focus-visible {
-  outline: 2px solid #1b365d;
+  outline: 2px solid #081f5c;
   outline-offset: 2px;
 }
 
@@ -1019,14 +1021,73 @@ img {
 
 .fig-verdict {
   margin: 0.85rem 0 0;
-  font-family: var(--font-sans);
-  font-size: 0.78rem;
+  font-family: 'Lexend Variable', var(--font-sans);
+  font-size: 0.82rem;
   line-height: 1.5;
-  color: #57513f;
+  color: #6e655a;
 }
 
 .fig-verdict--accent {
-  color: #1b365d;
+  color: #081f5c;
+}
+
+/*
+ * Lieflat reveal: figures animate in when scrolled into view, click to
+ * replay. pop = scale-in for dots/chips, fade = hairline and label fade,
+ * draw = path stroke-in (paths carry pathLength="1"). Reduced motion
+ * drops all three.
+ */
+.lf-reveal {
+  cursor: pointer;
+}
+
+.lf-reveal .lf-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lf-pop 0.5s cubic-bezier(0.2, 0.7, 0.3, 1.3) both;
+}
+
+.lf-reveal .lf-fade {
+  animation: lf-fade 0.9s ease both;
+}
+
+.lf-reveal .lf-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: lf-draw 1s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes lf-pop {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes lf-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes lf-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lf-reveal .lf-pop,
+  .lf-reveal .lf-fade {
+    animation: none;
+  }
+  .lf-reveal .lf-draw {
+    animation: none;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
 }
 
 /* Gentle in/out fades for state changes inside figures. */

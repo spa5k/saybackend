@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   FigChip,
   InteractiveFigure,
+  Reveal,
   T,
   fig,
   accentTint,
@@ -19,6 +20,10 @@ const BASE_Y = 246 // rail baseline
 const X0 = 84 // first slot
 const PITCH = 64
 const BAR_W = 40
+
+/** Deterministic jitter, same family as the lieflat rnd(i, k). */
+const rnd = (i: number, k: number) =>
+  Math.abs(((i * 73856093) ^ (k * 19349663)) % 1000) / 1000
 
 const HARNESS_INFO: Record<HarnessId, { label: string; intro: string }> = {
   claude: {
@@ -64,31 +69,50 @@ type SimState = {
 }
 
 function Badge({ cx, y, label }: { cx: number; y: number; label: ReqLabel }) {
+  // Solid, high-contrast pills: read = cache blue, write = compute amber,
+  // compact = the rebuild event in brand brick, hollow + dashed.
   const styles =
     label === 'read'
-      ? { fill: accentTint(0.14), stroke: fig.accent, color: fig.accent }
+      ? {
+          fill: fig.accent,
+          stroke: fig.accent,
+          color: fig.paper,
+          dash: undefined,
+        }
       : label === 'write'
-        ? { fill: fig.panel, stroke: fig.lineStrong, color: fig.muted }
-        : { fill: fig.panelDeep, stroke: fig.lineStrong, color: fig.ink }
-  const w = label === 'compact' ? 46 : 34
+        ? {
+            fill: fig.data2,
+            stroke: fig.data2,
+            color: fig.ink,
+            dash: undefined,
+          }
+        : {
+            fill: 'rgba(157,58,50,.12)',
+            stroke: fig.brick,
+            color: fig.brick,
+            dash: '3 2',
+          }
+  const w = label === 'compact' ? 50 : 36
   return (
     <g>
       <rect
         x={cx - w / 2}
         y={y}
         width={w}
-        height={13}
-        rx={6.5}
+        height={16}
+        rx={8}
         fill={styles.fill}
         stroke={styles.stroke}
-        strokeWidth={1}
+        strokeWidth={1.5}
+        strokeDasharray={styles.dash}
       />
       <text
         x={cx}
-        y={y + 7}
+        y={y + 8}
         textAnchor="middle"
         dominantBaseline="central"
-        fontSize={8}
+        fontSize={9.5}
+        fontWeight={700}
         fill={styles.color}
         style={{ fontFamily: 'var(--font-mono, monospace)' }}
       >
@@ -105,213 +129,248 @@ export function SimCanvas({ harness, cachedPrefix, reqs }: SimState) {
   const newest = reqs.length
 
   return (
-    <svg
-      viewBox="0 0 720 340"
-      role="img"
-      aria-label="Interactive simulator: send turns and harness actions to see which requests hit the prompt cache"
-      style={{ display: 'block', width: '100%', height: 'auto' }}
-    >
-      {/* Cached-prefix meter */}
-      <T x={84} y={24} size={8.5} mono color={fig.faint}>
-        cached prefix
-      </T>
-      <T x={636} y={24} size={8.5} mono color={fig.muted} anchor="end">
-        {`${cachedPrefix} / ${MAX_UNITS} · ${cachedPrefix > 0 ? 'warm' : 'cold'}`}
-      </T>
-      <rect
-        x={84}
-        y={32}
-        width={552}
-        height={14}
-        rx={2}
-        fill="none"
-        stroke={fig.lineStrong}
-        strokeWidth={1}
-      />
-      {cachedPrefix > 0 && (
-        <rect
-          x={85}
-          y={33}
-          width={550 * (cachedPrefix / MAX_UNITS)}
-          height={12}
-          rx={1}
-          fill={accentTint(0.22)}
-        />
-      )}
-      {Array.from({ length: MAX_UNITS - 1 }, (_, k) => (
-        <line
-          key={k}
-          x1={85 + (550 * (k + 1)) / MAX_UNITS}
-          y1={34}
-          x2={85 + (550 * (k + 1)) / MAX_UNITS}
-          y2={44}
-          stroke={fig.line}
-          strokeWidth={1}
-        />
-      ))}
-      {(harness === 'pi' || harness === 'opencode') && (
-        <g>
-          <line
-            x1={636}
-            y1={26}
-            x2={636}
-            y2={52}
-            stroke={fig.accent}
-            strokeWidth={1}
-            strokeDasharray="2 2"
-          />
-          <T x={636} y={64} size={7.5} mono color={fig.muted} anchor="middle">
-            {harness === 'pi' ? 'auto-compact' : 'auto-checkpoint'}
-          </T>
-        </g>
-      )}
-
-      {/* Rail gridlines + unit axis */}
-      {Array.from({ length: MAX_UNITS }, (_, k) => {
-        const y = BASE_Y - (k + 1) * U
-        return (
-          <g key={k}>
-            <line
-              x1={64}
-              y1={y}
-              x2={656}
-              y2={y}
-              stroke={fig.line}
-              strokeWidth={1}
-              strokeDasharray="1 5"
-            />
-            {(k + 1) % 2 === 0 && (
-              <T
-                x={56}
-                y={y + 3}
-                size={7.5}
-                mono
-                color={fig.faint}
-                anchor="end"
-              >
-                {k + 1}
-              </T>
-            )}
-          </g>
-        )
-      })}
-
-      {/* Request rail */}
-      <line
-        x1={64}
-        y1={BASE_Y}
-        x2={656}
-        y2={BASE_Y}
-        stroke={fig.lineStrong}
-        strokeWidth={1}
-      />
-      {shown.length === 0 && (
-        <T x={360} y={170} size={10} color={fig.faint} anchor="middle">
-          press ‘next turn’ to send the first request
+    <Reveal>
+      <svg
+        viewBox="0 0 720 340"
+        role="img"
+        aria-label="Interactive simulator: send turns and harness actions to see which requests hit the prompt cache"
+        style={{ display: 'block', width: '100%', height: 'auto' }}
+      >
+        {/* Cached-prefix meter */}
+        <T x={84} y={24} size={10.5} weight={700} color={fig.ink}>
+          cached prefix
         </T>
-      )}
-      {shown.map((req, i) => {
-        const x = X0 + i * PITCH
-        const cx = x + BAR_W / 2
-        const turn = firstIndex + i + 1
-        const top = BASE_Y - req.total * U
-        const cachedH = req.cached > 0 ? req.cached * U - 2 : 0
-        const newUnits = req.total - req.cached
-        const newH = newUnits > 0 ? newUnits * U - 2 : 0
-        const isNewest = turn === newest
-        return (
-          <g key={turn}>
-            {req.cached > 0 && (
-              <rect
-                x={x}
-                y={BASE_Y - req.cached * U}
-                width={BAR_W}
-                height={cachedH}
-                rx={2}
-                fill={accentTint(0.14)}
-                stroke={fig.accent}
-                strokeWidth={1}
-              />
-            )}
-            {newUnits > 0 && (
-              <rect
-                x={x}
-                y={BASE_Y - req.total * U}
-                width={BAR_W}
-                height={newH}
-                rx={2}
-                fill={fig.panel}
-                stroke={fig.lineStrong}
-                strokeWidth={1}
-              />
-            )}
-            <Badge cx={cx} y={top - 20} label={req.label} />
-            <T
-              x={cx}
-              y={BASE_Y + 16}
-              size={8.5}
-              weight={isNewest ? 600 : 400}
-              mono
-              color={isNewest ? fig.accent : fig.faint}
-              anchor="middle"
-            >
-              {`t${turn}`}
-            </T>
-            {isNewest && (
-              <line
-                x1={cx - 9}
-                y1={BASE_Y + 20}
-                x2={cx + 9}
-                y2={BASE_Y + 20}
-                stroke={fig.accent}
-                strokeWidth={1.5}
-              />
-            )}
-            {req.note && (
-              <T
-                x={cx}
-                y={BASE_Y + 32}
-                size={8.5}
-                color={fig.muted}
-                anchor="middle"
-              >
-                {req.note}
-              </T>
-            )}
-          </g>
-        )
-      })}
-
-      {/* Legend */}
-      <g>
+        <T
+          x={636}
+          y={24}
+          size={10}
+          weight={600}
+          mono
+          color={cachedPrefix > 0 ? fig.accent : fig.muted}
+          anchor="end"
+        >
+          {`${cachedPrefix} / ${MAX_UNITS} · ${cachedPrefix > 0 ? 'warm' : 'cold'}`}
+        </T>
         <rect
           x={84}
-          y={306}
-          width={16}
-          height={10}
+          y={32}
+          width={552}
+          height={14}
           rx={2}
-          fill={accentTint(0.14)}
-          stroke={fig.accent}
-          strokeWidth={1}
-        />
-        <T x={108} y={315} size={10} color={fig.muted}>
-          cache read — ~0.1× input
-        </T>
-        <rect
-          x={310}
-          y={306}
-          width={16}
-          height={10}
-          rx={2}
-          fill={fig.panel}
+          fill="none"
           stroke={fig.lineStrong}
           strokeWidth={1}
         />
-        <T x={334} y={315} size={10} color={fig.muted}>
-          computed / written — 1× to 1.25×
-        </T>
-      </g>
-    </svg>
+        {cachedPrefix > 0 && (
+          <rect
+            x={85}
+            y={33}
+            width={550 * (cachedPrefix / MAX_UNITS)}
+            height={12}
+            rx={1}
+            fill={accentTint(0.3)}
+          />
+        )}
+        {Array.from({ length: MAX_UNITS - 1 }, (_, k) => (
+          <line
+            key={k}
+            x1={85 + (550 * (k + 1)) / MAX_UNITS}
+            y1={34}
+            x2={85 + (550 * (k + 1)) / MAX_UNITS}
+            y2={44}
+            stroke={fig.grid}
+            strokeWidth={1}
+          />
+        ))}
+        {(harness === 'pi' || harness === 'opencode') && (
+          <g>
+            <line
+              x1={636}
+              y1={26}
+              x2={636}
+              y2={52}
+              stroke={fig.accent}
+              strokeWidth={1}
+              strokeDasharray="2 2"
+            />
+            <T x={636} y={64} size={9} mono color={fig.muted} anchor="middle">
+              {harness === 'pi' ? 'auto-compact' : 'auto-checkpoint'}
+            </T>
+          </g>
+        )}
+
+        {/* Rail gridlines + unit axis */}
+        {Array.from({ length: MAX_UNITS }, (_, k) => {
+          const y = BASE_Y - (k + 1) * U
+          return (
+            <g key={k}>
+              <line
+                x1={64}
+                y1={y}
+                x2={656}
+                y2={y}
+                stroke={fig.grid}
+                strokeWidth={1}
+                strokeDasharray="1 5"
+                className="lf-fade"
+                style={{ animationDelay: `${k * 0.02}s` }}
+              />
+              {(k + 1) % 2 === 0 && (
+                <T
+                  x={56}
+                  y={y + 3}
+                  size={9}
+                  mono
+                  color={fig.faint}
+                  anchor="end"
+                  className="lf-fade"
+                  style={{ animationDelay: `${k * 0.02}s` }}
+                >
+                  {k + 1}
+                </T>
+              )}
+            </g>
+          )
+        })}
+
+        {/* Request rail */}
+        <line
+          x1={64}
+          y1={BASE_Y}
+          x2={656}
+          y2={BASE_Y}
+          stroke={fig.lineStrong}
+          strokeWidth={1}
+        />
+        {shown.length === 0 && (
+          <T x={360} y={170} size={11} color={fig.faint} anchor="middle">
+            press ‘next turn’ to send the first request
+          </T>
+        )}
+        {shown.map((req, i) => {
+          const x = X0 + i * PITCH
+          const cx = x + BAR_W / 2
+          const turn = firstIndex + i + 1
+          const top = BASE_Y - req.total * U
+          const isNewest = turn === newest
+          return (
+            <g key={turn}>
+              {/*
+              F1 rung bar: one rung = one turn-unit, each bar countable.
+              Cached rungs sit at the base in deep hero blue; computed rungs
+              above them in light blue. A dot marks every fifth rung.
+            */}
+              {Array.from({ length: req.total }, (_, k) => {
+                const isCached = k < req.cached
+                const y = BASE_Y - k * U
+                const w = BAR_W - 4 + rnd(k + 1, turn + 2) * 3
+                return (
+                  <line
+                    key={k}
+                    x1={cx - w / 2}
+                    y1={y}
+                    x2={cx + w / 2}
+                    y2={y}
+                    stroke={isCached ? fig.accent : fig.data2}
+                    strokeWidth={2}
+                    opacity={0.9 + rnd(k + 3, turn + 5) * 0.1}
+                    className="lf-fade"
+                    style={{ animationDelay: `${i * 0.08 + k * 0.012}s` }}
+                  />
+                )
+              })}
+              {Array.from({ length: req.total }, (_, k) =>
+                k % 5 === 4 ? (
+                  <circle
+                    key={`d${k}`}
+                    cx={cx + BAR_W / 2 + 5}
+                    cy={BASE_Y - k * U}
+                    r={0.9}
+                    fill={fig.faintdata}
+                    className="lf-fade"
+                    style={{ animationDelay: `${i * 0.08 + k * 0.012}s` }}
+                  />
+                ) : null,
+              )}
+              <Badge cx={cx} y={top - 20} label={req.label} />
+              {isNewest && (
+                <T
+                  x={cx}
+                  y={top - 36}
+                  size={12}
+                  weight={800}
+                  color={fig.accent}
+                  anchor="middle"
+                  halo
+                  className="lf-fade"
+                  style={{ animationDelay: `${i * 0.08}s` }}
+                >
+                  {req.total}
+                </T>
+              )}
+              <T
+                x={cx}
+                y={BASE_Y + 16}
+                size={10}
+                weight={isNewest ? 600 : 400}
+                mono
+                color={isNewest ? fig.accent : fig.faint}
+                anchor="middle"
+              >
+                {`t${turn}`}
+              </T>
+              {isNewest && (
+                <line
+                  x1={cx - 9}
+                  y1={BASE_Y + 20}
+                  x2={cx + 9}
+                  y2={BASE_Y + 20}
+                  stroke={fig.accent}
+                  strokeWidth={1.5}
+                />
+              )}
+              {req.note && (
+                <T
+                  x={cx}
+                  y={BASE_Y + 32}
+                  size={9.5}
+                  color={fig.muted}
+                  anchor="middle"
+                >
+                  {req.note}
+                </T>
+              )}
+            </g>
+          )
+        })}
+
+        {/* Legend */}
+        <g>
+          <rect
+            x={84}
+            y={306}
+            width={16}
+            height={10}
+            rx={2}
+            fill={fig.accent}
+          />
+          <T x={108} y={315} size={11} color={fig.muted}>
+            cache read — ~0.1× input
+          </T>
+          <rect
+            x={310}
+            y={306}
+            width={16}
+            height={10}
+            rx={2}
+            fill={fig.data2}
+          />
+          <T x={334} y={315} size={11} color={fig.muted}>
+            computed / written — 1× to 1.25×
+          </T>
+        </g>
+      </svg>
+    </Reveal>
   )
 }
 

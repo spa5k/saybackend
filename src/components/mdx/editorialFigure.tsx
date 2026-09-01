@@ -1,36 +1,51 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 /**
  * Shared drawing language for editorial figures in blog posts.
  *
- * Warm parchment ground, a single ink-blue accent, warm gray everything
- * else, hairline geometric strokes, serif labels. No gradients, no
- * shadows, no 3D. Like a figure in a well-typeset report.
+ * Lieflat porcelain skin: warm paper #F7F2EB, a single-hue ink-blue ramp.
+ * 明度即数据 — the darkest blue is the hero, lighter blues recede. Hairline
+ * geometric strokes, Inter labels, JetBrains Mono IDs. No gradients, no
+ * shadows, no 3D. The card shell (title / sub / src) lives in styles.css.
  */
 
 export const fig = {
-  /** Warm parchment ground — never pure white. */
-  paper: '#f5f4ed',
-  /** Inset panel fill. */
-  panel: '#eae7d6',
-  /** Deeper warm fill, for summary / checkpoint blocks. */
-  panelDeep: '#ddd8c2',
-  /** Primary figure text, warm near-black. */
-  ink: '#25221b',
-  /** Secondary text, warm gray. */
-  muted: '#57513f',
-  /** Tertiary text, faded warm gray. */
-  faint: '#7d7660',
+  /** Warm paper ground. */
+  paper: '#F7F2EB',
+  /** Inset panel fill (neutral cream). */
+  panel: '#F1ECE1',
+  /** Deeper inset fill. */
+  panelDeep: '#E7E0D0',
+  /** Primary figure text — warm near-black. */
+  ink: '#1F1B16',
+  /** Secondary text — warm gray. */
+  muted: '#6E655A',
+  /** Tertiary text — warm light gray. */
+  faint: '#9C9386',
   /** Hairline strokes. */
-  line: '#c4bb9f',
+  line: '#D8D1C2',
   /** Stronger hairlines. */
-  lineStrong: '#94896c',
-  /** The one hue accent: ink blue. */
-  accent: '#1B365D',
+  lineStrong: '#C0B7A4',
+  /** Cache family: deep ink blue — cached reads, the hero. */
+  accent: '#081F5C',
+  /** Compute family: deep amber — chips, rules, small strokes. */
+  data: '#B45309',
+  /** Compute family: bright amber — lines, dots, write badges. */
+  data2: '#D97706',
+  /** Soft amber — savings hairlines, fifth-rung dots. */
+  faintdata: '#EFBE7D',
+  /** Grid lines. */
+  grid: '#E4DED2',
+  /** Rebuild family: brick — compaction, checkpoints. */
+  brick: '#9D3A32',
 }
 
-/** Tints of the single accent hue (same hue, different value). */
-export const accentTint = (alpha: number) => `rgba(27, 54, 93, ${alpha})`
+/** Tints of the cache blue (same hue, different value). */
+export const accentTint = (alpha: number) => `rgba(8, 31, 92, ${alpha})`
+
+/** Tints of the compute amber. */
+export const amberTint = (alpha: number) => `rgba(217, 119, 6, ${alpha})`
 
 export const labelFamily =
   "var(--font-sans, 'Lexend Variable', ui-sans-serif, system-ui, sans-serif)"
@@ -48,21 +63,28 @@ type TextProps = {
   mono?: boolean
   ls?: number
   opacity?: number
-  style?: React.CSSProperties
+  transform?: string
+  /** Paint a paper halo under the glyph so labels stay readable over lines. */
+  halo?: boolean
+  className?: string
+  style?: CSSProperties
 }
 
-/** Serif-by-default SVG label. */
+/** Lexend-by-default SVG label. */
 export function T({
   x,
   y,
   children,
-  size = 10.5,
+  size = 11,
   color = fig.ink,
   weight = 400,
   anchor = 'start',
   mono: isMono = false,
   ls = 0,
   opacity = 1,
+  transform,
+  halo = false,
+  className,
   style,
 }: TextProps) {
   return (
@@ -75,8 +97,16 @@ export function T({
       fill={color}
       opacity={opacity}
       letterSpacing={ls}
+      transform={transform}
       fontFamily={isMono ? monoFamily : labelFamily}
-      style={{ fontFamily: isMono ? monoFamily : labelFamily, ...style }}
+      className={className}
+      style={{
+        fontFamily: isMono ? monoFamily : labelFamily,
+        ...(halo
+          ? { paintOrder: 'stroke', stroke: fig.paper, strokeWidth: 3 }
+          : {}),
+        ...style,
+      }}
     >
       {children}
     </text>
@@ -91,34 +121,42 @@ type ChipProps = {
   h?: number
   state?: 'computed' | 'new' | 'evicted'
   size?: number
+  className?: string
+  style?: CSSProperties
 }
 
-/** Small flat token chip: hairline box, mono label. */
+/**
+ * Small flat token chip: hairline box, mono label. Custom semantic map:
+ * computed = cache-resident (blue), new = freshly computed (amber),
+ * evicted = expired (warm gray, hollow + dashed).
+ */
 export function Chip({
   x,
   y,
   w,
   label,
-  h = 20,
+  h = 22,
   state = 'computed',
-  size = 9.5,
+  size = 10.5,
+  className,
+  style,
 }: ChipProps) {
   const stroke =
     state === 'new'
-      ? fig.accent
+      ? fig.data
       : state === 'evicted'
-        ? fig.line
-        : fig.lineStrong
+        ? fig.lineStrong
+        : fig.accent
   const fill =
     state === 'new'
-      ? accentTint(0.07)
+      ? amberTint(0.16)
       : state === 'evicted'
         ? fig.paper
-        : fig.panel
+        : accentTint(0.08)
   const color =
-    state === 'new' ? fig.accent : state === 'evicted' ? fig.faint : fig.ink
+    state === 'new' ? fig.data : state === 'evicted' ? fig.faint : fig.accent
   return (
-    <g>
+    <g className={className} style={style}>
       <rect
         x={x}
         y={y}
@@ -153,6 +191,8 @@ type ArrowProps = {
   color?: string
   dash?: string
   head?: boolean
+  className?: string
+  style?: CSSProperties
 }
 
 /** Single-line geometric arrow with an open head. */
@@ -164,6 +204,8 @@ export function Arrow({
   color = fig.lineStrong,
   dash,
   head = true,
+  className,
+  style,
 }: ArrowProps) {
   const horizontal = Math.abs(x2 - x1) >= Math.abs(y2 - y1)
   const headLen = 4.5
@@ -171,8 +213,15 @@ export function Arrow({
   const hy = horizontal ? y2 : y2 - Math.sign(y2 - y1) * headLen
   const open = horizontal ? -1 : 1
   return (
-    <g stroke={color} strokeWidth={1} fill="none" strokeDasharray={dash}>
-      <line x1={x1} y1={y1} x2={x2} y2={y2} />
+    <g
+      stroke={color}
+      strokeWidth={1}
+      fill="none"
+      strokeDasharray={dash}
+      className={className}
+      style={style}
+    >
+      <line x1={x1} y1={y1} x2={x2} y2={y2} pathLength={1} />
       {head && (
         <path
           d={`M ${hx - (horizontal ? 0 : open * 3)} ${hy - (horizontal ? open * 3 : 0)} L ${x2} ${y2} L ${hx - (horizontal ? 0 : -open * 3)} ${hy - (horizontal ? -open * 3 : 0)}`}
@@ -182,28 +231,33 @@ export function Arrow({
   )
 }
 
-/** Small-caps serif panel label. */
+/** Small-caps Lexend panel label. */
 export function PanelLabel({
   x,
   y,
   children,
-  color = fig.ink,
+  color = fig.accent,
+  className,
+  style,
 }: {
   x: number
   y: number
   children: ReactNode
   color?: string
+  className?: string
+  style?: CSSProperties
 }) {
   return (
     <text
       x={x}
       y={y}
-      fontSize={10}
+      fontSize={11.5}
       fontWeight={600}
       fill={color}
-      letterSpacing={1.8}
+      letterSpacing={1.6}
       fontFamily={labelFamily}
-      style={{ textTransform: 'uppercase' }}
+      className={className}
+      style={{ textTransform: 'uppercase', ...style }}
     >
       {children}
     </text>
@@ -211,7 +265,52 @@ export function PanelLabel({
 }
 
 /**
- * HTML figure shell: serif title, parchment plate, serif caption.
+ * Lieflat reveal: figures animate in when scrolled into view (threshold
+ * 0.3), click the plate to replay. Reduced-motion is handled in CSS.
+ * SSR-safe: children always render; only the lf-* animation classes are
+ * gated behind data-on.
+ */
+export function Reveal({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const [on, setOn] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    if (typeof IntersectionObserver === 'undefined') {
+      setOn(true)
+      return
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setOn(true)
+          io.disconnect()
+        }
+      },
+      { threshold: 0.3 },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  return (
+    <div
+      ref={ref}
+      className="lf-reveal"
+      data-on={on}
+      onClick={() => {
+        setOn(false)
+        requestAnimationFrame(() => setOn(true))
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+/**
+ * HTML figure shell: Inter title, porcelain plate, Inter caption.
  * Used by components that receive title/caption props from MDX.
  */
 export function EditorialFigure({
@@ -251,7 +350,7 @@ export function LegendSwatch({
         alignItems: 'center',
         gap: 7,
         fontFamily: labelFamily,
-        fontSize: 11,
+        fontSize: 12,
         color: fig.muted,
       }}
     >
@@ -272,9 +371,9 @@ export function LegendSwatch({
 }
 
 /**
- * HTML figure shell for interactive figures: serif title, parchment plate,
- * an optional control row and an optional serif verdict line under the
- * drawing, plus the usual caption.
+ * HTML figure shell for interactive figures: Inter title, porcelain plate,
+ * an optional control row and an optional verdict line under the drawing,
+ * plus the usual caption.
  */
 export function InteractiveFigure({
   title,
