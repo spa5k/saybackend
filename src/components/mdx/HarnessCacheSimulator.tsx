@@ -406,18 +406,25 @@ export default function HarnessCacheSimulator() {
         contextSize >= MAX_UNITS
       ) {
         const isPi = harness === 'pi'
+        const autoCached = Math.min(cachedPrefix, contextSize)
         request(
           {
             total: contextSize,
-            cached: Math.min(cachedPrefix, contextSize),
+            cached: autoCached,
             label: 'compact',
             note: isPi ? 'auto' : 'checkpoint',
           },
           {
             contextSize: 3,
-            cachedPrefix: 2,
+            // pi skips cache writes on compaction calls: when the cache was
+            // cold, nothing is carried over; when warm, system + project keep
+            // their entry. opencode's checkpoint request re-writes the system
+            // prompt, so the next request still hits it.
+            cachedPrefix: isPi ? (autoCached > 0 ? 2 : 0) : 3,
             verdict: isPi
-              ? 'The estimate crossed window − 16,384 — pi auto-compacted: the summary replaces older messages (the compaction call skips cache writes), while the system prompt and project context still hit. The conversation cache restarts.'
+              ? autoCached > 0
+                ? 'The estimate crossed window − 16,384 — pi auto-compacted: the summary replaces older messages (the compaction call skips cache writes), while the system prompt and project context still hit. The conversation cache restarts.'
+                : 'The estimate crossed window − 16,384 — pi auto-compacted, but the cache was already cold and pi skips cache writes on compaction calls, so the rebuilt prefix starts uncached.'
               : 'The context filled — opencode compacted into a checkpoint; later requests rebuild from checkpoint plus tail, and the cache restarts there.',
           },
         )
@@ -429,11 +436,13 @@ export default function HarnessCacheSimulator() {
         { total, cached, label: cached > 0 ? 'read' : 'write' },
         {
           contextSize: total,
-          cachedPrefix: capped(cached + 1),
+          cachedPrefix: total,
           verdict:
             cached > 0
               ? `Cache hit — ${cached} of ${total} turn-units served at ~0.1× of the input rate; only the new tail is computed.`
-              : `Cache miss — the full request (${total} units) is computed and written at 1.25×.`,
+              : harness === 'codex' && total <= 4
+                ? `Cache miss — the full request (${total} units) is computed and written at 1.25×. OpenAI only caches prefixes of at least 1,024 tokens, so the first turns may not cache at all.`
+                : `Cache miss — the full request (${total} units) is computed and written at 1.25×.`,
         },
       )
       return
@@ -470,7 +479,11 @@ export default function HarnessCacheSimulator() {
           label: 'write',
           note: verdicts[actionId][0],
         },
-        { contextSize, cachedPrefix: 1, verdict: verdicts[actionId][1] },
+        {
+          contextSize,
+          cachedPrefix: contextSize,
+          verdict: verdicts[actionId][1],
+        },
       )
       return
     }
@@ -487,35 +500,72 @@ export default function HarnessCacheSimulator() {
         },
         {
           contextSize: total,
-          cachedPrefix: capped(cached + 1),
+          cachedPrefix: total,
           verdict:
-            'No invalidation — the edit is not part of the prompt until the next clear, compact, or restart. The prefix stays cached.',
+            cached > 0
+              ? 'No invalidation — the edit is not part of the prompt until the next clear, compact, or restart. The prefix stays cached.'
+              : 'No invalidation — but the cache was already cold, so this request still computes in full. The edit itself applies at the next clear, compact, or restart.',
         },
       )
       return
     }
 
-    if (actionId === 'compact') {
+    if (actionId === 'skill') {
+      const total = capped(contextSize + 1)
+      const cached = Math.min(cachedPrefix, contextSize)
+      request(
+        { total, cached, label: cached > 0 ? 'read' : 'write', note: 'skill' },
+        {
+          contextSize: total,
+          cachedPrefix: total,
+          verdict:
+            cached > 0
+              ? 'Skills inject their instructions as user messages at the point of invocation — nothing earlier in the conversation changes, so the cached prefix stays intact. Only the skill text itself is computed.'
+              : 'Skills do not invalidate — nothing earlier in the conversation changes. But the cache was already cold, so this request still computes in full.',
+        },
+      )
+      return
+    }
+
+    if (actionId === 'compact' || actionId === 'compactnow') {
+      const cached = Math.min(cachedPrefix, contextSize)
       if (harness === 'pi') {
         request(
           {
             total: contextSize,
-            cached: Math.min(cachedPrefix, contextSize),
+            cached,
             label: 'compact',
             note: 'compact',
           },
           {
             contextSize: 3,
-            cachedPrefix: 2,
+            cachedPrefix: cached > 0 ? 2 : 0,
             verdict:
-              'pi rebuilds the request as system + summary + kept messages. The compaction call reads the warm prefix but skips cache writes — only the system prompt and project context keep their cached entry; the conversation cache restarts.',
+              cached > 0
+                ? 'pi rebuilds the request as system + summary + kept messages. The compaction call reads the warm prefix but skips cache writes — only the system prompt and project context keep their cached entry; the conversation cache restarts.'
+                : 'pi rebuilds the request as system + summary + kept messages. The cache was already cold, and pi skips cache writes on compaction calls — the rebuilt prefix starts uncached.',
+          },
+        )
+      } else if (harness === 'opencode') {
+        request(
+          {
+            total: contextSize,
+            cached,
+            label: 'compact',
+            note: 'compact',
+          },
+          {
+            contextSize: 3,
+            cachedPrefix: 3,
+            verdict:
+              'Manual compaction replaces the context with a checkpoint — a structured summary plus a serialized tail of recent context. Unlike pi, opencode lets it write cache normally; later requests rebuild from the latest checkpoint, and the cache restarts there.',
           },
         )
       } else {
         request(
           {
             total: contextSize,
-            cached: Math.min(cachedPrefix, contextSize),
+            cached,
             label: 'compact',
             note: 'compact',
           },
@@ -523,7 +573,9 @@ export default function HarnessCacheSimulator() {
             contextSize: 3,
             cachedPrefix: 2,
             verdict:
-              'The summarization request reuses the warm cache; the summary then replaces the history — system and project context keep their cached prefix.',
+              cached > 0
+                ? 'The summarization request reuses the warm cache; the summary then replaces the history — system and project context keep their cached prefix.'
+                : 'The cache was cold, so the summarization request itself computes in full — but it re-writes the prefix, and system and project context are cached again for the next request.',
           },
         )
       }
@@ -534,12 +586,19 @@ export default function HarnessCacheSimulator() {
       const size = Math.max(2, contextSize - 2)
       const cached = Math.min(cachedPrefix, size - 1)
       request(
-        { total: size, cached, label: 'read', note: 'rewind' },
+        {
+          total: size,
+          cached,
+          label: cached > 0 ? 'read' : 'write',
+          note: 'rewind',
+        },
         {
           contextSize: size,
-          cachedPrefix: cached,
+          cachedPrefix: size,
           verdict:
-            'Rewinding truncates to a prefix that is already cached — it reads the older entry instead of recomputing.',
+            cached > 0
+              ? 'Rewinding truncates to a prefix that is already cached — it reads the older entry instead of recomputing.'
+              : 'Rewinding truncates the conversation, but the earlier entry has expired — the truncated request still computes in full.',
         },
       )
       return
@@ -556,11 +615,13 @@ export default function HarnessCacheSimulator() {
         },
         {
           contextSize: total,
-          cachedPrefix: 1,
+          cachedPrefix: total,
           verdict:
-            harness === 'claude'
-              ? 'Idle past the TTL (1 h on a subscription, 5 min otherwise) — the cached prefix expired and the full input is recomputed.'
-              : 'A cached prefix stays eligible for roughly 30 minutes — idle past that, the full context is recomputed.',
+            cachedPrefix === 0
+              ? 'The cache was already cold — the pause changes nothing; the full request is recomputed.'
+              : harness === 'claude'
+                ? 'Idle past the TTL (1 h on a subscription, 5 min otherwise) — the cached prefix expired and the full input is recomputed.'
+                : 'A cached prefix stays eligible for roughly 30 minutes after the last write or reuse — idle past that, the full context is recomputed.',
         },
       )
       return
@@ -579,9 +640,11 @@ export default function HarnessCacheSimulator() {
           },
           {
             contextSize: total,
-            cachedPrefix: capped(cached + 1),
+            cachedPrefix: total,
             verdict:
-              'Keep-alive requests every four idle minutes hold the provider cache across the pause — the next turn reads it back.',
+              cached > 0
+                ? 'Keep-alive requests every four idle minutes (tools disabled, reply discarded) reuse the cached prefix and hold it across the pause — the next turn reads it back.'
+                : 'Warming preserves an existing entry but cannot create one — the cache was already cold, so this request computes and writes in full.',
           },
         )
       } else {
@@ -610,9 +673,11 @@ export default function HarnessCacheSimulator() {
         },
         {
           contextSize: total,
-          cachedPrefix: capped(cached + 1),
+          cachedPrefix: total,
           verdict:
-            'Ten minutes sits well inside the ≈30-minute window — the cache is still warm and the next turn reads it back.',
+            cached > 0
+              ? 'Ten minutes sits well inside the ≈30-minute window — the cache is still warm and the next turn reads it back.'
+              : 'The cache was already cold — a short pause only matters when there is an entry to keep. This request computes in full.',
         },
       )
       return
@@ -644,7 +709,7 @@ export default function HarnessCacheSimulator() {
         { total, cached: 0, label: 'write', note: 'burst >15/m' },
         {
           contextSize: total,
-          cachedPrefix: 1,
+          cachedPrefix: total,
           verdict:
             'Above ~15 requests per minute, traffic can overflow to a machine that lacks the entry — the prompt cache key steers routing but does not guarantee a hit.',
         },
@@ -706,9 +771,12 @@ export default function HarnessCacheSimulator() {
               <FigChip onClick={() => act('pause10')}>pause 10 min</FigChip>
             )}
             {harness === 'opencode' && (
-              <FigChip active={warming} onClick={() => setWarming(!warming)}>
-                warming
-              </FigChip>
+              <>
+                <FigChip active={warming} onClick={() => setWarming(!warming)}>
+                  warming
+                </FigChip>
+                <FigChip onClick={() => act('compactnow')}>compact now</FigChip>
+              </>
             )}
             <FigChip onClick={reset}>reset</FigChip>
           </div>
@@ -723,6 +791,7 @@ export default function HarnessCacheSimulator() {
                 <FigChip onClick={() => act('model')}>switch model</FigChip>
                 <FigChip onClick={() => act('effort')}>change effort</FigChip>
                 <FigChip onClick={() => act('fast')}>fast mode</FigChip>
+                <FigChip onClick={() => act('skill')}>load skill</FigChip>
                 <FigChip onClick={() => act('tool')}>deny a tool</FigChip>
                 <FigChip onClick={() => act('md')}>edit CLAUDE.md</FigChip>
                 <FigChip onClick={() => act('newsess')}>clear session</FigChip>
