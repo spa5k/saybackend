@@ -824,7 +824,11 @@ img {
   text-underline-offset: 3px;
 }
 
-.post-body :where(img, svg):not(.not-typography *, .ts-chart) {
+/* Args must stay single-class (or class + universal): a class + element arg
+   (e.g. `.figure-plate svg`) raises this rule's specificity to (0,2,1) and it
+   then beats the (0,2,0) icon overrides below, blowing up toolbar icons. */
+.post-body
+  :where(img, svg):not(.not-typography *, .ts-chart, .code-window-control) {
   width: 100%;
   height: auto;
   border: 1px solid var(--rule);
@@ -858,7 +862,7 @@ img {
   gap: 7px;
 }
 
-.post-body .code-window-control {
+.post-body .code-window-controls .code-window-control {
   width: 12px;
   height: 12px;
   border: 0;
