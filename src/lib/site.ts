@@ -10,22 +10,22 @@ export const PAGE_META = {
   home: {
     title: 'SayBackend - Backend Engineering & DevOps Blog',
     description:
-      'In-depth technical articles on backend development, DevOps, PostgreSQL, Kubernetes, and system architecture. Explore engineering tutorials, performance benchmarks, and production best practices.',
+      'In-depth articles on backend development, DevOps, PostgreSQL, Kubernetes, and system architecture from a senior engineer.',
   },
   blog: {
     title: 'Backend Engineering Blog - SayBackend',
     description:
-      'In-depth technical articles on backend development, DevOps, PostgreSQL, Kubernetes, Docker, and system architecture. Explore 50+ engineering tutorials and best practices from a senior software engineer.',
+      'Technical articles on backend development, DevOps, PostgreSQL, Docker, and system architecture from a senior engineer.',
   },
   projects: {
     title: 'DevOps Projects & Portfolio - SayBackend',
     description:
-      'Open-source projects and production deployments showcasing Go, Node.js, AWS, Kubernetes, PostgreSQL, and Docker implementations. View code repositories and live demos.',
+      'Open-source projects and production deployments in Go, Node.js, AWS, Kubernetes, PostgreSQL, and Docker.',
   },
   about: {
     title: 'About Kamran Tahir - Senior Backend Engineer',
     description:
-      'Meet Kamran Tahir, a Senior Software Engineer specializing in backend systems, AWS serverless architecture, PostgreSQL, and DevOps. 6+ years building scalable infrastructure and microservices.',
+      'Senior Software Engineer for backend systems, AWS serverless architecture, PostgreSQL, and DevOps. 6+ years in production.',
   },
   hiring: {
     title: 'Hire Kamran Tahir - Senior Software Engineer',
@@ -70,9 +70,14 @@ export function seo({
   const canonicalPath = path === '/' || path.endsWith('/') ? path : `${path}/`
   const canonical = new URL(canonicalPath, SITE.origin).href
   const socialImage = new URL(image, SITE.origin).href
+  const suffix = ` | ${SITE.title}`
+  // Keep titles within the ~60-character display limit: only add the brand
+  // suffix when it fits, and never add it to titles that already carry it.
   const documentTitle = title.toLowerCase().includes(SITE.title.toLowerCase())
     ? title
-    : `${title} | ${SITE.title}`
+    : title.length + suffix.length <= 60
+      ? `${title}${suffix}`
+      : title
   const robots = noindex
     ? 'noindex,follow'
     : 'index,follow,max-image-preview:large'
