@@ -142,7 +142,7 @@ function PostPage() {
           <a
             href="https://kamran.sh/"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener"
             title="Portfolio"
           >
             By Kamran Tahir
