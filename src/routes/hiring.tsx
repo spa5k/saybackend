@@ -105,11 +105,11 @@ function Hiring() {
             <a
               href="https://cal.com/kamrantahir"
               target="_blank"
-              rel="noreferrer"
+              rel="noopener"
             >
               Book intro call
             </a>
-            <a href="https://kamran.sh/" target="_blank" rel="noreferrer">
+            <a href="https://kamran.sh/" target="_blank" rel="noopener">
               View resume
             </a>
             <Link to="/projects">Projects</Link>
