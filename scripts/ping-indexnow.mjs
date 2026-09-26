@@ -54,7 +54,9 @@ for (const endpoint of endpoints) {
     body = await response.text().catch(() => '')
     console.log(`${endpoint} responded ${status}`)
   } catch (error) {
-    console.log(`${endpoint} unreachable: ${error.cause?.code ?? error.message}`)
+    console.log(
+      `${endpoint} unreachable: ${error.cause?.code ?? error.message}`,
+    )
     continue
   }
   // 200 = OK, 202 = accepted (key check pending).
