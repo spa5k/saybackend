@@ -12,7 +12,6 @@ import {
   formatDate,
   getPost,
   getRelatedPosts,
-  isNavigableTag,
   legacyPostRedirects,
   posts,
 } from '@/lib/content'
@@ -161,15 +160,9 @@ function PostPage() {
           </a>
         </div>
         <div className="post-tags">
-          {(post.tags ?? []).slice(0, 6).map((tag) =>
-            isNavigableTag(tag) ? (
-              <Link key={tag} to="/tags/$tag" params={{ tag }}>
-                {tag}
-              </Link>
-            ) : (
-              <span key={tag}>{tag}</span>
-            ),
-          )}
+          {(post.tags ?? []).slice(0, 6).map((tag) => (
+            <span key={tag}>{tag}</span>
+          ))}
         </div>
       </header>
       {post.wip ? (

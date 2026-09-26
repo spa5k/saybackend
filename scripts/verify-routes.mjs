@@ -50,9 +50,7 @@ const sitemapPaths = Array.from(
   ),
   (match) => match[1],
 )
-const pagePaths = [
-  ...new Set([...sitemapPaths, '/tags/', '/hiring/', '/pagefind']),
-]
+const pagePaths = [...new Set([...sitemapPaths, '/hiring/', '/pagefind'])]
 const markdownPaths = sitemapPaths
   .filter(
     (path) =>
@@ -143,11 +141,40 @@ if (missingMarkdownResponse.status !== 404) {
   })
 }
 
-const singleUseTagResponse = await fetch(`${baseUrl}/tags/backend`)
-if (singleUseTagResponse.status !== 404) {
+const tagsIndexResponse = await fetch(`${baseUrl}/tags/`, {
+  redirect: 'manual',
+})
+if (
+  tagsIndexResponse.status !== 301 ||
+  tagsIndexResponse.headers.get('location') !== `${productionOrigin}/blog/`
+) {
+  failures.push({
+    path: '/tags/',
+    status: tagsIndexResponse.status,
+    actualLocation: tagsIndexResponse.headers.get('location'),
+  })
+}
+
+const retiredTagResponse = await fetch(`${baseUrl}/tags/backend`)
+if (retiredTagResponse.status !== 410) {
   failures.push({
     path: '/tags/backend',
-    status: singleUseTagResponse.status,
+    status: retiredTagResponse.status,
+  })
+}
+
+const mappedTagResponse = await fetch(`${baseUrl}/tags/kafka`, {
+  redirect: 'manual',
+})
+if (
+  mappedTagResponse.status !== 301 ||
+  mappedTagResponse.headers.get('location') !==
+    `${productionOrigin}/topics/kafka-streaming/`
+) {
+  failures.push({
+    path: '/tags/kafka',
+    status: mappedTagResponse.status,
+    actualLocation: mappedTagResponse.headers.get('location'),
   })
 }
 
