@@ -26,20 +26,42 @@ if (urls.length === 0) {
 
 console.log(`submitting ${urls.length} URLs to IndexNow for ${SITE_URL}`)
 
-const response = await fetch('https://api.indexnow.org/indexnow', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json; charset=utf-8' },
-  body: JSON.stringify({
-    host: new URL(SITE_URL).host,
-    key: KEY,
-    keyLocation: KEY_LOCATION,
-    urlList: urls,
-  }),
+const payload = JSON.stringify({
+  host: new URL(SITE_URL).host,
+  key: KEY,
+  keyLocation: KEY_LOCATION,
+  urlList: urls,
 })
 
-// 200 = OK, 202 = accepted (key check pending). Anything else is an error.
-console.log(`IndexNow responded ${response.status}`)
-if (response.status !== 200 && response.status !== 202) {
-  console.error(await response.text().catch(() => ''))
-  process.exit(1)
+// api.indexnow.org is the canonical endpoint; some networks cannot resolve
+// it, and any partner endpoint (Bing) propagates submissions to all IndexNow
+// search engines, so fall back to it.
+const endpoints = [
+  'https://api.indexnow.org/indexnow',
+  'https://www.bing.com/indexnow',
+]
+
+let status = 0
+let body = ''
+for (const endpoint of endpoints) {
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: payload,
+    })
+    status = response.status
+    body = await response.text().catch(() => '')
+    console.log(`${endpoint} responded ${status}`)
+  } catch (error) {
+    console.log(`${endpoint} unreachable: ${error.cause?.code ?? error.message}`)
+    continue
+  }
+  // 200 = OK, 202 = accepted (key check pending).
+  if (status === 200 || status === 202) {
+    process.exit(0)
+  }
 }
+
+console.error(body)
+process.exit(1)
