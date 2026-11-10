@@ -32,6 +32,12 @@ export const Route = createFileRoute('/guides/')({
 })
 
 function GuidesIndex() {
+  // Guides are sorted newest first, so years come out in descending order.
+  const byYear = new Map<string, typeof guides>()
+  for (const guide of guides) {
+    const year = guide.created_at.slice(0, 4)
+    byYear.set(year, [...(byYear.get(year) ?? []), guide])
+  }
   return (
     <section className="page-frame archive-page">
       <header className="page-heading">
@@ -39,10 +45,12 @@ function GuidesIndex() {
         <h1>Guides</h1>
         <p>{META.description}</p>
       </header>
-      {guides.length ? (
-        <section className="archive-year">
+      {guides.length ? null : <p>No guides published yet.</p>}
+      {[...byYear].map(([year, yearGuides]) => (
+        <section className="archive-year" key={year}>
+          <h2>{year}</h2>
           <div>
-            {guides.map((guide) => (
+            {yearGuides.map((guide) => (
               <article className="archive-row" key={guide.slug}>
                 <time dateTime={guide.created_at}>
                   {formatDate(guide.created_at)}
@@ -64,9 +72,7 @@ function GuidesIndex() {
             ))}
           </div>
         </section>
-      ) : (
-        <p>No guides published yet.</p>
-      )}
+      ))}
     </section>
   )
 }
