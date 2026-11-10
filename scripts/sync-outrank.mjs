@@ -3,6 +3,13 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { BlogClient } from 'outrank-next-js-blog'
 
+// Local runs read .env; CI sets the variable directly.
+try {
+  process.loadEnvFile('.env')
+} catch {
+  // no .env file
+}
+
 const output = new URL('../src/data/outrank/articles.json', import.meta.url)
 const apiKey = (
   process.env.OUTRANK_API_KEY ?? process.env.OUTRANK_BLOG_API_KEY
