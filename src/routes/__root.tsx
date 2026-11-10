@@ -3,8 +3,8 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { NotFoundPage } from '@/components/NotFoundPage'
 import { SiteShell } from '@/components/SiteShell'
 import { NOT_FOUND_META, PAGE_META, SITE } from '@/lib/site'
-import frauncesFont from '@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2?url'
-import dmMonoFont from '@fontsource/dm-mono/files/dm-mono-latin-400-normal.woff2?url'
+import lexendFont from '@fontsource-variable/lexend/files/lexend-latin-wght-normal.woff2?url'
+import monoFont from '@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2?url'
 import appCss from '../styles.css?url'
 
 export const Route = createRootRoute({
@@ -20,14 +20,14 @@ export const Route = createRootRoute({
     links: [
       {
         rel: 'preload',
-        href: frauncesFont,
+        href: lexendFont,
         as: 'font',
         type: 'font/woff2',
         crossOrigin: 'anonymous',
       },
       {
         rel: 'preload',
-        href: dmMonoFont,
+        href: monoFont,
         as: 'font',
         type: 'font/woff2',
         crossOrigin: 'anonymous',

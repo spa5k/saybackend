@@ -80,7 +80,7 @@ const readingTimes: Record<string, number> = {
   '08-kubernetes-cluster-journey': 21,
   '09-nextjs-self-hosted-production': 20,
   '10-recreating-planetscale-pg-strict-in-rust': 13,
-  '2023-dec-zustand-url-state-sharing': 3,
+  '2023-dec-zustand-url-state-sharing': 2,
   '2024-aug-nextjs-electron-server-components': 7,
   '2024-jun-golang-dockerfile-optimized': 6,
   '2024-jun-saybackend-changelog': 1,
@@ -89,7 +89,9 @@ const readingTimes: Record<string, number> = {
   '2025-jan-kafka-docker-kraft-mode': 4,
   '2026-feb-happycontext-wide-logging': 4,
   '2026-feb-happymode-macos-appearance-scheduler': 5,
-  '2026-aug-happycontext-performance': 8,
+  '2026-aug-happycontext-performance': 11,
+  '2026-aug-lint-ai-generated-code': 20,
+  '2026-aug-prompt-caching-agent-harnesses': 17,
   '2026-jan-saybackend-changelog': 1,
   '2026-jun-conductor-claude-code-cliproxyapi': 6,
   '2026-may-cliproxyapi-factory-byok': 5,
@@ -150,22 +152,6 @@ export function getPost(slug: string) {
 
 export function getProject(slug: string) {
   return projects.find((project) => project.slug === slug)
-}
-
-const tagCounts = new Map<string, number>()
-const MIN_NAVIGABLE_TAG_COUNT = 2
-posts.forEach((post) =>
-  post.tags?.forEach((tag) =>
-    tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1),
-  ),
-)
-
-export const navigableTags = [...tagCounts.entries()]
-  .filter(([, count]) => count >= MIN_NAVIGABLE_TAG_COUNT)
-  .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-
-export function isNavigableTag(tag: string) {
-  return (tagCounts.get(tag) ?? 0) >= MIN_NAVIGABLE_TAG_COUNT
 }
 
 export function getRelatedPosts(post: Post, limit = 3) {

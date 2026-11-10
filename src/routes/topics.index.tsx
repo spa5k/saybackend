@@ -7,7 +7,8 @@ export const Route = createFileRoute('/topics/')({
   head: () =>
     seo({
       title: 'Topics',
-      description: 'Content clusters and learning paths.',
+      description:
+        'Curated content clusters and learning paths for backend, DevOps, and infrastructure topics.',
       path: '/topics',
       schema: {
         '@context': 'https://schema.org',

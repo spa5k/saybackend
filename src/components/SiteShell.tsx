@@ -144,6 +144,8 @@ function SiteFooter() {
           <a href="/rss.xml">RSS</a>
           <a href="/llms.txt">LLMs</a>
           <a href="/sitemap-index.xml">Sitemap</a>
+          <a href="https://happyformatter.com">Tools</a>
+          <a href="https://kamran.sh">Portfolio</a>
           <a href="mailto:hello@kamran.sh">Email</a>
         </div>
       </div>

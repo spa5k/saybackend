@@ -1,0 +1,18 @@
+name: IndexNow ping
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Cloudflare git builds finish in ~5 minutes; wait so the ping hits the
+      # freshly deployed sitemap and key file.
+      - name: Wait for deploy
+        run: sleep 360
+      - name: Ping IndexNow
+        run: node scripts/ping-indexnow.mjs

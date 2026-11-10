@@ -26,7 +26,7 @@
 .interactive-diagram__header h3 {
   margin: 0.3rem 0 0;
   color: var(--ink);
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: clamp(1.25rem, 3vw, 1.7rem);
   font-weight: 650;
   letter-spacing: -0.015em;
@@ -250,7 +250,7 @@
   min-width: 0;
   flex-direction: column;
   gap: 0.25rem;
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 0.98rem;
   font-weight: 650;
   line-height: 1.25;
@@ -297,7 +297,7 @@
 .interactive-diagram__focus strong {
   display: block;
   margin-top: 0.45rem;
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 1.15rem;
   line-height: 1.25;
 }

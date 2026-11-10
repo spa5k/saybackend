@@ -90,13 +90,13 @@ function About() {
           </p>
           <div className="profile-actions">
             <a href={`mailto:${SITE.email}`}>Email</a>
-            <a href="https://kamran.sh/" target="_blank" rel="noreferrer">
+            <a href="https://kamran.sh/" target="_blank" rel="noopener">
               Resume
             </a>
             <a
               href="https://linkedin.com/in/kamrantahir2"
               target="_blank"
-              rel="noreferrer"
+              rel="noopener"
             >
               LinkedIn
             </a>

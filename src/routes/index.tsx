@@ -64,16 +64,6 @@ function Home() {
     <>
       <section className="page-frame journal-home">
         <aside className="journal-rail">
-          <img
-            src="/images/editorial-still-life-320.webp"
-            alt=""
-            className="rail-illustration"
-            aria-hidden="true"
-            width={320}
-            height={213}
-            loading="lazy"
-            decoding="async"
-          />
           <p className="rail-intro">
             Notes on systems, patterns, and the daily work of building reliable
             software.
@@ -106,18 +96,25 @@ function Home() {
 
         <div className="journal-content">
           <article className="featured-story">
-            <div className="featured-copy">
-              <p className="eyebrow">Latest essay</p>
-              <h1>
-                <Link
-                  to="/blog/$slug"
-                  params={{ slug: featured.slug }}
-                  reloadDocument
-                >
-                  {featured.title}
-                </Link>
-              </h1>
-              <p className="featured-summary">{featured.description}</p>
+            <p className="eyebrow">Latest essay</p>
+            <h1>
+              <Link
+                to="/blog/$slug"
+                params={{ slug: featured.slug }}
+                reloadDocument
+              >
+                {featured.title}
+              </Link>
+            </h1>
+            <p className="featured-summary">{featured.description}</p>
+            <div className="featured-meta">
+              <span className="featured-meta-line">
+                <time dateTime={featured.date}>
+                  {formatDate(featured.date)}
+                </time>
+                <span aria-hidden="true">·</span>
+                <span>{featured.readingMinutes} min read</span>
+              </span>
               <Link
                 to="/blog/$slug"
                 params={{ slug: featured.slug }}
@@ -127,26 +124,11 @@ function Home() {
                 Read the essay →
               </Link>
             </div>
-            <img
-              src="/images/editorial-still-life-640.webp"
-              srcSet="/images/editorial-still-life-320.webp 320w, /images/editorial-still-life-640.webp 640w"
-              sizes="(max-width: 1050px) 0px, 320px"
-              alt="Etched illustration of technical books, coffee, and an open notebook"
-              className="featured-illustration"
-              width={640}
-              height={427}
-              decoding="async"
-              fetchPriority="high"
-            />
           </article>
 
           <div className="post-ledger">
             {recent.slice(0, 4).map((post) => (
               <article className="ledger-row" key={post.slug}>
-                <div className="ledger-meta">
-                  <time dateTime={post.date}>{formatDate(post.date)}</time>
-                  <span>{post.readingMinutes} min read</span>
-                </div>
                 <h2>
                   <Link
                     to="/blog/$slug"
@@ -156,9 +138,16 @@ function Home() {
                     {post.title}
                   </Link>
                 </h2>
-                <span className="ledger-topic">
-                  {post.tags?.[0] ?? 'Notes'}
-                </span>
+                <div className="ledger-meta">
+                  <span className="ledger-topic">
+                    {post.tags?.[0] ?? 'Notes'}
+                  </span>
+                  <span className="ledger-meta-line">
+                    <time dateTime={post.date}>{formatDate(post.date)}</time>
+                    <span aria-hidden="true">·</span>
+                    <span>{post.readingMinutes} min read</span>
+                  </span>
+                </div>
               </article>
             ))}
           </div>
