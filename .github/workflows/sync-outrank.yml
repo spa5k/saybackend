@@ -1,0 +1,23 @@
+name: Sync Outrank guides
+
+# Cloudflare Workers Builds deploys the site and pulls Outrank articles at build
+# time. This job asks Cloudflare for a fresh build daily so new articles go live.
+on:
+  schedule:
+    - cron: '0 6 * * *' # daily, 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger Cloudflare build
+        env:
+          DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$DEPLOY_HOOK" ]; then
+            echo "::error::Set the CLOUDFLARE_DEPLOY_HOOK secret to the Workers Builds deploy hook URL."
+            exit 1
+          fi
+          curl --fail --silent --show-error -X POST "$DEPLOY_HOOK"
