@@ -7,17 +7,18 @@
     "#/*": "./src/*"
   },
   "scripts": {
-    "dev": "vite dev --port 3000",
+    "dev": "node --env-file-if-exists=.env scripts/sync-outrank.mjs && vite dev --port 3000",
     "start": "vite dev --port 3000",
     "generate-routes": "tsr generate",
-    "build": "node scripts/prepare-static-build.mjs && vite build && pagefind --site dist/client && node scripts/finalize-static-build.mjs",
+    "build": "node scripts/prepare-static-build.mjs && node --env-file-if-exists=.env scripts/sync-outrank.mjs --required && vite build && pagefind --site dist/client && node scripts/finalize-static-build.mjs",
     "preview": "vite preview",
     "verify:routes": "node scripts/verify-routes.mjs",
     "lint": "eslint",
     "format": "prettier --write . && eslint --fix",
     "check": "prettier --check . && eslint",
     "deploy": "npm run build && wrangler deploy && wrangler deploy --config wrangler.www-redirect.jsonc",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "sync:outrank": "node --env-file-if-exists=.env scripts/sync-outrank.mjs"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",
@@ -36,6 +37,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.35.0",
+    "outrank-next-js-blog": "^0.1.2",
     "react": "^19.2.8",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.2.8",

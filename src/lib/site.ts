@@ -52,6 +52,8 @@ type SeoInput = {
   modifiedTime?: string
   tags?: Array<string>
   schema?: unknown
+  /** Set to null for articles not written by Kamran (e.g. Outrank guides). */
+  author?: string | null
 }
 
 export function seo({
@@ -66,6 +68,7 @@ export function seo({
   modifiedTime,
   tags = [],
   schema,
+  author = 'Kamran Tahir',
 }: SeoInput) {
   const canonicalPath = path === '/' || path.endsWith('/') ? path : `${path}/`
   const canonical = new URL(canonicalPath, SITE.origin).href
@@ -99,7 +102,7 @@ export function seo({
       { property: 'og:site_name', content: SITE.title },
       ...(type === 'article'
         ? [
-            { name: 'author', content: 'Kamran Tahir' },
+            ...(author ? [{ name: 'author', content: author }] : []),
             ...(publishedDateTime
               ? [
                   {
@@ -116,10 +119,14 @@ export function seo({
                   },
                 ]
               : []),
-            {
-              property: 'article:author',
-              content: `${SITE.origin}/about/`,
-            },
+            ...(author
+              ? [
+                  {
+                    property: 'article:author',
+                    content: `${SITE.origin}/about/`,
+                  },
+                ]
+              : []),
             ...tags.map((tag) => ({
               property: 'article:tag',
               content: tag,

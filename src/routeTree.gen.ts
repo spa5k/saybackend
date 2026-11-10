@@ -21,6 +21,8 @@ import { Route as SitemapIndexDotxmlRouteImport } from './routes/sitemap-index[.
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as BlogChar123slugChar125DotmdRouteImport } from './routes/blog.{$slug}[.]md'
+import { Route as GuidesIndexRouteImport } from './routes/guides.index'
+import { Route as GuidesSlugRouteImport } from './routes/guides.$slug'
 import { Route as InternalComponentsRouteImport } from './routes/internal.components'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsSlugRouteImport } from './routes/projects.$slug'
@@ -91,6 +93,16 @@ const BlogChar123slugChar125DotmdRoute =
     path: '/blog/{$slug}.md',
     getParentRoute: () => rootRouteImport,
   } as any)
+const GuidesIndexRoute = GuidesIndexRouteImport.update({
+  id: '/guides/',
+  path: '/guides/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GuidesSlugRoute = GuidesSlugRouteImport.update({
+  id: '/guides/$slug',
+  path: '/guides/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InternalComponentsRoute = InternalComponentsRouteImport.update({
   id: '/internal/components',
   path: '/internal/components',
@@ -145,12 +157,14 @@ export interface FileRoutesByFullPath {
   '/sitemap-index.xml': typeof SitemapIndexDotxmlRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/{$slug}.md': typeof BlogChar123slugChar125DotmdRoute
+  '/guides/$slug': typeof GuidesSlugRoute
   '/internal/components': typeof InternalComponentsRoute
   '/projects/$slug': typeof ProjectsSlugRoute
   '/projects/{$slug}.md': typeof ProjectsChar123slugChar125DotmdRoute
   '/tags/$tag': typeof TagsTagRoute
   '/topics/$topic': typeof TopicsTopicRoute
   '/blog/': typeof BlogIndexRoute
+  '/guides/': typeof GuidesIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/tags/': typeof TagsIndexRoute
   '/topics/': typeof TopicsIndexRoute
@@ -167,12 +181,14 @@ export interface FileRoutesByTo {
   '/sitemap-index.xml': typeof SitemapIndexDotxmlRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/{$slug}.md': typeof BlogChar123slugChar125DotmdRoute
+  '/guides/$slug': typeof GuidesSlugRoute
   '/internal/components': typeof InternalComponentsRoute
   '/projects/$slug': typeof ProjectsSlugRoute
   '/projects/{$slug}.md': typeof ProjectsChar123slugChar125DotmdRoute
   '/tags/$tag': typeof TagsTagRoute
   '/topics/$topic': typeof TopicsTopicRoute
   '/blog': typeof BlogIndexRoute
+  '/guides': typeof GuidesIndexRoute
   '/projects': typeof ProjectsIndexRoute
   '/tags': typeof TagsIndexRoute
   '/topics': typeof TopicsIndexRoute
@@ -190,12 +206,14 @@ export interface FileRoutesById {
   '/sitemap-index.xml': typeof SitemapIndexDotxmlRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/{$slug}.md': typeof BlogChar123slugChar125DotmdRoute
+  '/guides/$slug': typeof GuidesSlugRoute
   '/internal/components': typeof InternalComponentsRoute
   '/projects/$slug': typeof ProjectsSlugRoute
   '/projects/{$slug}.md': typeof ProjectsChar123slugChar125DotmdRoute
   '/tags/$tag': typeof TagsTagRoute
   '/topics/$topic': typeof TopicsTopicRoute
   '/blog/': typeof BlogIndexRoute
+  '/guides/': typeof GuidesIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/tags/': typeof TagsIndexRoute
   '/topics/': typeof TopicsIndexRoute
@@ -214,12 +232,14 @@ export interface FileRouteTypes {
     | '/sitemap-index.xml'
     | '/blog/$slug'
     | '/blog/{$slug}.md'
+    | '/guides/$slug'
     | '/internal/components'
     | '/projects/$slug'
     | '/projects/{$slug}.md'
     | '/tags/$tag'
     | '/topics/$topic'
     | '/blog/'
+    | '/guides/'
     | '/projects/'
     | '/tags/'
     | '/topics/'
@@ -236,12 +256,14 @@ export interface FileRouteTypes {
     | '/sitemap-index.xml'
     | '/blog/$slug'
     | '/blog/{$slug}.md'
+    | '/guides/$slug'
     | '/internal/components'
     | '/projects/$slug'
     | '/projects/{$slug}.md'
     | '/tags/$tag'
     | '/topics/$topic'
     | '/blog'
+    | '/guides'
     | '/projects'
     | '/tags'
     | '/topics'
@@ -258,12 +280,14 @@ export interface FileRouteTypes {
     | '/sitemap-index.xml'
     | '/blog/$slug'
     | '/blog/{$slug}.md'
+    | '/guides/$slug'
     | '/internal/components'
     | '/projects/$slug'
     | '/projects/{$slug}.md'
     | '/tags/$tag'
     | '/topics/$topic'
     | '/blog/'
+    | '/guides/'
     | '/projects/'
     | '/tags/'
     | '/topics/'
@@ -281,12 +305,14 @@ export interface RootRouteChildren {
   SitemapIndexDotxmlRoute: typeof SitemapIndexDotxmlRoute
   BlogSlugRoute: typeof BlogSlugRoute
   BlogChar123slugChar125DotmdRoute: typeof BlogChar123slugChar125DotmdRoute
+  GuidesSlugRoute: typeof GuidesSlugRoute
   InternalComponentsRoute: typeof InternalComponentsRoute
   ProjectsSlugRoute: typeof ProjectsSlugRoute
   ProjectsChar123slugChar125DotmdRoute: typeof ProjectsChar123slugChar125DotmdRoute
   TagsTagRoute: typeof TagsTagRoute
   TopicsTopicRoute: typeof TopicsTopicRoute
   BlogIndexRoute: typeof BlogIndexRoute
+  GuidesIndexRoute: typeof GuidesIndexRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
   TagsIndexRoute: typeof TagsIndexRoute
   TopicsIndexRoute: typeof TopicsIndexRoute
@@ -378,6 +404,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogChar123slugChar125DotmdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/guides/': {
+      id: '/guides/'
+      path: '/guides'
+      fullPath: '/guides/'
+      preLoaderRoute: typeof GuidesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/guides/$slug': {
+      id: '/guides/$slug'
+      path: '/guides/$slug'
+      fullPath: '/guides/$slug'
+      preLoaderRoute: typeof GuidesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/internal/components': {
       id: '/internal/components'
       path: '/internal/components'
@@ -449,12 +489,14 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapIndexDotxmlRoute: SitemapIndexDotxmlRoute,
   BlogSlugRoute: BlogSlugRoute,
   BlogChar123slugChar125DotmdRoute: BlogChar123slugChar125DotmdRoute,
+  GuidesSlugRoute: GuidesSlugRoute,
   InternalComponentsRoute: InternalComponentsRoute,
   ProjectsSlugRoute: ProjectsSlugRoute,
   ProjectsChar123slugChar125DotmdRoute: ProjectsChar123slugChar125DotmdRoute,
   TagsTagRoute: TagsTagRoute,
   TopicsTopicRoute: TopicsTopicRoute,
   BlogIndexRoute: BlogIndexRoute,
+  GuidesIndexRoute: GuidesIndexRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
   TagsIndexRoute: TagsIndexRoute,
   TopicsIndexRoute: TopicsIndexRoute,

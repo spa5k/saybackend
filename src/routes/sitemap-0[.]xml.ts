@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 import { posts, projects } from '@/lib/content'
+import { guides } from '@/lib/guides'
 import { SITE } from '@/lib/site'
 import { topicCards } from '@/lib/topics'
 
@@ -25,6 +26,11 @@ export const Route = createFileRoute('/sitemap-0.xml')({
           ...projects.map((project) => ({
             path: `${project.href}/`,
             lastmod: project.updated ?? project.date,
+          })),
+          ...(guides.length ? [{ path: '/guides/' }] : []),
+          ...guides.map((guide) => ({
+            path: `${guide.href}/`,
+            lastmod: guide.updated_at,
           })),
           ...topicCards().map((topic) => ({
             path: `/topics/${topic.slug}/`,

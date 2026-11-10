@@ -191,6 +191,7 @@ const config = defineConfig({
     tanstackStart({
       pages: [
         { path: '/404' },
+        { path: '/guides' },
         { path: '/rss.xml' },
         { path: '/llms.txt' },
         { path: '/sitemap-index.xml' },
