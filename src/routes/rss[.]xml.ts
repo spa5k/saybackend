@@ -20,8 +20,9 @@ export const Route = createFileRoute('/rss.xml')({
           (a, b) => Date.parse(b.date) - Date.parse(a.date),
         )
         const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
+    <atom:link href="${SITE.origin}/rss.xml" rel="self" type="application/rss+xml" />
     <title>${escapeXml(SITE.title)}</title>
     <description>${escapeXml(SITE.description)}</description>
     <link>${SITE.origin}/</link>

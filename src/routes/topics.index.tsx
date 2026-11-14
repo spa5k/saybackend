@@ -39,7 +39,7 @@ function Topics() {
         {topicCards().map((topic) => (
           <Link
             key={topic.slug}
-            to="/topics/$topic"
+            to="/topics/$topic/"
             params={{ topic: topic.slug }}
           >
             <span className="eyebrow">

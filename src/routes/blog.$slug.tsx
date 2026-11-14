@@ -25,7 +25,11 @@ export const Route = createFileRoute('/blog/$slug')({
   beforeLoad: ({ params }) => {
     const destination = legacyPostRedirects[params.slug]
     if (destination) {
-      throw redirect({ href: destination, statusCode: 301 })
+      throw redirect({
+        to: '/blog/$slug/',
+        params: { slug: destination },
+        statusCode: 301,
+      })
     }
   },
   loader: ({ params }) => {
@@ -133,7 +137,7 @@ function PostPage() {
   return (
     <article className="post-page">
       <header className="post-header page-frame">
-        <Link to="/blog" className="eyebrow">
+        <Link to="/blog/" className="eyebrow">
           ← Blog archive
         </Link>
         <h1>{post.title}</h1>
@@ -178,7 +182,7 @@ function PostPage() {
       <nav className="post-navigation page-frame" aria-label="More articles">
         {newerPost ? (
           <Link
-            to="/blog/$slug"
+            to="/blog/$slug/"
             params={{ slug: newerPost.slug }}
             reloadDocument
           >
@@ -190,7 +194,7 @@ function PostPage() {
         )}
         {olderPost ? (
           <Link
-            to="/blog/$slug"
+            to="/blog/$slug/"
             params={{ slug: olderPost.slug }}
             reloadDocument
           >
@@ -210,7 +214,7 @@ function PostPage() {
             {related.map((item) => (
               <Link
                 key={item.slug}
-                to="/blog/$slug"
+                to="/blog/$slug/"
                 params={{ slug: item.slug }}
                 reloadDocument
               >

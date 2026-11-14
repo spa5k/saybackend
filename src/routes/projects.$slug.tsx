@@ -35,7 +35,7 @@ function ProjectPage() {
   return (
     <article className="post-page project-page">
       <header className="post-header page-frame">
-        <Link to="/projects" className="eyebrow">
+        <Link to="/projects/" className="eyebrow">
           ← Projects
         </Link>
         <h1>{project.title}</h1>

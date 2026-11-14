@@ -63,6 +63,9 @@ function Home() {
   return (
     <>
       <section className="page-frame journal-home">
+        <h1 className="sr-only">
+          SayBackend: backend engineering and DevOps blog
+        </h1>
         <aside className="journal-rail">
           <p className="rail-intro">
             Notes on systems, patterns, and the daily work of building reliable
@@ -74,7 +77,7 @@ function Home() {
             architecture meets reality. Expect code, tradeoffs, and the
             occasional post-mortem.
           </p>
-          <Link to="/about" className="text-link">
+          <Link to="/about/" className="text-link">
             More about me →
           </Link>
           <div className="rail-rule" />
@@ -82,14 +85,14 @@ function Home() {
           <ul className="topic-index">
             {topics.map((topic) => (
               <li key={topic.slug}>
-                <Link to="/topics/$topic" params={{ topic: topic.slug }}>
+                <Link to="/topics/$topic/" params={{ topic: topic.slug }}>
                   <span>{topic.name}</span>
                   <span>{topic.count}</span>
                 </Link>
               </li>
             ))}
           </ul>
-          <Link to="/topics" className="text-link">
+          <Link to="/topics/" className="text-link">
             All topics →
           </Link>
         </aside>
@@ -97,15 +100,15 @@ function Home() {
         <div className="journal-content">
           <article className="featured-story">
             <p className="eyebrow">Latest essay</p>
-            <h1>
+            <h2>
               <Link
-                to="/blog/$slug"
+                to="/blog/$slug/"
                 params={{ slug: featured.slug }}
                 reloadDocument
               >
                 {featured.title}
               </Link>
-            </h1>
+            </h2>
             <p className="featured-summary">{featured.description}</p>
             <div className="featured-meta">
               <span className="featured-meta-line">
@@ -116,7 +119,7 @@ function Home() {
                 <span>{featured.readingMinutes} min read</span>
               </span>
               <Link
-                to="/blog/$slug"
+                to="/blog/$slug/"
                 params={{ slug: featured.slug }}
                 className="text-link featured-link"
                 reloadDocument
@@ -131,7 +134,7 @@ function Home() {
               <article className="ledger-row" key={post.slug}>
                 <h2>
                   <Link
-                    to="/blog/$slug"
+                    to="/blog/$slug/"
                     params={{ slug: post.slug }}
                     reloadDocument
                   >
@@ -151,7 +154,7 @@ function Home() {
               </article>
             ))}
           </div>
-          <Link to="/blog" className="text-link archive-link">
+          <Link to="/blog/" className="text-link archive-link">
             View full archive →
           </Link>
         </div>
@@ -165,7 +168,7 @@ function Home() {
               <h2>{project.title}</h2>
               <p>{project.description}</p>
               <Link
-                to="/projects/$slug"
+                to="/projects/$slug/"
                 params={{ slug: project.slug }}
                 className="text-link"
               >
@@ -176,7 +179,7 @@ function Home() {
           <article>
             <h2>More writing</h2>
             <p>Browse the complete collection of articles and build logs.</p>
-            <Link to="/blog" className="text-link">
+            <Link to="/blog/" className="text-link">
               See the archive →
             </Link>
           </article>

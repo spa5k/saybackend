@@ -40,7 +40,7 @@ function Projects() {
             </span>
             <div>
               <h2>
-                <Link to="/projects/$slug" params={{ slug: project.slug }}>
+                <Link to="/projects/$slug/" params={{ slug: project.slug }}>
                   {project.title}
                 </Link>
               </h2>

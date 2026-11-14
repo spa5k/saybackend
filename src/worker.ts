@@ -84,6 +84,7 @@ const retiredTagTopics = new Map<string, string>([
  * render duplicate 200s. Asset paths (images, fonts, files) keep their case. */
 const lowercaseRoutePrefixes = [
   '/blog',
+  '/guides',
   '/topics',
   '/projects',
   '/about',

@@ -58,7 +58,7 @@ function GuidesIndex() {
                 <div>
                   <h3>
                     <Link
-                      to="/guides/$slug"
+                      to="/guides/$slug/"
                       params={{ slug: guide.slug }}
                       reloadDocument
                     >

@@ -144,7 +144,7 @@ export const projects: Array<Project> = Object.entries(projectFrontmatter)
 export const legacyPostRedirects = Object.fromEntries(
   posts
     .filter((post) => post.oldPath)
-    .map((post) => [post.oldPath as string, post.href]),
+    .map((post) => [post.oldPath as string, post.slug]),
 )
 
 export function getPost(slug: string) {

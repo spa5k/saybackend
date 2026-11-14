@@ -112,7 +112,7 @@ function Hiring() {
             <a href="https://kamran.sh/" target="_blank" rel="noopener">
               View resume
             </a>
-            <Link to="/projects">Projects</Link>
+            <Link to="/projects/">Projects</Link>
           </div>
         </div>
       </div>

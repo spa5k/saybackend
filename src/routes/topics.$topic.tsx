@@ -55,7 +55,7 @@ function TopicPage() {
   return (
     <section className="page-frame archive-page">
       <header className="page-heading">
-        <Link to="/topics" className="eyebrow">
+        <Link to="/topics/" className="eyebrow">
           ← All topics
         </Link>
         <h1>{topic.title}</h1>
@@ -70,7 +70,7 @@ function TopicPage() {
               <div>
                 <h3>
                   <Link
-                    to="/blog/$slug"
+                    to="/blog/$slug/"
                     params={{ slug: post.slug }}
                     reloadDocument
                   >

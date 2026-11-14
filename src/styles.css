@@ -368,7 +368,7 @@ img {
   padding: 6px 0 44px;
 }
 
-.featured-story h1 {
+.featured-story h2 {
   max-width: 980px;
   margin: 24px 0 20px;
   font-size: clamp(46px, 5.2vw, 72px);
@@ -377,7 +377,7 @@ img {
   line-height: 0.98;
 }
 
-.featured-story h1 a:hover {
+.featured-story h2 a:hover {
   color: var(--green);
 }
 
@@ -1425,7 +1425,7 @@ html.dark .shiki-code span {
     display: none;
   }
 
-  .featured-story h1 {
+  .featured-story h2 {
     font-size: clamp(42px, 13vw, 64px);
   }
 

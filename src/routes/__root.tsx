@@ -2,7 +2,7 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 
 import { NotFoundPage } from '@/components/NotFoundPage'
 import { SiteShell } from '@/components/SiteShell'
-import { NOT_FOUND_META, PAGE_META, SITE } from '@/lib/site'
+import { NOT_FOUND_META, SITE } from '@/lib/site'
 import lexendFont from '@fontsource-variable/lexend/files/lexend-latin-wght-normal.woff2?url'
 import monoFont from '@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2?url'
 import appCss from '../styles.css?url'
@@ -15,7 +15,6 @@ export const Route = createRootRoute({
         name: 'viewport',
         content: 'width=device-width, initial-scale=1',
       },
-      { title: PAGE_META.home.title },
     ],
     links: [
       {
@@ -81,10 +80,6 @@ function NotFound() {
       <title>{`${NOT_FOUND_META.title} | ${SITE.title}`}</title>
       <meta name="description" content={NOT_FOUND_META.description} />
       <meta name="robots" content="noindex,follow" />
-      <link
-        rel="canonical"
-        href={new URL(`${NOT_FOUND_META.path}/`, SITE.origin).href}
-      />
       <NotFoundPage />
     </>
   )

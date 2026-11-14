@@ -9,7 +9,7 @@ export function NotFoundPage() {
         The address may have changed, or the page may no longer exist. The
         archive is the best place to pick up the trail.
       </p>
-      <Link className="text-link" to="/blog">
+      <Link className="text-link" to="/blog/">
         Browse the blog →
       </Link>
     </section>

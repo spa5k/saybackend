@@ -78,7 +78,7 @@ function GuidePage() {
   return (
     <article className="post-page">
       <header className="post-header page-frame">
-        <Link to="/guides" className="eyebrow">
+        <Link to="/guides/" className="eyebrow">
           ← All guides
         </Link>
         <h1>{guide.title}</h1>

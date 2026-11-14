@@ -44,7 +44,7 @@ function BlogIndex() {
         {topicCards().map((topic) => (
           <Link
             key={topic.slug}
-            to="/topics/$topic"
+            to="/topics/$topic/"
             params={{ topic: topic.slug }}
           >
             {topic.name} <span>{topic.count}</span>
@@ -63,7 +63,7 @@ function BlogIndex() {
                   <div>
                     <h3>
                       <Link
-                        to="/blog/$slug"
+                        to="/blog/$slug/"
                         params={{ slug: post.slug }}
                         reloadDocument
                       >

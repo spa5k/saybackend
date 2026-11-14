@@ -5,12 +5,12 @@ import { useEffect, useState } from 'react'
 import { SearchDialog } from './SearchDialog'
 
 const navigation = [
-  { label: 'Blog', to: '/blog' },
-  { label: 'Topics', to: '/topics' },
-  { label: 'About', to: '/about' },
-  { label: 'Projects', to: '/projects' },
+  { label: 'Blog', to: '/blog/' },
+  { label: 'Topics', to: '/topics/' },
+  { label: 'About', to: '/about/' },
+  { label: 'Projects', to: '/projects/' },
   { label: 'Portfolio', href: 'https://kamran.sh/' },
-  { label: 'Hire Me', to: '/hiring' },
+  { label: 'Hire Me', to: '/hiring/' },
 ]
 
 export function SiteShell({ children }: { children: React.ReactNode }) {
@@ -141,6 +141,7 @@ function SiteFooter() {
       <div className="page-frame footer-inner">
         <span>© {new Date().getFullYear()} SayBackend</span>
         <div>
+          <a href="/guides/">Guides</a>
           <a href="/rss.xml">RSS</a>
           <a href="/llms.txt">LLMs</a>
           <a href="/sitemap-index.xml">Sitemap</a>
