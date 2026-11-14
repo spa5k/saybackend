@@ -1,0 +1,106 @@
+---
+title: "How I Made GitHub Actions Faster on the Same Runners"
+description: "Cutting setup and release overhead, then reducing test waits: 16.6% less core-check runner time, 79.7% faster already-published release setup, and 30.8% less test-workflow wait."
+date: "2026-10-18"
+draft: true
+slug: "faster-github-actions-same-runners"
+tags:
+  - "github-actions"
+  - "ci"
+  - "performance"
+  - "typescript"
+  - "testing"
+  - "benchmarking"
+---
+
+I worked on speeding up CI for a TypeScript monorepo while staying on GitHub Actions and the existing runners. Deployment toolchains stayed unchanged.
+
+**The first cut repeated setup and unnecessary release work. The second reduced the time we waited for tests and stopped starting unrelated suites.** They have separate benchmarks, so here is what each actually changed.
+
+## Cutting setup and release overhead
+
+I started with the overhead around the checks.
+
+### Tooling, installs, and checkouts
+
+I replaced `tsc` with `tsgo` for compiler checks, including generated web routes, and updated Oxlint and its tooling. Type-aware lint stayed separate from compiler diagnostics. Repository CI moved to pnpm 12; deployment environments kept their existing package-manager pins.
+
+Jobs switched to filtered, frozen installs for their package dependency closure plus root tooling. The default store cache went away after a measurement showed restore plus install taking **58s**, versus **57s** fresh. Saving that cold store added another **55s**.
+
+File-only jobs got shallow or sparse checkouts. Stalled Git transfers now have bounds. Release, ancestry, and rebase jobs retain full history: a measured partial clone was slower for that workload.
+
+### Decide whether a release needs work first
+
+I upgraded Changesets CLI to v3 and its Action together. The official release-mode selector now runs before workspace setup, using a small, locked Changesets installation.
+
+If all versions are already published, it skips the workspace install and package builds. Version preparation, snapshot, and promotion jobs install CI tooling rather than unrelated applications. Small metadata updates run their existing updater directly with Node.
+
+Actual publication retains ordered builds, packing hooks, fresh registry validation, and release serialization. I exercised publishing and repeat-publication behavior against a disposable real registry. Live registry publication was outside that verification.
+
+### Fewer automatic jobs
+
+Optional browser/model journeys and automated change diagrams moved to review readiness or explicit request labels instead of every commit. Daily production and release-candidate checks remain. I also removed retired workflows and obsolete setup, and made workflow and job names easier to identify.
+
+I also removed **43 browser-mocked unit files containing 871 cases** as a separate testing-policy decision. **Those deletions are excluded from the execution-speed claims below.** The retained unit and real-database assertion inventories were checked explicitly.
+
+### Results from the setup work
+
+| Benchmark scope | Before | After | Reduction |
+| --- | ---: | ---: | ---: |
+| Core checks, summed runner time | 1,151.7s | 960.3s | 16.6% |
+| Web typecheck benchmark job | 140.5s | 109.3s | 22.2% |
+| Type-aware lint benchmark job | 105.7s | 87.0s | 17.7% |
+| Read-only version preparation | 115.3s | 18.6s | 83.9% |
+| Already-published release setup | 91.9s | 18.7s | 79.7% |
+
+These are **three separate paired cold-store benchmarks** on the same runner class: core checks, version preparation, and already-published release setup. Job timings include checkout, setup, installation, builds, and execution; they exclude queues and artifact uploads. The compiler row measures its benchmark job, not just the `tsgo` command.
+
+Version preparation excludes publication, live changelog rewriting, pull request writes, and sandbox creation. The already-published comparison uses an owned read-only registry fixture and excludes live registry latency and GitHub writes. Its candidate performed **zero workspace installs and zero package builds**.
+
+The core sample's slowest unit shard improved only **206.5s → 199.4s**; integration improved **265.9s → 261.2s**. Resource use had fallen, but test waiting still needed attention.
+
+## Reducing the wait for tests
+
+The next stage focused on the retained test workflow.
+
+### Balance real costs and overlap safe work
+
+The proxy suite had four files running serially with real container fixtures. Two isolated file workers let startup and execution overlap. Three workers caused a host-port timeout under contention, so I kept two.
+
+For web tests, file count was a poor scheduling signal. Assertions consumed only about 22 seconds across 277 unit files; imports, setup, and worker overhead consumed much of the time. I balanced discovered files using measured import, setup, hooks, and execution cost. Timings guide scheduling; new files still run.
+
+The final layout uses **two unit shards with two workers each**, and **four integration shards**. Each integration shard retains a disposable Postgres instance, full migrations, and module isolation. Files within each database stay sequential because seed data and cleanup can interfere.
+
+I rejected a four-unit-shard layout that increased runner time **7.6%**. The final layout shortened the critical path with essentially flat total runner time.
+
+Test jobs also opted into verified native pnpm bootstrap. Independent logging and SDK builds now overlap. Smaller package checks share an install and run at most two package pipelines concurrently, preserving build order within each package and collecting failures.
+
+### Skip suites when their inputs did not change
+
+Proxy selection accounts for its package, shared dependencies, and the web files it imports. Existing unit-test-only edits can skip database shards; integration-test-only edits can skip units. Storybook-only edits keep compiler and Storybook checks without starting unrelated Node suites.
+
+The classifier uses the complete pull request diff or all commits in a push. Shared fixtures, migrations, dependency changes, and uncertain source paths still select their consumers. Some Markdown files are shipped agent instructions, so a blanket “skip Markdown” rule would be wrong.
+
+When affected, the whole suite runs. Required checks remain available, reports mark unselected suites **Not affected**, and manual full-suite execution remains available.
+
+### Results from the test work
+
+| Actual GitHub CI measurement | Before | After | Reduction |
+| --- | ---: | ---: | ---: |
+| Full retained Tests workflow, elapsed wait | 281.0s | 194.5s | 30.8% |
+| Full retained Tests workflow, summed runner time | 1,562s | 1,555s | 0.4% |
+| Proxy job duration | 181s | 115s | 36.5% |
+| Web guide-only change, elapsed wait | 197.5s | 11s | 94.4% |
+| Web guide-only change, summed runner time | 1,116.5s | 7s | 99.4% |
+
+These are means of **two fresh actual runs per version**, including queue time, checkout, setup, uploads, and reporting. Full-workflow samples were **260s and 302s before**, then **192s and 197s after**. Guide-only samples were **200s and 195s**, then **10s and 12s**. Small samples still carry hosted-runner variability.
+
+The full-workflow comparison matched the identities, statuses, and multiplicities of **3,365 unit assertions, 581 integration assertions, and 142 proxy assertions**. Other retained package, compiler, and Storybook gates passed too. This stage retained every test case.
+
+The guide-only result is deliberately separate: only the classifier needed a runner. It measures avoided work on that unaffected edit, not a 94.4% faster full test suite.
+
+## What changed overall
+
+The setup work reduced core-check runner time and release preparation costs. The test work took the full retained workflow from **4m41s to 3m14.5s**, while keeping total runner time essentially flat.
+
+These measurements cover different scopes, so there is no single combined percentage. Adding 16.6% and 30.8%, or treating their runner totals as one continuous before/after, would mix those scopes. The measured wins are the individual results above: less setup, fewer unnecessary builds, better scheduling, and expensive suites that only start when needed.
