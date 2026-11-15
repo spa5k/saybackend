@@ -1,7 +1,9 @@
 ---
 title: "ReviewHQ"
-description: "A comprehensive SaaS application to enhance the review system of eCommerce sites."
+seoTitle: "ReviewHQ: AI Review Platform for eCommerce Sites"
+description: "ReviewHQ is a SaaS app that improves eCommerce reviews with autocomplete, spam checks, LLM support, topic extraction, and customer insight reports."
 date: "05/06/2024"
+applicationCategory: "BusinessApplication"
 ---
 
 ## Introduction

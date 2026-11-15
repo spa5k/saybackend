@@ -23,7 +23,7 @@ export const topics: Array<Topic> = [
     name: 'Next.js',
     title: 'Next.js Deployment & SSR',
     description:
-      'Self-hosting and production deployment strategies for Next.js, SSR, RSC, and Electron.',
+      'Self-hosting and production deployment strategies for Next.js: SSR, React Server Components, Docker builds, and desktop apps with Electron.',
     match: ['nextjs', 'next.js', 'ssr', 'electron', 'vercel'],
   },
   {
@@ -31,7 +31,7 @@ export const topics: Array<Topic> = [
     name: 'Docker & Deployment',
     title: 'Docker and Production Deployment',
     description:
-      'Container-first delivery patterns, optimized Dockerfiles, and reliable production rollouts.',
+      'Container-first delivery patterns: optimized Dockerfiles for Go and Node.js, multi-stage builds, local Kafka setups, and reliable production rollouts.',
     match: ['docker', 'dockerfile', 'deployment', 'production'],
   },
   {
@@ -39,7 +39,7 @@ export const topics: Array<Topic> = [
     name: 'Go Backend Engineering',
     title: 'Go Backend and API Patterns',
     description:
-      'Practical backend engineering in Go — middleware, architecture, reliability, and performance.',
+      'Practical backend engineering in Go: middleware, wide event logging, architecture, reliability, and performance work on real production services.',
     match: ['golang', 'go-middleware', 'gin', 'fiber', 'echo', 'happycontext'],
   },
   {
@@ -47,7 +47,7 @@ export const topics: Array<Topic> = [
     name: 'Kafka & Streaming',
     title: 'Kafka, KRaft, and Streaming Systems',
     description:
-      'Hands-on Kafka infrastructure, KRaft mode, Docker workflows, and streaming reliability.',
+      'Hands-on Kafka infrastructure: running Kafka in KRaft mode without ZooKeeper, Docker Compose workflows, and streaming reliability in practice.',
     match: ['kafka', 'kraft', 'streaming', 'message-queue'],
   },
   {
@@ -55,7 +55,7 @@ export const topics: Array<Topic> = [
     name: 'AI & RAG Systems',
     title: 'RAG and Document Processing Systems',
     description:
-      'Applied AI engineering for retrieval systems, chunking, embeddings, and document pipelines.',
+      'Applied AI engineering: retrieval systems, text chunking, embeddings, document pipelines, prompt caching, and coding agent workflows for developers.',
     match: ['rag', 'chunking', 'semantic-search', 'ai', 'llm'],
   },
   {
@@ -63,7 +63,7 @@ export const topics: Array<Topic> = [
     name: 'Observability & Logging',
     title: 'Production Observability and Logging',
     description:
-      'Logging architecture, context propagation, event quality, and cost-aware telemetry.',
+      'Production observability: logging architecture, wide events, context propagation, tail sampling, event quality, and cost-aware telemetry in Go.',
     match: [
       'logging',
       'observability',
@@ -77,7 +77,7 @@ export const topics: Array<Topic> = [
     name: 'Cloud & Kubernetes',
     title: 'Cloud Infrastructure and Kubernetes',
     description:
-      'Cloud operations, Kubernetes, automation, infrastructure decisions, and production hardening.',
+      'Cloud operations and Kubernetes: cluster setup, automation, infrastructure decisions, and production hardening lessons from running real deployments.',
     match: ['kubernetes', 'k8s', 'infrastructure', 'devops', 'cloudflare'],
   },
   {
@@ -85,7 +85,7 @@ export const topics: Array<Topic> = [
     name: 'Frontend State Patterns',
     title: 'Frontend State Management Patterns',
     description:
-      'URL state, shareability, and practical React workflows that improve UX and debugging.',
+      'Frontend state patterns: URL state with Zustand, shareable app links, and practical React workflows that improve user experience and debugging.',
     match: ['react', 'zustand', 'url state', 'frontend'],
   },
   {
@@ -93,7 +93,7 @@ export const topics: Array<Topic> = [
     name: 'Changelog',
     title: 'Product and Site Changelog',
     description:
-      'Release notes and updates across the site, architecture, features, and tooling.',
+      'SayBackend release notes: updates to the site, its architecture, new features, design changes, and the tooling behind this backend engineering blog.',
     match: ['changelog'],
   },
 ]

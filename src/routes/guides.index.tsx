@@ -5,9 +5,9 @@ import { guides } from '@/lib/guides'
 import { SITE, breadcrumb, seo } from '@/lib/site'
 
 const META = {
-  title: 'Guides - SayBackend',
+  title: 'Backend Engineering & DevOps Guides',
   description:
-    'Practical guides on backend engineering, DevOps, and building software.',
+    'Practical guides on backend engineering, DevOps, and building software: API comparisons, data tooling, and hands-on advice for backend teams.',
 }
 
 export const Route = createFileRoute('/guides/')({

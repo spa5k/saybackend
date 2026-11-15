@@ -23,7 +23,7 @@
   padding: 1.15rem 1.25rem;
 }
 
-.interactive-diagram__header h3 {
+.interactive-diagram__title {
   margin: 0.3rem 0 0;
   color: var(--ink);
   font-family: var(--font-sans);

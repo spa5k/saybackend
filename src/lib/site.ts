@@ -20,7 +20,7 @@ export const PAGE_META = {
   projects: {
     title: 'DevOps Projects & Portfolio - SayBackend',
     description:
-      'Open-source projects and production deployments in Go, Node.js, AWS, Kubernetes, PostgreSQL, and Docker.',
+      'Open-source projects, developer tools, and production deployments built with Go, Node.js, AWS, Kubernetes, PostgreSQL, Docker, and WebAssembly.',
   },
   about: {
     title: 'About Kamran Tahir - Senior Backend Engineer',

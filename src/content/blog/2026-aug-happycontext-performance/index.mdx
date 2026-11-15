@@ -1,5 +1,6 @@
 ---
 title: "How We Used AI to Make happycontext Up to 77× Faster Without Breaking Its API"
+seoTitle: "Making happycontext 77× Faster in Go with AI"
 description: "How we used AI, profiling, adversarial tests, and repeatable Go benchmarks to cut hot-path work and make filtered log writes up to 77x faster."
 date: "2026-08-27"
 slug: "happycontext-go-performance"
@@ -49,7 +50,7 @@ The public API did not change.
 
 ## Typical happycontext Usage
 
-The original [happycontext wide-logging guide](/blog/happycontext-wide-logging-golang) covers the complete setup, integrations, and sampling model. A typical `net/http` service connects an existing logger, wraps the router, and adds business fields during the request:
+The original [happycontext wide-logging guide](/blog/happycontext-wide-logging-golang/) covers the complete setup, integrations, and sampling model. A typical `net/http` service connects an existing logger, wraps the router, and adds business fields during the request:
 
 ```go
 logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))

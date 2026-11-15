@@ -156,6 +156,19 @@ export default {
       return Response.redirect(url.href, 301)
     }
 
+    // Page URLs without a trailing slash get a permanent redirect. The router
+    // alone would answer with a temporary 307.
+    if (
+      !pathname.endsWith('/') &&
+      !pathname.includes('.') &&
+      lowercaseRoutePrefixes.some(
+        (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+      )
+    ) {
+      url.pathname = `${pathname}/`
+      return Response.redirect(url.href, 301)
+    }
+
     return handler.fetch(request)
   },
 }

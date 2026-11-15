@@ -1,7 +1,7 @@
 import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 
 import { formatDate } from '@/lib/content'
-import { getGuide } from '@/lib/guides'
+import { getGuide, guides } from '@/lib/guides'
 import { SITE, breadcrumb, seo, toIsoDateTime } from '@/lib/site'
 
 export const Route = createFileRoute('/guides/$slug')({
@@ -74,6 +74,9 @@ function GuidePage() {
   const { slug } = Route.useParams()
   const guide = getGuide(slug)
   if (!guide) return null
+  const moreGuides = guides
+    .filter((item) => item.slug !== guide.slug)
+    .slice(0, 4)
 
   return (
     <article className="post-page">
@@ -103,6 +106,23 @@ function GuidePage() {
         data-pagefind-body
         dangerouslySetInnerHTML={{ __html: guide.html }}
       />
+      {moreGuides.length ? (
+        <aside className="related-posts page-frame">
+          <p className="eyebrow">More guides</p>
+          <div>
+            {moreGuides.map((item) => (
+              <Link
+                key={item.slug}
+                to="/guides/$slug/"
+                params={{ slug: item.slug }}
+              >
+                <span>{item.tags[0] ?? 'Guide'}</span>
+                <strong>{item.title}</strong>
+              </Link>
+            ))}
+          </div>
+        </aside>
+      ) : null}
     </article>
   )
 }

@@ -38,6 +38,7 @@ export const Route = createFileRoute('/blog/$slug')({
     return {
       slug: post.slug,
       title: post.title,
+      seoTitle: post.seoTitle,
       description: post.description,
       date: post.date,
       updated: post.updated,
@@ -51,7 +52,7 @@ export const Route = createFileRoute('/blog/$slug')({
     const url = `${SITE.origin}/blog/${loaderData.slug}/`
     const articleTags = loaderData.tags.slice(0, 12)
     return seo({
-      title: loaderData.title,
+      title: loaderData.seoTitle ?? loaderData.title,
       description: loaderData.description,
       path: `/blog/${loaderData.slug}`,
       markdownPath: `/blog/${loaderData.slug}.md`,

@@ -17,7 +17,7 @@ export default function GitHubRepoCard({
       <GithubLogo size={22} aria-hidden />
       <div>
         <span className="eyebrow">Open source</span>
-        <h3>{title ?? repo}</h3>
+        <div className="repo-card__title">{title ?? repo}</div>
         {description ? <p>{description}</p> : null}
         <div className="repo-actions">
           <a href={repoUrl} target="_blank" rel="noreferrer">

@@ -10,8 +10,9 @@ on:
 jobs:
   rebuild:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
+      - uses: actions/checkout@v4
       - name: Trigger Cloudflare build
         env:
           DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
@@ -21,3 +22,9 @@ jobs:
             exit 1
           fi
           curl --fail --silent --show-error -X POST "$DEPLOY_HOOK"
+      # Builds finish in ~5 minutes; then submit the sitemap so new and changed
+      # guides reach IndexNow search engines.
+      - name: Wait for deploy
+        run: sleep 360
+      - name: Ping IndexNow
+        run: node scripts/ping-indexnow.mjs
