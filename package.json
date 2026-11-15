@@ -81,5 +81,8 @@
       "esbuild",
       "lightningcss"
     ]
+  },
+  "overrides": {
+    "katex": "$katex"
   }
 }
