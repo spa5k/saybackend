@@ -623,7 +623,9 @@ export default function InteractiveDiagram({
             <Path aria-hidden="true" weight="bold" />
             Interactive field map
           </span>
-          <h3 id={`${diagramId}-title`}>{title}</h3>
+          <div id={`${diagramId}-title`} className="interactive-diagram__title">
+            {title}
+          </div>
         </div>
         <p>
           {diagram.nodes.length} steps · {diagram.edges.length} connections

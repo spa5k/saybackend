@@ -6,9 +6,9 @@ import { topicCards } from '@/lib/topics'
 export const Route = createFileRoute('/topics/')({
   head: () =>
     seo({
-      title: 'Topics',
+      title: 'Backend Engineering Topics & Learning Paths',
       description:
-        'Curated content clusters and learning paths for backend, DevOps, and infrastructure topics.',
+        'Curated content clusters and learning paths for backend engineering and DevOps: PostgreSQL, Go, Docker, Kubernetes, Kafka, observability, and RAG.',
       path: '/topics',
       schema: {
         '@context': 'https://schema.org',

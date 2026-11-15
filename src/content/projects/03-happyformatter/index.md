@@ -1,7 +1,10 @@
 ---
 title: "HappyFormatter"
-description: "Private in-browser code formatter and minifier for 20+ languages, built on WebAssembly."
+seoTitle: "HappyFormatter: Private In-Browser Code Formatter"
+description: "HappyFormatter is a private, in-browser code formatter and minifier for 20+ languages. It runs on WebAssembly, so your code stays on your device."
 date: "2026-09-26"
+applicationCategory: "DeveloperApplication"
+price: "0"
 demoURL: "https://happyformatter.com"
 ---
 

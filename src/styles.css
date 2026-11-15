@@ -1119,8 +1119,11 @@ html.dark .shiki-code span {
   box-shadow: 0 20px 50px -42px rgb(17 26 20 / 68%);
 }
 
-.repo-card h3 {
+.repo-card__title {
   margin: 4px 0;
+  font-size: 24px;
+  font-weight: 580;
+  line-height: 1.2;
 }
 
 .repo-card p {

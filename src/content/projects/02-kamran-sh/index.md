@@ -1,6 +1,7 @@
 ---
 title: "Portfolio"
-description: "Personal portfolio website showcasing backend engineering work, technical writing, and projects."
+seoTitle: "kamran.sh: Backend Engineer Portfolio Website"
+description: "kamran.sh is the personal portfolio of Kamran Tahir: backend engineering background, featured projects with technical context, and writing on systems."
 date: "2026-02-16"
 demoURL: "https://kamran.sh"
 ---

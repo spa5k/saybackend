@@ -7,6 +7,8 @@ type MdxContentProps = {
 
 type Frontmatter = {
   title: string
+  /** Shorter title for search results; the on-page headline keeps `title`. */
+  seoTitle?: string
   description: string
   date: string
   updated?: string
@@ -19,6 +21,10 @@ type Frontmatter = {
   faqs?: Array<{ question: string; answer: string }>
   demoURL?: string
   repoURL?: string
+  /** schema.org category; marks a project as a SoftwareApplication. */
+  applicationCategory?: string
+  /** Price in USD, for SoftwareApplication offers. */
+  price?: string
 }
 
 type ContentModule = {

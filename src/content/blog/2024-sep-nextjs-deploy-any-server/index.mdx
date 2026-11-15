@@ -1,6 +1,7 @@
 ---
 title: "Deploy Next.js Without Vercel: Self-Hosting Production Guide"
-description: "Deploy a Next.js app without Vercel using standalone output, Docker, and a production-ready Node server that can run on any VM, container host, or cloud."
+seoTitle: "Deploy Next.js to Production: Standalone Build Guide"
+description: "How to deploy a Next.js app to production without Vercel: standalone output, Docker, and a Node server that runs on any VM, container host, or cloud."
 date: "2024-09-06"
 updated: "2026-09-09"
 oldPath: "04-deploy-nextjs-to-production-without-vercel"
@@ -35,7 +36,7 @@ import InitialVisit from "./3_initial_visit.png";
 import SecondBuild from "./4_second_build.png";
 import ThirdBuild from "./5_third_build.png";
 import SecondVisit from "./6_second_visit.png";
-import WellWellWell from "./7_wellwellwell.gif";
+import WellWellWell from "./7_wellwellwell.mp4";
 import FinalRun from "./8_final_run.png";
 import FinalVisit from "./9_final_visit.png";
 import OgImage from "./nextjs_docker_og.jpg";
@@ -358,7 +359,16 @@ http://localhost:3000
 
 Doesn't this look amazing? _cough_ _cough_ WHERE ARE MY STYLES AND IMAGES?
 
-<Picture src={WellWellWell} alt="Well Well Well" inferSize formats={["gif"]} />
+<video
+  src={WellWellWell}
+  width={480}
+  height={480}
+  autoPlay
+  loop
+  muted
+  playsInline
+  aria-label="Well Well Well"
+/>
 
 Hey! don't give me that look, I know what I did, we are almost done.
 This is how the things are supposed to be, we are on the right path. Apparently the standalone build only contains the node_modules for the dependencies that are used in the app, and the css, images etc are not included in it.
