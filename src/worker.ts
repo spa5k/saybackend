@@ -122,6 +122,12 @@ export default {
     const url = new URL(request.url)
     const pathname = url.pathname
 
+    // Trailing-slash and www redirects live in Cloudflare Redirect Rules, which
+    // run before static assets. Only this one file path needs handling here.
+    if (pathname === '/sitemap.xml') {
+      return Response.redirect('https://saybackend.com/sitemap-index.xml', 301)
+    }
+
     // Retired tag archives: redirect mapped tags to their topic hub, else 410.
     if (
       pathname === '/tags' ||
@@ -153,19 +159,6 @@ export default {
       )
     ) {
       url.pathname = lowercased.endsWith('/') ? lowercased : `${lowercased}/`
-      return Response.redirect(url.href, 301)
-    }
-
-    // Page URLs without a trailing slash get a permanent redirect. The router
-    // alone would answer with a temporary 307.
-    if (
-      !pathname.endsWith('/') &&
-      !pathname.includes('.') &&
-      lowercaseRoutePrefixes.some(
-        (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-      )
-    ) {
-      url.pathname = `${pathname}/`
       return Response.redirect(url.href, 301)
     }
 
