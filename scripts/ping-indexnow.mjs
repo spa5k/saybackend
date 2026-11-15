@@ -33,12 +33,14 @@ const payload = JSON.stringify({
   urlList: urls,
 })
 
-// api.indexnow.org is the canonical endpoint; some networks cannot resolve
-// it, and any partner endpoint (Bing) propagates submissions to all IndexNow
-// search engines, so fall back to it.
+// Any participating engine shares submissions with the others. Try the
+// canonical endpoint first, then partners: Bing can keep answering 403 for a
+// while after a key change, while Yandex and Seznam verify the key on their own.
 const endpoints = [
   'https://api.indexnow.org/indexnow',
   'https://www.bing.com/indexnow',
+  'https://yandex.com/indexnow',
+  'https://search.seznam.cz/indexnow',
 ]
 
 let status = 0
