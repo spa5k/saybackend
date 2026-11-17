@@ -1,0 +1,225 @@
+---
+title: "I removed a queue scan from the NVIDIA Dynamo router. The FIFO case got 10.4% slower."
+seoTitle: "NVIDIA Dynamo Router: From a Queue Scan to a BTreeMap"
+description: "The NVIDIA Dynamo router scanned a queue under a write lock when prefills finished out of order. A BTreeMap removed the scan, and review made the fix smaller."
+date: "2026-12-02"
+draft: true
+slug: "nvidia-dynamo-router-prefill-btreemap"
+tags:
+  - "rust"
+  - "nvidia-dynamo"
+  - "llm"
+  - "inference"
+  - "performance"
+  - "benchmarking"
+  - "code-review"
+---
+
+import BeforeAfterBenchmarkChart from "@/components/mdx/BeforeAfterBenchmarkChart";
+
+[PR #15993](https://github.com/ai-dynamo/dynamo/pull/15993) merged into NVIDIA Dynamo on 15 October 2026. It changes how the router removes a request from its prefill tracker. The result in three lines:
+
+- A full drain of 512 prefills in shuffled order went from **298.854 µs to 72.162 µs**. That is 75.9% less CPU time.
+- The same drain in FIFO order went from 74.135 µs to 81.844 µs. That is **10.4% slower**.
+- These are router CPU times from a local probe. I did not measure routing speed or serving speed, and I claim no serving gain.
+
+The code that merged is not the code I wrote first. The first version was a hand-rolled linked list. Review replaced it with a `BTreeMap` from the standard library.
+
+## Which path this is
+
+The Dynamo KV router tracks, for each worker and DP rank, the requests whose prefill is still in progress. The struct is `PrefillLoadTracker` in `lib/kv-router/src/sequences/prefill_tracker.rs`. Before my change it held two collections:
+
+```rust
+pub(super) prefills: HashMap<RequestId, PrefillLoadState>,
+pub(super) prefill_order: VecDeque<RequestId>,
+```
+
+The map holds the load state of each request. The queue holds the order in which the requests arrived. The oldest request in the queue is the anchor for load decay, so the tracker must always know which request is oldest.
+
+A request leaves the tracker when its prefill completes. On the normal path, that is when the frontend sees the first token. Prefill token tracking is on by default. Requests with zero prefill load and deployments that disable tracking skip this code.
+
+## The bug
+
+This is the removal code before my change:
+
+```rust
+let removed_front = self.prefill_order.front() == Some(request_id);
+if removed_front {
+    let removed = self.prefill_order.pop_front();
+    debug_assert_eq!(removed.as_ref(), Some(request_id));
+} else {
+    self.prefill_order
+        .retain(|queued_request_id| queued_request_id != request_id);
+    if let Some(expected_prefill_duration) = prefill.expected_prefill_duration {
+        self.shift_anchor_forward(expected_prefill_duration, decay_now);
+    }
+}
+```
+
+If the completed request is the oldest one, the tracker pops the front of the queue. That is O(1).
+
+If it is any other request, `retain` walks the full queue and compares each request ID with the one to remove. That is O(N) for a queue of N prefills, and it runs while the caller holds the write lock on that worker's sequence state.
+
+Nothing forces first tokens to come back in the order in which the requests arrived. When prefills finish out of order, each removal scans what is left. A full drain of N prefills can then cost O(N²).
+
+## How I found it
+
+I found this in a code read. I did not profile a deployment.
+
+On 9 October 2026 I audited the Dynamo router and runtime. I looked for copies and scans on request paths, and for each one I checked what owned the data. That first pass made no timing measurements. A second pass on routing listed the `retain` call in `PrefillLoadTracker::remove` as a candidate: a linear scan, under a write lock, in the removal path of every tracked request.
+
+A code read does not show that a scan matters. I wrote a release-build probe that calls the public `ActiveSequencesMultiWorker::mark_prefill_completed` method. It drains 512 prefills in FIFO order, in reverse order, and in a fixed shuffled order. FIFO was the fastest, and the other two orders were much slower. I searched for an open pull request that changed this scan and found none. I opened [issue #15980](https://github.com/ai-dynamo/dynamo/issues/15980) the same day, with the probe results and one stated limit: I had not measured how often prefills complete out of order in live serving, or how large those batches are.
+
+## The fix
+
+### First version: a linked list
+
+The issue proposed "a private reusable order list with indexed links", and I built that first. It was a doubly linked list stored in a `Vec`. The links were indexes instead of pointers, and a free list reused the empty slots:
+
+```rust
+#[derive(Debug)]
+struct OrderedPrefill {
+    request_id: Option<RequestId>,
+    previous: usize,
+    next: usize,
+}
+
+#[derive(Debug)]
+pub(super) struct PrefillOrder {
+    slots: Vec<OrderedPrefill>,
+    front: usize,
+    back: usize,
+    free: usize,
+}
+```
+
+This code is from the first commit of the pull request. It did not merge. Each request stored its slot index next to its load state, so removal was an O(1) unlink. On 12 October I reported on the pull request that the 512-prefill shuffled drain used 84.9% less CPU time with this version.
+
+### The review
+
+On 13 October the reviewer, `jthomson04`, requested changes:
+
+> The O(depth) `retain` is real, but depth here is in-flight prefills per DP rank, which stays small in normal operation. Measuring `mark_prefill_completed` through `ActiveSequencesMultiWorker` with out-of-order completion, this saves \~70 ns at depth 32 and \~300–400 ns at depth 128. That's well below the cost of selection itself, and it only reaches microseconds at 512+ in-flight prefills per rank, when the engine is already the bottleneck. For that, I'd rather not own a hand-rolled indexed linked list in the load tracker, where an index slip becomes a release panic.
+
+The same review named the version that could merge:
+
+> If we ever see deep prefill queues in real traces, the version I'd take is a `BTreeMap<u64, RequestId>` keyed by an insertion counter stored next to the load state. It's about 25 lines of std and captures most of the win (512-deep random completion: 1.5 µs → 0.27 µs, vs 0.20 µs here).
+
+The review makes two separate points. The scan is real, but the saving is small at the depths that the reviewer expects in normal operation. And custom index code in a load tracker has a cost for the people who maintain it, because a wrong index there becomes a panic in a release build. By the reviewer's own numbers, my list was the faster design: 0.20 µs against 0.27 µs. The reviewer asked for the slower one, and I agreed. My reply on the pull request was: "Agreed, the custom list added too much code."
+
+### The version that merged
+
+Each request now gets a number from a counter that only goes up. The number is stored next to the load state, and it is the key of an ordered map:
+
+```rust
+#[derive(Debug, Clone, Copy)]
+pub(super) struct TrackedPrefill {
+    load: PrefillLoadState,
+    order: u64,
+}
+```
+
+```rust
+pub(super) prefills: HashMap<RequestId, TrackedPrefill>,
+pub(super) prefill_order: BTreeMap<u64, RequestId>,
+next_order: u64,
+```
+
+Insertion takes the next number:
+
+```rust
+let order = self.next_order;
+self.next_order += 1;
+self.prefill_order.insert(order, request_id.clone());
+```
+
+Removal uses the stored number as the key:
+
+```rust
+let removed = self.prefill_order.remove(&tracked.order);
+debug_assert_eq!(removed.as_ref(), Some(request_id));
+```
+
+The map is sorted by key, so its first entry is the oldest request. Removal by key is O(log N), and it is the same operation for the oldest request and for every other request. There is no scan. A full drain costs O(N log N).
+
+The reviewer measured this version and then gave two optional notes. The first was to always remove by the stored key and keep the debug assertion, instead of a `pop_first()` that depended on the anchor ID. The second was to delete a reset of the counter, which a `u64` does not need. I applied both. The pull request was approved on 14 October and merged on 15 October. The final diff is 95 added lines and 37 removed lines in two files.
+
+## Proof of the same behavior
+
+The change must not alter load accounting, decay, or the choice of the oldest request. These are the checks:
+
+- `cargo test --locked -p dynamo-kv-router --lib -- --test-threads=4` passed 1,052 tests with 3 ignored. That includes all 17 prefill tracker tests.
+- `cargo clippy` with `-D warnings` passed for the same crate.
+- A differential check of the final tracker source passed 65,536 lifecycle operations and 403,386 snapshot comparisons. It covered mixed durations, anchor changes, duplicate cleanup, request-ID reuse, ordering, and the order keys of the map.
+- Probes through the public method checked FIFO, reverse, and shuffled completion at depths 1 to 2,048, with modeled and unmodeled prefills. The final load and booking checks passed.
+- The reviewer ran a separate check against `main`: a randomized lifecycle differential through `ActiveSequencesMultiWorker`, with identical decayed loads and projections over 160k operations.
+
+The diff also adds one test. It keeps one old request in the tracker, then inserts 32 more and removes them in an interleaved order, twice, with the same request IDs:
+
+```rust
+for index in (0..32).step_by(2).chain((1..32).step_by(2).rev()) {
+    assert_eq!(tracker.remove(&ids[index], epoch), Some(state));
+    assert_eq!(tracker.remove(&ids[index], epoch), None);
+    tracker.assert_consistent();
+}
+assert_eq!(tracker.prefill_order.values().next(), Some(&anchor));
+```
+
+## Numbers
+
+These are my numbers from the pull request. Each value is the median time for a full drain of unmodeled prefills.
+
+| Depth | Completion order | Before | After |
+| --- | --- | ---: | ---: |
+| 32 | Shuffled | 4.634 µs | 4.931 µs |
+| 512 | Shuffled | 298.854 µs | 72.162 µs |
+| 512 | FIFO | 74.135 µs | 81.844 µs |
+
+<BeforeAfterBenchmarkChart
+  title="Full drain of prefills through mark_prefill_completed"
+  unit="µs"
+  data={[
+    { label: "Depth 32, shuffled", before: 4.634, after: 4.931 },
+    { label: "Depth 512, shuffled", before: 298.854, after: 72.162 },
+    { label: "Depth 512, FIFO", before: 74.135, after: 81.844 },
+  ]}
+/>
+
+The setup:
+
+- Five alternating process pairs measured the public `ActiveSequencesMultiWorker::mark_prefill_completed` method.
+- The machine was an Apple M4.
+- Setup and final cleanup are outside the timed region.
+
+The change is slower in two of the three rows:
+
+- **512 deep, shuffled:** 75.9% less CPU time.
+- **512 deep, FIFO:** 10.4% slower. That is about 15.1 ns more for each completion.
+- **32 deep, shuffled:** 6.4% slower in this run.
+
+The FIFO result follows from the code. The old code removed the oldest request with `pop_front` on a `VecDeque`. The new code does a tree removal for every request. The tree also makes insertion O(log N), and it allocates nodes.
+
+The reviewer measured the merged design on a different setup:
+
+> 512-deep random completion 1.3 µs → 0.22 µs, FIFO within \~10 ns
+
+In the first review, the reviewer measured calls to `mark_prefill_completed`, so I read these values as the time for each completion. My values are for a full drain. I do not combine the two sets. They agree on the direction: a large gain for deep queues with random completion order, and a small cost for FIFO.
+
+## What I did not measure
+
+- **Queue depth and completion order in production.** The gain needs deep queues and out-of-order completion. I do not know how common either is. The reviewer expects that depth stays small in normal operation, and at depth 32 the change was 6.4% slower in my run.
+- **Routing speed and serving speed.** The probe times one method of the tracker. It does not time worker selection, a full routing decision, or a request to a model. The reviewer's point applies here too: the saving reaches microseconds only at 512 or more in-flight prefills per rank, "when the engine is already the bottleneck".
+- **Lock contention.** The scan ran under a write lock. The probe times the drain alone. It does not measure how long other requests wait for that lock.
+- **Server hardware.** All my checks ran on macOS ARM64.
+
+The change removes a quadratic worst case, and it pays for that with a small cost on every insertion and removal. The numbers above support that statement. They do not show that a Dynamo deployment gets faster.
+
+## Three smaller changes
+
+I opened three smaller pull requests on the same day as this one. All three merged. Each number below is from a local probe of one operation, not from serving.
+
+- [#15992](https://github.com/ai-dynamo/dynamo/pull/15992), merged on 13 October. A request with a small set of allowed workers no longer scans the full worker catalog. With 512 workers and 4 available, the helper went from 3.132 µs to 60.0 ns. Candidate order for sparse sets now follows the inclusion set, so a picker that breaks ties by order can choose a different tied worker.
+- [#15974](https://github.com/ai-dynamo/dynamo/pull/15974), merged on 13 October. A check for one live worker ID no longer copies the full discovery vector. With 64 workers, the old check made 257 allocation events for 11,328 requested bytes, and the new check makes none. Timing varied between runs, so the allocation count is the reported result.
+- [#15973](https://github.com/ai-dynamo/dynamo/pull/15973), merged on 22 October. A batch completion request no longer copies the full prompt batch for each child request. With 64 text prompts of 4 KiB each, requested allocation bytes went from 17,262,208 to 126,592 for each batch. That probe used a debug build.
+
+I do this work for teams as a paid [LLM cost and speed audit](https://kamran.sh/audit).
