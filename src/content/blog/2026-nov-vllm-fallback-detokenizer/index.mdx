@@ -38,19 +38,19 @@ import TokenWindowDiagram from "@/components/mdx/TokenWindowDiagram";
   fetchPriority="high"
 />
 
-On 8 October 2026, vLLM merged my pull request [#60497](https://github.com/vllm-project/vllm/pull/60497). It removes a quadratic list copy from the Python fallback detokenizer. The result has three parts:
+On 8 October 2026, vLLM merged my pull request [#60497](https://github.com/vllm-project/vllm/pull/60497), which removes a quadratic list copy from the Python fallback detokenizer. The result comes in three parts, and they belong together:
 
-- In a replay benchmark, CPU time for the fallback detokenizer fell from **7.46 s to 2.30 s** at 32,768 tokens per request. That is a 69% reduction.
-- The replay runs on one CPU core, and no model runs in it. It isolates the detokenizer.
-- In live serving at 6,144 tokens per request, I measured no gain. The request time medians were 145.03 s and 145.23 s.
+- In a replay benchmark, CPU time for the fallback detokenizer fell from **7.46 s to 2.30 s** at 32,768 tokens per request, a 69% reduction.
+- The replay runs on one CPU core with no model behind it, so it isolates the detokenizer.
+- In live serving at 6,144 tokens per request, I measured no gain: the request time medians were 145.03 s and 145.23 s.
 
-I give the second and third results the same weight as the first, because a component benchmark is easy to mistake for a serving result. This post explains the bug and the fix, how I found the problem, and what the measurements do and do not show.
+I give the second and third points the same weight as the first, because a component benchmark is easy to mistake for a serving result. The rest of this post explains the bug and the fix, how I found the problem, and what the measurements do and do not show.
 
 ## Background: incremental detokenization in vLLM
 
-A serving engine cannot wait for a complete response before it produces text. vLLM converts token IDs to text while the model generates them, so that it can stream output and check stop strings. It cannot decode each token alone, because the text of a token can depend on its neighbors. A leading space is one example, and a multi-byte character that is split across tokens is another. The detokenizer therefore keeps a history and decodes a short span around each new token.
+A serving engine cannot wait for a complete response before it produces text. vLLM converts token IDs to text while the model generates them, which is what makes streaming and stop-string checks possible. It cannot decode each token on its own, though, because the text of a token can depend on its neighbors: a leading space is one example, and a multi-byte character split across two tokens is another. So the detokenizer keeps a history and, on each step, decodes a short span around the new token.
 
-vLLM has two implementations of this step, and it selects one for each request:
+vLLM has two implementations of this step and selects one for each request:
 
 ```python
 if uses_fast_detokenizer(tokenizer):
@@ -61,19 +61,19 @@ if uses_fast_detokenizer(tokenizer):
 return SlowIncrementalDetokenizer(tokenizer, request)
 ```
 
-`uses_fast_detokenizer` is a single check: `isinstance(tokenizer, TokenizersBackend)`. A tokenizer that is backed by the Hugging Face `tokenizers` library takes the fast path, which uses `DecodeStream` from that library. Every other tokenizer takes the fallback, `SlowIncrementalDetokenizer`, which is plain Python. vLLM's `MistralTokenizer` (tokenizer mode `mistral`) is one of those, and it is the tokenizer in the measurements below.
+`uses_fast_detokenizer` is a single check, `isinstance(tokenizer, TokenizersBackend)`. A tokenizer backed by the Hugging Face `tokenizers` library takes the fast path, which uses that library's `DecodeStream`. Everything else takes the fallback, `SlowIncrementalDetokenizer`, which is plain Python. vLLM's `MistralTokenizer` (tokenizer mode `mistral`) is one of those, and it is the tokenizer behind every measurement in this post.
 
-Both implementations run in the API server process, not in the engine process that drives the GPU. The fallback calls a helper, `detokenize_incrementally`, once for every output token. Any cost in that helper that depends on the output length is therefore paid again on every step.
+Both implementations run in the API server process rather than in the engine process that drives the GPU. The fallback calls a helper, `detokenize_incrementally`, once for every output token, so any cost in that helper that depends on the output length is paid again on every step.
 
 ## The problem: a full-history copy on every step
 
-`SlowIncrementalDetokenizer` keeps a Python list of token strings. The list holds a short tail of the prompt, followed by every output token so far. On each step, the detokenizer passes the list to the helper as `prev_tokens`. Before my change, the helper began with this line:
+`SlowIncrementalDetokenizer` keeps a Python list of token strings: a short tail of the prompt, followed by every output token so far. On each step it passes that list to the helper as `prev_tokens`, and before my change the helper began like this:
 
 ```python
 output_tokens = prev_tokens + new_tokens
 ```
 
-`a + b` on two Python lists builds a new list and copies every element into it. This line therefore copied the full token history on every decode step. The helper then read only the end of the copy:
+Concatenating two Python lists with `+` builds a new list and copies every element into it, so this one line copied the full token history on every decode step. The helper then read only the end of the copy:
 
 ```python
 prefix_text = tokenizer.convert_tokens_to_string(
@@ -82,32 +82,32 @@ prefix_text = tokenizer.convert_tokens_to_string(
 new_text = tokenizer.convert_tokens_to_string(output_tokens[prefix_offset:])
 ```
 
-`prefix_offset` and `read_offset` point near the end of the list. Everything before `prefix_offset` was copied and never read. A second branch handles tokenizers with added vocabulary, and it takes the same two slices.
+`prefix_offset` and `read_offset` point near the end of the list, which means everything before `prefix_offset` was copied and never read. A second branch handles tokenizers with added vocabulary, and it takes the same two slices.
 
 <TokenWindowDiagram
   title="What one decode step copies"
   caption="The history holds a prompt tail (p) and the output tokens so far. The two offsets select a short span at the end."
 />
 
-The cost of one step grows with the number of tokens already produced. For a response of N tokens, the copies add up to about N²/2 list elements. The work is small for a short reply and large for a long one.
+The cost of a step therefore grows with the number of tokens already produced. Over a response of N tokens the copies add up to about N²/2 list elements, which is negligible for a short reply and significant for a long one.
 
 ## How I found it
 
-I did not find this with a profiler, and it did not start from a production incident. In the first week of October I began a general audit of vLLM's startup and request paths, to look for work that the engine could avoid. The first pass ran on an Apple Silicon Mac with no NVIDIA GPU, so it was limited to source reading and CPU measurements.
+I did not find this with a profiler, and it did not start from a production incident. In the first week of October I began a general audit of vLLM's startup and request paths, looking for work that the engine could avoid. The first pass ran on an Apple Silicon Mac with no NVIDIA GPU, which limited it to reading source and measuring CPU-only paths.
 
-The copy came out of that reading. A list concatenation inside a loop that runs once for each token is worth a check wherever it appears. A microbenchmark confirmed the cost: with 32,768 tokens of history, one helper call took 52 µs. A control with a bounded history took 0.93 µs.
+The copy came out of that reading. A list concatenation inside a loop that runs once per token deserves a second look wherever it appears, and a microbenchmark confirmed the suspicion: with 32,768 tokens of history, one helper call took 52 µs, against 0.93 µs for a control with a bounded history.
 
-I then held the change back for two days, because the next measurement did not support it. A server test needs a model that uses the fallback path. Qwen uses the fast path in this vLLM version, so I used Ministral 3B, which uses the Mistral tokenizer, on one L4 GPU. The responses matched, and the detokenizer used less CPU time. The request time did not change. A lower component cost with no effect on requests was not a sufficient reason to open a pull request.
+Then I held the change back for two days, because the next measurement did not support it. A server test needs a model that actually uses the fallback path. Qwen takes the fast path in this vLLM version, so I used Ministral 3B, which uses the Mistral tokenizer, on a single L4 GPU. The responses matched and the detokenizer used less CPU time, but request time did not move. A lower component cost with no effect on requests was not enough to justify a pull request.
 
-The profiling came after that. Its purpose was to find out why a real reduction in decode cost did not show in the API process. It gave three answers:
+The profiling came after that, and its purpose was to explain why a real reduction in decode cost did not show up in the API process. It gave three answers:
 
-1. **The copy cost grows quickly with output length.** At 6,144 tokens the saving is small. At 32,768 tokens it is most of the detokenizer's CPU time. The results section below has those numbers.
-2. **The same loop has a second quadratic copy.** The output text is a Python string that grows by one token on each step. In an allocation profile of one 16,384-token replay, that string caused about 1.11 GiB of cumulative allocation requests, while peak tracked memory stayed near 1.2 MiB. An open pull request, [#36023](https://github.com/vllm-project/vllm/pull/36023), already covers that string, so I did not touch it.
-3. **The API process does work for every engine output.** Both versions processed the same 6,145 output batches in the live test. Each batch is decoded and counted in metrics, also for a request that returns only a final result.
+1. **The copy cost grows quickly with output length.** At 6,144 tokens the saving is small. At 32,768 tokens it is most of the detokenizer's CPU time, as the results below show.
+2. **The same loop has a second quadratic copy.** The output text is a Python string that grows by one token on each step. In an allocation profile of a single 16,384-token replay, that string accounted for about 1.11 GiB of cumulative allocation requests while peak tracked memory stayed near 1.2 MiB. An open pull request, [#36023](https://github.com/vllm-project/vllm/pull/36023), already covers it, so I left it alone.
+3. **The API process does work for every engine output.** Both versions processed the same 6,145 output batches in the live test. Each batch is decoded and counted in metrics, even for a request that returns only a final result.
 
-One profile was wrong, and I rejected it. My first CPU-time profile used cProfile with a thread CPU clock, and it reported negative time for some functions. I reproduced the same error in a script without vLLM, discarded the profile, and repeated the measurement with yappi. That second profile passed its timing checks. It showed three active areas in the API process: fallback decoding, Prometheus metric updates, and ZeroMQ event handling.
+One of the profiles was wrong, and I discarded it. My first CPU-time profile used cProfile with a thread CPU clock, and it reported negative time for some functions. After I reproduced the same error in a script that had nothing to do with vLLM, I dropped that profile and repeated the measurement with yappi. The second profile passed its timing checks and pointed at three active areas in the API process: fallback decoding, Prometheus metric updates, and ZeroMQ event handling.
 
-After this work the correct claim was clear, and it was narrow. The change removes one of two quadratic copies. It reduces replay CPU time by a large amount for long outputs. It does not change request time at the load that I tested. I opened the pull request with those three statements in its description.
+By then the correct claim was clear, and it was a narrow one. The change removes one of two quadratic copies. It cuts replay CPU time substantially for long outputs. It does not change request time at the load I tested. I opened the pull request with those three statements in its description.
 
 <Callout type="info" title="Source of these numbers">
   The five measurements in this section (52 µs, 0.93 µs, 1.11 GiB, 1.2 MiB,
@@ -130,9 +130,9 @@ output_tokens = (
 ) + new_tokens
 ```
 
-`window_start` is the earliest index that the slices can touch, and the copy starts there. Three details keep the behavior the same.
+`window_start` is the earliest index that the slices can touch, and the copy starts there. Three details keep the behavior identical.
 
-**The slice indexes shift.** The caller passes offsets that are positions in the full history. Inside the window, each offset moves left by `window_start`:
+**The slice indexes shift.** The caller passes offsets that are positions in the full history, so inside the window each one moves left by `window_start`:
 
 ```python
 prefix_text = tokenizer.convert_tokens_to_string(
@@ -143,34 +143,34 @@ new_text = tokenizer.convert_tokens_to_string(
 )
 ```
 
-**The returned read offset stays absolute.** The old code returned `len(output_tokens)`, which was the full token count. The window is shorter than the history, so the new code returns `output_token_count`, which it computes before the cut:
+**The returned read offset stays absolute.** The old code returned `len(output_tokens)`, which was the full token count. Because the window is now shorter than the history, the new code returns `output_token_count`, which it computes before the cut:
 
 ```python
 return new_tokens, new_text, read_offset, output_token_count
 ```
 
-The caller gets the same number as before.
+The caller sees the same number as before.
 
-**The first call keeps the prompt window.** A caller that has no token history yet passes `prev_tokens=None`. The helper then converts the prompt tail itself and returns those tokens to the caller. `window_start` is 0 in that case.
+**The first call keeps the prompt window.** A caller with no token history yet passes `prev_tokens=None`. In that case the helper converts the prompt tail itself and returns those tokens, and `window_start` is 0.
 
-The window does not have a fixed size. When the decoded text ends in the replacement character `�`, the output probably stops in the middle of a multi-byte character. The helper then returns no text and leaves both offsets where they were. On the next step the window starts at the same index and is one token longer. It grows until the character is complete.
+The window does not have a fixed size. When the decoded text ends in the replacement character `�`, the output has probably stopped in the middle of a multi-byte character, so the helper returns no text and leaves both offsets where they were. On the next step the window starts at the same index and is one token longer, and it keeps growing until the character is complete.
 
 ### Two errors in my first draft
 
-A review of the first draft found two errors. Both corrections are visible in the merged code.
+A review of my own first draft turned up two errors, and both corrections are visible in the merged code.
 
-- **An added copy.** The helper has two production callers, and one of them already trims its token history. For that caller the window starts at index 0, and my draft made a full slice copy before the concatenation. The merged code uses `prev_tokens` directly when `window_start` is 0.
-- **A behavior change for unusual offsets.** A client can send offsets that are past the end of the token list. My draft emitted text in that case, and the original code emits none. The merged code limits `window_start` to `len(prev_tokens)`, and a new test covers the case.
+- **An added copy.** The helper has two production callers, and one of them already trims its token history. For that caller the window starts at index 0, where my draft made a full slice copy before the concatenation. The merged code uses `prev_tokens` directly when `window_start` is 0.
+- **A behavior change for unusual offsets.** A client can send offsets that point past the end of the token list. My draft emitted text in that case, while the original code emits none. The merged code caps `window_start` at `len(prev_tokens)`, and a new test covers the case.
 
-The diff is 61 added lines and 7 removed lines in two files. Most of the added lines are tests. The pull request description states the limit of the change: "Other copies in the caller remain."
+The diff is 61 added lines and 7 removed across two files, and most of the additions are tests. The pull request description is explicit about the limit of the change: "Other copies in the caller remain."
 
 ## Validation
 
-If a detokenizer change alters one character of output, it is a bug. I checked the output in three ways.
+A detokenizer change that alters a single character of output is a bug, so I checked the output in three ways.
 
-- **Live responses.** I ran both versions with a real model, Ministral-3-3B-Instruct-2512 on one L4 GPU. All 24 baseline and patch response pairs matched in text, token IDs, finish and stop reasons, and usage.
-- **Existing tests.** I ran the same test selection against the old helper and the new helper. Each version passed 81 tokenizer tests and 94 renderer tests. The runs also had 91 existing skips, 660 deselected cases, and one expected failure.
-- **New tests.** I added three cases: long Unicode output, the first-call prompt window, and offsets past the window. Each one runs with the GPT-2 tokenizer and the Pixtral tokenizer.
+- **Live responses.** I ran both versions behind a real model, Ministral-3-3B-Instruct-2512 on one L4 GPU. All 24 baseline and patch response pairs matched in text, token IDs, finish and stop reasons, and usage.
+- **Existing tests.** I ran the same test selection against the old helper and the new one. Each version passed 81 tokenizer tests and 94 renderer tests, with 91 existing skips, 660 deselected cases, and one expected failure.
+- **New tests.** I added three cases, each run with both the GPT-2 and the Pixtral tokenizer: long Unicode output, the first-call prompt window, and offsets past the window.
 
 This is the long-output case:
 
@@ -185,7 +185,7 @@ def test_slow_decode_long_history_preserves_text_and_token_ids(tokenizer):
     assert output_ids == ids
 ```
 
-The replay benchmark also compares the decoded text and the token IDs between the two versions, and they match.
+The replay benchmark compares decoded text and token IDs between the two versions as well, and they match.
 
 ## Results
 
@@ -207,15 +207,15 @@ The replay benchmark also compares the decoded text and the token IDs between th
 
 The setup:
 
-- The replay runs the real `SlowIncrementalDetokenizer` caller on one CPU core. No model inference runs.
-- Each run has four requests, with English, Chinese, Burmese, and emoji input. Each time in the table covers all four requests.
+- The replay drives the real `SlowIncrementalDetokenizer` caller on one CPU core, with no model inference.
+- Each run has four requests, with English, Chinese, Burmese, and emoji input, and each time in the table covers all four.
 - The tokenizer is `mistralai/Pixtral-12B-2409` in Mistral mode.
-- Each version has one warmup and three timed runs for each size and output mode.
-- The environment is Linux, Python 3.12, and a prebuilt vLLM wheel with the changed Python files installed on top of it. No compiled code changed.
+- Each version gets one warmup and three timed runs for each size and output mode.
+- The environment is Linux, Python 3.12, and a prebuilt vLLM wheel with the changed Python files installed over it. No compiled code changed.
 
-"Final" and "Streamed" are the two output modes of the benchmark. In the first mode, the text is returned once at the end. In the second mode, it is returned while it is produced.
+"Final" and "Streamed" are the benchmark's two output modes: in the first the text is read once at the end, and in the second it is read on every step.
 
-The 8,192 and 32,768 rows show the shape of the problem. With four times the tokens, the old code used about 8.8 times the CPU time (0.85 s to 7.46 s). The new code used about 4.5 times (0.51 s to 2.30 s). That is closer to linear growth, but it is still above four. The growing output string is one copy that remains. I did not measure how much of the remainder it explains.
+The 8,192 and 32,768 rows show the shape of the problem. With four times the tokens, the old code used about 8.8 times the CPU time (0.85 s to 7.46 s), while the new code used about 4.5 times (0.51 s to 2.30 s). The new figure is much closer to linear growth, though still above four. The growing output string is one copy that remains, and I did not measure how much of the remainder it explains.
 
 <Callout type="warning" title="AUTHOR NOTE: remove before publishing">
   The pull request links the benchmark script at a commit in a fork. That link
@@ -225,24 +225,24 @@ The 8,192 and 32,768 rows show the shape of the problem. With four times the tok
 
 ## Why serving did not get faster
 
-The replay isolates the detokenizer, and a deployment does not. For the live comparison I used Ministral-3-3B-Instruct-2512 on one L4 GPU, with four requests of 6,144 tokens each.
+The replay isolates the detokenizer; a deployment does not. For the live comparison I used Ministral-3-3B-Instruct-2512 on one L4 GPU, with four requests of 6,144 tokens each.
 
 - The request time medians were 145.03 s and 145.23 s.
-- The API CPU medians were 4.64 s and 4.765 s, and their ranges overlap.
+- The API CPU medians were 4.64 s and 4.765 s, with overlapping ranges.
 
-That is not a gain, and the pull request says so: the 69% claim applies to the replay only.
+Neither is a gain, and the pull request says so: the 69% claim applies to the replay only.
 
-The replay numbers explain the result. At 8,192 tokens, the fix saved 0.34 s of CPU time across four requests. The live requests were shorter than that, and each one took about 145 s. At that length, GPU time is much larger than detokenizer time. The API CPU median was below 5 s in both versions, in a run where a request took more than two minutes.
+The replay numbers explain why. At 8,192 tokens the fix saved 0.34 s of CPU time across four requests. The live requests were shorter than that, and each took about 145 s, so at this length GPU time is far larger than detokenizer time. The API CPU median stayed below 5 s in both versions, in a run where a single request took more than two minutes.
 
 ## When the change should matter
 
-The fix removes work that grows with the square of the output length, in the process that serves the API. I expect it to matter under these conditions:
+The fix removes work that grows with the square of the output length, in the process that serves the API. I expect it to matter when these conditions hold:
 
 - **Long outputs.** At 32,768 tokens, the replay saved 5.16 s of CPU time across four requests.
-- **Many concurrent streams.** Each stream has its own detokenizer, and they all use CPU time in the API process.
-- **An API process that is short on CPU.** If the process has spare CPU, a shorter detokenizer step changes little.
+- **Many concurrent streams.** Each stream has its own detokenizer, and all of them draw on the CPU time of the API process.
+- **An API process that is short on CPU.** With spare CPU, a shorter detokenizer step changes little.
 
-I did not measure any of these conditions in serving. The only result that I claim is the replay number.
+I did not measure any of these conditions in serving, so the only result I claim is the replay number.
 
 ## How to check your own deployment
 
@@ -264,7 +264,7 @@ I did not measure any of these conditions in serving. The only result that I cla
    py-spy record --pid <api-server-pid> --duration 60 -o profile.svg
    ```
 
-4. **Look for time that grows with output length.** Find `detokenize_incrementally` and `SlowIncrementalDetokenizer.decode_next` in the profile. Record one run with short outputs and one run with long outputs. If the share of CPU time in those two functions rises with the output length, you have this problem. If the API process is mostly idle, the detokenizer is not your bottleneck.
+4. **Look for time that grows with output length.** Find `detokenize_incrementally` and `SlowIncrementalDetokenizer.decode_next` in the profile, then record one run with short outputs and one with long outputs. If the share of CPU time in those two functions rises with the output length, you have this problem. If the API process is mostly idle, the detokenizer is not your bottleneck.
 
 ## Related work
 
