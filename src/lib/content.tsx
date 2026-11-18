@@ -97,6 +97,8 @@ const readingTimes: Record<string, number> = {
   '2026-feb-happymode-macos-appearance-scheduler': 5,
   '2026-aug-happycontext-performance': 11,
   '2026-oct-faster-github-actions': 6,
+  '2026-nov-vllm-fallback-detokenizer': 14,
+  '2026-dec-nvidia-dynamo-code-audit': 17,
   '2026-aug-lint-ai-generated-code': 20,
   '2026-aug-prompt-caching-agent-harnesses': 17,
   '2026-jan-saybackend-changelog': 1,

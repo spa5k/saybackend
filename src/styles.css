@@ -1362,6 +1362,13 @@ html.dark .shiki-code span {
   }
 }
 
+/* Seven nav links need 817px at the 18px gap; the frame is narrower here. */
+@media (min-width: 861px) and (max-width: 900px) {
+  .main-nav {
+    gap: 14px;
+  }
+}
+
 @media (max-width: 860px) {
   .page-frame {
     width: min(100% - 36px, 1340px);
