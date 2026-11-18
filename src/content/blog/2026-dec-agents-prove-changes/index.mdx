@@ -25,7 +25,7 @@ faqs:
 ---
 
 import Callout from "@/components/mdx/Callout";
-import ProportionBar from "@/components/mdx/ProportionBar";
+import WaffleChart from "@/components/mdx/WaffleChart";
 import FlowDiagram from "@/components/mdx/FlowDiagram";
 import TierLadder from "@/components/mdx/TierLadder";
 import ValueBarChart from "@/components/mdx/ValueBarChart";
@@ -42,19 +42,16 @@ import OutcomeDiagram from "@/components/mdx/OutcomeDiagram";
 
 An agent that says "done" has proved nothing. In our monorepo at work, agents write most pull requests, and for six weeks they also had a skill that let them verify a change in the running app. Then I counted what the recorded runs contained.
 
-<ProportionBar
+<WaffleChart
   title="Recorded verification runs with a user-level check"
-  alt="A bar divided into two parts. 30 of 160 recorded verification runs had a user-level check. The other 130 did not."
-  caption="Source: the verification tools pull request, 16 November 2026. 30 of 160 is 18.75%."
+  alt="A grid of 160 squares, one square for each recorded verification run. 30 of the 160 runs had a user-level check. The other 130 did not."
+  caption="Source: the verification tools pull request, 16 November 2026. One square is one run. 30 of 160 is 18.75%."
   unit="runs"
+  columns={20}
+  maxWidth={620}
   segments={[
     { label: "had a user-level check", value: 30, tone: "green" },
-    {
-      label: "had no user-level check",
-      value: 130,
-      tone: "muted",
-      hollow: true,
-    },
+    { label: "had no user-level check", value: 130, tone: "muted" },
   ]}
 />
 
@@ -171,6 +168,7 @@ The planner picks the lowest tier that can run the claim. Before this change, th
   title="Memory for one checkout"
   alt="A bar graph with two bars. A production web instance for one checkout uses 0.92 GB. The full development stack uses 8.4 GB."
   caption="Source: the verification tools pull request, 16 November 2026."
+  axisLabel="Memory (GB)"
   rows={[
     {
       label: "Production web instance",
@@ -297,11 +295,13 @@ Fourteen evidence cases test these rules, and each verdict is as designed.
 
 I gave the tools to ten agents and ten real pull requests, in two waves, with up to four agents at the same time.
 
-<ProportionBar
+<WaffleChart
   title="Ten pull requests, verified by ten agents"
-  alt="A bar divided into three parts. 7 of 10 pull requests passed. 2 of 10 could not check the main claim, because the pull request had a migration. 1 of 10 found a real schema defect."
-  caption="Source: the verification tools pull request, 16 November 2026."
+  alt="A row of 10 squares, one square for each pull request. 7 of 10 pull requests passed. 2 of 10 could not check the main claim, because the pull request had a migration. 1 of 10 found a real schema defect."
+  caption="Source: the verification tools pull request, 16 November 2026. One square is one pull request."
   unit="pull requests"
+  columns={10}
+  maxWidth={440}
   segments={[
     { label: "passed", value: 7, tone: "green" },
     {

@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { ReactNode, Ref } from 'react'
 
 export type FigureText = {
   /** Short heading shown above the figure. */
@@ -28,6 +29,49 @@ export function toneColor(tone: Tone) {
     case 'ink':
       return 'var(--ink)'
   }
+}
+
+/**
+ * Reports if the chart box is narrower than `minWideWidth`. A narrow chart
+ * puts its labels above the bars. The server render and the first client
+ * render use the wide layout.
+ */
+export function useNarrowChart(minWideWidth = 600) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [narrow, setNarrow] = useState(false)
+
+  useEffect(() => {
+    const box = ref.current
+    if (!box) return
+    const observer = new ResizeObserver(([entry]) => {
+      setNarrow(entry.contentRect.width < minWideWidth)
+    })
+    observer.observe(box)
+    return () => observer.disconnect()
+  }, [minWideWidth])
+
+  return [ref, narrow] as const
+}
+
+/**
+ * Wraps a library chart. The chart measures its text with the inherited font,
+ * so the font here must be the one that the chart styles apply to its labels.
+ */
+export function ChartBox({
+  children,
+  ref,
+}: {
+  children: ReactNode
+  ref?: Ref<HTMLDivElement>
+}) {
+  return (
+    <div
+      ref={ref}
+      className="ts-chart-box min-w-0 font-mono text-xs text-[var(--ink)]"
+    >
+      {children}
+    </div>
+  )
 }
 
 export function FigureFrame({
