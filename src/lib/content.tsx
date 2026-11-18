@@ -105,6 +105,7 @@ const readingTimes: Record<string, number> = {
   '2026-dec-lint-ratchet': 15,
   '2026-dec-agents-prove-changes': 14,
   '2027-jan-github-actions-minutes': 13,
+  '2027-jan-ai-review-agents': 7,
 }
 
 function directoryId(path: string) {
