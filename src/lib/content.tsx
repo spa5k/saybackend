@@ -103,6 +103,7 @@ const readingTimes: Record<string, number> = {
   '2026-jun-conductor-claude-code-cliproxyapi': 6,
   '2026-may-cliproxyapi-factory-byok': 5,
   '2026-dec-lint-ratchet': 15,
+  '2026-dec-agents-prove-changes': 14,
 }
 
 function directoryId(path: string) {
