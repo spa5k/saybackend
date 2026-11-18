@@ -10,6 +10,10 @@ const navigation = [
   { label: 'About', to: '/about/' },
   { label: 'Projects', to: '/projects/' },
   { label: 'Portfolio', href: 'https://kamran.sh/' },
+  {
+    label: 'LLM audit',
+    href: 'https://kamran.sh/audit?utm_source=saybackend&utm_medium=header&utm_campaign=audit',
+  },
   { label: 'Hire Me', to: '/hiring/' },
 ]
 
