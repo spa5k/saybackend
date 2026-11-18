@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#fbfaf6"/>
+  <text x="80" y="92" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="5">BLOG — GITHUB ACTIONS</text>
+  <text x="80" y="196" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="52" font-weight="700" letter-spacing="-1">EACH JOB IS BILLED</text>
+  <text x="80" y="284" fill="#ff6a00" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="76" font-weight="700" letter-spacing="-2">a full minute</text>
+  <text x="80" y="362" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="52" font-weight="700" letter-spacing="-1">COUNT THE JOBS</text>
+  <rect x="716" y="150" width="2" height="330" fill="#d9d5c8"/>
+  
+    <text x="760" y="196" fill="#667068" font-family="Menlo, SFMono-Regular, ui-monospace, monospace" font-size="20" letter-spacing="2">PROJECTED SAVING</text>
+    <text x="760" y="244" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="34" font-weight="700">~30,000 of ~110,000 min</text>
+    <text x="760" y="300" fill="#667068" font-family="Menlo, SFMono-Regular, ui-monospace, monospace" font-size="20" letter-spacing="2">AT LIST PRICE</text>
+    <text x="760" y="348" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="34" font-weight="700">about USD 180 a month</text>
+    <text x="760" y="404" fill="#667068" font-family="Menlo, SFMono-Regular, ui-monospace, monospace" font-size="20" letter-spacing="2">A 9 s JOB</text>
+    <text x="760" y="452" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="34" font-weight="700">1 billed minute</text>
+  <rect x="54" y="490" width="552" height="108" fill="#ff6a00"/>
+  <rect x="64" y="476" width="552" height="108" fill="#191c19"/>
+  <text x="340" y="548" fill="#ffffff" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="52" font-weight="700" text-anchor="middle" letter-spacing="-1">SayBackend</text>
+  <text x="760" y="548" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="20">A projection, not a measurement</text>
+</svg>

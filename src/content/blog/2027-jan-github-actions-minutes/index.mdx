@@ -1,0 +1,303 @@
+---
+title: "I cut a projected 27% of our GitHub Actions minutes. That is about USD 180 a month."
+seoTitle: "GitHub Actions Bills Each Job for a Full Minute"
+description: "GitHub rounds each job up to a full minute, so short jobs that run often cost the most. What I removed, the projected saving for each change, and what it is worth."
+date: "2027-01-13"
+draft: true
+slug: "github-actions-minutes"
+ogImage: "/images/github-actions-minutes-og.png"
+tags:
+  - "github-actions"
+  - "ci"
+  - "performance"
+  - "testing"
+  - "developer-tools"
+faqs:
+  - question: "How does GitHub Actions round job minutes?"
+    answer: "GitHub rounds the minutes and partial minutes that each job uses up to the nearest whole minute. A job that runs for 9 seconds is billed as one minute, and a job that runs for 74 seconds is billed as two."
+  - question: "What costs more: one long job or many short jobs?"
+    answer: "For the same total work, many short jobs cost more, because each one is rounded up on its own. Five jobs of 10 seconds are 5 billed minutes. The same five steps in one job are 1 billed minute."
+  - question: "How much did the change save?"
+    answer: "The pull request projects about 30,000 minutes a month from a month that was on track for about 110,000, which is about 27%. That is a projection. The post has no measured number for after the change."
+  - question: "What is 30,000 Actions minutes worth?"
+    answer: "At the list price of USD 0.006 a minute for a standard Linux 2-core runner, about USD 180 a month. The calculation assumes that all minutes are on that runner type, and it ignores the minutes that a plan includes."
+---
+
+import Callout from "@/components/mdx/Callout";
+import MinuteRoundingDiagram from "@/components/mdx/MinuteRoundingDiagram";
+import ValueBarChart from "@/components/mdx/ValueBarChart";
+import FlowDiagram from "@/components/mdx/FlowDiagram";
+import PairedSamples from "@/components/mdx/PairedSamples";
+
+<img
+  src="/images/github-actions-minutes-og.png"
+  alt="GitHub Actions minutes: a projected 27% cut, worth about USD 180 a month"
+  width="1200"
+  height="630"
+  loading="eager"
+  fetchPriority="high"
+/>
+
+GitHub bills each job on a hosted runner for at least one full minute. A job that runs for 9 seconds costs one minute. In our monorepo at work, many jobs finished in seconds and ran very often, and November 2026 was on track for about 110,000 minutes.
+
+On 6 November I merged two pull requests that should remove about 30,000 of those minutes each month. Three facts about that number, from the most certain to the least:
+
+- **The rule is real.** GitHub's [pricing page](https://docs.github.com/en/billing/reference/actions-runner-pricing) says: "GitHub rounds the minutes and partial minutes each job uses up to the nearest whole minute."
+- **The money is small.** At the list price of USD 0.006 a minute, 30,000 minutes is about USD 180 a month.
+- **The saving is a projection.** 30,000 of 110,000 is about 27%. I could not read the billing data, so this post has no measured number for the weeks after the change.
+
+The largest row in the saving is a workflow that I had added eight days before I removed it.
+
+## The rule: count jobs, not seconds
+
+<MinuteRoundingDiagram
+  title="Real duration and billed minutes for three jobs"
+  alt="Three jobs with their real duration and their billed minutes. The test report job ran for 9 seconds and is billed 1 minute. The verification tool tests job ran for 14 seconds and is billed 1 minute. The merge policy sweep ran for 74 seconds and is billed 2 minutes."
+  caption="Source: the two Actions minutes pull requests, 6 November 2026. The billed minutes follow from the rounding rule."
+  jobs={[
+    { label: "Test report job", seconds: 9 },
+    { label: "Verification tool tests job", seconds: 14 },
+    { label: "Merge policy sweep", seconds: 74 },
+  ]}
+/>
+
+The cost of a job is its duration rounded up to a whole minute. The cost of a workflow is the sum over its jobs, and each job is rounded on its own.
+
+That changes what to look for. Five jobs of 10 seconds are 5 billed minutes. The same five commands as steps of one job are 1 billed minute. A job that takes 25 minutes and runs twice a day is not the problem. A job that takes 9 seconds and runs after every push is.
+
+So the number to watch is jobs multiplied by frequency, and the list to read is the workflows that run most often, sorted by job count.
+
+## The largest row was eight days old
+
+On 29 October I added a merge policy workflow. Feature pull requests into the development branch must be squashed, and back-merges from the production branch must be merge commits made by the CI bot. The workflow enforced that routing and merged the back-merges itself.
+
+It had three triggers: pull request events, the end of every CI run, and a schedule every 10 minutes. The scheduled sweep read the status of every open pull request. With 81 open pull requests it took 74 seconds, so each sweep was billed as 2 minutes.
+
+Derived from those two numbers: a sweep every 10 minutes is 144 sweeps a day, and at 2 billed minutes each that is 288 minutes a day, or about 8,640 minutes in 30 days. That is the sweep alone, without the job after every CI run.
+
+All of this routed and merged about 8 back-merges a month. The pull request projects about 18,000 minutes a month for the workflow, which is about 2,250 minutes for each back-merge (18,000 divided by 8).
+
+On 6 November I removed it.
+
+<FlowDiagram
+  title="Back-merges before and after"
+  alt="Two flows. Before: a merge policy job ran after every CI run on every pull request, a sweep every 10 minutes read the status of all open pull requests, the policy routed each pull request, and about 8 back-merges a month were merged. After: when the production branch changes, one workflow merges it into the development branch with a merge commit and pushes it as the CI bot. Only a conflict opens a pull request for a person."
+  caption="Source: the Actions minutes pull request, 6 November 2026, and the workflow history."
+  columns={[
+    {
+      title: "Before: 29 October to 6 November",
+      steps: [
+        {
+          label: "Every CI run on every pull request ends",
+          text: "A merge policy job starts. It is billed at least 1 minute.",
+          tone: "brick",
+        },
+        {
+          label: "Every 10 minutes",
+          text: "A sweep reads the status of all open pull requests. 74 seconds for 81 of them: 2 billed minutes.",
+          tone: "brick",
+        },
+        {
+          label: "Route",
+          text: "Squash for a feature. A merge commit by the CI bot for a back-merge.",
+        },
+        {
+          label: "Merge",
+          text: "About 8 back-merges a month.",
+        },
+      ],
+    },
+    {
+      title: "After: 6 November",
+      steps: [
+        {
+          label: "The production branch changes",
+          text: "This is the only trigger.",
+          tone: "green",
+        },
+        {
+          label: "Merge and push",
+          text: "One workflow merges it into the development branch with a merge commit and pushes it as the CI bot.",
+          tone: "green",
+        },
+        {
+          label: "Only on a conflict",
+          text: "It opens a back-merge pull request for a person.",
+        },
+      ],
+      note: "A back-merge with no conflict now lands without a pull request. Its code was already reviewed on the way into the production branch.",
+    },
+  ]}
+/>
+
+The two pull request descriptions do not agree on the sweep interval: one says 10 minutes and the other says 30. The workflow file had the cron expression `*/10 * * * *`. The run history from 3 to 6 November has 478 scheduled runs with a median gap of 9.8 minutes. The interval was 10 minutes.
+
+The workflow was in the repository for eight days. Its job count multiplied by its frequency is the largest row in this post, and its task happened about 8 times a month.
+
+## The other rows
+
+| Change | Why | Projected saving each month |
+| --- | --- | ---: |
+| Merge policy removed | See above | about 18,000 |
+| Affected tests only | Pull requests run the test files that import a changed file. The main branch runs everything. | about 5,000 to 10,000 (estimate) |
+| CI gate | Two jobs of 14 s and 9 s became steps in one job | about 2,600 |
+| Dependency audit | It ran on each pull request, and its result depends only on the dependencies. It now runs when dependencies change and one time each day. | about 2,000 |
+| Preview login comment | It now posts when a pull request opens or reopens. The comment does not depend on the commit. | about 2,000 |
+| Preview cleanup sweep | Each 6 hours, not each hour. A closed pull request is still cleaned up immediately. | about 600 |
+| API preview cleanup sweep | The same change | about 600 |
+| Terraform guard job | Folded into the plan job | about 250 |
+
+<ValueBarChart
+  title="Projected saving for each change, in minutes each month"
+  alt="A horizontal bar graph of eight projected savings in minutes each month. Merge policy removed: about 18,000. Affected tests only: about 5,000 to 10,000, marked as an estimate. CI gate: about 2,600. Dependency audit: about 2,000. Preview login comment: about 2,000. Preview cleanup sweep: about 600. API preview cleanup sweep: about 600. Terraform guard job: about 250."
+  caption="Source: the two Actions minutes pull requests, 6 November 2026. Every bar is a projection. The hatched part is the range of an estimate."
+  rows={[
+    {
+      label: "Merge policy removed",
+      value: 18000,
+      display: "about 18,000",
+      tone: "green",
+    },
+    {
+      label: "Affected tests only",
+      value: 5000,
+      rangeTo: 10000,
+      display: "about 5,000 to 10,000 (estimate)",
+      tone: "green",
+    },
+    { label: "CI gate", value: 2600, display: "about 2,600", tone: "green" },
+    {
+      label: "Dependency audit",
+      value: 2000,
+      display: "about 2,000",
+      tone: "green",
+    },
+    {
+      label: "Preview login comment",
+      value: 2000,
+      display: "about 2,000",
+      tone: "green",
+    },
+    {
+      label: "Preview cleanup sweep",
+      value: 600,
+      display: "about 600",
+      tone: "green",
+    },
+    {
+      label: "API preview cleanup sweep",
+      value: 600,
+      display: "about 600",
+      tone: "green",
+    },
+    {
+      label: "Terraform guard job",
+      value: 250,
+      display: "about 250",
+      tone: "green",
+    },
+  ]}
+/>
+
+The rows do not sum to the headline. Without the test row they sum to 26,050. With it they sum to between 31,050 and 36,050. The pull request says about 30,000, and I use that number. None of these is a measurement. The second pull request says that its rows are based on 20 hours of usage on the main branch.
+
+Most rows have the same shape as the merge policy: a short job with a trigger that fires more often than its result can change. A login comment that does not depend on the commit does not need a run for each commit. A cleanup sweep that backs up an immediate cleanup does not need to run each hour.
+
+### Affected tests only
+
+This row is different, because it trades coverage for minutes. Pull requests into the development branch now run only the unit and integration test files that import a changed file:
+
+```bash
+vitest --changed=HEAD^1
+```
+
+Vitest cannot trace every kind of change, so some changes still run the full suites: dependencies and workspace packages, the Vitest config, the test database setup, the integration setup file, and files that are not code, such as migrations and fixtures. Release pull requests and every push to the development branch run everything.
+
+The estimate comes from a small sample. In 6 recent pull requests, half selected few or no tests. Before the change, each of them ran all 6 shards.
+
+The risk is specific. A test that reads a file from disk, where that file is not on the full-run list, can be skipped on a pull request. The full run on the development branch catches it after the merge.
+
+## What the minutes are worth
+
+The list price for a standard Linux 2-core runner was USD 0.006 a minute when I checked GitHub's pricing page on 18 November 2026.
+
+- 110,000 minutes a month is about USD 660.
+- 30,000 minutes a month is about USD 180.
+
+Both are derived, and both rest on two assumptions: that every minute is on that runner type, and that no minutes are included in the plan. A plan with included minutes pays less than this.
+
+USD 180 a month does not justify two pull requests by itself. The effects that I think are larger are these, and I did not measure them:
+
+- **Fewer checks on each pull request.** A check that runs on every pull request and tells the author nothing new is noise in the list of checks.
+- **Less waiting.** A queue with fewer jobs starts the important ones sooner.
+
+## Time, not minutes
+
+Minutes are what GitHub bills. Time is what people wait for. An earlier pull request, merged on 14 October, worked on time on the same runners.
+
+<PairedSamples
+  title="Three separate samples"
+  alt="Three separate before and after pairs. Release setup when the version is already published: 91.9 seconds before, 18.7 seconds after, 79.7% less. Read-only version metadata preparation: 115.3 seconds before, 18.6 seconds after, 83.9% less. Summed runner time of the core checks: 1,151.7 seconds before, 960.3 seconds after, 16.6% less."
+  caption="Source: the CI speed pull request, 14 October 2026. Each pair is a separate paired cold sample on the same runner class. The three percentages must not be added."
+  samples={[
+    {
+      title: "Release setup, version already published",
+      before: 91.9,
+      after: 18.7,
+      beforeDisplay: "91.9 s",
+      afterDisplay: "18.7 s",
+      reduction: "79.7% less",
+    },
+    {
+      title: "Version metadata preparation, read-only",
+      before: 115.3,
+      after: 18.6,
+      beforeDisplay: "115.3 s",
+      afterDisplay: "18.6 s",
+      reduction: "83.9% less",
+    },
+    {
+      title: "Core checks, summed runner time",
+      before: 1151.7,
+      after: 960.3,
+      beforeDisplay: "1,151.7 s",
+      afterDisplay: "960.3 s",
+      reduction: "16.6% less",
+    },
+  ]}
+/>
+
+| Scope | Before | After | Reduction |
+| --- | ---: | ---: | ---: |
+| Release setup when the version is already published | 91.9 s | 18.7 s | 79.7% |
+| Read-only version metadata preparation | 115.3 s | 18.6 s | 83.9% |
+| Summed runner time of the core checks | 1,151.7 s | 960.3 s | 16.6% |
+
+These are three separate paired cold samples on the same runner class. Each one has its own pair of commits and its own scope, so the percentages must not be added, and the first two must not be read as a faster test suite.
+
+The first row has the simplest cause. A release job installed the workspace and built every package before it asked whether there was anything to release. Now it asks first, with a small locked install of the Changesets CLI. When every version is already published, it does zero workspace installs and zero builds.
+
+More from the same pull request:
+
+- **The toolchain.** The compiler checks moved to tsgo, and Oxlint was upgraded. That sample measured compiler checks 22.2% faster and typed lint 17.7% faster.
+- **A negative result.** Partial clones with full history were slower in the checkout sample, so the release jobs kept their fetch behavior.
+- **Deleted tests are not a speed claim.** The same pull request deleted 43 mocked unit suites with 871 cases. That is a decision about test policy, and none of the numbers above include it. 3,365 unit cases and 581 real-database cases remained.
+
+Two older changes belong in the same list. In June, the test workflow got path-scoped gating, so a pull request skips the checks of packages that it does not change. In October, the host stopped building a web preview and an admin preview for each feature commit. A preview now builds when someone adds a label.
+
+One practice from the November pull request is worth copying, and it has nothing to do with minutes. Every action is pinned by commit SHA, with the release named in a comment, and a release must be at least 7 days old before the repository uses it:
+
+```yaml
+steps:
+  # The SHA is illustrative. Pin the commit of the release tag.
+  - uses: actions/checkout@0123456789abcdef0123456789abcdef01234567 # v7.0.1
+```
+
+Two actions stayed on their older release in that pull request for this reason: every newer release was less than 7 days old.
+
+## What I did not measure
+
+- **Usage after the change.** Every saving in this post is a projection from 6 November. I could not read the billing data, so there is no number for after.
+- **The larger effects.** Fewer checks on a pull request and less waiting are the reasons I would give for this work. I measured neither.
+- **The cost of a skipped test.** I know the case that the test selection can miss. I do not know how often it happens.
+- **The basis of the projections.** One pull request states a basis of 20 hours of usage. That is a short window for a monthly number.
