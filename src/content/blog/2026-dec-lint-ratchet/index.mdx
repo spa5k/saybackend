@@ -1,0 +1,303 @@
+---
+title: "I put 26,332 lint violations behind a ratchet. More than half are comments."
+seoTitle: "A Lint Ratchet for AI-Written Code, with the Numbers"
+description: "A baseline file records the allowed count for each lint rule in each file, and CI fails when a count rises. The design, the numbers on merge day, and the limits."
+date: "2026-12-16"
+draft: true
+slug: "lint-ratchet-ai-written-code"
+ogImage: "/images/lint-ratchet-og.png"
+tags:
+  - "ai-coding"
+  - "linting"
+  - "oxlint"
+  - "typescript"
+  - "code-quality"
+  - "developer-tools"
+faqs:
+  - question: "What is a lint ratchet?"
+    answer: "A baseline file that records the allowed number of violations for each rule in each file, plus a check that fails when a count rises. A count can go down, and the baseline must then follow it down. It cannot go up."
+  - question: "How is a ratchet different from a warning?"
+    answer: "A warning reports a problem and the build still passes. A ratchet lets the existing problems stay, but it fails the build for one more. A new rule can start with thousands of existing violations and still block the next one."
+  - question: "Can a pull request raise its own allowed count?"
+    answer: "Not in this design. The check compares the baseline in the pull request with the baseline at the merge base, and it refuses a count that is higher. The update command only lowers or removes entries."
+  - question: "Did the ratchet reduce the number of violations?"
+    answer: "This post does not claim that. The baseline recorded 26,332 violations on 17 November 2026, the day it merged. One day later the file recorded 26,300. Two points are not a trend."
+---
+
+import Callout from "@/components/mdx/Callout";
+import ValueBarChart from "@/components/mdx/ValueBarChart";
+import OutcomeDiagram from "@/components/mdx/OutcomeDiagram";
+import Timeline from "@/components/mdx/Timeline";
+import HiddenViolationDiagram from "@/components/mdx/HiddenViolationDiagram";
+
+<img
+  src="/images/lint-ratchet-og.png"
+  alt="A lint ratchet: 26,332 recorded violations, and each count can only go down"
+  width="1200"
+  height="630"
+  loading="eager"
+  fetchPriority="high"
+/>
+
+In August I wrote about [the lint rules I built for AI-written code](/blog/lint-ai-generated-code/) in our monorepo at work. On 17 November 2026 I merged the next step: a ratchet. A baseline file records the allowed count for each rule in each file, and a check in CI fails when any count rises. Three numbers from that day, with their limits:
+
+- The baseline recorded **26,332 violations**. That is a count on one day, not a reduction.
+- **14,123** of them, or 53.6%, come from one rule, `no-comments`. Many teams would not accept that rule.
+- In the 28 hours before the merge, the recorded total grew by **181**. The growth came from nine rules that the same pull request introduced, and from 4 new disable directives. The rules that had been warnings since August fell by 13 in that time.
+
+The third number is not the one I expected to write. The pull request description said that our warning counts "only went up", and I repeated that until I compared the baseline files. This post has the design of the ratchet, what the data shows, and what it does not show.
+
+The rules without a prefix in this post are first-party rules that we wrote for our repository.
+
+## Where the August post stopped
+
+<Timeline
+  title="Three steps in six months"
+  alt="A timeline with three entries. May 2026: the repository moved from ESLint to Oxlint. August 2026: a ruleset with 61 rules as errors and 64 as warnings. November 2026: a ratchet with a baseline of 26,332 recorded violations."
+  caption="Source: the three pull requests, merged on 17 May, 29 August, and 17 November 2026."
+  items={[
+    {
+      date: "17 May 2026",
+      title: "ESLint to Oxlint",
+      text: "681 lines added and 2,145 removed in 42 files. Type checks run on tsgo.",
+    },
+    {
+      date: "29 August 2026",
+      title: "61 rules as errors, 64 as warnings",
+      text: "An error means that the count is zero today. A warning means a known backlog. CI fails on errors only. A pre-commit hook denies warnings in staged files.",
+    },
+    {
+      date: "17 November 2026",
+      title: "The ratchet",
+      text: "A count for each rule in each file. 55 warning rules and nine new rules are in it. CI fails when a count rises.",
+    },
+  ]}
+/>
+
+The August ruleset had 15 rules vendored from the public [`dmmulroy/anti-slop`](https://github.com/dmmulroy/anti-slop) project and 15 first-party rules with 104 rule tests. Three numeric limits had a ceiling for each file that was already above the limit: complexity 25, file length 1,000 lines, and nesting depth 4. That pinned 71 files for complexity, 30 for length, and 8 for depth.
+
+Everything else with an existing backlog was a warning, and one mechanism was supposed to move those counts: the pre-commit hook denied warnings in every staged file. If you changed a file, you paid for its warnings. The median file had 3 warnings and the worst had 130.
+
+The August post ended with the claim that the warning count now moves down. For the rules I can compare, that claim held:
+
+| Rule (warning in August) | 29 August, two apps | 17 November, same two apps |
+| --- | ---: | ---: |
+| `typescript/no-unnecessary-condition` | 689 | 279 |
+| `anti-slop/no-unsafe-dictionary-type` | 414 | 317 |
+| `anti-slop/no-unknown-parameters` | 369 | 254 |
+| `typescript/no-unnecessary-type-assertion` | 327 | 128 |
+| `no-memo-under-react-compiler` | 292 | 69 |
+| `unicorn/no-useless-undefined` | 240 | 57 |
+| `typescript/prefer-nullish-coalescing` | 219 | 111 |
+
+The August column is from the August pull request. The November column is my sum of the baseline file for files in the same two applications. It is not a clean comparison: the November count includes test files, and files can move between packages in three months. I did not check for moves. With those limits, all seven counts were lower.
+
+So the hook worked for these rules. It had a cost, and it left gaps.
+
+## What the hook cost
+
+On 7 November a performance sweep touched 36 files that already had 375 warnings between them. The hook blocked every one of those files, so I split them out of the sweep:
+
+- **18 files lost their edits.** The edits were hoisted regular expressions and formatters. To clear the warnings in those files I would have had to rewrite types, mostly around arbitrary JSON. The performance gain was small, so the edits went.
+- **18 files kept their edits**, with every warning in them fixed.
+
+One of the fixed files had a reader with no test. Before I trusted the rewrite, a scratch fuzz check compared the old reader and the new one on 200,000 random and malformed inputs. It found 0 mismatches.
+
+That is the hook doing its job, and it is also a tax on the wrong change. A performance fix in an old file had to carry a type cleanup, or be dropped.
+
+## What the hook did not cover
+
+Three gaps were in the August design:
+
+- **CI failed on errors only.** The warning gate ran in the pre-commit hook, on the machine of the person or agent that made the commit. The August pull request documented `git commit --no-verify` for large legacy files.
+- **A problem with no rule had no count.** A review of the code base with several models found the same problems again and again: a comment that explains a workaround in place of a fix, a lint-disable directive, a cast on parsed JSON, a `catch` that drops the error, a feature that imports another feature. Some of these had a warning rule. Others had no rule at all.
+- **A disable directive was free.** A directive silenced a rule, and nothing counted the directives.
+
+The last day before the merge shows the second gap in numbers. The pull request had a first baseline on 16 November. About 28 hours later, on 17 November, the main branch was merged into it and the baseline was seeded again. Between those two files:
+
+| Group | Added | Removed | Net |
+| --- | ---: | ---: | ---: |
+| Nine rules that were new in this pull request | 237 | 47 | +190 |
+| Rules that had been warnings since August | 47 | 60 | −13 |
+| Disable directives | 6 | 2 | +4 |
+| Total | 290 | 109 | +181 |
+
+The growth is in rules that nobody on the main branch could see yet. 211 of the 237 were new comments. The pull request called the 181 "the cost of each day without the ratchet". The more exact reading is this: code that breaks a rule arrives every day, and a rule with no gate records none of it.
+
+## The ratchet
+
+The baseline is a JSON file with one count for each rule in each file. This fragment shows the shape, with a made-up path:
+
+```json
+{
+  "no-type-assertion": {
+    "src/features/billing/invoice.ts": 3
+  }
+}
+```
+
+One script reads the baseline, lints the repository, and compares.
+
+<OutcomeDiagram
+  title="What the ratchet decides"
+  alt="A diagram with three inputs and five results. The inputs are the baseline at the merge base, the baseline in the pull request, and the count from the lint run. The check passes when no count is above its allowed value and the baseline is current. It fails when a count rose, when a new file has a violation, when a count fell and the baseline was not updated, and when the baseline in the pull request allows more than the baseline at the merge base."
+  caption="Source: the ratchet pull request, 17 November 2026."
+  inputsTitle="Three inputs"
+  inputs={[
+    {
+      label: "Baseline at the merge base",
+      text: "The allowed counts on the main branch.",
+    },
+    {
+      label: "Baseline in the pull request",
+      text: "The allowed counts that the pull request proposes.",
+    },
+    {
+      label: "Count now",
+      text: "What the lint run finds in the working tree.",
+    },
+  ]}
+  outcomesTitle="Five results"
+  outcomes={[
+    {
+      when: "No count is above its allowed value, and the baseline is current",
+      result: "Pass",
+      tone: "green",
+    },
+    {
+      when: "A count is above its allowed value",
+      result: "Fail",
+      tone: "brick",
+      detail: "The message has the form: allowed 12, found 13.",
+    },
+    {
+      when: "A new file has a violation",
+      result: "Fail",
+      tone: "brick",
+      detail: "A new file starts with an allowed count of zero.",
+    },
+    {
+      when: "A count fell, and the baseline still has the old value",
+      result: "Fail",
+      tone: "brick",
+      detail: "Run the update command and commit the lower baseline.",
+    },
+    {
+      when: "The baseline in the pull request allows more than the merge base does",
+      result: "Refused",
+      tone: "brick",
+      detail: "A pull request cannot raise a count by an edit of the JSON.",
+    },
+  ]}
+/>
+
+The last row is the one that makes it a ratchet. The script compares the baseline in the pull request with the baseline at the merge base, and the update command only lowers or removes entries. Without that comparison, the cheapest fix for a failed check is an edit of the number.
+
+The fourth row keeps the baseline true. If a count falls and the file still allows the old value, the next person can add a violation back without a failure.
+
+What went into it:
+
+- All 55 warning rules, with the three numeric limits at their base values.
+- Nine new rules, in the ratchet only: `no-comments`, `no-type-assertion`, `no-json-cast`, `no-swallowed-error`, `no-inline-sleep`, `no-error-message-match`, `no-test-awareness`, `no-cross-feature-import`, and `no-client-server-import`.
+- Test files count like product code.
+- Nine warning rules that had zero violations became errors.
+
+CI runs the ratchet on each pull request, and the pre-commit hook runs it on staged files. For a pull request, the rules are simple. A file that you do not change costs you nothing. A file that you change keeps its recorded count, and you cannot add to it.
+
+## Disable directives are counted too
+
+A ratchet on rules has an easy way out: add `oxlint-disable-next-line` above the new violation. So the script counts directives from the source text, for each rule and each file, in every form: next line, same line, block, JSX, and whole file. A new directive fails the check.
+
+The first count found 284 directives that name a rule and 45 broad ones that name none. It also found 57 directives that silenced nothing, and I deleted those. Unused directives are now errors.
+
+Existing directives leave one more gap. A directive that is already in a file hides new violations inside its range, and the normal run never sees them.
+
+<HiddenViolationDiagram
+  title="A violation under an existing directive"
+  alt="Two panels with the same four lines of code. In the normal run, a whole-file disable directive silences a rule, so a newly added useCallback line is not reported and the count does not change. In hidden mode, the script blanks the directive and lints again. All the lines are reported and the check fails with allowed 12, found 13."
+  caption="Source: the ratchet pull request, 17 November 2026. The code is illustrative; the result line is from the pull request."
+/>
+
+The hidden mode blanks each directive, lints again, and counts what appears. On the merge day that was 533 hidden violations in 163 files. They are in the same baseline under their own keys, with the same rules: only down, and no raise by hand. The proof was one more `useCallback` under a rest-of-file directive. The normal ratchet did not report it, and the hidden check failed with `allowed 12, found 13`.
+
+This mode edits files while it runs, so it runs in CI and not in the pre-commit hook.
+
+## One rule that I deleted
+
+The August ruleset banned `useEffect`, with an allowlist of 85 files that already had effects. A file list has a hole: a file with 21 effects can get number 22. I closed it with a second rule that required an `EFFECT:` comment on each effect, and the August post presented that rule as a solution. It had 185 findings.
+
+The ratchet deleted it. The reason in the pull request is one sentence: "A comment must not make an effect acceptable."
+
+The count does the work now. On the merge day the baseline recorded 197 effects in 102 files, and each file has its own number. A file with 21 effects cannot get number 22, and no comment is involved.
+
+## The numbers on merge day
+
+<ValueBarChart
+  title="Recorded violations on 17 November 2026"
+  alt="A horizontal bar graph of seven baseline rows. no-comments: 14,123 violations in 1,547 files. no-type-assertion: 3,043 in 601 files. no-swallowed-error: 885 in 448 files. no-cross-feature-import: 714 in 283 files. no-module-mocking: 615 in 142 files. Named disable directives: 284. Broad disable directives: 45."
+  caption="Source: the ratchet pull request, 17 November 2026. These are the rows that the pull request lists, out of 126 keys and 26,332 recorded violations."
+  rows={[
+    { label: "no-comments", value: 14123, display: "14,123 in 1,547 files" },
+    { label: "no-type-assertion", value: 3043, display: "3,043 in 601 files" },
+    { label: "no-swallowed-error", value: 885, display: "885 in 448 files" },
+    {
+      label: "no-cross-feature-import",
+      value: 714,
+      display: "714 in 283 files",
+    },
+    { label: "no-module-mocking", value: 615, display: "615 in 142 files" },
+    {
+      label: "Named disable directives",
+      value: 284,
+      display: "284",
+      tone: "muted",
+    },
+    {
+      label: "Broad disable directives",
+      value: 45,
+      display: "45",
+      tone: "muted",
+    },
+  ]}
+/>
+
+The rows are the ones that the pull request lists. They are not a strict top five: the baseline file has three other rules between 600 and 730.
+
+`no-comments` is 14,123 of 26,332, which is 53.6%. The rule reports every comment, and the idea behind it is that a name must carry the meaning. That is a strong position, and a team that does not hold it would cut this baseline in half on the first day. Read the total with that in mind.
+
+One day later, on 18 November, the baseline file on the main branch recorded 26,300. That is one more data point. It is not a trend, and I do not claim that the ratchet reduced anything.
+
+## The first day
+
+Before the merge, I tested the ratchet on real input. I put the new files of two other open pull requests on the branch. The check failed with 26 new violations in 9 files, and passed again when I removed the files.
+
+The first real failure came hours after the merge, and it was on the main branch. Another pull request had run its checks before the ratchet existed, and it merged after. It added 20 comments and one condition that was always true. From that moment, the lint check failed for every pull request that took the main branch. The fix went in the same day: the comments were removed, one variable got a longer name, and the baseline went down for two files.
+
+A ratchet has this window on the day it lands. Each open pull request that passed its checks before the merge can break the main branch after it.
+
+## What it costs to run
+
+A full run takes about 6 seconds, and the pre-commit hook is about 5 seconds slower than before. The hidden mode takes about 8 seconds in CI.
+
+## Oxlint notes
+
+Four things about Oxlint cost me time in August. The first is in the earlier post, and the other three are new here.
+
+- **A wrong rule name is a parse error, and the run then reports zero findings.** That looks the same as a clean result. Check the exit code before you count.
+- **A plugin turns on its complete `correctness` category**, not only the rules that you name. The `vitest` plugin added about 1,900 findings this way.
+- **The CLI flags `-D` and `-W` discard the rule options from the config file.** A rule with options must be set in a config file.
+- **Selector rules do not exist.** Oxlint has no `no-restricted-syntax`, so each selector-style rule goes into a custom plugin.
+
+Two findings from the same ruleset are worth a mention, because tests did not catch them:
+
+- 24 tests had assertions inside `if` or `catch` blocks. When the guarded branch did not run, the assertion did not run, and the test passed.
+- One automatic fix changed `mockResolvedValue(undefined)` to `mockResolvedValue()` at 21 sites. All 150 tests passed, and the type check failed, because Vitest does not check types. Run the type check after a bulk fix.
+
+## What I did not measure
+
+- **A reduction.** The baseline is a count. I have two points, one day apart.
+- **The effect on open pull requests.** Each one had to take the main branch and run the ratchet. I did not count how many failed, apart from the one above.
+- **Which path the new violations took** past the August hook. I know that 47 violations of the older warning rules were added in 28 hours. I do not know how many came through a skipped hook.
+- **File moves** in the August and November comparison.
+
+Two problems are open. One rule reports correct code: `typescript/prefer-nullish-coalescing` flags `a?.trim() || b`, where an empty string must fall through. And a rule that becomes wider cannot raise its own baseline, so a better rule needs a process that does not exist yet.

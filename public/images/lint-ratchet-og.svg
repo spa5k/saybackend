@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#fbfaf6"/>
+  <text x="80" y="92" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="5">BLOG — LINT FOR AI-WRITTEN CODE</text>
+  <text x="80" y="196" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="46" font-weight="700" letter-spacing="-1">26,332 VIOLATIONS</text>
+  <text x="80" y="284" fill="#ff6a00" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="76" font-weight="700" letter-spacing="-2">behind a ratchet</text>
+  <text x="80" y="362" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="46" font-weight="700" letter-spacing="-1">COUNTS ONLY GO DOWN</text>
+  <rect x="716" y="150" width="2" height="330" fill="#d9d5c8"/>
+  
+    <text x="760" y="196" fill="#667068" font-family="Menlo, SFMono-Regular, ui-monospace, monospace" font-size="20" letter-spacing="2">RECORDED · 17 NOV 2026</text>
+    <text x="760" y="244" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="36" font-weight="700">26,332 in 126 keys</text>
+    <text x="760" y="300" fill="#667068" font-family="Menlo, SFMono-Regular, ui-monospace, monospace" font-size="20" letter-spacing="2">ONE RULE · NO-COMMENTS</text>
+    <text x="760" y="348" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="36" font-weight="700">14,123 (53.6%)</text>
+    <text x="760" y="404" fill="#667068" font-family="Menlo, SFMono-Regular, ui-monospace, monospace" font-size="20" letter-spacing="2">HIDDEN BY DIRECTIVES</text>
+    <text x="760" y="452" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="36" font-weight="700">533 in 163 files</text>
+  <rect x="54" y="490" width="552" height="108" fill="#ff6a00"/>
+  <rect x="64" y="476" width="552" height="108" fill="#191c19"/>
+  <text x="340" y="548" fill="#ffffff" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="52" font-weight="700" text-anchor="middle" letter-spacing="-1">SayBackend</text>
+  <text x="760" y="548" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="20">A count, not a reduction</text>
+</svg>
