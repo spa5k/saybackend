@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 
+import { PageHero } from '@/components/paper/PageHero'
 import { PostList } from '@/components/paper/PostList'
 import { posts } from '@/lib/content'
 import { PAGE_META, SITE, breadcrumb, seo } from '@/lib/site'
@@ -35,29 +36,33 @@ function BlogIndex() {
     return years
   }, {})
   return (
-    <section className="page-narrow archive-page">
-      <header className="page-heading">
-        <h1>All writing</h1>
-      </header>
-      <div className="topic-pills">
-        {topicCards().map((topic) => (
-          <Link
-            key={topic.slug}
-            to="/topics/$topic/"
-            params={{ topic: topic.slug }}
-          >
-            {topic.name} <span>{topic.count}</span>
-          </Link>
-        ))}
-      </div>
-      {Object.entries(byYear)
-        .sort(([a], [b]) => Number(b) - Number(a))
-        .map(([year, yearPosts]) => (
-          <section className="archive-year" key={year}>
-            <h2>{year}</h2>
-            <PostList posts={yearPosts} />
-          </section>
-        ))}
-    </section>
+    <>
+      <PageHero
+        motif={{ name: 'squares' }}
+        title="All writing"
+        meta={`${posts.length} posts, newest first.`}
+      />
+      <section className="page-narrow archive-page">
+        <div className="topic-pills">
+          {topicCards().map((topic) => (
+            <Link
+              key={topic.slug}
+              to="/topics/$topic/"
+              params={{ topic: topic.slug }}
+            >
+              {topic.name} <span>{topic.count}</span>
+            </Link>
+          ))}
+        </div>
+        {Object.entries(byYear)
+          .sort(([a], [b]) => Number(b) - Number(a))
+          .map(([year, yearPosts]) => (
+            <section className="archive-year" key={year}>
+              <h2>{year}</h2>
+              <PostList posts={yearPosts} motifs />
+            </section>
+          ))}
+      </section>
+    </>
   )
 }

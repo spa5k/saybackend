@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
+import { PageHero } from '@/components/paper/PageHero'
 
 import { PAGE_META, SITE, breadcrumb, seo } from '@/lib/site'
 
@@ -75,65 +76,70 @@ const strengths = [
 
 function Hiring() {
   return (
-    <section className="page-frame hiring-page">
-      <header className="page-heading">
-        <p className="eyebrow hiring-status">Currently at Trelium</p>
-        <h1>Let’s build reliable products together.</h1>
-        <p>
-          I’m currently Member of Technical Staff at Trelium, building AI agent
-          platform workflows. I’m always happy to discuss scalable systems and
-          architectural challenges.
-        </p>
-      </header>
-      <div className="hiring-profile">
-        <img
-          src="/images/pfp.png"
-          alt="Kamran Tahir"
-          width={1024}
-          height={1536}
-          decoding="async"
-        />
-        <div>
-          <h2>Senior engineer, product-minded delivery.</h2>
-          <p>
-            I build reliable systems across product and platform layers, with
-            strong experience in AWS architectures, distributed services,
-            data-heavy workflows, and pragmatic delivery.
-          </p>
-          <div className="profile-actions">
-            <a href={`mailto:${SITE.email}`}>Hiring? Email me</a>
-            <a
-              href="https://cal.com/kamrantahir"
-              target="_blank"
-              rel="noopener"
-            >
-              Book intro call
-            </a>
-            <a href="https://kamran.sh/" target="_blank" rel="noopener">
-              View resume
-            </a>
-            <Link to="/projects/">Projects</Link>
+    <>
+      <PageHero
+        motif={{ name: 'layers' }}
+        eyebrow="Currently at Trelium"
+        title="Let’s build reliable products together."
+        meta={
+          <>
+            I’m currently Member of Technical Staff at Trelium, building AI
+            agent platform workflows. I’m always happy to discuss scalable
+            systems and architectural challenges.
+          </>
+        }
+      />
+      <section className="page-frame hiring-page">
+        <div className="hiring-profile">
+          <img
+            src="/images/pfp.png"
+            alt="Kamran Tahir"
+            width={1024}
+            height={1536}
+            decoding="async"
+          />
+          <div>
+            <h2>Senior engineer, product-minded delivery.</h2>
+            <p>
+              I build reliable systems across product and platform layers, with
+              strong experience in AWS architectures, distributed services,
+              data-heavy workflows, and pragmatic delivery.
+            </p>
+            <div className="profile-actions">
+              <a href={`mailto:${SITE.email}`}>Hiring? Email me</a>
+              <a
+                href="https://cal.com/kamrantahir"
+                target="_blank"
+                rel="noopener"
+              >
+                Book intro call
+              </a>
+              <a href="https://kamran.sh/" target="_blank" rel="noopener">
+                View resume
+              </a>
+              <Link to="/projects/">Projects</Link>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="hiring-columns">
-        <section>
-          <p className="eyebrow">Role focus</p>
-          <ul>
-            {roleFocus.map((role) => (
-              <li key={role}>{role}</li>
-            ))}
-          </ul>
-        </section>
-        <section>
-          <p className="eyebrow">Technical scope</p>
-          <ul>
-            {strengths.map((strength) => (
-              <li key={strength}>{strength}</li>
-            ))}
-          </ul>
-        </section>
-      </div>
-    </section>
+        <div className="hiring-columns">
+          <section>
+            <p className="eyebrow">Role focus</p>
+            <ul>
+              {roleFocus.map((role) => (
+                <li key={role}>{role}</li>
+              ))}
+            </ul>
+          </section>
+          <section>
+            <p className="eyebrow">Technical scope</p>
+            <ul>
+              {strengths.map((strength) => (
+                <li key={strength}>{strength}</li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      </section>
+    </>
   )
 }

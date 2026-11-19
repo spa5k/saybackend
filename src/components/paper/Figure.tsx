@@ -23,6 +23,8 @@ type FigureProps = {
   legend?: Array<LegendItem>
   /** A taped note card, placed over the lower left of the figure. */
   card?: { title?: string; body: ReactNode }
+  /** Run the figure across the full width of the page. */
+  bleed?: boolean
   children: ReactNode
 }
 
@@ -35,10 +37,13 @@ export function Figure({
   caption,
   legend,
   card,
+  bleed = false,
   children,
 }: FigureProps) {
   return (
-    <figure className="fig not-typography">
+    <figure
+      className={bleed ? 'fig bleed not-typography' : 'fig not-typography'}
+    >
       {title ? <p className="fig-title">{title}</p> : null}
       <div className="fig-plot">{children}</div>
       {card ? (

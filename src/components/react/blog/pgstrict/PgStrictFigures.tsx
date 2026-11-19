@@ -40,20 +40,27 @@ type PipelineProps = {
   /** A handwritten note above one pipeline stage. */
   note?: { at: string; text: string }
   caption?: ReactNode
+  bleed?: boolean
 }
 
 /**
  * The Postgres query pipeline in one row, with the work that a hook does
  * drawn under the stage where the hook runs.
  */
-export function QueryPipeline({ title, hooks, note, caption }: PipelineProps) {
+export function QueryPipeline({
+  title,
+  hooks,
+  note,
+  caption,
+  bleed,
+}: PipelineProps) {
   const most = Math.max(...hooks.map((hook) => hook.steps.length))
   const stepsTop = 118
   const height = stepsTop + most * (STEP_H + 8) + 26
   const hooked = new Map(hooks.map((hook) => [hook.at, hook]))
 
   return (
-    <Figure title={title} caption={caption}>
+    <Figure title={title} caption={caption} bleed={bleed}>
       <svg
         viewBox={`0 0 ${WIDTH} ${height}`}
         role="img"

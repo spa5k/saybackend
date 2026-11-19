@@ -30,6 +30,7 @@ export function LinesToEvent() {
   let offset = 356
   return (
     <Figure
+      bleed
       title="One request: six log lines, or one wide event"
       caption="Gather context in the middleware and the handlers. Then emit one structured event through the logger that you already use."
     >

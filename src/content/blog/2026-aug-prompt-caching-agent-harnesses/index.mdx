@@ -25,6 +25,7 @@ faqs:
 import PrefixCacheStructure from "@/components/mdx/PrefixCacheStructure";
 import PrefixCacheWorkflow from "@/components/mdx/PrefixCacheWorkflow";
 import { BlockRows } from "@/components/paper/BlockRows";
+import { NumberBand } from "@/components/paper/NumberBand";
 import { Chain } from "@/components/paper/Chain";
 import { LineFigure } from "@/components/paper/LineFigure";
 
@@ -41,6 +42,7 @@ The provider avoids reprocessing that identical part by matching the start of th
 The match is exact. A change anywhere in the prefix recomputes everything after it. There is no per-file or per-segment caching. That is the constraint every harness has to work within.
 
 <BlockRows
+  bleed
   title="Three turns of one session"
   description="Three turns of one session. Turn 1 writes the system prompt, the project context, and message 1 to the cache. Turn 2 reads those three from the cache and writes message 2. In turn 3 the project context changed, so the system prompt is read from the cache and everything after it is computed again."
   rows={[
@@ -135,6 +137,10 @@ This is why the harness comparison is not about the model. Every harness sends t
 Prompt caching lowers the input token bill, not the output bill. On both major providers, a cache read is roughly 10% of the base input rate. A cache write costs a little more: 1.25x.
 
 That makes the numbers stark. Write a prefix once and read it once: about 1.35x the ordinary input cost, versus 2x to process the same prefix twice without caching. Across ten requests, one write and nine reads cost about 2.15x, versus 10x uncached.
+
+<NumberBand value="2.15x" note="against 10x with no cache">
+  The input cost of ten requests on one cached prefix.
+</NumberBand>
 
 So the harness that keeps your prefix stable is not a nicety. It is the difference between a 2x and a 10x input bill on a long session. That is why one harness can score much better than another on the same model: not because the model is faster, but because more of each request is served from cache.
 

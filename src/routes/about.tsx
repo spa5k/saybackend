@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { PageHero } from '@/components/paper/PageHero'
 
 import { PAGE_META, SITE, breadcrumb, seo } from '@/lib/site'
 
@@ -65,65 +66,70 @@ export const Route = createFileRoute('/about')({
 
 function About() {
   return (
-    <section className="page-frame profile-page">
-      <header className="page-heading">
-        <p className="eyebrow">About the author</p>
-        <h1>Kamran Tahir</h1>
-        <p>
-          I build scalable backend systems, event-driven pipelines, and
-          pragmatic infrastructure on AWS.
-        </p>
-      </header>
-      <div className="profile-intro">
-        <img
-          src="/images/pfp.png"
-          alt="Kamran Tahir"
-          width={1024}
-          height={1536}
-          decoding="async"
-        />
-        <div>
-          <p>
-            I’m a Senior Software Engineer focused on reliable systems, clean
-            interfaces, and steady delivery. SayBackend is where I document the
-            decisions, failures, and patterns worth carrying forward.
-          </p>
-          <div className="profile-actions">
-            <a href={`mailto:${SITE.email}`}>Email</a>
-            <a href="https://kamran.sh/" target="_blank" rel="noopener">
-              Resume
-            </a>
-            <a
-              href="https://linkedin.com/in/kamrantahir2"
-              target="_blank"
-              rel="noopener"
-            >
-              LinkedIn
-            </a>
+    <>
+      <PageHero
+        motif={{ name: 'lanes' }}
+        eyebrow="About the author"
+        title="Kamran Tahir"
+        meta={
+          <>
+            I build scalable backend systems, event-driven pipelines, and
+            pragmatic infrastructure on AWS.
+          </>
+        }
+      />
+      <section className="page-frame profile-page">
+        <div className="profile-intro">
+          <img
+            src="/images/pfp.png"
+            alt="Kamran Tahir"
+            width={1024}
+            height={1536}
+            decoding="async"
+          />
+          <div>
+            <p>
+              I’m a Senior Software Engineer focused on reliable systems, clean
+              interfaces, and steady delivery. SayBackend is where I document
+              the decisions, failures, and patterns worth carrying forward.
+            </p>
+            <div className="profile-actions">
+              <a href={`mailto:${SITE.email}`}>Email</a>
+              <a href="https://kamran.sh/" target="_blank" rel="noopener">
+                Resume
+              </a>
+              <a
+                href="https://linkedin.com/in/kamrantahir2"
+                target="_blank"
+                rel="noopener"
+              >
+                LinkedIn
+              </a>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="profile-columns">
-        <section>
-          <p className="eyebrow">Focus</p>
-          <h2>Systems that stay understandable.</h2>
-          <ul>
-            <li>AWS serverless and microservices</li>
-            <li>Node.js, TypeScript, and Go</li>
-            <li>PostgreSQL and data pipelines</li>
-            <li>Performance, reliability, and observability</li>
-          </ul>
-        </section>
-        <section>
-          <p className="eyebrow">Recent work</p>
-          <h2>Product and platform delivery.</h2>
-          <ul>
-            <li>Zeller — POS integrations across Go, Node, and AWS</li>
-            <li>Shiba Inu — analytics at 100k+ events per minute</li>
-            <li>GoKwik — payments, microservices, and test modernization</li>
-          </ul>
-        </section>
-      </div>
-    </section>
+        <div className="profile-columns">
+          <section>
+            <p className="eyebrow">Focus</p>
+            <h2>Systems that stay understandable.</h2>
+            <ul>
+              <li>AWS serverless and microservices</li>
+              <li>Node.js, TypeScript, and Go</li>
+              <li>PostgreSQL and data pipelines</li>
+              <li>Performance, reliability, and observability</li>
+            </ul>
+          </section>
+          <section>
+            <p className="eyebrow">Recent work</p>
+            <h2>Product and platform delivery.</h2>
+            <ul>
+              <li>Zeller — POS integrations across Go, Node, and AWS</li>
+              <li>Shiba Inu — analytics at 100k+ events per minute</li>
+              <li>GoKwik — payments, microservices, and test modernization</li>
+            </ul>
+          </section>
+        </div>
+      </section>
+    </>
   )
 }

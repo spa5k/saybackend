@@ -45,18 +45,6 @@ import analysisData from "./data/analysis-data.json";
 import decisionData from "./data/decision-matrix.json";
 import featureData from "./data/feature-comparison.json";
 import rankingData from "./data/ranking-data.json";
-import OgImage from "./uuidv7-postgres-og.png";
-
-<Picture
-  src={OgImage}
-  alt="PostgreSQL UUIDv7: native uuidv7 compared with extensions"
-  width={1200}
-  height={630}
-  loading="eager"
-  fetchPriority="high"
-  inferSize
-  formats={["avif", "webp"]}
-/>
 
 ## Introduction
 
@@ -90,6 +78,7 @@ If you are evaluating PostgreSQL behavior beyond ID generation, the related [pg_
 Before diving into implementations, let's understand what makes UUIDv7 special. Unlike its predecessor UUIDv4 (which is completely random), UUIDv7 incorporates a timestamp, making it naturally sortable by creation time.
 
 <SegmentBar
+  bleed
   title="UUIDv7 layout (128 bits)"
   segments={[
     { label: "unix_ts_ms", size: 48, mark: "blue" },

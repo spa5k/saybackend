@@ -13,6 +13,8 @@ type Props = {
   notes?: Record<string, string>
   card?: { title?: string; body: ReactNode }
   caption?: ReactNode
+  /** Run the figure across the full width of the page. */
+  bleed?: boolean
 }
 
 const WIDTH = 640
@@ -28,6 +30,7 @@ export function BeforeAfterBars({
   afterLabel = 'After',
   notes = {},
   card,
+  bleed,
   caption,
 }: Props) {
   const left = card ? 214 : 70
@@ -42,6 +45,7 @@ export function BeforeAfterBars({
 
   return (
     <Figure
+      bleed={bleed}
       title={unit ? `${title} (${unit})` : title}
       card={card}
       caption={caption}

@@ -22,6 +22,8 @@ type Props = {
   /** Start the bars at this value, to show small differences. */
   from?: number
   caption?: ReactNode
+  /** Run the figure across the full width of the page. */
+  bleed?: boolean
 }
 
 const WIDTH = 640
@@ -35,6 +37,7 @@ export function RankBars({
   unit,
   rows,
   legend,
+  bleed,
   from = 0,
   mono = false,
   caption,
@@ -46,6 +49,7 @@ export function RankBars({
     Math.max(3, ((value - from) / (max - from)) * BAR_MAX)
   return (
     <Figure
+      bleed={bleed}
       title={unit ? `${title} (${unit})` : title}
       legend={legend}
       caption={caption}

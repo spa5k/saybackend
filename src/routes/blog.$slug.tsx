@@ -17,6 +17,9 @@ import {
 } from '@/lib/content'
 import { Giscus } from '@/components/Giscus'
 import { Circled } from '@/components/paper/Figure'
+import { PageHero } from '@/components/paper/PageHero'
+import { heroOf } from '@/lib/heroes'
+import { markOf } from '@/lib/marks'
 import CodeWindow from '@/components/mdx/CodeWindow'
 import ResponsiveTable from '@/components/mdx/ResponsiveTable'
 import { SITE, breadcrumb, seo, toIsoDateTime } from '@/lib/site'
@@ -138,30 +141,34 @@ function PostPage() {
 
   return (
     <article className="post-page">
-      <header className="post-header page-narrow">
-        <PostTitle title={post.title} />
-        <div className="post-byline">
-          <a
-            href="https://kamran.sh/"
-            target="_blank"
-            rel="noopener"
-            title="Portfolio"
-          >
-            Kamran Tahir
-          </a>
-          <time dateTime={post.date}>{formatDate(post.date)}</time>
-          <span>{post.readingMinutes} min</span>
-          <a
-            href={`/blog/${post.slug}.md`}
-            rel="alternate"
-            type="text/markdown"
-            title="View this article as Markdown"
-          >
-            <MarkdownLogo aria-hidden size={13} weight="bold" />
-            Markdown
-          </a>
-        </div>
-      </header>
+      <PageHero
+        motif={heroOf(post)}
+        eyebrow={markOf(post).name}
+        title={<PostTitle title={post.title} />}
+        meta={
+          <div className="post-byline">
+            <a
+              href="https://kamran.sh/"
+              target="_blank"
+              rel="noopener"
+              title="Portfolio"
+            >
+              Kamran Tahir
+            </a>
+            <time dateTime={post.date}>{formatDate(post.date)}</time>
+            <span>{post.readingMinutes} min</span>
+            <a
+              href={`/blog/${post.slug}.md`}
+              rel="alternate"
+              type="text/markdown"
+              title="View this article as Markdown"
+            >
+              <MarkdownLogo aria-hidden size={13} weight="bold" />
+              Markdown
+            </a>
+          </div>
+        }
+      />
       {post.wip ? (
         <div className="page-narrow wip-note">
           This article is a work in progress and may change.
@@ -242,7 +249,7 @@ function PostTitle({ title }: { title: string }) {
   const figure = rest.match(/\d[\d.,]*\s?(?:×|%)/)
   const start = figure?.index ?? -1
   return (
-    <h1>
+    <>
       {lead ? <b>{lead}:</b> : null}
       {figure && start >= 0 ? (
         <>
@@ -253,6 +260,6 @@ function PostTitle({ title }: { title: string }) {
       ) : (
         rest
       )}
-    </h1>
+    </>
   )
 }

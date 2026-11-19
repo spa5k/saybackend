@@ -2,8 +2,10 @@ import { Link } from '@tanstack/react-router'
 import type { CSSProperties } from 'react'
 
 import { MARKS } from './Figure'
+import { MiniMotif } from './Motifs'
 import { formatDate } from '@/lib/content'
 import type { Post } from '@/lib/content'
+import { heroOf } from '@/lib/heroes'
 import { markOf } from '@/lib/marks'
 
 const NEW_FOR_DAYS = 45
@@ -12,12 +14,15 @@ const NEW_FOR_DAYS = 45
 export function PostList({
   posts,
   flagNewest = false,
+  motifs = false,
 }: {
   posts: Array<Post>
   flagNewest?: boolean
+  /** Show the small drawing of each post's subject. */
+  motifs?: boolean
 }) {
   return (
-    <ul className="post-list">
+    <ul className={motifs ? 'post-list post-list-motifs' : 'post-list'}>
       {posts.map((post, index) => {
         const isNew =
           flagNewest &&
@@ -40,6 +45,7 @@ export function PostList({
                   </span>
                 ) : null}
               </span>
+              {motifs ? <MiniMotif name={heroOf(post).name} /> : null}
               <time dateTime={post.date}>{formatDate(post.date)}</time>
             </Link>
           </li>

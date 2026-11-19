@@ -28,6 +28,8 @@ type Props = {
     side?: 'right' | 'below'
   }>
   caption?: ReactNode
+  /** Run the figure across the full width of the page. */
+  bleed?: boolean
   description: string
 }
 
@@ -47,6 +49,7 @@ export function BlockRows({
   stacked = false,
   legend,
   notes = [],
+  bleed,
   caption,
   description,
 }: Props) {
@@ -68,7 +71,7 @@ export function BlockRows({
   const y = (row: number) => top + row * rowHeight + labelSpace
 
   return (
-    <Figure title={title} legend={legend} caption={caption}>
+    <Figure bleed={bleed} title={title} legend={legend} caption={caption}>
       <svg
         viewBox={`0 0 ${WIDTH} ${height}`}
         role="img"

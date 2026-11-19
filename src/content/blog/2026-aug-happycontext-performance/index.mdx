@@ -32,16 +32,8 @@ faqs:
 import Callout from "@/components/mdx/Callout";
 import GitHubRepoCard from "@/components/mdx/GitHubRepoCard";
 import { BeforeAfterBars } from "@/components/paper/BeforeAfterBars";
+import { NumberBand } from "@/components/paper/NumberBand";
 import { ShareBars } from "@/components/paper/ShareBars";
-
-<img
-  src="/images/happycontext-performance-og.png"
-  alt="AI-assisted happycontext performance improvements of up to 77 times"
-  width="1200"
-  height="630"
-  loading="eager"
-  fetchPriority="high"
-/>
 
 [`happycontext`](https://github.com/happytoolin/happycontext) builds one wide event during a request and writes it when the request finishes. That makes production logs easier to query, but it also puts the event lifecycle on every request path.
 
@@ -240,6 +232,7 @@ This produced the largest headline ratios because a filtered write now returns a
 A filtered log write is a call that the logger ignores because its level is below the configured minimum. For example, a logger set to `Info` ignores a `Debug` event.
 
 <BeforeAfterBars
+  bleed
   title="Filtered log writes, medium event"
   unit="ns/op"
   data={[
@@ -256,6 +249,10 @@ A filtered log write is a call that the logger ignores because its level is belo
 />
 
 The `zerolog` work also fixed a correctness issue. The adapter created an unused Info event before it created the real event. That extra event consumed a sampling decision. Removing it improved speed and restored one decision per emitted event.
+
+<NumberBand value="77×" note="most of the gain is skipped work">
+  A filtered log write now returns almost immediately.
+</NumberBand>
 
 ## What We Refused to Optimize
 

@@ -116,6 +116,55 @@ export function PaperDefs() {
           />
           <path className="fig-grid-major" d="M0 0V56M0 0H56" />
         </pattern>
+        {/* More kinds of paper for the page heroes. */}
+        <pattern
+          id="pp-dots"
+          width="28"
+          height="28"
+          patternUnits="userSpaceOnUse"
+        >
+          <circle className="paper-dot" cx="14" cy="14" r="1.4" />
+        </pattern>
+        <pattern
+          id="pp-ruled"
+          width="56"
+          height="34"
+          patternUnits="userSpaceOnUse"
+        >
+          <path className="fig-grid-major" d="M0 33.5H56" />
+        </pattern>
+        <pattern
+          id="pp-plus"
+          width="56"
+          height="56"
+          patternUnits="userSpaceOnUse"
+        >
+          <path className="paper-plus" d="M28 23V33M23 28H33" />
+        </pattern>
+        <pattern
+          id="pp-iso"
+          width="56"
+          height="97"
+          patternUnits="userSpaceOnUse"
+        >
+          <path
+            className="fig-grid-minor"
+            d="M0 0L56 97M56 0L0 97M0 48.5H56M0 0H56M28 0L0 48.5M28 0L56 48.5M0 48.5L28 97M56 48.5L28 97"
+          />
+        </pattern>
+        <pattern
+          id="pp-blueprint"
+          width="112"
+          height="112"
+          patternUnits="userSpaceOnUse"
+        >
+          <path className="fig-grid-minor" d="M56 0V112M0 56H112" />
+          <path className="fig-grid-major" d="M0 0V112M0 0H112" />
+          <path
+            className="paper-plus"
+            d="M0 -5V5M-5 0H5M112 -5V5M107 0H117M0 107V117M107 112H117"
+          />
+        </pattern>
         <radialGradient id="pp-fade-gradient">
           <stop offset=".55" stopColor="#fff" />
           <stop offset="1" stopColor="#fff" stopOpacity="0" />

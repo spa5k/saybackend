@@ -316,32 +316,67 @@ mark,
 }
 
 /* Header and footer */
+:root {
+  --header-h: 68px;
+}
+
 .site-header {
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 20;
+  transition:
+    background-color 300ms ease,
+    box-shadow 300ms ease;
+}
+
+.site-header.is-scrolled {
+  background: color-mix(in srgb, var(--paper) 86%, transparent);
+  box-shadow: 0 1px 0 var(--rule);
+  backdrop-filter: blur(10px);
 }
 
 .header-inner {
-  display: flex;
-  min-height: 72px;
+  display: grid;
+  height: var(--header-h);
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
-  gap: 24px;
+  gap: 16px;
+  padding-inline: clamp(16px, 3vw, 40px);
 }
 
 .wordmark {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 17px;
+  gap: 9px;
+  font-size: 21px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
+.wordmark > span {
+  display: inline-block;
+  max-width: 170px;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    max-width 450ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 300ms ease;
+}
+
 .wordmark-icon {
-  width: 17px;
-  height: 17px;
+  width: 19px;
+  height: 19px;
   flex: none;
+  transition: transform 450ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.is-scrolled .wordmark > span {
+  max-width: 0;
+  opacity: 0;
+}
+
+.is-scrolled .wordmark-icon {
+  transform: rotate(90deg) scale(1.15);
 }
 
 .main-nav {
@@ -350,20 +385,32 @@ mark,
   gap: 6px;
 }
 
-.main-nav > a {
+.main-nav-end {
+  justify-content: flex-end;
+}
+
+.main-nav > a,
+.mobile-nav > a {
   border: 1px solid var(--rule);
   border-radius: 999px;
   background: var(--wash);
-  padding: 5px 12px;
-  font-size: 12.5px;
+  padding: 6px 13px;
+  font-size: 13px;
   font-weight: 500;
   line-height: 1.4;
-  transition: border-color 150ms ease;
+  transition:
+    border-color 200ms ease,
+    transform 200ms ease;
 }
 
 .main-nav > a:hover,
-.main-nav > a.active {
+.main-nav > a.active,
+.mobile-nav > a:hover {
   border-color: var(--line);
+}
+
+.main-nav > a:hover {
+  transform: translateY(-1px);
 }
 
 .main-nav > a.active {
@@ -374,12 +421,12 @@ mark,
 .search-toggle,
 .mobile-menu-button {
   display: inline-flex;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--rule);
-  border-radius: 8px;
+  border-radius: 999px;
   background: var(--wash);
   color: var(--ink);
   cursor: pointer;
@@ -395,35 +442,248 @@ mark,
   display: none;
 }
 
-.site-footer {
-  margin-top: 72px;
-  padding: 26px 0 40px;
+.mobile-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px clamp(16px, 3vw, 40px) 16px;
+}
+
+/* A page that starts with a hero lets the header sit on top of it. */
+.page-hero {
+  position: relative;
+  height: clamp(380px, 36vw, 480px);
+  margin-top: calc(var(--header-h) * -1);
+  overflow: hidden;
+}
+
+.page-hero-art {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  inset: 0;
+}
+
+.paper-dot {
+  fill: var(--ink);
+  fill-opacity: 0.2;
+}
+
+.paper-plus {
+  fill: none;
+  stroke: var(--ink);
+  stroke-opacity: 0.26;
+  stroke-width: 1;
+}
+
+.paper-margin {
+  fill: none;
+  stroke: var(--m-rose);
+  stroke-opacity: 0.7;
+  stroke-width: 1.4;
+}
+
+/* The art fades out at the bottom, so the page below starts clean. */
+.page-hero-art {
+  mask-image: linear-gradient(#000 78%, transparent);
+}
+
+/* A soft patch of paper behind the title keeps it readable on any drawing. */
+.page-hero-text::before {
+  position: absolute;
+  z-index: -1;
+  border-radius: 40px;
+  background: var(--paper);
+  content: '';
+  filter: blur(22px);
+  inset: -18px -44px -14px;
+  opacity: 0.9;
+}
+
+.page-hero-text {
+  z-index: 1;
+  position: absolute;
+  bottom: 34px;
+  left: max(24px, calc(50% - 520px));
+  max-width: min(580px, 46%);
+}
+
+.page-hero-eyebrow {
+  margin: 0 0 10px;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
-.footer-inner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 14px 24px;
-  border-top: 1px solid var(--rule);
-  padding-top: 22px;
-}
-
-.footer-inner div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-}
-
-.footer-inner a:hover {
+.page-hero-eyebrow a:hover {
   color: var(--ink);
 }
 
+.page-hero-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(32px, 4.4vw, 52px);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.04;
+  text-wrap: balance;
+}
+
+.page-hero-title b {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 0.88em;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.page-hero-meta {
+  max-width: 560px;
+  margin-top: 12px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.page-hero-meta .post-byline {
+  justify-content: flex-start;
+  margin-top: 0;
+}
+
+.motif-text {
+  fill: #141413;
+  font-family: var(--font-sans);
+}
+
+.motif-mono {
+  fill: var(--ink);
+  font-family: var(--font-mono);
+}
+
+.motif-hand {
+  fill: var(--pen);
+  font-family: var(--font-hand);
+  font-size: 30px;
+  font-weight: 500;
+}
+
+.motif-pop {
+  animation: motif-pop 700ms both;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.motif-lane {
+  animation: motif-draw 2.4s cubic-bezier(0.3, 0.6, 0.2, 1) both;
+  fill: none;
+  stroke-dasharray: 1;
+  stroke-linecap: round;
+  stroke-width: 9;
+}
+
+@keyframes motif-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+
+@keyframes motif-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.site-footer {
+  position: relative;
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  margin-top: 88px;
+  animation: paper-drift 40s linear infinite;
+  background-image:
+    linear-gradient(
+      color-mix(in srgb, var(--ink) 6%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--ink) 6%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 28px 28px;
+  padding: 52px clamp(18px, 3.4vw, 44px) 0;
+}
+
+@keyframes paper-drift {
+  to {
+    background-position:
+      28px 28px,
+      28px 28px;
+  }
+}
+
+.footer-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  font-size: 14px;
+}
+
+.footer-top nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 26px;
+}
+
+.footer-top a {
+  background: linear-gradient(var(--pen), var(--pen)) no-repeat 0 100% / 0 1.5px;
+  padding-bottom: 3px;
+  transition: background-size 300ms ease;
+}
+
+.footer-top a:hover {
+  background-size: 100% 1.5px;
+}
+
 .footer-sign {
-  font-size: 26px;
+  font-size: 40px;
+  line-height: 1;
+  transform: rotate(-3deg);
+}
+
+.footer-wordmark {
+  margin: 56px -0.06em -0.06em;
+  font-size: min(15.8vw, 250px);
+  font-weight: 700;
+  letter-spacing: -0.065em;
+  line-height: 0.86;
+  white-space: nowrap;
+}
+
+.footer-wordmark span {
+  color: var(--m-lilac);
+}
+
+.footer-note {
+  position: absolute;
+  top: 108px;
+  left: clamp(18px, 3.4vw, 44px);
+  background: var(--paper);
+  padding: 2px 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.footer-note a:hover {
+  color: var(--ink);
 }
 
 .search-dialog {
@@ -873,6 +1133,21 @@ mark,
   white-space: nowrap;
 }
 
+.post-list-motifs a {
+  grid-template-columns: 14px 1fr 150px auto;
+}
+
+.mini-motif {
+  width: 150px;
+  height: 34px;
+  align-self: center;
+  transition: transform 300ms ease;
+}
+
+.post-list a:hover .mini-motif {
+  transform: scale(1.08);
+}
+
 .home-more {
   display: flex;
   flex-wrap: wrap;
@@ -1039,6 +1314,7 @@ mark,
   width: min(100% - 40px, 900px);
   grid-template-columns: 1fr min(620px, 100%) 1fr;
   margin-inline: auto;
+  padding-top: 44px;
   padding-bottom: 40px;
   font-family: var(--font-serif);
   font-size: 18.5px;
@@ -1384,7 +1660,7 @@ html.dark .shiki-code span {
 
 .fig-title {
   margin: 0 0 6px;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 600;
   line-height: 1.4;
   text-align: center;
@@ -1397,9 +1673,9 @@ html.dark .shiki-code span {
 }
 
 .fig text {
-  fill: var(--muted);
+  fill: var(--ink-soft);
   font-family: var(--font-sans);
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .fig text.fig-num {
@@ -1448,7 +1724,7 @@ html.dark .shiki-code span {
   margin: 10px 0 0;
   padding: 0;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: 12.5px;
   list-style: none;
 }
 
@@ -1473,7 +1749,7 @@ html.dark .shiki-code span {
   max-width: 420px;
   margin: 10px auto 0;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: 12.5px;
   line-height: 1.45;
   text-align: center;
 }
@@ -1768,30 +2044,6 @@ html.dark .shiki-code span {
 @media (max-width: 860px) {
   .page-frame {
     width: min(100% - 36px, 1040px);
-  }
-
-  .header-inner {
-    min-height: 62px;
-  }
-
-  .mobile-menu-button {
-    display: inline-flex;
-  }
-
-  .main-nav {
-    position: absolute;
-    top: 62px;
-    right: 0;
-    left: 0;
-    display: none;
-    flex-wrap: wrap;
-    border-bottom: 1px solid var(--rule);
-    background: var(--paper);
-    padding: 12px 18px 18px;
-  }
-
-  .main-nav-open {
-    display: flex;
   }
 
   .topic-grid {
@@ -2112,5 +2364,137 @@ html.dark .shiki-code span {
   .share-grid {
     grid-template-columns: 1fr;
     justify-items: center;
+  }
+}
+
+/* A figure that runs edge to edge between the paragraphs of a post. */
+.post-body > .fig.bleed,
+.post-body > .number-band {
+  width: 100vw;
+  max-width: none;
+  margin-inline: calc(50% - 50vw);
+}
+
+.fig.bleed {
+  background-image:
+    linear-gradient(
+      color-mix(in srgb, var(--ink) 6%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--ink) 6%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 28px 28px;
+  margin-block: 44px;
+  padding: 34px 20px 30px;
+}
+
+.fig.bleed .fig-plot {
+  max-width: 1040px;
+}
+
+.fig.bleed > .note-card {
+  left: max(20px, calc(50% - 520px));
+}
+
+.number-band {
+  display: grid;
+  grid-template-columns: auto minmax(0, 560px);
+  align-items: center;
+  justify-content: center;
+  gap: clamp(24px, 5vw, 56px);
+  margin-block: 44px;
+  background: #141413;
+  padding: clamp(40px, 6vw, 68px) 24px;
+  color: #faf9f5;
+}
+
+.number-band-value {
+  color: var(--m-lilac);
+  font-family: var(--font-serif);
+  font-size: clamp(72px, 12vw, 150px);
+  letter-spacing: -0.04em;
+  line-height: 0.8;
+}
+
+.number-band-text,
+.post-body .number-band-text p {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(21px, 2.6vw, 30px);
+  line-height: 1.25;
+}
+
+.number-band .hand {
+  display: block;
+  margin-top: 14px;
+  color: #9db3ff;
+  font-size: clamp(24px, 2.8vw, 34px);
+}
+
+@media (max-width: 860px) {
+  .header-inner {
+    grid-template-columns: auto 1fr;
+  }
+
+  .header-inner > .main-nav:first-child,
+  .main-nav-end > a {
+    display: none;
+  }
+
+  .mobile-menu-button {
+    display: inline-flex;
+  }
+
+  .page-hero-art {
+    opacity: 0.35;
+  }
+
+  .page-hero-text {
+    max-width: calc(100% - 48px);
+  }
+
+  .post-list-motifs a {
+    grid-template-columns: 14px 1fr auto;
+  }
+
+  .mini-motif {
+    display: none;
+  }
+
+  .number-band {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-footer,
+  .motif-pop,
+  .motif-lane {
+    animation: none;
+  }
+}
+
+/* Readability: byline in a hero uses the stronger text colour, and long
+   lines of body text stay inside a comfortable measure. */
+.page-hero .post-byline {
+  color: var(--ink-soft);
+  font-size: 13.5px;
+}
+
+.post-body {
+  text-wrap: pretty;
+}
+
+.post-body p,
+.post-body li {
+  hanging-punctuation: first;
+}
+
+@media (max-width: 860px) {
+  .page-hero-text::before {
+    opacity: 0.8;
   }
 }

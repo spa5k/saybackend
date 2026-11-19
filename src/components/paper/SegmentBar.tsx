@@ -11,6 +11,8 @@ type Props = {
   /** A line of fixed-width text below the bar, such as a format string. */
   pattern?: string
   caption?: ReactNode
+  /** Run the figure across the full width of the page. */
+  bleed?: boolean
 }
 
 const WIDTH = 640
@@ -25,6 +27,7 @@ export function SegmentBar({
   segments,
   unit = 'bits',
   pattern,
+  bleed,
   caption,
 }: Props) {
   const total = segments.reduce((sum, segment) => sum + segment.size, 0)
@@ -54,7 +57,7 @@ export function SegmentBar({
   const height = pattern ? 170 : 132
 
   return (
-    <Figure title={title} caption={caption}>
+    <Figure bleed={bleed} title={title} caption={caption}>
       <svg
         viewBox={`0 0 ${WIDTH} ${height}`}
         role="img"

@@ -48,18 +48,6 @@ import ImgOnBlocks from "./6-setting-on-update-erroring-out.png";
 import ImgValidUpdateWhere from "./7-valid-update-query-with-where.png";
 import ImgTxnSetLocalOff from "./8-transaction-turning-off.png";
 import ImgCtesWhere from "./9-ctes-with-where.png";
-import OgImage from "./pg-strict-og.png";
-
-<Picture
-  src={OgImage}
-  alt="Recreating PlanetScale's pg_strict in Rust: A Build Log"
-  width={1200}
-  height={630}
-  loading="eager"
-  fetchPriority="high"
-  inferSize
-  formats={["avif", "webp"]}
-/>
 
 ## Recreating PlanetScale's pg_strict in Rust
 
@@ -104,6 +92,7 @@ This is valid SQL and a data incident waiting to happen. The extension should:
 Before the build log, here is the mental model that made the rest of the decisions obvious. Postgres processes queries in distinct stages, and `pgrx` allows us to hook into them.
 
 <QueryPipeline
+  bleed
   title="The Postgres query pipeline, and the two hook points"
   hooks={[
     {
