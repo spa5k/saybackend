@@ -22,6 +22,7 @@ faqs:
     answer: "The cache lives at the provider for all of them. The difference is how much each harness keeps the prefix stable. Claude Code documents the invalidation list, pi and opencode v2 rebuild a shorter prefix on compaction, and the rest rely on provider defaults so session shape decides the hit rate."
 ---
 
+import "katex/dist/katex.min.css";
 import PrefixCacheStructure from "@/components/mdx/PrefixCacheStructure";
 import PrefixCacheWorkflow from "@/components/mdx/PrefixCacheWorkflow";
 import { BlockRows } from "@/components/paper/BlockRows";

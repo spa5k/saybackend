@@ -67,7 +67,6 @@ function Pop({
   w,
   h,
   fill,
-  wait = 0,
   opacity,
 }: {
   x: number
@@ -75,19 +74,10 @@ function Pop({
   w: number
   h: number
   fill: string
-  wait?: number
   opacity?: number
 }) {
   return (
-    <rect
-      className="motif-pop"
-      x={x}
-      y={y}
-      width={w}
-      height={h}
-      opacity={opacity}
-      style={{ fill, ...delay(wait) }}
-    />
+    <rect x={x} y={y} width={w} height={h} opacity={opacity} style={{ fill }} />
   )
 }
 
@@ -165,7 +155,6 @@ export function Motif({ name, labels, accent }: Omit<MotifSpec, 'paper'>) {
                 w={76}
                 h={46}
                 fill={color}
-                wait={(y * 4 + x) * 0.05}
               />
             )),
           )}
@@ -189,7 +178,6 @@ export function Motif({ name, labels, accent }: Omit<MotifSpec, 'paper'>) {
               w={24}
               h={24}
               fill={colors[Math.floor(next() * next() * 4)]}
-              wait={next() * 1.2}
             />,
           )
         }
@@ -217,7 +205,6 @@ export function Motif({ name, labels, accent }: Omit<MotifSpec, 'paper'>) {
                 w={92}
                 h={64}
                 fill={index === hooked ? G : S}
-                wait={index * 0.08}
               />
             ))}
           </g>
@@ -253,16 +240,8 @@ export function Motif({ name, labels, accent }: Omit<MotifSpec, 'paper'>) {
       return (
         <g>
           <g filter="url(#pp-marker)">
-            {parts.map(([x, w, color], index) => (
-              <Pop
-                key={x}
-                x={30 + x}
-                y={70}
-                w={w}
-                h={84}
-                fill={color}
-                wait={index * 0.1}
-              />
+            {parts.map(([x, w, color]) => (
+              <Pop key={x} x={30 + x} y={70} w={w} h={84} fill={color} />
             ))}
           </g>
           <Label x={30} y={196} mono size={24}>
@@ -299,7 +278,6 @@ export function Motif({ name, labels, accent }: Omit<MotifSpec, 'paper'>) {
                     w={width * 0.56}
                     h={12}
                     fill={pair[0]}
-                    wait={index * 0.24}
                   />
                   <Pop
                     x={736 + width * 0.5}
@@ -307,7 +285,6 @@ export function Motif({ name, labels, accent }: Omit<MotifSpec, 'paper'>) {
                     w={width * 0.5}
                     h={12}
                     fill={pair[1]}
-                    wait={index * 0.24 + 0.12}
                   />
                 </g>
               )
@@ -332,7 +309,6 @@ export function Motif({ name, labels, accent }: Omit<MotifSpec, 'paper'>) {
                 w={width}
                 h={70}
                 fill={colors[index % colors.length]}
-                wait={index * 0.12}
               />
             ))}
           </g>
@@ -364,19 +340,18 @@ export function Motif({ name, labels, accent }: Omit<MotifSpec, 'paper'>) {
               w={240}
               h={26}
               fill={S}
-              wait={index * 0.06}
             />
           ))}
-          <Pop x={960} y={210} w={220} h={26} fill={L} wait={0.6} />
+          <Pop x={960} y={210} w={220} h={26} fill={L} />
         </g>
       )
     case 'bars':
       return (
         <g filter="url(#pp-marker)">
           <Pop x={700} y={60} w={110} h={200} fill={S} />
-          <Pop x={826} y={256} w={110} h={4} fill={L} wait={0.3} />
-          <Pop x={990} y={110} w={110} h={150} fill={S} wait={0.15} />
-          <Pop x={1116} y={256} w={110} h={4} fill={L} wait={0.45} />
+          <Pop x={826} y={256} w={110} h={4} fill={L} />
+          <Pop x={990} y={110} w={110} h={150} fill={S} />
+          <Pop x={1116} y={256} w={110} h={4} fill={L} />
         </g>
       )
     case 'ranks': {
@@ -400,7 +375,6 @@ export function Motif({ name, labels, accent }: Omit<MotifSpec, 'paper'>) {
               w={width}
               h={20}
               fill={MARKS[mark]}
-              wait={index * 0.07}
             />
           ))}
         </g>
@@ -417,7 +391,6 @@ export function Motif({ name, labels, accent }: Omit<MotifSpec, 'paper'>) {
               w={36}
               h={36}
               fill={index < 8 ? A : 'var(--ink-soft)'}
-              wait={index * 0.05}
             />
           ))}
         </g>

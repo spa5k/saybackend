@@ -3,7 +3,6 @@
 @import '@fontsource-variable/newsreader/wght-italic.css';
 @import '@fontsource-variable/caveat/wght.css';
 @import '@fontsource-variable/jetbrains-mono/wght.css';
-@import 'katex/dist/katex.min.css';
 @import 'tailwindcss';
 
 @theme {
@@ -572,10 +571,10 @@ mark,
   font-weight: 500;
 }
 
-.motif-pop {
-  animation: motif-pop 700ms both;
-  transform-box: fill-box;
-  transform-origin: center;
+/* The drawing fades in as one layer. Animating each square inside the
+   texture filter would run the filter again on every frame. */
+.page-hero-art > g {
+  animation: motif-in 900ms ease-out both;
 }
 
 .motif-lane {
@@ -586,10 +585,10 @@ mark,
   stroke-width: 9;
 }
 
-@keyframes motif-pop {
+@keyframes motif-in {
   from {
     opacity: 0;
-    transform: scale(0.5);
+    transform: translateY(8px);
   }
 }
 
@@ -608,14 +607,23 @@ mark,
   overflow: hidden;
   border-top: 1px solid var(--line);
   margin-top: 88px;
+  padding: 52px clamp(18px, 3.4vw, 44px) 0;
+}
+
+/* The paper drifts by one tile. Only a transform animates, so the browser
+   moves a ready layer and paints nothing. */
+.site-footer::before {
+  position: absolute;
+  z-index: -1;
   animation: paper-drift 40s linear infinite;
   background-image: var(--paper-tile);
-  padding: 52px clamp(18px, 3.4vw, 44px) 0;
+  content: '';
+  inset: -44px 0 0 -44px;
 }
 
 @keyframes paper-drift {
   to {
-    background-position: 44px 44px;
+    transform: translate(44px, 44px);
   }
 }
 
@@ -2453,8 +2461,8 @@ html.dark .shiki-code span {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .site-footer,
-  .motif-pop,
+  .site-footer::before,
+  .page-hero-art > g,
   .motif-lane {
     animation: none;
   }
@@ -2499,4 +2507,98 @@ html.dark .shiki-code span {
 .fig-legend,
 .fig-caption {
   color: var(--ink-soft);
+}
+
+/* The full-width blocks use 100vw, which includes a classic scrollbar. */
+html {
+  overflow-x: clip;
+}
+
+/* Phone and small tablet: a figure keeps a readable size and scrolls
+   sideways, instead of shrinking until its labels are too small. */
+@media (max-width: 700px) {
+  .fig-plot {
+    overflow-x: auto;
+    scrollbar-width: thin;
+    overscroll-behavior-x: contain;
+  }
+
+  .fig-plot > svg {
+    width: 620px;
+    max-width: none;
+  }
+
+  .fig.bleed {
+    padding-inline: 14px;
+  }
+
+  .fig-pair {
+    gap: 14px;
+  }
+
+  .page-hero {
+    height: auto;
+    min-height: 300px;
+    padding: calc(var(--header-h) + 84px) 0 26px;
+  }
+
+  .page-hero-text {
+    position: relative;
+    bottom: auto;
+    left: auto;
+    margin-inline: 20px;
+  }
+
+  .footer-note {
+    position: static;
+    display: block;
+    margin-top: 18px;
+  }
+
+  .footer-wordmark {
+    margin-top: 28px;
+  }
+
+  .number-band {
+    text-align: left;
+  }
+}
+
+/* Touch screens: controls get a finger-sized target. */
+@media (pointer: coarse) {
+  .main-nav > a,
+  .mobile-nav > a,
+  .pill,
+  .topic-pills a {
+    min-height: 40px;
+    align-items: center;
+    display: inline-flex;
+  }
+
+  .theme-toggle,
+  .search-toggle,
+  .mobile-menu-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .paper-widget button {
+    min-height: 40px;
+  }
+}
+
+/* Tablet: the post list keeps its small drawings from 700px up. */
+@media (min-width: 700px) and (max-width: 860px) {
+  .post-list-motifs a {
+    grid-template-columns: 14px 1fr 110px auto;
+  }
+
+  .mini-motif {
+    display: block;
+    width: 110px;
+  }
+
+  .page-hero-art {
+    opacity: 0.6;
+  }
 }
