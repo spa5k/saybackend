@@ -93,7 +93,7 @@ export function GraphPaper({
         y={-bleed * 0.7}
         width={width + bleed * 2}
         height={height + bleed * 1.4}
-        fill="url(#pp-grid)"
+        fill="url(#pp-plus)"
         filter="url(#pp-rule)"
       />
     </g>

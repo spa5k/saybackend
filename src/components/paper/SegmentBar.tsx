@@ -117,7 +117,7 @@ export function SegmentBar({
             x={tick.x}
             y={TOP + BAR + (tick.low ? 28 : 15)}
             textAnchor="middle"
-            fontSize="10"
+            style={{ fontSize: 11 }}
           >
             {tick.value}
           </text>

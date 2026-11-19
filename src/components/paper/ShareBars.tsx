@@ -90,7 +90,7 @@ export function ShareBars({
                 className="fig-num"
                 x={BAR_START + BAR_MAX + 14}
                 y={y + 15}
-                fontSize="15"
+                style={{ fontSize: 15 }}
               >
                 {`${format(row.before)}${unit}`}
               </text>
@@ -98,7 +98,7 @@ export function ShareBars({
                 className="fig-num"
                 x={BAR_START + BAR_MAX + 14}
                 y={y + 32}
-                fontSize="15"
+                style={{ fontSize: 15 }}
               >
                 {`${format(row.after)}${unit}`}
               </text>

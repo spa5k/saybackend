@@ -39,7 +39,7 @@ function wrap(label: string, max: number) {
 /** A request path: a row of blocks with an arrow from each one to the next. */
 export function Chain({ title, steps, note, caption }: Props) {
   const width = Math.min(
-    150,
+    184,
     (WIDTH - 20 - GAP * (steps.length - 1)) / steps.length,
   )
   const total = steps.length * width + (steps.length - 1) * GAP
@@ -100,7 +100,7 @@ export function Chain({ title, steps, note, caption }: Props) {
                   x={x(index) + width / 2}
                   y={16 + HEIGHT + 15 + lineIndex * 13}
                   textAnchor="middle"
-                  fontSize="10"
+                  style={{ fontSize: 11 }}
                 >
                   {line}
                 </text>

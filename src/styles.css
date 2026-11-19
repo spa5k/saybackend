@@ -23,15 +23,17 @@
   --muted: #73726c;
   --rule: #e3e0d3;
   --line: #c2c0b6;
-  --pen: #3353c4;
+  --pen: #141413;
+  --paper-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Cpath d='M22 18v8M18 22h8' stroke='%23141413' stroke-opacity='.13' fill='none'/%3E%3C/svg%3E");
   --wash: #f0eee6;
   --brick: #b5493c;
-  --m-lilac: #a99df0;
-  --m-blue: #7fa9e6;
+  /* Paint colours. The names are historic: lilac is the main colour. */
+  --m-lilac: #93b2f2;
+  --m-blue: #86cfc5;
   --m-sand: #c8c4b2;
-  --m-amber: #f1c77e;
-  --m-rose: #e39aa8;
-  --m-sage: #a9c48d;
+  --m-amber: #f1cd80;
+  --m-rose: #f2a48f;
+  --m-sage: #abd3a6;
   --grid-minor: 0.07;
   --grid-major: 0.17;
   --font-sans: 'Instrument Sans Variable', ui-sans-serif, system-ui, sans-serif;
@@ -77,15 +79,16 @@
   --muted: #a3a095;
   --rule: #34322b;
   --line: #4d4a40;
-  --pen: #9db3ff;
+  --pen: #ebe8de;
+  --paper-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Cpath d='M22 18v8M18 22h8' stroke='%23ebe8de' stroke-opacity='.13' fill='none'/%3E%3C/svg%3E");
   --wash: #2a2822;
   --brick: #e08a7c;
-  --m-lilac: #9c90e6;
-  --m-blue: #6f9ad9;
-  --m-sand: #77736a;
-  --m-amber: #dcae5f;
-  --m-rose: #d0808f;
-  --m-sage: #8fab72;
+  --m-lilac: #88a6ea;
+  --m-blue: #78c1b7;
+  --m-sand: #8a867a;
+  --m-amber: #e2bc6c;
+  --m-rose: #e4937e;
+  --m-sage: #9bc496;
   --grid-minor: 0.08;
   --grid-major: 0.18;
   --accent-foreground: #14162a;
@@ -472,7 +475,7 @@ mark,
 .paper-plus {
   fill: none;
   stroke: var(--ink);
-  stroke-opacity: 0.26;
+  stroke-opacity: 0.13;
   stroke-width: 1;
 }
 
@@ -606,25 +609,13 @@ mark,
   border-top: 1px solid var(--line);
   margin-top: 88px;
   animation: paper-drift 40s linear infinite;
-  background-image:
-    linear-gradient(
-      color-mix(in srgb, var(--ink) 6%, transparent) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--ink) 6%, transparent) 1px,
-      transparent 1px
-    );
-  background-size: 28px 28px;
+  background-image: var(--paper-tile);
   padding: 52px clamp(18px, 3.4vw, 44px) 0;
 }
 
 @keyframes paper-drift {
   to {
-    background-position:
-      28px 28px,
-      28px 28px;
+    background-position: 44px 44px;
   }
 }
 
@@ -1710,10 +1701,13 @@ html.dark .shiki-code span {
   stroke-width: 0.9;
 }
 
+/* Ink: axes and rules are a firm dark line. */
 .fig-axis {
   fill: none;
   stroke: var(--ink);
-  stroke-opacity: 0.45;
+  stroke-linecap: round;
+  stroke-opacity: 0.8;
+  stroke-width: 1.6;
 }
 
 .fig-legend {
@@ -2287,8 +2281,8 @@ html.dark .shiki-code span {
 .decision-pick small {
   display: block;
   margin-top: 2px;
-  color: var(--muted);
-  font-size: 12.5px;
+  color: var(--ink-soft);
+  font-size: 13px;
   line-height: 1.4;
 }
 
@@ -2376,17 +2370,6 @@ html.dark .shiki-code span {
 }
 
 .fig.bleed {
-  background-image:
-    linear-gradient(
-      color-mix(in srgb, var(--ink) 6%, transparent) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--ink) 6%, transparent) 1px,
-      transparent 1px
-    );
-  background-size: 28px 28px;
   margin-block: 44px;
   padding: 34px 20px 30px;
 }
@@ -2497,4 +2480,23 @@ html.dark .shiki-code span {
   .page-hero-text::before {
     opacity: 0.8;
   }
+}
+
+/* Readability: a figure label that sits on the paper gets a thin halo of
+   paper, so a paper mark never crosses a letter. Labels on a painted mark
+   set their own fill and are left alone. */
+.fig text:not([style*='fill'], .flow-label, .motif-text) {
+  paint-order: stroke;
+  stroke: var(--paper);
+  stroke-linejoin: round;
+  stroke-width: 5px;
+}
+
+.fig text {
+  fill: var(--ink);
+}
+
+.fig-legend,
+.fig-caption {
+  color: var(--ink-soft);
 }

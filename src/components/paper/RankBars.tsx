@@ -42,7 +42,7 @@ export function RankBars({
   mono = false,
   caption,
 }: Props) {
-  const rowHeight = rows.some((row) => row.sub) ? ROW + 14 : ROW
+  const rowHeight = rows.some((row) => row.sub) ? ROW + 22 : ROW
   const height = rows.length * rowHeight + 24
   const max = Math.max(...rows.map((row) => row.value))
   const length = (value: number) =>
@@ -85,7 +85,7 @@ export function RankBars({
                 {row.label}
               </text>
               {row.sub ? (
-                <text x={LABEL} y={y + 31} fontSize="10.5">
+                <text x={LABEL} y={y + 35} style={{ fontSize: 11 }}>
                   {row.sub}
                 </text>
               ) : null}
@@ -97,7 +97,12 @@ export function RankBars({
                 filter="url(#pp-marker)"
                 style={{ fill: MARKS[row.mark ?? 'sand'] }}
               />
-              <text className="fig-num" x={end + 8} y={y + 16} fontSize="15">
+              <text
+                className="fig-num"
+                x={end + 8}
+                y={y + 16}
+                style={{ fontSize: 15 }}
+              >
                 {formatValue(row.value)}
               </text>
               {row.note ? (

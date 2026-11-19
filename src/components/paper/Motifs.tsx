@@ -20,16 +20,16 @@ export type PaperName = 'grid' | 'dots' | 'ruled' | 'plus' | 'iso' | 'blueprint'
 /** The paper that suits each drawing, when a page does not choose one. */
 export const PAPER_OF: Record<MotifName, PaperName> = {
   lanes: 'dots',
-  blocks: 'plus',
+  blocks: 'dots',
   pipeline: 'blueprint',
-  bits: 'grid',
+  bits: 'plus',
   bands: 'ruled',
-  squares: 'grid',
+  squares: 'plus',
   chain: 'dots',
   layers: 'iso',
-  bars: 'grid',
+  bars: 'plus',
   ranks: 'ruled',
-  day: 'plus',
+  day: 'dots',
 }
 
 export type MotifSpec = {

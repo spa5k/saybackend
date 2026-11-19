@@ -104,7 +104,7 @@ export default function PrefixCacheStructure({ title, caption }: Props) {
               x={x(index) + BLOCK_W / 2}
               y={POOL_Y + BLOCK_H + 16}
               textAnchor="middle"
-              fontSize="10"
+              style={{ fontSize: 11 }}
             >
               {block.refs} {block.refs === 1 ? 'ref' : 'refs'}
             </text>

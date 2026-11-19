@@ -155,7 +155,7 @@ export function QueryPipeline({
                       x={left + STEP_W / 2}
                       y={y + 17}
                       textAnchor="middle"
-                      fontSize="11"
+                      style={{ fontSize: 11 }}
                     >
                       {step}
                     </text>
@@ -237,7 +237,7 @@ export function AttemptLadder() {
               x={gridX + index * cell + cell / 2 - 2}
               y={top - 14}
               textAnchor="middle"
-              fontSize="8.5"
+              style={{ fontSize: 8.5 }}
             >
               {name}
             </text>
@@ -250,7 +250,7 @@ export function AttemptLadder() {
               <text className="fig-strong" x={gridX - 16} y={y + 10} textAnchor="end">
                 {attempt.stage}
               </text>
-              <text x={gridX - 16} y={y + 24} textAnchor="end" fontSize="10.5">
+              <text x={gridX - 16} y={y + 24} textAnchor="end" style={{ fontSize: 11 }}>
                 {attempt.approach}
               </text>
               <g filter="url(#pp-marker)">

@@ -60,7 +60,12 @@ export function LevelRows({ title, columns, rows, caption }: Props) {
                 {row.label}
               </text>
               {row.sub ? (
-                <text x={LABEL} y={y + 26} textAnchor="end" fontSize="10.5">
+                <text
+                  x={LABEL}
+                  y={y + 26}
+                  textAnchor="end"
+                  style={{ fontSize: 11 }}
+                >
                   {row.sub}
                 </text>
               ) : null}

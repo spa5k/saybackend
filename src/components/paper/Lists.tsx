@@ -54,7 +54,7 @@ export function DecisionList({
     <ul className="decision-list not-typography">
       {rows.map((row) => (
         <li key={row.need}>
-          <span className="decision-need">{row.need}</span>
+          <span className="decision-need">{inlineCode(row.need)}</span>
           <svg viewBox="0 0 54 14" aria-hidden="true">
             <path
               className="ink-stroke"

@@ -101,7 +101,7 @@ export function PairedDots({
             x={x(tick)}
             y={TOP - 12}
             textAnchor="middle"
-            fontSize="10"
+            style={{ fontSize: 11 }}
           >
             {format(tick).replace(/\.0$/, '')}
           </text>
@@ -149,7 +149,7 @@ export function PairedDots({
                 className="fig-num"
                 x={AXIS_END + 22}
                 y={y + 5}
-                fontSize="14"
+                style={{ fontSize: 14 }}
               >
                 {[row.a, row.b]
                   .filter((value): value is number => value !== undefined)

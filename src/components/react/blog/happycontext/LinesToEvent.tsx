@@ -108,7 +108,7 @@ export function LinesToEvent() {
                   x={x + part.width / 2}
                   y={158 + line * 13}
                   textAnchor="middle"
-                  fontSize="9.5"
+                  style={{ fontSize: 11 }}
                 >
                   {field}
                 </text>

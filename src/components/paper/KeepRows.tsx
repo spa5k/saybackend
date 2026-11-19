@@ -67,7 +67,7 @@ export function KeepRows({ title, rows, squares = 20, caption }: Props) {
                 className="fig-num"
                 x={LABEL + 22 + squares * CELL}
                 y={y + 14}
-                fontSize="15"
+                style={{ fontSize: 15 }}
               >
                 {`${Math.round(row.kept * 100)}%`}
               </text>
