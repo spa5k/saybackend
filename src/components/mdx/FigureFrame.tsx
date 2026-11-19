@@ -4,8 +4,8 @@ import type { ReactNode, Ref } from 'react'
 export type FigureText = {
   /** Short heading shown above the figure. */
   title: string
-  /** Visible caption. State the source and the date of the numbers. */
-  caption: string
+  /** Visible caption. A note on how to read the figure, or its date. */
+  caption?: string
   /** Text alternative for readers who cannot see the figure. */
   alt: string
 }
@@ -93,9 +93,11 @@ export function FigureFrame({
         </div>
         <p className="sr-only">{alt}</p>
         {children}
-        <figcaption className="mt-5 text-sm text-[var(--muted-foreground)]">
-          {caption}
-        </figcaption>
+        {caption && (
+          <figcaption className="mt-5 text-sm text-[var(--muted-foreground)]">
+            {caption}
+          </figcaption>
+        )}
       </div>
     </figure>
   )

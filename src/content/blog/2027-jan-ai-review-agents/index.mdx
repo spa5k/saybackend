@@ -17,25 +17,24 @@ import Timeline from "@/components/mdx/Timeline";
 import FlowDiagram from "@/components/mdx/FlowDiagram";
 
 <Callout type="warning" title="AUTHOR NOTE: outline, not a draft">
-  This file is an outline with questions. The pull requests give the timeline.
-  They do not give the reasons for the two removals or the cost of a review.
-  The post cannot be written until the four questions at the end have an
-  answer. The reviewers have neutral names here until the author decides
-  whether the post can name the tools and the models.
+  This file is an outline with questions. The timeline is known. The reasons
+  for the two removals and the cost of a review are not. The post cannot be
+  written until the questions at the end have an answer. The reviewers have
+  neutral names here until the author decides whether the post can name the
+  tools and the models.
 </Callout>
 
 ## Working thesis (to confirm)
 
 In six weeks our pull requests had three AI review agents, and two were removed. One remains. It runs only on request, and a second agent with fresh context checks its findings before they are posted.
 
-The title says "three review agents" and not "I added three". The pull requests show that the vendor review action was in the repository before the custom agent arrived.
+The title says "three review agents" and not "I added three", because the vendor review action was in the repository before the custom agent arrived.
 
-## Timeline from the pull requests
+## Timeline
 
 <Timeline
   title="Three reviewers in two months"
   alt="A timeline with eight entries from 12 September to 12 November 2026. A custom review agent is added. Speed changes follow two days later. The custom agent moves to a different model provider and the vendor review action is disabled. The vendor review action is enabled again. A third reviewer is added as an optional comparison. The custom agent and the third reviewer are disabled. The remaining reviewer runs only on request, with a validator. The dead review code is removed."
-  caption="Source: eight pull requests, merged between 12 September and 12 November 2026."
   items={[
     {
       date: "12 September 2026",
@@ -66,7 +65,7 @@ The title says "three review agents" and not "I added three". The pull requests 
     {
       date: "3 October 2026",
       title: "The custom agent and the third reviewer are disabled",
-      text: "The pull request gives no reason.",
+      text: "The reason is open. See question 1.",
       tone: "brick",
     },
     {
@@ -83,7 +82,7 @@ The title says "three review agents" and not "I added three". The pull requests 
   ]}
 />
 
-## Numbers that the pull requests have
+## Numbers available
 
 **The custom agent, first live sample (12 September).** One review of its own pull request:
 
@@ -107,7 +106,7 @@ The title says "three review agents" and not "I added three". The pull requests 
 | Reported output tokens | 134,780 |
 | Result | Failed, 0 of 4 selected files complete |
 
-The pull request says that a successful full run was not confirmed and that the check does not support a replacement of the custom agent.
+A successful full run was not confirmed, and the pilot does not support a replacement of the custom agent.
 
 These are two single runs on two different pull requests. The post must not compare the tools on them.
 
@@ -126,7 +125,6 @@ These are two single runs on two different pull requests. The post must not comp
 <FlowDiagram
   title="The reviewer and its validator"
   alt="A flow with five steps. One: a person adds a label to a pull request that is not a draft. Two: the reviewer traces the real callers and checks whether each proposed fix is safe. Three: one validator with fresh context checks the whole batch of findings, with read-only tools and a limit of 20 turns. Four: the validator judges the bug and the proposed fix separately. Five: the reviewer posts a summary and a limited number of inline comments."
-  caption="Source: the pull request that made the review opt-in, 23 October 2026."
   columns={[
     {
       title: "One review, on request",
@@ -154,15 +152,15 @@ These are two single runs on two different pull requests. The post must not comp
           text: "A summary and a limited number of inline comments. A missing validation must be reported.",
         },
       ],
-      note: "The pull request states the limit of this design: the one-call rule and the publication rule \"are prompt instructions, not a deterministic output gate\".",
+      note: "The limit of this design: the one-call rule and the publication rule are prompt instructions, not a deterministic output gate.",
     },
   ]}
 />
 
 ## Questions for the author
 
-1. Why were the custom agent and the third reviewer disabled on 3 October? The pull request has a summary and no reason.
-2. What did one review cost, for each reviewer? The sources have one estimate, USD 4.3333 for the first sample of the custom agent, and token counts for one failed pilot of the third reviewer.
+1. Why were the custom agent and the third reviewer disabled on 3 October? The reason is not recorded.
+2. What did one review cost, for each reviewer? There is one estimate, USD 4.3333 for the first sample of the custom agent, and there are token counts for one failed pilot of the third reviewer.
 3. How many findings were correct? Is there a count for any reviewer?
 4. Can the post name the tools and the models?
 5. Is "three review agents, two removed" the right frame? The vendor review action was in the repository before 12 September, was disabled on 15 September, and came back on 17 September.
@@ -171,4 +169,4 @@ These are two single runs on two different pull requests. The post must not comp
 
 - The post compares products on thin data: one run for each of two tools. It reports what was measured and makes no general claim about a tool.
 - The validator rules are instructions in a prompt. Nothing in the pipeline enforces them.
-- There is no count of correct findings in the sources.
+- There is no count of correct findings.

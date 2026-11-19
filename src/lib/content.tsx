@@ -102,9 +102,9 @@ const readingTimes: Record<string, number> = {
   '2026-jan-saybackend-changelog': 1,
   '2026-jun-conductor-claude-code-cliproxyapi': 6,
   '2026-may-cliproxyapi-factory-byok': 5,
-  '2026-dec-lint-ratchet': 15,
-  '2026-dec-agents-prove-changes': 14,
-  '2027-jan-github-actions-minutes': 13,
+  '2026-dec-lint-ratchet': 14,
+  '2026-dec-agents-prove-changes': 13,
+  '2027-jan-github-actions-minutes': 12,
   '2027-jan-ai-review-agents': 7,
 }
 

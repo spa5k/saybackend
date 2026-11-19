@@ -19,7 +19,7 @@ faqs:
   - question: "Why can one coding agent block the others on one machine?"
     answer: "When the app uses fixed ports and one shared lease, only one checkout can run it. In this repository about 48 worktrees shared one lease and two fixed ports, so one agent at a time could use the app."
   - question: "How much memory does one web instance for each checkout need?"
-    answer: "In the measurement from 16 November 2026, a production build of the web app used 0.92 GB, against 8.4 GB for the full development stack. A separate database for the checkout used 4 containers and about 500 MB."
+    answer: "About 9x less than the full development stack. A production build of the web app for one checkout used 0.92 GB, against 8.4 GB for the full stack. A separate database for the checkout adds 4 containers."
   - question: "What stops an agent from recording a pass that it did not prove?"
     answer: "The evidence recorder. A check with no assertion is recorded as incomplete, an empty or match-all pattern is refused, a retry with a different command cannot replace a failed check without a stated reason, and a run with no recorded teardown cannot be published."
 ---
@@ -45,7 +45,7 @@ An agent that says "done" has proved nothing. In our monorepo at work, agents wr
 <WaffleChart
   title="Recorded verification runs with a user-level check"
   alt="A grid of 160 squares, one square for each recorded verification run. 30 of the 160 runs had a user-level check. The other 130 did not."
-  caption="Source: the verification tools pull request, 16 November 2026. One square is one run. 30 of 160 is 18.75%."
+  caption="One square is one run. 30 of 160 is 18.75%. Counted in November 2026."
   unit="runs"
   columns={20}
   maxWidth={620}
@@ -59,30 +59,26 @@ Of 160 recorded runs, 30 had a user-level check. That is 18.75%. The other 130 d
 
 This post is about the two halves of the fix. The first half gives an agent the tools to prove a change in the real app, on its own machine, in parallel with other agents. The second half makes it impossible for the evidence to say more than the agent proved. The second half matters more, and it gets the most space.
 
-## Six weeks, five pull requests
+## What went wrong with the first version
 
-The tools did not arrive in one piece. Each step fixed what the step before it got wrong.
+The first version of the skill gave agents five steps: launch, health check, drive, evidence, and cleanup. A feature map held a recipe for each product area, so that an agent did not have to rediscover how to start a workflow run or open a chat.
 
-**3 October: a reusable skill.** The first version gave agents five steps: launch, health check, drive, evidence, and cleanup. A feature map held a recipe for each product area, so that an agent did not have to rediscover how to start a workflow run or open a chat.
-
-**23 October: what went wrong in use.** Three weeks later the pull request that reworked the skill opened with this sentence: "Agents repeated expensive setup, silently ignored CLI flags, lost useful failure details, and created redundant tests and guidance." The fixes were plain:
+In use, four things went wrong. Agents repeated expensive setup. CLI flags were silently ignored. Useful failure details were lost. Agents wrote tests and guidance that nobody needed. The fixes were plain:
 
 - Options are defined one time for all 20 drivers.
 - Unknown, repeated, and missing options are rejected before any action. An agent that invents a flag gets an error, not a run that ignores it.
 - The destructive steps have dry runs.
 - The default for tests is no new tests. Each new integration test needs approval of the exact cases before the agent writes it.
 
-**27 October: checkpoints.** Verification moved to coherent checkpoints in the work, and proof that still applies is used again. Each preview environment gets one synthetic account. There is no account pool to lease from.
+Two more changes followed. Verification moved to coherent checkpoints in the work, and proof that still applies is used again. Each preview environment gets one synthetic account, so there is no account pool to lease from.
 
-**7 November: drift.** A maintenance pass compared the feature map with the product and found that they had moved apart. One example shows how small the cause can be. A loading guard in a script waited for the text `Loading step details...`, with three dots. The interface renders the single character `…`. The guard never matched.
-
-**16 November: the gap, measured.** That is the count above, and the rest of this post.
+The feature map also moved away from the product. One example shows how small the cause can be. A loading guard in a script waited for the text `Loading step details...`, with three dots. The interface renders the single character `…`. The guard never matched.
 
 ## Why one agent at a time
 
-The same pull request lists the limits that the agents worked under. The full development stack used one shared lease and two fixed ports, and about 48 worktrees shared them. One agent at a time could use the app.
+The agents also worked under hard limits. The full development stack used one shared lease and two fixed ports, and about 48 worktrees shared them. One agent at a time could use the app.
 
-Two more limits made it worse. Preview environments depended on a limit of database branches at the host, which we reached often. And the shared local database stopped for every worktree when one worktree was deleted.
+Two more limits made it worse. Each preview environment needed a database branch, and we often reached the limit on branches at the host. And the shared local database stopped for every worktree when one worktree was deleted.
 
 An agent that cannot reach the app can verify only what it can reach.
 
@@ -91,7 +87,6 @@ An agent that cannot reach the app can verify only what it can reach.
 <FlowDiagram
   title="One verification run"
   alt="A flow with seven steps. One: the diff. Two: the feature map finds the features that the diff touches. Three: the planner prints the tier, the checks, and the commands. Four: the run starts a web instance, a database, and an account for this checkout. Five: the checks run against that instance. Six: the evidence recorder stores each check with its result. Seven: teardown removes everything and lists what remains."
-  caption="Source: the verification tools pull request, 16 November 2026."
   columns={[
     {
       title: "From a diff to a report",
@@ -133,7 +128,6 @@ An agent that cannot reach the app can verify only what it can reach.
 <TierLadder
   title="Four tiers, lowest first"
   alt="A ladder of four tiers. Tier one, commands: needs no running app, and proves what commands and existing tests can show. Tier two, local: needs this checkout's own web instance, and proves a claim in the real app that needs no public address. Tier three, local-tunnel: needs the full local stack with a public tunnel, and proves a claim that an outside service must reach. Tier four, preview: needs a matching hosted preview, and proves a claim that the local stack cannot run."
-  caption="Source: the feature map in our repository, read on 18 November 2026. The wording is shortened."
   needsLabel="Needs"
   provesLabel="Can prove"
   tiers={[
@@ -162,12 +156,12 @@ An agent that cannot reach the app can verify only what it can reach.
 
 The planner picks the lowest tier that can run the claim. Before this change, the `local` tier meant the one shared stack.
 
-**One web instance for each checkout.** A command builds this checkout's web app and starts it on its own port and hostname. Many checkouts run at the same time.
+**One web instance for each checkout.** A command builds this checkout's web app and starts it on its own port and hostname. Many checkouts run at the same time. One instance uses about 9x less memory than the full development stack.
 
 <ValueBarChart
   title="Memory for one checkout"
   alt="A bar graph with two bars. A production web instance for one checkout uses 0.92 GB. The full development stack uses 8.4 GB."
-  caption="Source: the verification tools pull request, 16 November 2026."
+  caption="Measured in November 2026."
   axisLabel="Memory (GB)"
   rows={[
     {
@@ -182,9 +176,9 @@ The planner picks the lowest tier that can run the claim. Before this change, th
 
 A start takes about 20 seconds after a build.
 
-**One database for each pull request.** The start command always creates a separate database project for the checkout, applies all its migrations there, and points the web instance at it. It starts only the services that the app uses: the database, the gateway, PostgREST, and Realtime. That is 4 containers and about 500 MB, and it takes about 52 seconds from zero to a usable instance. Two pull requests never share a database.
+**One database for each pull request.** The start command always creates a separate database project for the checkout, applies all its migrations there, and points the web instance at it. It starts only the services that the app uses: the database, the gateway, PostgREST, and Realtime. That is 4 containers (about 500 MB), and it takes about 52 seconds from zero to a usable instance. Two pull requests never share a database.
 
-A pull request with a migration is the hard case, and it ran one time on a separate database: 282 migrations applied, about 1.1 GB, 63 seconds. The shared database stayed where it was.
+A pull request with a migration is the hard case, and it ran one time on a separate database: 282 migrations applied in 63 seconds. The shared database stayed where it was.
 
 **Test data and flags.** A seed command fills the test account with realistic data, and cleanup removes all of it. A feature flag can be switched on for one instance through a local stand-in for the flag service. No product code changes for that, so the override cannot exist in production.
 
@@ -217,7 +211,6 @@ The field that does the work is `oracle`. It says how a separate result confirme
 <OutcomeDiagram
   title="Four verdicts and the rule for each"
   alt="A diagram with three inputs and eight rules. The inputs are the check record, the run record, and the teardown record. A check whose action and separate result agree is passed. A check that ran and did not meet the expected result is failed. A check that a missing prerequisite prevented is blocked. A check through the web instance with no assertion is incomplete. A record with an empty or match-all pattern is refused. A retry with a different command and no stated reason does not replace a failed check. A run with no recorded teardown is incomplete and cannot be published. A full report with gaps stays incomplete."
-  caption="Source: the verification tools pull request, 16 November 2026, and the evidence format in our repository, read on 18 November 2026."
   inputsTitle="What the recorder reads"
   inputs={[
     {
@@ -287,7 +280,7 @@ Three of these rules each close one shortcut.
 
 **The quiet retry.** A check fails. The agent runs a different command that passes, and records that one. The recorder keeps the failed attempt, and the new one can replace it only with a stated reason. Earlier attempts stay in the report.
 
-Two more rules keep the headline true. The result of a check and the result of the run are separate, so a run with passing assertions can still end as `blocked`. In October an intentional test proved this: both browser assertions passed, and the verifier still exited as blocked, because a required identity check at the end was missing. And the report headline covers all checks, not the best ones.
+Two more rules keep the headline true. The result of a check and the result of the run are separate, so a run with passing assertions can still end as `blocked`. An intentional test proved this: both browser assertions passed, and the verifier still exited as blocked, because a required identity check at the end was missing. And the report headline covers all checks, not the best ones.
 
 Fourteen evidence cases test these rules, and each verdict is as designed.
 
@@ -298,7 +291,7 @@ I gave the tools to ten agents and ten real pull requests, in two waves, with up
 <WaffleChart
   title="Ten pull requests, verified by ten agents"
   alt="A row of 10 squares, one square for each pull request. 7 of 10 pull requests passed. 2 of 10 could not check the main claim, because the pull request had a migration. 1 of 10 found a real schema defect."
-  caption="Source: the verification tools pull request, 16 November 2026. One square is one pull request."
+  caption="One square is one pull request."
   unit="pull requests"
   columns={10}
   maxWidth={440}
@@ -325,7 +318,7 @@ Two of the ten runs ended with "could not check the main claim". That is the res
 
 ## One incident
 
-During this work, an early version of the teardown, run by an agent, stopped the shared database one time by mistake. The rule that decides whether a resource is "in use" was wrong. It is corrected, and the checks in the pull request cover it.
+During this work, an early version of the teardown, run by an agent, stopped the shared database one time by mistake. The rule that decides whether a resource is "in use" was wrong. It is corrected, and checks now cover it.
 
 ## What I did not measure
 
@@ -334,3 +327,7 @@ During this work, an early version of the teardown, run by an agent, stopped the
 - **A journey with a paid model.** No check in the trial called a paid model.
 - **The last round of fixes.** It had no independent review and no third wave.
 - **The rate after the change.** 30 of 160 is the number before these tools. I do not have the same count for the weeks after.
+
+---
+
+I build verification setups like this for teams that use coding agents. To discuss your repository, [email me](mailto:hello@kamran.sh?subject=Agent%20verification).
