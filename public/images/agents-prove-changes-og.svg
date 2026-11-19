@@ -7,7 +7,7 @@
   <rect x="716" y="150" width="2" height="330" fill="#d9d5c8"/>
   
     <text x="760" y="196" fill="#667068" font-family="Menlo, SFMono-Regular, ui-monospace, monospace" font-size="20" letter-spacing="2">WEB INSTANCE · ONE CHECKOUT</text>
-    <text x="760" y="244" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="34" font-weight="700">0.92 GB, not 8.4 GB</text>
+    <text x="760" y="244" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="34" font-weight="700">about 9x less memory</text>
     <text x="760" y="300" fill="#667068" font-family="Menlo, SFMono-Regular, ui-monospace, monospace" font-size="20" letter-spacing="2">DATABASE · ONE PULL REQUEST</text>
     <text x="760" y="348" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="34" font-weight="700">4 containers, ~52 s</text>
     <text x="760" y="404" fill="#667068" font-family="Menlo, SFMono-Regular, ui-monospace, monospace" font-size="20" letter-spacing="2">TRIAL · 10 PULL REQUESTS</text>

@@ -1,5 +1,5 @@
 ---
-title: "I put 26,332 lint violations behind a ratchet. More than half are comments."
+title: "I put 26,332 lint violations behind a ratchet. Each count can only go down."
 seoTitle: "A Lint Ratchet for AI-Written Code, with the Numbers"
 description: "A baseline file records the allowed count for each lint rule in each file, and CI fails when a count rises. The design, the numbers on merge day, and the limits."
 date: "2026-12-16"
@@ -20,8 +20,8 @@ faqs:
     answer: "A warning reports a problem and the build still passes. A ratchet lets the existing problems stay, but it fails the build for one more. A new rule can start with thousands of existing violations and still block the next one."
   - question: "Can a pull request raise its own allowed count?"
     answer: "Not in this design. The check compares the baseline in the pull request with the baseline at the merge base, and it refuses a count that is higher. The update command only lowers or removes entries."
-  - question: "Did the ratchet reduce the number of violations?"
-    answer: "This post does not claim that. The baseline recorded 26,332 violations on 17 November 2026, the day it merged. One day later the file recorded 26,300. Two points are not a trend."
+  - question: "Does a ratchet reduce the number of violations?"
+    answer: "It stops the growth first. A count can stay or fall, and the baseline follows it down. On 17 November 2026, the merge day, the baseline recorded 26,332 violations. One day later it recorded 26,300. Two points are not a trend."
 ---
 
 import Callout from "@/components/mdx/Callout";
@@ -39,13 +39,13 @@ import HiddenViolationDiagram from "@/components/mdx/HiddenViolationDiagram";
   fetchPriority="high"
 />
 
-In August I wrote about [the lint rules I built for AI-written code](/blog/lint-ai-generated-code/) in our monorepo at work. On 17 November 2026 I merged the next step: a ratchet. A baseline file records the allowed count for each rule in each file, and a check in CI fails when any count rises. Three numbers from that day, with their limits:
+In August I wrote about [the lint rules I built for AI-written code](/blog/lint-ai-generated-code/) in our monorepo at work. On 17 November 2026 I merged the next step: a ratchet. A baseline file records the allowed count for each rule in each file, and a check in CI fails when any count rises. Three results from that day:
 
-- The baseline recorded **26,332 violations**. That is a count on one day, not a reduction.
-- **14,123** of them, or 53.6%, come from one rule, `no-comments`. Many teams would not accept that rule.
-- In the 28 hours before the merge, the recorded total grew by **181**. The growth came from nine new rules that had no gate yet, and from 4 new disable directives. The rules that had been warnings since August fell by 13 in that time.
+- **Every rule is enforced, backlog included.** The baseline recorded **26,332 violations**, and none of them had to be fixed before the rules could block a new one.
+- **Nine new rules went live with their backlog.** One of them, `no-comments`, has **14,123** of those violations, or 53.6%.
+- **Rules without a gate grew by 190 in 28 hours.** Those were the nine new rules, before the merge. In the same 28 hours, the rules behind the August hook fell by 13.
 
-This post has the design of the ratchet, what the data shows, and what it does not show.
+This post has the design of the ratchet, the numbers on merge day, and the limits.
 
 The rules without a prefix in this post are first-party rules that we wrote for our repository.
 
@@ -260,9 +260,9 @@ The count does the work now. On the merge day the baseline recorded 197 effects 
   ]}
 />
 
-`no-comments` is 14,123 of 26,332, which is 53.6%. The rule reports every comment, and the idea behind it is that a name must carry the meaning. That is a strong position, and a team that does not hold it would cut this baseline in half on the first day. Read the total with that in mind.
+`no-comments` is 14,123 of 26,332, which is 53.6%. The rule reports every comment, because a name must carry the meaning. That is our position. A team that keeps its comments would start with about half of this baseline.
 
-One day later, on 18 November, the baseline file on the main branch recorded 26,300. That is one more data point. It is not a trend, and I do not claim that the ratchet reduced anything.
+One day later, on 18 November, the baseline on the main branch recorded 26,300. Two points are not a trend.
 
 ## The first day
 
@@ -272,7 +272,7 @@ The first real failure came hours after the merge, and it was on the main branch
 
 A ratchet has this window on the day it lands. Each open pull request that passed its checks before the merge can break the main branch after it.
 
-## What it costs to run
+## Run time
 
 A full run takes about 6 seconds, and the pre-commit hook is about 5 seconds slower than before. The hidden mode takes about 8 seconds in CI.
 
@@ -297,7 +297,7 @@ Two findings from the same ruleset are worth a mention, because tests did not ca
 - **Which path the new violations took** past the August hook. I know that 47 violations of the older warning rules were added in 28 hours. I do not know how many came through a skipped hook.
 - **File moves** in the August and November comparison.
 
-Two problems are open. One rule reports correct code: `typescript/prefer-nullish-coalescing` flags `a?.trim() || b`, where an empty string must fall through. And a rule that becomes wider cannot raise its own baseline, so a better rule needs a process that does not exist yet.
+Two items are open. One rule reports correct code: `typescript/prefer-nullish-coalescing` flags `a?.trim() || b`, where an empty string must fall through. And a rule that becomes wider cannot raise its own baseline, so a better rule needs a process that does not exist yet.
 
 ---
 

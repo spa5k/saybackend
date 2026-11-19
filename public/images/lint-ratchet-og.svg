@@ -15,5 +15,5 @@
   <rect x="54" y="490" width="552" height="108" fill="#ff6a00"/>
   <rect x="64" y="476" width="552" height="108" fill="#191c19"/>
   <text x="340" y="548" fill="#ffffff" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="52" font-weight="700" text-anchor="middle" letter-spacing="-1">SayBackend</text>
-  <text x="760" y="548" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="20">A count, not a reduction</text>
+  <text x="760" y="548" fill="#191c19" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="20">One count for each rule in each file</text>
 </svg>

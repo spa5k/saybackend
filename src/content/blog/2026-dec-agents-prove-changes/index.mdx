@@ -59,11 +59,11 @@ Of 160 recorded runs, 30 had a user-level check. That is 18.75%. The other 130 d
 
 This post is about the two halves of the fix. The first half gives an agent the tools to prove a change in the real app, on its own machine, in parallel with other agents. The second half makes it impossible for the evidence to say more than the agent proved. The second half matters more, and it gets the most space.
 
-## What went wrong with the first version
+## What the first version taught
 
 The first version of the skill gave agents five steps: launch, health check, drive, evidence, and cleanup. A feature map held a recipe for each product area, so that an agent did not have to rediscover how to start a workflow run or open a chat.
 
-In use, four things went wrong. Agents repeated expensive setup. CLI flags were silently ignored. Useful failure details were lost. Agents wrote tests and guidance that nobody needed. The fixes were plain:
+Real use showed four problems. Agents repeated expensive setup. CLI flags were silently ignored. Useful failure details were lost. Agents wrote tests and guidance that nobody needed. The fixes were plain:
 
 - Options are defined one time for all 20 drivers.
 - Unknown, repeated, and missing options are rejected before any action. An agent that invents a flag gets an error, not a run that ignores it.
@@ -182,7 +182,7 @@ A pull request with a migration is the hard case, and it ran one time on a separ
 
 **Test data and flags.** A seed command fills the test account with realistic data, and cleanup removes all of it. A feature flag can be switched on for one instance through a local stand-in for the flag service. No product code changes for that, so the override cannot exist in production.
 
-**Teardown.** One command removes the account and the seed rows, stops the web instance, destroys the database project with its containers and volumes, and removes the images that the run built. Then it lists what remains. A leftover gives exit code 1.
+**Teardown.** One command removes the account and the seed rows, stops the web instance, destroys the database project with its containers and volumes, and removes the images that the run built. Then it lists what remains. A leftover gives exit code 1. An early version of the teardown, run by an agent, stopped the shared database one time, because the rule for "in use" was wrong. The rule is corrected, and checks now cover it.
 
 ## Evidence that cannot say more than was proved
 
@@ -315,10 +315,6 @@ There was no collision on a port, an account, or a database. The first wave took
 I also replayed the planner on 200 commits of the main branch, to check that later cleanup had changed no plan and lowered no tier.
 
 Two of the ten runs ended with "could not check the main claim". That is the result the rules are for: the run states the gap, and the report does not hide it behind a smaller claim that passed.
-
-## One incident
-
-During this work, an early version of the teardown, run by an agent, stopped the shared database one time by mistake. The rule that decides whether a resource is "in use" was wrong. It is corrected, and checks now cover it.
 
 ## What I did not measure
 

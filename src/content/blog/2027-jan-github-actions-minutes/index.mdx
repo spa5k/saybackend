@@ -1,7 +1,7 @@
 ---
-title: "I cut a projected 27% of our GitHub Actions minutes. That is about USD 180 a month."
+title: "GitHub Actions bills each job for a full minute. I cut a projected 27% of our minutes."
 seoTitle: "GitHub Actions Bills Each Job for a Full Minute"
-description: "GitHub rounds each job up to a full minute, so short jobs that run often cost the most. What I removed, the projected saving for each change, and what it is worth."
+description: "GitHub rounds each job up to a full minute, so short jobs that run often cost the most. What I removed, and the projected saving for each change."
 date: "2027-01-13"
 draft: true
 slug: "github-actions-minutes"
@@ -19,8 +19,6 @@ faqs:
     answer: "For the same total work, many short jobs cost more, because each one is rounded up on its own. Five jobs of 10 seconds are 5 billed minutes. The same five steps in one job are 1 billed minute."
   - question: "How much did the change save?"
     answer: "The projection is about 30,000 minutes a month, from a month that was on track for about 110,000. That is about 27%. It is a projection: the post has no measured number for after the change."
-  - question: "What is 30,000 Actions minutes worth?"
-    answer: "At the list price of USD 0.006 a minute for a standard Linux 2-core runner, about USD 180 a month. The calculation assumes that all minutes are on that runner type, and it ignores the minutes that a plan includes."
 ---
 
 import Callout from "@/components/mdx/Callout";
@@ -31,7 +29,7 @@ import PairedSamples from "@/components/mdx/PairedSamples";
 
 <img
   src="/images/github-actions-minutes-og.png"
-  alt="GitHub Actions minutes: a projected 27% cut, worth about USD 180 a month"
+  alt="GitHub Actions bills each job for a full minute: a projected 27% cut of our minutes"
   width="1200"
   height="630"
   loading="eager"
@@ -40,13 +38,12 @@ import PairedSamples from "@/components/mdx/PairedSamples";
 
 GitHub bills each job on a hosted runner for at least one full minute. A job that runs for 9 seconds costs one minute. In our monorepo at work, many jobs finished in seconds and ran very often, and November 2026 was on track for about 110,000 minutes.
 
-In early November I made changes that should remove about 30,000 of those minutes each month. Three facts about that number, from the most certain to the least:
+In early November I made changes that should remove about 30,000 of those minutes each month, which is about 27%. Two things to know about that number:
 
 - **The rule is real.** GitHub's [pricing page](https://docs.github.com/en/billing/reference/actions-runner-pricing) says: "GitHub rounds the minutes and partial minutes each job uses up to the nearest whole minute."
-- **The money is small.** At the list price of USD 0.006 a minute, 30,000 minutes is about USD 180 a month.
-- **The saving is a projection.** 30,000 of 110,000 is about 27%. This post has no measured number for the weeks after the change.
+- **The saving is a projection.** This post has no measured number for the weeks after the change.
 
-The largest row in the saving is a workflow that I had added eight days before I removed it.
+Most rows have one shape: a short job that ran more often than its result could change. The largest row is one workflow with three triggers.
 
 ## The rule: count jobs, not seconds
 
@@ -67,7 +64,7 @@ That changes what to look for. Five jobs of 10 seconds are 5 billed minutes. The
 
 So the number to watch is jobs multiplied by frequency, and the list to read is the workflows that run most often, sorted by job count.
 
-## The largest row was eight days old
+## The largest row: one workflow, three triggers
 
 On 29 October I added a merge policy workflow. Feature pull requests into the development branch must be squashed, and back-merges from the production branch must be merge commits made by the CI bot. The workflow enforced that routing and merged the back-merges itself.
 
@@ -215,16 +212,9 @@ The estimate comes from a small sample. In 6 recent pull requests, half selected
 
 The risk is specific. A test that reads a file from disk, where that file is not on the full-run list, can be skipped on a pull request. The full run on the development branch catches it after the merge.
 
-## What the minutes are worth
+## Beyond the minutes
 
-The list price for a standard Linux 2-core runner was USD 0.006 a minute in November 2026.
-
-- 110,000 minutes a month is about USD 660.
-- 30,000 minutes a month is about USD 180.
-
-Both are derived, and both rest on two assumptions: that every minute is on that runner type, and that no minutes are included in the plan. A plan with included minutes pays less than this.
-
-USD 180 a month does not justify the work by itself. I think that two other effects are larger, and I did not measure them:
+The minutes are the part that I can count. I think that two other effects matter more, and I did not measure them:
 
 - **Fewer checks on each pull request.** A check that runs on every pull request and tells the author nothing new is noise in the list of checks.
 - **Less waiting.** A queue with fewer jobs starts the important ones sooner.
