@@ -1658,6 +1658,21 @@ html.dark .shiki-code span {
   stroke: var(--rule);
 }
 
+/* Charts inside a figure frame: axis text in ink. Each chart sets the
+   opacity of its numeric ticks. */
+.post-body .ts-chart-box .ts-chart {
+  color: var(--ink);
+}
+
+/* A halo in the background color, so that grid lines do not cross labels.
+   A chart on a panel sets --chart-halo to the panel color. */
+.post-body .ts-chart-box .ts-chart__text text {
+  paint-order: stroke;
+  stroke: var(--chart-halo, var(--paper));
+  stroke-width: 5px;
+  stroke-linejoin: round;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

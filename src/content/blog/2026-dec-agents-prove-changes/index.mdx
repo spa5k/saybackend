@@ -1,0 +1,444 @@
+---
+title: "How we made development with coding agents faster and consistent"
+seoTitle: "A Verification Skill for Coding Agents: Seven Weeks of Improvements"
+description: "We started from a generated verification skill and improved it for seven weeks: stricter commands, cheaper runs, an app and a database for each agent, a lighter development stack, and evidence that cannot overclaim."
+date: "2026-12-30"
+draft: true
+slug: "coding-agent-verification-skill"
+ogImage: "/images/agents-prove-changes-og.png"
+tags:
+  - "ai-coding"
+  - "coding-agents"
+  - "verification"
+  - "testing"
+  - "developer-tools"
+  - "ci"
+faqs:
+  - question: "What is a verification skill?"
+    answer: "A set of instructions and scripts in the repository that tells a coding agent how to start the real app, check that it is healthy, use a feature the way a user does, record evidence, and clean up. We started from the base that the public pstack skill /create-verification-skill generates."
+  - question: "What is a user-level check?"
+    answer: "A check that drives the product path that a user takes, and then confirms the result through a separate source such as a stored row or a reloaded page. A command that exits with zero or a unit test is not a user-level check."
+  - question: "How can several coding agents verify on one machine at the same time?"
+    answer: "Each checkout gets its own web instance on its own port and its own database. One instance is a production build that uses about 9x less memory than the shared development stack: 0.92 GB against 8.4 GB. Ten agents verified ten pull requests this way, up to four at the same time."
+  - question: "What stops an agent from recording a pass that it did not prove?"
+    answer: "The evidence recorder. A check with no assertion is recorded as incomplete, an empty or match-all pattern is refused, a retry with a different command cannot replace a failed check without a stated reason, and a run with no recorded teardown cannot be published."
+---
+
+import WaffleChart from "@/components/mdx/WaffleChart";
+import FlowDiagram from "@/components/mdx/FlowDiagram";
+import TierLadder from "@/components/mdx/TierLadder";
+import ValueBarChart from "@/components/mdx/ValueBarChart";
+import OutcomeDiagram from "@/components/mdx/OutcomeDiagram";
+import Timeline from "@/components/mdx/Timeline";
+
+<img
+  src="/images/agents-prove-changes-og.png"
+  alt="9x less memory for each agent's copy of the app. Agents now verify in parallel."
+  width="1200"
+  height="630"
+  loading="eager"
+  fetchPriority="high"
+/>
+
+In our monorepo at work, coding agents write most pull requests. An agent that says "done" has proved nothing. In October 2026 we gave the proof to the agents: a verification skill that lets an agent start the real app, use the change the way a user would, and attach the evidence.
+
+We did not get it right in one step. We started from a generated base and improved it for seven weeks, each time from what real use showed. Where it stands now:
+
+- **Every change ends the same way**: review, verification, and one report on the pull request, from every agent.
+- **Each agent has its own copy of the app.** It uses about 9x less memory than the shared stack, and its own database is ready in about 52 seconds.
+- **Ten agents verified ten real pull requests**, up to four at the same time, with no collision on a port, an account, or a database.
+- **The daily development stack went from 14.1 GB to 2.4 GB of memory.**
+- **A report cannot say more than the agent proved.**
+
+<Timeline
+  title="Seven weeks on one skill"
+  alt="A timeline with seven entries from 3 October to 18 November 2026. 3 October: the first version, from a generated base. 8 October: review and verification become automatic after each change. 23 October: stricter commands and a test policy. 27 October: cheaper runs. 7 November: a maintenance pass finds drift. 16 November: an audit of recorded runs, then an app and a database for each agent. 18 November: a lighter daily development stack."
+  items={[
+    {
+      date: "3 October 2026",
+      title: "The first version, from a generated base",
+      text: "Launch, health check, drive, evidence, cleanup. Recipes for three product areas.",
+    },
+    {
+      date: "8 October 2026",
+      title: "Automatic after each change",
+      text: "Every task ends with review, then verification. The agent starts both.",
+    },
+    {
+      date: "23 October 2026",
+      title: "Stricter commands",
+      text: "Unknown options are rejected. Destructive steps have dry runs. New tests need approval.",
+    },
+    {
+      date: "27 October 2026",
+      title: "Cheaper runs",
+      text: "Verification at checkpoints, reuse of proof that still applies, one account for each preview.",
+    },
+    {
+      date: "7 November 2026",
+      title: "A maintenance pass",
+      text: "The feature recipes are checked against the source and the live app. The drift is fixed.",
+      tone: "muted",
+    },
+    {
+      date: "16 November 2026",
+      title: "An audit, then parallel tools",
+      text: "30 of 160 recorded runs had a user-level check. Each agent gets its own app and database.",
+    },
+    {
+      date: "18 November 2026",
+      title: "A lighter daily stack",
+      text: "The development stack goes from 14.1 GB to 2.4 GB.",
+    },
+  ]}
+/>
+
+## Start from a base skill
+
+The first version stands on [pstack](https://github.com/cursor/plugins/tree/main/pstack), a public pack of agent skills. Its `/create-verification-skill` reads a repository and generates a verification skill for it. The shape it gives is the useful part:
+
+- **Launch.** The exact command that starts the app, and how to tell that it is ready.
+- **Health check.** One read-only check that answers "is this instance worth driving?"
+- **Drive.** How to use the app the way a user does, with the real selectors and commands of this repository.
+- **Evidence.** What to capture for a proof, and where it goes.
+- **Cleanup.** How to remove what the run started, and keep the evidence.
+
+It also seeds a feature map: one recipe for each product area, so that an agent does not have to rediscover how to start a workflow run or open a chat.
+
+Our first version, on 3 October, had 62 files: 31 scripts, their tests, and recipes for three product areas. Its first proof was one workflow that passed on the local stack and again through the normal interface on the hosted path.
+
+## Make it the default
+
+A skill that an agent may use is used on some days. Five days later the guide of the repository made it the rule: every task that changes code or runtime configuration ends with review, then verification. One sentence of that rule does most of the work: "Start both yourself; do not ask first or wait for a prompt."
+
+The order is fixed. The agent reviews its own diff with [a code review skill](/blog/pr-review-agents-what-stuck/), fixes the confirmed blockers, and then verifies. The report goes to the pull request as one comment, and a later run updates that comment in place.
+
+This is the consistent half of the title. A reviewer no longer has to guess what an agent ran. Every pull request carries the same kind of report, with what passed, what failed, what was blocked, and what was not tested.
+
+## Three weeks of use
+
+By late October, real use had shown four habits. Agents repeated expensive setup. They passed CLI flags that the scripts silently ignored. Useful failure details were lost on the way up. And agents wrote tests and guidance that nobody needed.
+
+The fixes were plain:
+
+- **Options are defined one time for all 20 drivers.** An unknown, repeated, or missing option is rejected before any action. An agent that invents a flag gets an error, and not a run that ignores the flag.
+- **Destructive steps have dry runs.**
+- **The error of a child command reaches the top**, with its exit code.
+- **The default for tests is no new tests.** Each new integration test needs approval of the exact cases before the agent writes it.
+
+## Make a run cheap enough to repeat
+
+A check that is expensive gets skipped, by people and by agents. Four changes made a run cheaper:
+
+- **Verify at checkpoints.** Related edits are verified together at a coherent point in the work. A fix repeats only the checks that it affects, and proof that still applies is used again.
+- **One command.** Teammates use a command of the repository and do not need the skill pack installed.
+- **One synthetic account for each preview environment.** There is no pool of accounts to lease from.
+- **Previews on request.** A preview environment is built when someone adds a label, and no longer for each commit.
+
+## A maintenance pass
+
+A feature map starts to go stale on the day the app changes. pstack has a second skill for this, `/maintain-verification-skill`: it reads every feature recipe against the source, drives every feature live, and ships at most one pull request of proven corrections. It may edit only the skill.
+
+Our first pass, in early November, changed 21 files. One correction shows how small the cause of a broken check can be. A loading guard in a script waited for the text `Loading step details...`, with three dots. The interface renders the single character `…`. The guard had never matched.
+
+## The audit
+
+After six weeks I counted what the recorded runs contained.
+
+<WaffleChart
+  title="Recorded verification runs with a user-level check"
+  alt="A grid of 160 squares, one square for each recorded verification run. 30 of the 160 runs had a user-level check. The other 130 did not."
+  caption="One square is one run. Counted in November 2026, before the tools of the next section."
+  unit="runs"
+  columns={20}
+  maxWidth={620}
+  segments={[
+    { label: "had a user-level check", value: 30, tone: "green" },
+    { label: "had no user-level check", value: 130, tone: "muted" },
+  ]}
+/>
+
+Of 160 runs, 30 had a check at the level of a user. The same data showed why such a check was hard to get. The full development stack had one shared lease and two fixed ports, and about 48 worktrees shared them. One agent at a time could use the app. An agent that cannot reach the app verifies what it can reach without it.
+
+Two more limits pushed the same way. Each preview environment needed a database branch at the host, and we often reached the limit on branches. And the shared local database stopped for every worktree when one worktree was deleted.
+
+## An app and a database for each agent
+
+<FlowDiagram
+  title="One verification run"
+  alt="A flow with seven steps. One: the diff. Two: the feature map finds the features that the diff touches. Three: the planner prints the tier, the checks, and the commands. Four: the run starts a web instance, a database, and an account for this checkout. Five: the checks run against that instance. Six: the evidence recorder stores each check with its result. Seven: teardown removes everything and lists what remains."
+  columns={[
+    {
+      title: "From a diff to a report",
+      steps: [
+        { label: "Diff", text: "The change that the agent must prove." },
+        {
+          label: "Feature map",
+          text: "65 feature areas, each with its source paths, entry points, and test suites.",
+        },
+        {
+          label: "Plan",
+          text: "The features, the tier, the checks, and the full command sequence.",
+        },
+        {
+          label: "Instance, database, account",
+          text: "One of each for this checkout. Nothing is shared with another agent.",
+          tone: "green",
+        },
+        {
+          label: "Checks",
+          text: "Each check has an action, an expected result, and a separate source that confirms it.",
+        },
+        {
+          label: "Evidence",
+          text: "The recorder stores each check. It refuses a record that claims more than the check proved.",
+          tone: "green",
+        },
+        {
+          label: "Teardown",
+          text: "Everything that the run started is removed. A leftover gives exit code 1.",
+        },
+      ],
+    },
+  ]}
+/>
+
+**A feature map and a planner.** The three recipes of the first version became a map of 65 feature areas. Each one has its source paths, its entry points, its test suites, and the lowest tier that can verify it. A check fails when a product file has no owner in the map, so the map cannot drift in silence again. The planner reads the diff and prints the features that it touches, the tier, the checks, and the commands in order.
+
+<TierLadder
+  title="Four tiers, lowest first"
+  alt="A ladder of four tiers. Tier one, commands: needs no running app, and proves what commands and existing tests can show. Tier two, local: needs this checkout's own web instance, and proves a claim in the real app that needs no public address. Tier three, local-tunnel: needs the full local stack with a public tunnel, and proves a claim that an outside service must reach. Tier four, preview: needs a matching hosted preview, and proves a claim that the local stack cannot run."
+  needsLabel="Needs"
+  provesLabel="Can prove"
+  tiers={[
+    {
+      name: "commands",
+      needs: "Commands and existing tests in the checkout. No app runs.",
+      proves: "What a command or an existing test can show.",
+    },
+    {
+      name: "local",
+      needs: "This checkout's own web instance.",
+      proves: "A claim in the real app that needs no public address.",
+    },
+    {
+      name: "local-tunnel",
+      needs: "The full local stack with a public tunnel.",
+      proves: "A claim that an outside service must reach.",
+    },
+    {
+      name: "preview",
+      needs: "A matching hosted preview.",
+      proves: "A claim that the local stack cannot run.",
+    },
+  ]}
+/>
+
+**One web instance for each checkout.** A command builds this checkout's web app and starts it on its own port and hostname, so many checkouts run at the same time. One instance uses about 9x less memory than the full development stack, and it starts about 20 seconds after a build.
+
+<ValueBarChart
+  title="Memory for one checkout"
+  alt="A bar graph with two bars. A production web instance for one checkout uses 0.92 GB. The full development stack uses 8.4 GB."
+  caption="Measured in November 2026."
+  axisLabel="Memory (GB)"
+  rows={[
+    {
+      label: "Production web instance",
+      value: 0.92,
+      display: "0.92 GB",
+      tone: "green",
+    },
+    { label: "Full development stack", value: 8.4, display: "8.4 GB" },
+  ]}
+/>
+
+**One database for each pull request.** The start command creates a separate database project for the checkout, applies all its migrations there, and points the web instance at it. It starts only the services that the app uses, which is 4 containers (about 500 MB), and it takes about 52 seconds from zero to a usable instance. Two pull requests never share a database.
+
+**Test data and flags.** A seed command fills the test account with realistic data, and cleanup removes all of it. A feature flag can be switched on for one instance through a local stand-in for the flag service. No product code changes for that, so the override cannot exist in production.
+
+**Teardown.** One command removes the account and the seed rows, stops the web instance, destroys the database project with its containers and volumes, and removes the images that the run built. Then it lists what remains, and a leftover gives exit code 1.
+
+## Evidence that cannot say more than was proved
+
+The tools make a real check possible. They do not make an agent run one. An agent with a working app can still record a command that printed something, call it a pass, and move on. So the recorder has rules.
+
+Each check is a record with fixed fields. This one is written for the post, with the field names of the real format:
+
+```json
+{
+  "name": "The saved filter survives a reload",
+  "required": true,
+  "level": "user",
+  "status": "passed",
+  "action": "Set the filter on the list page, then reload",
+  "expected": "The list shows the same filter",
+  "observed": "The filter is set after the reload",
+  "oracle": "Row read from the database after the reload",
+  "evidence": ["filter-after-reload.png"]
+}
+```
+
+The field that does the work is `oracle`. It says how a separate result confirmed the action. A page that showed the right text is an observation. A stored row that was read after a reload is an oracle. `level` has three values: `setup` for a prerequisite, `local` for a local handler, and `user` for the product path. The report shows the highest level that the run observed, and it does not turn a local check into a user-level one.
+
+<OutcomeDiagram
+  title="Four verdicts and the rule for each"
+  alt="A diagram with three inputs and eight rules. The inputs are the check record, the run record, and the teardown record. A check whose action and separate result agree is passed. A check that ran and did not meet the expected result is failed. A check that a missing prerequisite prevented is blocked. A check through the web instance with no assertion is incomplete. A record with an empty or match-all pattern is refused. A retry with a different command and no stated reason does not replace a failed check. A run with no recorded teardown is incomplete and cannot be published. A full report with gaps stays incomplete."
+  inputsTitle="What the recorder reads"
+  inputs={[
+    {
+      label: "The check record",
+      text: "Action, expected result, observed result, oracle, and evidence.",
+    },
+    {
+      label: "The run record",
+      text: "All checks of the run, with each earlier attempt.",
+    },
+    {
+      label: "The teardown record",
+      text: "What the run removed and what remains.",
+    },
+  ]}
+  outcomesTitle="The rules"
+  outcomes={[
+    {
+      when: "The action and its separate result agree",
+      result: "Passed",
+      tone: "green",
+    },
+    {
+      when: "The action ran and did not meet the expected result",
+      result: "Failed",
+      tone: "brick",
+    },
+    {
+      when: "A required prerequisite prevented the check",
+      result: "Blocked",
+      tone: "muted",
+    },
+    {
+      when: "A check through the web instance has no assertion",
+      result: "Incomplete",
+      tone: "muted",
+    },
+    {
+      when: "The pattern of an assertion is empty or matches everything",
+      result: "Refused",
+      tone: "brick",
+    },
+    {
+      when: "A retry with a different command replaces a failed check, with no stated reason",
+      result: "Refused",
+      tone: "brick",
+    },
+    {
+      when: "The run has no recorded teardown",
+      result: "Incomplete",
+      tone: "muted",
+      detail: "The report publisher refuses the run.",
+    },
+    {
+      when: "A report claims full coverage and has gaps",
+      result: "Incomplete",
+      tone: "muted",
+    },
+  ]}
+/>
+
+Three of these rules each close one shortcut.
+
+**No assertion.** A command against the web instance that returns a response has shown that the server answers. It has not shown that the answer is right. With no assertion, the record is `incomplete`.
+
+**A pattern that matches everything.** The next move is an assertion that cannot fail: an empty pattern, or one that matches any text. The recorder refuses both.
+
+**The quiet retry.** A check fails. The agent runs a different command that passes, and records that one. The recorder keeps the failed attempt, and the new one can replace it only with a stated reason.
+
+Fourteen evidence cases test these rules, and each verdict is as designed.
+
+## The trial: ten pull requests
+
+I gave the tools to ten agents and ten real pull requests, in two waves, with up to four agents at the same time.
+
+<WaffleChart
+  title="Ten pull requests, verified by ten agents"
+  alt="A row of 10 squares, one square for each pull request. 7 of 10 pull requests passed. 2 of 10 could not check the main claim, because the pull request had a migration. 1 of 10 found a real schema defect."
+  caption="One square is one pull request."
+  unit="pull requests"
+  columns={10}
+  maxWidth={440}
+  segments={[
+    { label: "passed", value: 7, tone: "green" },
+    {
+      label: "could not check the main claim, because the pull request had a migration",
+      value: 2,
+      tone: "muted",
+    },
+    { label: "found a real schema defect", value: 1, tone: "brick" },
+  ]}
+/>
+
+- **7 passed.**
+- **2 could not check the main claim**, because the pull request had a migration. The tools now start one database for each pull request, so a migration no longer needs the shared one.
+- **1 found a real schema defect**, which is now fixed.
+
+There was no collision on a port, an account, or a database. The first wave took about 10 minutes for each pull request. The second wave used three different models, and the tool defects from the first wave did not appear again.
+
+Two of the ten runs ended with "could not check the main claim". The evidence rules exist for that result: the run states the gap, and the report does not hide it behind a smaller claim that passed.
+
+## The daily load
+
+The last audit was of the stack that every engineer and every agent starts each day. On one machine, idle and signed in, it used 14.1 GB.
+
+<ValueBarChart
+  title="Memory of the daily development stack"
+  alt="A bar graph with four bars. The whole stack before: 14.1 GB. The whole stack after: 2.4 GB. The web app before: 12.1 GB. The web app after: 1.2 GB."
+  caption="One machine, idle and signed in. Measured in November 2026."
+  axisLabel="Memory (GB)"
+  rows={[
+    { label: "Whole stack, before", value: 14.1, display: "14.1 GB" },
+    {
+      label: "Whole stack, after",
+      value: 2.4,
+      display: "2.4 GB",
+      tone: "green",
+    },
+    { label: "Web app, before", value: 12.1, display: "12.1 GB" },
+    {
+      label: "Web app, after",
+      value: 1.2,
+      display: "1.2 GB",
+      tone: "green",
+    },
+  ]}
+/>
+
+Most of it was the web app in development mode: 12.1 GB in 24 processes. The server process held 7 GB, and a second development server, 17 loader workers, and the bundler of one package held most of the rest. Memory settings for the bundler and the workers did not move the number. A production build did. The web app now runs as a production build by default, in 2 processes and 1.2 GB, which is about 10x less.
+
+The trade is hot reload. An edit is served after a rebuild of 18 to 22 seconds. The old server answers during the build, and the switch takes about 1 second. A flag brings hot reload back for work on the interface.
+
+The containers got the same treatment. The local database stack ran 10 containers, and the app uses 5 of them. The ClickHouse container got a memory limit, after it had grown to 1.59 GB in one day without one. The whole stack is ready in about 62 seconds.
+
+A stack of 2.4 GB leaves room on the same machine for the agents and their own instances.
+
+## What seven weeks added
+
+| | 3 October | 19 November |
+| --- | ---: | ---: |
+| Files in the skill | 62 | 100 |
+| Scripts | 31 | 56 |
+| Product areas with a recipe or a map entry | 3 | 65 |
+
+My part of this was 21 pull requests in under seven weeks. Each larger step came from something that real use had shown.
+
+## What I did not measure
+
+- **The share of user-level checks after the change.** 30 of 160 is the count before the parallel tools. I do not have the same count for the weeks after.
+- **Time from the start of a change to its merge.** "Faster" in this post rests on what I did measure: agents that work at the same time and no longer one at a time, the start times, and the memory. I have no before and after for the whole path.
+- **A pull request with a migration, after the last change.** It ran one time on an earlier version: 282 migrations applied in 63 seconds on a separate database. It did not run again after the change to one database for each pull request.
+- **Two live instances with two databases at the same time.** The project names and the port ranges are different by construction. I did not run the two together.
+- **A journey with a paid model.** No check in the trial called a paid model.
+- **The last round of fixes.** It had no independent review and no third wave.
+- **Other machines.** The numbers of the daily stack are from one machine.
+
+---
+
+I build verification setups like this for teams that use coding agents. To discuss your repository, [email me](mailto:hello@kamran.sh?subject=Agent%20verification).
