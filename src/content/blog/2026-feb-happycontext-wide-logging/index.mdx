@@ -55,18 +55,15 @@ faqs:
 import Callout from "@/components/mdx/Callout";
 import GitHubRepoCard from "@/components/mdx/GitHubRepoCard";
 import {
-  HappyContextHero,
-  IntegrationsMatrix,
-  RequestLifecycleRail,
-  SamplingDecisionPanel,
   SamplingTrap,
-  WideEventsBeforeAfter,
   WideEventBuilderSimulator,
-  WideEventValueCards,
 } from "@/components/react/blog/happycontext/HappyContextBlocks";
+import { LinesToEvent } from "@/components/react/blog/happycontext/LinesToEvent";
+import { BlockRows } from "@/components/paper/BlockRows";
+import { DotMatrix } from "@/components/paper/DotMatrix";
+import { KeepRows } from "@/components/paper/KeepRows";
 
-<HappyContextHero />
-<WideEventValueCards />
+<LinesToEvent />
 
 ## Why I Built This
 
@@ -90,8 +87,6 @@ Instead of emitting 6 to 20 lines through middleware and handlers, `happycontext
 ### What are Wide Events?
 
 Instead of scattering logs throughout your code:
-
-<WideEventsBeforeAfter client:load />
 
 ```go
 package main
@@ -217,7 +212,19 @@ func main() {
 
 `happycontext` intentionally separates router middleware from logger adapters.
 
-<IntegrationsMatrix />
+<DotMatrix
+  title="5 routers × 3 loggers"
+  columns={[{ label: "adapter/slog" }, { label: "adapter/zap" }, { label: "adapter/zerolog" }]}
+  rows={[
+    "integration/std (net/http)",
+    "integration/gin",
+    "integration/echo",
+    "integration/fiber (v2)",
+    "integration/fiberv3 (v3)",
+  ].map((label) => ({ label, values: [true, true, true] }))}
+  note="all 15 pairs work"
+  caption="Every router can switch logger without a change to the domain handlers."
+/>
 
 ### Router integrations
 
@@ -235,7 +242,41 @@ func main() {
 
 That gives you 15 router/logger combinations without changing your domain handlers.
 
-<RequestLifecycleRail />
+<BlockRows
+  title="The event grows during the request"
+  description="Four steps. Start: the middleware captures the request fields. Enrich: handlers add user and business fields. Finalize: status, duration, and error fields are added. Emit: the adapter writes the complete event one time."
+  rows={[
+    { label: "Start", blocks: [{ text: "request", mark: "blue", sub: "method, path, route" }] },
+    {
+      label: "Enrich",
+      blocks: [
+        { text: "request", mark: "blue" },
+        { text: "user", mark: "lilac", sub: "user, tenant" },
+        { text: "business", mark: "sage", sub: "feature, payload" },
+      ],
+    },
+    {
+      label: "Finalize",
+      blocks: [
+        { text: "request", mark: "blue" },
+        { text: "user", mark: "lilac" },
+        { text: "business", mark: "sage" },
+        { text: "outcome", mark: "amber", sub: "status, ms, error" },
+      ],
+    },
+    {
+      label: "Emit",
+      blocks: [
+        { text: "request", mark: "blue" },
+        { text: "user", mark: "lilac" },
+        { text: "business", mark: "sage" },
+        { text: "outcome", mark: "amber" },
+      ],
+    },
+  ]}
+  notes={[{ row: 3, block: 3, text: "written once" }]}
+  caption="The adapter writes one event to slog, zap, or zerolog."
+/>
 
 ## Sampling Without Losing Incidents
 
@@ -257,7 +298,16 @@ mw := stdhc.Middleware(hc.Config{
 
 <SamplingTrap client:load />
 
-<SamplingDecisionPanel />
+<KeepRows
+  title="What the sampler chain above keeps"
+  rows={[
+    { label: "Errors and 5xx", kept: 1, mark: "rose" },
+    { label: "/admin and /checkout", kept: 1, mark: "amber" },
+    { label: "Slower than 500 ms", kept: 1, mark: "blue" },
+    { label: "Healthy traffic", kept: 0.05, mark: "lilac" },
+  ]}
+  caption="Keep incidents at 100%. Control the cost on healthy traffic."
+/>
 
 ## Benchmark Snapshot
 

@@ -30,6 +30,7 @@ faqs:
 ---
 
 import Callout from "@/components/mdx/Callout";
+import { DecisionList } from "@/components/paper/Lists";
 
 <img
   src="/images/cliproxyapi-factory-byok-og.png"
@@ -203,11 +204,13 @@ Here's a complete `settings.json` with all current Claude and OpenAI models:
 
 The `provider` field determines which API format Factory uses to talk to the proxy:
 
-| Provider                      | API Format                                       | Use For                        |
-| ----------------------------- | ------------------------------------------------ | ------------------------------ |
-| `anthropic`                   | Anthropic Messages API (`/v1/messages`)          | Claude models                  |
-| `openai`                      | OpenAI Responses API (`/v1/responses`)           | GPT models                     |
-| `generic-chat-completion-api` | OpenAI Chat Completions (`/v1/chat/completions`) | OpenRouter, Ollama, vLLM, etc. |
+<DecisionList
+  rows={[
+    { need: "Claude models", pick: "`anthropic`", why: "Anthropic Messages API (`/v1/messages`)" },
+    { need: "GPT models", pick: "`openai`", why: "OpenAI Responses API (`/v1/responses`)" },
+    { need: "OpenRouter, Ollama, vLLM, and others", pick: "`generic-chat-completion-api`", why: "OpenAI Chat Completions (`/v1/chat/completions`)" },
+  ]}
+/>
 
 CLIProxyAPI supports all three formats and routes based on the model name regardless of which provider type Factory uses.
 

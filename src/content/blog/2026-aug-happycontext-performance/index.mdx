@@ -30,8 +30,9 @@ faqs:
 ---
 
 import Callout from "@/components/mdx/Callout";
-import BeforeAfterBenchmarkChart from "@/components/mdx/BeforeAfterBenchmarkChart";
 import GitHubRepoCard from "@/components/mdx/GitHubRepoCard";
+import { BeforeAfterBars } from "@/components/paper/BeforeAfterBars";
+import { ShareBars } from "@/components/paper/ShareBars";
 
 <img
   src="/images/happycontext-performance-og.png"
@@ -119,10 +120,15 @@ The adapter built a `[]any` containing `slog.Attr` values and called the variadi
 
 We switched to `Logger.LogAttrs` and reused a bounded `[]slog.Attr` buffer. The handler still receives normal `slog.Attr` values, but the adapter no longer boxes each one into `any`.
 
-| `slog` benchmark | Before | After | Allocation result |
-| --- | ---: | ---: | --- |
-| Small write | 1,079 ns | 628 ns | 7 → 1 allocs, 336 → 48 B |
-| Medium write | 2,153 ns | 1,246 ns | 18 → 1 allocs, 1,297 → 480 B |
+<BeforeAfterBars
+  title="slog writes"
+  unit="ns/op"
+  data={[
+    { label: "Small write", before: 1079, after: 628 },
+    { label: "Medium write", before: 2153, after: 1246 },
+  ]}
+  caption="Allocations: 7 → 1 for the small write, 18 → 1 for the medium write. Bytes: 336 → 48 and 1,297 → 480."
+/>
 
 The allocation counts reproduced exactly in later review runs. Timing varied with the Go version and machine state, so the important durable result is the removed allocation work.
 
@@ -136,11 +142,14 @@ The request path was different. Middleware had already normalized its configurat
 
 We added an internal read-only fast path that reuses already-valid maps. The public function still makes isolated copies.
 
-| Operation finish with policies | Before | After | Result |
-| --- | ---: | ---: | --- |
-| Time | 881 ns | 597 ns | 32% faster |
-| Allocations | 17 | 9 | 47% fewer |
-| Bytes | 2,352 B | 976 B | 59% fewer |
+<ShareBars
+  title="Operation finish with policies"
+  rows={[
+    { label: "Time", before: 881, after: 597, unit: "ns" },
+    { label: "Allocations", before: 17, after: 9 },
+    { label: "Bytes", before: 2352, after: 976, unit: "B" },
+  ]}
+/>
 
 An adversarial test caught an early version that shared the caller's maps through the public API. That version never shipped.
 
@@ -162,20 +171,16 @@ Operation finalization used to normalize the full policy map before it selected 
 
 The new path normalizes the requested domain and performs one map lookup. It keeps the same alias and invalid-value rules.
 
-| Policy lookup | Before | After | Result |
-| --- | ---: | ---: | --- |
-| 1 policy | 407 ns | 376 ns | 7% faster |
-| 16 policies | 591 ns | 387 ns | 34% faster |
-| 128 policies | 1,842 ns | 395 ns | 79% faster |
-
-<BeforeAfterBenchmarkChart
-  title="Policy lookup: 79% faster at 128 policies"
+<BeforeAfterBars
+  title="Policy lookup"
   unit="ns/op"
   data={[
     { label: "1 policy", before: 407, after: 376 },
     { label: "16 policies", before: 591, after: 387 },
     { label: "128 policies", before: 1842, after: 395 },
   ]}
+  notes={{ "128 policies": "flat now" }}
+  caption="7% faster with 1 policy, 34% with 16 policies, and 79% with 128 policies."
 />
 
 The important part is the shape of the result. Finalization is now effectively constant-time as the policy map grows.
@@ -207,10 +212,16 @@ The rate sampler used a shared atomic pseudo-random state. It was cheap in one g
 
 Replacing it with the standard library's `math/rand/v2` source changed the trade-off:
 
-| Sampler benchmark | Before | After | Result |
-| --- | ---: | ---: | --- |
-| Parallel | 42 ns | 1.3 ns | More than 30× faster |
-| Serial | 3.12 ns | 6.66 ns | About 2.1× slower |
+<BeforeAfterBars
+  title="Sampler"
+  unit="ns/op"
+  data={[
+    { label: "Parallel", before: 42, after: 1.3 },
+    { label: "Serial", before: 3.12, after: 6.66 },
+  ]}
+  notes={{ Serial: "slower:\naccepted" }}
+  caption="Parallel: more than 30× faster. Serial: about 2.1× slower."
+/>
 
 We accepted the serial microbenchmark regression because request middleware is concurrent and the shared atomic state was the scaling limit. An integer-threshold alternative improved the new path by less than 3%, so we rejected the added code.
 
@@ -228,21 +239,20 @@ This produced the largest headline ratios because a filtered write now returns a
 
 A filtered log write is a call that the logger ignores because its level is below the configured minimum. For example, a logger set to `Info` ignores a `Debug` event.
 
-| Adapter path | Before | After | Result |
-| --- | ---: | ---: | --- |
-| Filtered `slog`, medium event | 163 ns | 3.39 ns | 48× faster |
-| Filtered `zap`, medium event | 354 ns | 24.3 ns | 15× faster |
-| Filtered `zerolog`, medium event | 237 ns | 3.07 ns | 77× faster, 0 B, 0 allocs |
-| `zerolog` Warn write | 271 ns | 157 ns | 42% faster, 0 B, 0 allocs |
-
-<BeforeAfterBenchmarkChart
-  title="Filtered log writes: up to 77× faster"
+<BeforeAfterBars
+  title="Filtered log writes, medium event"
   unit="ns/op"
   data={[
     { label: "slog", before: 163, after: 3.39 },
     { label: "zap", before: 354, after: 24.3 },
     { label: "zerolog", before: 237, after: 3.07 },
   ]}
+  notes={{ zerolog: "the headline\nnumber" }}
+  caption="The zerolog path uses 0 B and 0 allocations. A zerolog Warn write that is not filtered went from 271 ns to 157 ns, 42% faster."
+  card={{
+    title: "Most of the gain is skipped work",
+    body: "Adapters check the filter before they convert fields.",
+  }}
 />
 
 The `zerolog` work also fixed a correctness issue. The adapter created an unused Info event before it created the real event. That extra event consumed a sampling decision. Removing it improved speed and restored one decision per emitted event.

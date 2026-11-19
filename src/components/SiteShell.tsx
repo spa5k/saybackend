@@ -3,19 +3,20 @@ import { Link, useRouterState } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { SearchDialog } from './SearchDialog'
+import { PaperDefs } from './paper/PaperDefs'
 
 const navigation = [
-  { label: 'Blog', to: '/blog/' },
+  { label: 'Writing', to: '/blog/' },
   { label: 'Topics', to: '/topics/' },
-  { label: 'About', to: '/about/' },
   { label: 'Projects', to: '/projects/' },
-  { label: 'Portfolio', href: 'https://kamran.sh/' },
-  { label: 'Hire Me', to: '/hiring/' },
+  { label: 'About', to: '/about/' },
+  { label: 'Hire me', to: '/hiring/' },
 ]
 
 export function SiteShell({ children }: { children: React.ReactNode }) {
   return (
     <>
+      <PaperDefs />
       <SiteHeader />
       <main>{children}</main>
       <SiteFooter />
@@ -35,14 +36,9 @@ function SiteHeader() {
     <header className="site-header">
       <div className="page-frame header-inner">
         <Link to="/" className="wordmark" aria-label="SayBackend home">
-          <img
-            className="wordmark-icon"
-            src="/favicon.svg"
-            width="34"
-            height="34"
-            alt=""
-            aria-hidden="true"
-          />
+          <svg className="wordmark-icon" aria-hidden="true">
+            <use href="#pp-square" />
+          </svg>
           <span>SayBackend</span>
         </Link>
         <button
@@ -60,21 +56,15 @@ function SiteHeader() {
           className={open ? 'main-nav main-nav-open' : 'main-nav'}
           aria-label="Primary navigation"
         >
-          {navigation.map((item) =>
-            item.to ? (
-              <Link
-                key={item.label}
-                to={item.to}
-                className={pathname.startsWith(item.to) ? 'active' : ''}
-              >
-                {item.label}
-              </Link>
-            ) : (
-              <a key={item.label} href={item.href}>
-                {item.label}
-              </a>
-            ),
-          )}
+          {navigation.map((item) => (
+            <Link
+              key={item.label}
+              to={item.to}
+              className={pathname.startsWith(item.to) ? 'active' : ''}
+            >
+              {item.label}
+            </Link>
+          ))}
           <SearchDialog />
           <ThemeToggle />
         </nav>
@@ -139,8 +129,8 @@ function SiteFooter() {
   return (
     <footer className="site-footer">
       <div className="page-frame footer-inner">
-        <span>© {new Date().getFullYear()} SayBackend</span>
         <div>
+          <span>© {new Date().getFullYear()} SayBackend</span>
           <a href="/guides/">Guides</a>
           <a href="/rss.xml">RSS</a>
           <a href="/llms.txt">LLMs</a>
@@ -149,6 +139,7 @@ function SiteFooter() {
           <a href="https://kamran.sh">Portfolio</a>
           <a href="mailto:hello@kamran.sh">Email</a>
         </div>
+        <span className="hand footer-sign">— Kamran</span>
       </div>
     </footer>
   )

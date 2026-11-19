@@ -16,6 +16,7 @@ import {
   posts,
 } from '@/lib/content'
 import { Giscus } from '@/components/Giscus'
+import { Circled } from '@/components/paper/Figure'
 import CodeWindow from '@/components/mdx/CodeWindow'
 import ResponsiveTable from '@/components/mdx/ResponsiveTable'
 import { SITE, breadcrumb, seo, toIsoDateTime } from '@/lib/site'
@@ -137,12 +138,8 @@ function PostPage() {
 
   return (
     <article className="post-page">
-      <header className="post-header page-frame">
-        <Link to="/blog/" className="eyebrow">
-          ← Blog archive
-        </Link>
-        <h1>{post.title}</h1>
-        <p>{post.description}</p>
+      <header className="post-header page-narrow">
+        <PostTitle title={post.title} />
         <div className="post-byline">
           <a
             href="https://kamran.sh/"
@@ -150,10 +147,10 @@ function PostPage() {
             rel="noopener"
             title="Portfolio"
           >
-            By Kamran Tahir
+            Kamran Tahir
           </a>
           <time dateTime={post.date}>{formatDate(post.date)}</time>
-          <span>{post.readingMinutes} min read</span>
+          <span>{post.readingMinutes} min</span>
           <a
             href={`/blog/${post.slug}.md`}
             rel="alternate"
@@ -164,23 +161,27 @@ function PostPage() {
             Markdown
           </a>
         </div>
-        <div className="post-tags">
-          {(post.tags ?? []).slice(0, 6).map((tag) => (
-            <span key={tag}>{tag}</span>
-          ))}
-        </div>
       </header>
       {post.wip ? (
-        <div className="page-frame wip-note">
+        <div className="page-narrow wip-note">
           This article is a work in progress and may change.
         </div>
       ) : null}
-      <div className="post-body page-frame" data-pagefind-body>
+      <div className="post-body" data-pagefind-body>
         <Suspense fallback={null}>
           <Content components={{ pre: CodeWindow, table: ResponsiveTable }} />
         </Suspense>
+        <footer className="post-end not-typography" data-pagefind-ignore="">
+          <div className="post-tags">
+            <span className="post-tombstone" aria-hidden="true" />
+            {(post.tags ?? []).slice(0, 5).map((tag) => (
+              <span key={tag}>{tag}</span>
+            ))}
+          </div>
+          <span className="hand">— Kamran</span>
+        </footer>
       </div>
-      <nav className="post-navigation page-frame" aria-label="More articles">
+      <nav className="post-navigation" aria-label="More articles">
         {newerPost ? (
           <Link
             to="/blog/$slug/"
@@ -204,12 +205,12 @@ function PostPage() {
           </Link>
         ) : null}
       </nav>
-      <section className="post-comments page-frame" aria-label="Comments">
+      <section className="post-comments" aria-label="Comments">
         <p className="eyebrow">Discussion</p>
         <Giscus term={post.oldPath} />
       </section>
       {related.length ? (
-        <aside className="related-posts page-frame">
+        <aside className="related-posts">
           <p className="eyebrow">Keep reading</p>
           <div>
             {related.map((item) => (
@@ -227,5 +228,31 @@ function PostPage() {
         </aside>
       ) : null}
     </article>
+  )
+}
+
+/**
+ * "Name: the rest" titles get the name in bold sans above the serif line.
+ * The first headline number (77×, 95%) gets a pen circle.
+ */
+function PostTitle({ title }: { title: string }) {
+  const split = title.match(/^([^:]{3,36}):\s+(.+)$/)
+  const lead = split?.[1]
+  const rest = split?.[2] ?? title
+  const figure = rest.match(/\d[\d.,]*\s?(?:×|%)/)
+  const start = figure?.index ?? -1
+  return (
+    <h1>
+      {lead ? <b>{lead}:</b> : null}
+      {figure && start >= 0 ? (
+        <>
+          {rest.slice(0, start)}
+          <Circled>{figure[0]}</Circled>
+          {rest.slice(start + figure[0].length)}
+        </>
+      ) : (
+        rest
+      )}
+    </h1>
   )
 }

@@ -30,7 +30,7 @@ import BasicTxt from "./2_basic_text_messages.png";
 import StructuredJson from "./3_json_message.png";
 import MessagesOnUI from "./4_messages_on_ui.png";
 import OgImage from "./kafka_docker_kraft_og.png";
-import KafkaZookeeperKraft from "./kafka_zookeeper_kraft.jpg";
+import { KraftCompare } from "@/components/react/blog/kafka/KraftCompare";
 
 <Picture
   src={OgImage}
@@ -55,14 +55,9 @@ import KafkaZookeeperKraft from "./kafka_zookeeper_kraft.jpg";
 Kafka Raft Metadata (KRaft) is a new mode for Apache Kafka that eliminates the need for Zookeeper. It was introduced in KIP-500 to remove the kafka dependency on Zookeeper.
 Apache Kafka traditionally required Zookeeper for cluster coordination - until KRaft (Kafka Raft Metadata) mode arrived. This update eliminates Zookeeper dependencies while improving:
 
-<Picture
-  src={KafkaZookeeperKraft}
-  alt="Kafka Raft Metadata (KRaft) mode"
-  inferSize
-  formats={["avif", "webp"]}
-/>
+<KraftCompare />
 
-> Image from [Kafka Raft Metadata (KRaft) mode](https://developer.confluent.io/learn/kraft/)
+> Source for the comparison: [Kafka Raft Metadata (KRaft) mode](https://developer.confluent.io/learn/kraft/)
 
 - **Simplified architecture**: Fewer moving parts
 - **Faster recovery**: Metadata changes happen in milliseconds

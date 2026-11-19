@@ -3,8 +3,8 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { NotFoundPage } from '@/components/NotFoundPage'
 import { SiteShell } from '@/components/SiteShell'
 import { NOT_FOUND_META, SITE } from '@/lib/site'
-import lexendFont from '@fontsource-variable/lexend/files/lexend-latin-wght-normal.woff2?url'
-import monoFont from '@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2?url'
+import sansFont from '@fontsource-variable/instrument-sans/files/instrument-sans-latin-wght-normal.woff2?url'
+import serifFont from '@fontsource-variable/newsreader/files/newsreader-latin-wght-normal.woff2?url'
 import appCss from '../styles.css?url'
 
 export const Route = createRootRoute({
@@ -19,14 +19,14 @@ export const Route = createRootRoute({
     links: [
       {
         rel: 'preload',
-        href: lexendFont,
+        href: sansFont,
         as: 'font',
         type: 'font/woff2',
         crossOrigin: 'anonymous',
       },
       {
         rel: 'preload',
-        href: monoFont,
+        href: serifFont,
         as: 'font',
         type: 'font/woff2',
         crossOrigin: 'anonymous',

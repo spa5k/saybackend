@@ -1,8 +1,10 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 
-import { formatDate, posts, projects } from '@/lib/content'
+import { Circled } from '@/components/paper/Figure'
+import { PostCalendar } from '@/components/paper/PostCalendar'
+import { PostList } from '@/components/paper/PostList'
+import { posts } from '@/lib/content'
 import { PAGE_META, SITE, breadcrumb, seo } from '@/lib/site'
-import { topicCards } from '@/lib/topics'
 
 export const Route = createFileRoute('/')({
   head: () =>
@@ -57,134 +59,34 @@ export const Route = createFileRoute('/')({
 })
 
 function Home() {
-  const [featured, ...recent] = posts
-  const topics = topicCards().slice(0, 8)
-
   return (
-    <>
-      <section className="page-frame journal-home">
-        <h1 className="sr-only">
-          SayBackend: backend engineering and DevOps blog
-        </h1>
-        <aside className="journal-rail">
-          <p className="rail-intro">
-            Notes on systems, patterns, and the daily work of building reliable
-            software.
+    <section className="page-narrow home">
+      <h1 className="sr-only">
+        SayBackend: backend engineering and DevOps blog
+      </h1>
+      <div className="home-hero">
+        <PostCalendar posts={posts} />
+        <div>
+          <p className="home-hero-title" role="presentation">
+            Backend systems, measured and <Circled>drawn</Circled>.
           </p>
-          <div className="rail-rule" />
-          <p className="rail-copy">
-            I write about backend systems, DevOps, and the messy middle where
-            architecture meets reality. Expect code, tradeoffs, and the
-            occasional post-mortem.
+          <p className="note-card taped hand">
+            Expect code, tradeoffs, and the occasional post-mortem.
           </p>
-          <Link to="/about/" className="text-link">
-            More about me →
-          </Link>
-          <div className="rail-rule" />
-          <p className="eyebrow">Topics</p>
-          <ul className="topic-index">
-            {topics.map((topic) => (
-              <li key={topic.slug}>
-                <Link to="/topics/$topic/" params={{ topic: topic.slug }}>
-                  <span>{topic.name}</span>
-                  <span>{topic.count}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <Link to="/topics/" className="text-link">
-            All topics →
-          </Link>
-        </aside>
-
-        <div className="journal-content">
-          <article className="featured-story">
-            <p className="eyebrow">Latest essay</p>
-            <h2>
-              <Link
-                to="/blog/$slug/"
-                params={{ slug: featured.slug }}
-                reloadDocument
-              >
-                {featured.title}
-              </Link>
-            </h2>
-            <p className="featured-summary">{featured.description}</p>
-            <div className="featured-meta">
-              <span className="featured-meta-line">
-                <time dateTime={featured.date}>
-                  {formatDate(featured.date)}
-                </time>
-                <span aria-hidden="true">·</span>
-                <span>{featured.readingMinutes} min read</span>
-              </span>
-              <Link
-                to="/blog/$slug/"
-                params={{ slug: featured.slug }}
-                className="text-link featured-link"
-                reloadDocument
-              >
-                Read the essay →
-              </Link>
-            </div>
-          </article>
-
-          <div className="post-ledger">
-            {recent.slice(0, 4).map((post) => (
-              <article className="ledger-row" key={post.slug}>
-                <h2>
-                  <Link
-                    to="/blog/$slug/"
-                    params={{ slug: post.slug }}
-                    reloadDocument
-                  >
-                    {post.title}
-                  </Link>
-                </h2>
-                <div className="ledger-meta">
-                  <span className="ledger-topic">
-                    {post.tags?.[0] ?? 'Notes'}
-                  </span>
-                  <span className="ledger-meta-line">
-                    <time dateTime={post.date}>{formatDate(post.date)}</time>
-                    <span aria-hidden="true">·</span>
-                    <span>{post.readingMinutes} min read</span>
-                  </span>
-                </div>
-              </article>
-            ))}
-          </div>
-          <Link to="/blog/" className="text-link archive-link">
-            View full archive →
-          </Link>
         </div>
-      </section>
-
-      <section className="projects-strip">
-        <div className="page-frame projects-strip-inner">
-          <p className="eyebrow">Projects & experiments</p>
-          {projects.map((project) => (
-            <article key={project.slug}>
-              <h2>{project.title}</h2>
-              <p>{project.description}</p>
-              <Link
-                to="/projects/$slug/"
-                params={{ slug: project.slug }}
-                className="text-link"
-              >
-                Read more →
-              </Link>
-            </article>
-          ))}
-          <article>
-            <h2>More writing</h2>
-            <p>Browse the complete collection of articles and build logs.</p>
-            <Link to="/blog/" className="text-link">
-              See the archive →
-            </Link>
-          </article>
-        </div>
-      </section>
-    </>
+      </div>
+      <PostList posts={posts.slice(0, 8)} flagNewest />
+      <div className="home-more">
+        <Link to="/blog/" className="pill">
+          All writing →
+        </Link>
+        <Link to="/projects/" className="pill">
+          Projects
+        </Link>
+        <Link to="/about/" className="pill">
+          About me
+        </Link>
+      </div>
+    </section>
   )
 }

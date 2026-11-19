@@ -1,6 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 
-import { formatDate, posts } from '@/lib/content'
+import { PostList } from '@/components/paper/PostList'
+import { posts } from '@/lib/content'
 import { PAGE_META, SITE, breadcrumb, seo } from '@/lib/site'
 import { topicCards } from '@/lib/topics'
 
@@ -34,11 +35,9 @@ function BlogIndex() {
     return years
   }, {})
   return (
-    <section className="page-frame archive-page">
+    <section className="page-narrow archive-page">
       <header className="page-heading">
-        <p className="eyebrow">The archive</p>
-        <h1>Writing on systems that have to work.</h1>
-        <p>{PAGE_META.blog.description}</p>
+        <h1>All writing</h1>
       </header>
       <div className="topic-pills">
         {topicCards().map((topic) => (
@@ -56,26 +55,7 @@ function BlogIndex() {
         .map(([year, yearPosts]) => (
           <section className="archive-year" key={year}>
             <h2>{year}</h2>
-            <div>
-              {yearPosts.map((post) => (
-                <article className="archive-row" key={post.slug}>
-                  <time dateTime={post.date}>{formatDate(post.date)}</time>
-                  <div>
-                    <h3>
-                      <Link
-                        to="/blog/$slug/"
-                        params={{ slug: post.slug }}
-                        reloadDocument
-                      >
-                        {post.title}
-                      </Link>
-                    </h3>
-                    <p>{post.description}</p>
-                  </div>
-                  <span>{post.readingMinutes} min</span>
-                </article>
-              ))}
-            </div>
+            <PostList posts={yearPosts} />
           </section>
         ))}
     </section>

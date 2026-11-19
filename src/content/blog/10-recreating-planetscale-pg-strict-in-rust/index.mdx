@@ -31,12 +31,14 @@ ogImage: "/images/pg-strict-og.png"
 
 import Callout from "@/components/mdx/Callout";
 import GitHubRepoCard from "@/components/mdx/GitHubRepoCard";
-import InteractiveDiagram from "@/components/react/InteractiveDiagram";
 import { Picture } from "@/components/mdx/Picture";
+import { PgStrictPlayground } from "@/components/react/blog/pgstrict/PgStrictBlocks";
 import {
-  HookPhaseExplorer,
-  PgStrictPlayground,
-} from "@/components/react/blog/pgstrict/PgStrictBlocks";
+  AttemptLadder,
+  ExtensionMap,
+  ModeGrid,
+  QueryPipeline,
+} from "@/components/react/blog/pgstrict/PgStrictFigures";
 import ImgCreateExtension from "./1-create-extension.png";
 import ImgConfig from "./2-config.png";
 import ImgTableState from "./3-table-state-with-rows.png";
@@ -101,36 +103,20 @@ This is valid SQL and a data incident waiting to happen. The extension should:
 
 Before the build log, here is the mental model that made the rest of the decisions obvious. Postgres processes queries in distinct stages, and `pgrx` allows us to hook into them.
 
-<InteractiveDiagram
-  title="Postgres query pipeline and hook points"
-  code={`
-graph TB
-    SQL[SQL Query Text] --> Parser[Parser]
-    
-    Parser --> Analyzer[Analyze Phase]
-    
-    Analyzer -.->|Analysis Complete| Hook1[post_parse_analyze_hook]
-    Hook1 --> Decision1{Safe?}
-    Decision1 -->|No| Block1[Block]
-    Decision1 -->|Yes| Continue1[Continue]
-    
-    Continue1 --> Planner[Planner]
-    Planner --> Executor[Executor]
-    
-    Executor -.->|Execution Start| Hook2[ExecutorRun_hook]
-    Hook2 --> Decision2{Safe?}
-    Decision2 -->|No| Block2[Block]
-    Decision2 -->|Yes| Continue2[Continue]
-    
-    Continue2 --> Results[Results]
-    
-    style Hook1 fill:#ddf4ff,stroke:#0969da,stroke-width:2px
-    style Hook2 fill:#fff8c5,stroke:#bf8700,stroke-width:2px
-    style Block1 fill:#ffebe9,stroke:#cf222e
-    style Block2 fill:#ffebe9,stroke:#cf222e
-    style Decision1 fill:#ddf4ff,stroke:#0969da
-    style Decision2 fill:#ddf4ff,stroke:#0969da
-`}
+<QueryPipeline
+  title="The Postgres query pipeline, and the two hook points"
+  hooks={[
+    {
+      at: "Analyzer",
+      name: "post_parse_analyze_hook",
+      steps: ['Analysis is complete', 'Safe? No: block. Yes: continue.'],
+    },
+    {
+      at: "Executor",
+      name: "ExecutorRun_hook",
+      steps: ['Execution starts', 'Safe? No: block. Yes: continue.'],
+    },
+  ]}
 />
 
 What each stage actually gives you:
@@ -150,7 +136,7 @@ What each stage actually gives you:
 
 My journey involved moving from the bottom (Executor) to the top (Analyzer).
 
-<HookPhaseExplorer client:load />
+<AttemptLadder />
 
 ---
 
@@ -160,20 +146,16 @@ To start, I just wanted to verify I could intercept a query at all. I set up a b
 
 The goal here was simple: Can I see the SQL string and stop execution?
 
-<InteractiveDiagram
-  title="Stage 0 · Executor hook proof of concept"
-  code={`
-graph LR
-    Start[SQL Query] --> Hook[ExecutorRun Hook]
-    Hook --> Extract[Extract Query Source Text]
-    Extract --> Check{Is UPDATE/DELETE?}
-    Check -->|Yes| Log[Log "I see you"]
-    Check -->|No| Ignore
-    
-    style Start fill:#ddf4ff,stroke:#0969da
-    style Hook fill:#fff8c5,stroke:#bf8700
-    style Check fill:#ddf4ff,stroke:#0969da
-`}
+<QueryPipeline
+  title="Stage 0: a hook at the executor"
+  hooks={[
+    {
+      at: "Executor",
+      name: "ExecutorRun_hook",
+      verdict: "flawed",
+      steps: ['Extract the query source text', 'Is it UPDATE or DELETE?', 'Yes: log "I see you"'],
+    },
+  ]}
 />
 
 This worked. I verified that `pgrx` hooks were wired correctly. Now I needed to actually parse that SQL string to see if it had a `WHERE` clause.
@@ -184,20 +166,17 @@ This worked. I verified that `pgrx` hooks were wired correctly. Now I needed to 
 
 My first instinct for parsing was **Tree-sitter**. It's modern, fast, and I've used it before. I tried to pull in `tree-sitter-sql` (or Postgres specific grammars) inside the hook to analyze the string.
 
-<InteractiveDiagram
-  title="Stage 1 · Tree-sitter attempt"
-  code={`
-graph LR
-    Start[SQL Query Text] --> Hook[Executor Hook]
-    Hook --> TS[tree-sitter Parser]
-    TS --> Issues[Build/Link Issues]
-    Issues --> Abandon[Abandoned]
-    
-    style Start fill:#ddf4ff,stroke:#0969da
-    style Hook fill:#fff8c5,stroke:#bf8700
-    style TS fill:#fff8c5,stroke:#bf8700
-    style Issues fill:#ffebe9,stroke:#cf222e
-`}
+<QueryPipeline
+  title="Stage 1: tree-sitter in the hook"
+  hooks={[
+    {
+      at: "Executor",
+      name: "ExecutorRun_hook",
+      verdict: "abandoned",
+      steps: ['Give the SQL text to tree-sitter', 'Build and link problems'],
+      result: "Abandoned",
+    },
+  ]}
 />
 
 I spent a few hours fighting build scripts and linking issues. It felt like overkill to embed a generic parser when I was already running _inside_ a database engine that has a world-class parser built-in. I abandoned this path quickly.
@@ -234,24 +213,17 @@ impl QueryAnalyzer {
 }
 ```
 
-<InteractiveDiagram
-  title="Stage 2 · External sqlparser approach"
-  code={`
-graph LR
-    Start[SQL Query] --> PG[Postgres Parses ①]
-    PG --> Exec[ExecutorRun Hook]
-    Exec --> Extract[Extract sourceText]
-    Extract --> Reparse[sqlparser Re-parses ②]
-    Reparse --> AST[External AST]
-    AST --> Check{Has WHERE?}
-    Check -->|No| Block[Block Query]
-    
-    style Start fill:#ddf4ff,stroke:#0969da
-    style PG fill:#f6f8fa,stroke:#57606a
-    style Exec fill:#fff8c5,stroke:#bf8700
-    style Reparse fill:#fff8c5,stroke:#bf8700,stroke-width:2px
-    style Block fill:#ffebe9,stroke:#cf222e
-`}
+<QueryPipeline
+  title="Stage 2: sqlparser in the hook"
+  hooks={[
+    {
+      at: "Executor",
+      name: "ExecutorRun_hook",
+      verdict: "flawed",
+      steps: ['Extract sourceText', 'sqlparser parses it again', 'Build an external AST', 'No WHERE: block the query'],
+    },
+  ]}
+  note={{ at: "Parser", text: "Postgres already parsed it here" }}
 />
 
 ### Why this failed
@@ -294,22 +266,18 @@ This solved **correctness**. Edge cases like `DELETE ... USING` or complex CTEs 
 
 **But it was inefficient.**
 
-<InteractiveDiagram
-  title="Stage 3 · Postgres parser at the executor phase"
-  code={`
-graph LR
-    Start[SQL Query] --> Parse1[Postgres Parses Query]
-    Parse1 --> Analyze[Analyze & Plan]
-    Analyze --> Hook[ExecutorRun Hook]
-    Hook --> Reparse[Parse Query Again]
-    Reparse --> Check[Check WHERE Clause]
-    Check --> Block[Block Query]
-    
-    style Start fill:#ddf4ff,stroke:#0969da
-    style Parse1 fill:#f6f8fa,stroke:#57606a
-    style Reparse fill:#ffebe9,stroke:#cf222e,stroke-width:2px
-    style Block fill:#ffebe9,stroke:#cf222e
-`}
+<QueryPipeline
+  title="Stage 3: the Postgres parser, at the wrong phase"
+  hooks={[
+    {
+      at: "Executor",
+      name: "ExecutorRun_hook",
+      verdict: "slow",
+      steps: ['Parse the query again', 'Check the WHERE clause', 'Block the query'],
+      result: "Correct, but each query is parsed twice",
+    },
+  ]}
+  note={{ at: "Parser", text: "first parse" }}
 />
 
 I was taking the SQL string and asking Postgres to parse it... right after Postgres had finished parsing it.
@@ -391,24 +359,17 @@ That means a `WHERE` clause inside a CTE does **not** count. A `WHERE ... IN (SE
   formats={["avif", "webp"]}
 />
 
-<InteractiveDiagram
-  title="Stage 4 · Parse-time enforcement"
-  code={`
-graph LR
-    Start[SQL Query] --> Parse[Parse Query Once]
-    Parse --> Analyze[Analyze & Build Query Tree]
-    Analyze --> Hook[post_parse_analyze_hook]
-    Hook --> Read[Read Query Structure]
-    Read --> Check{Has WHERE?}
-    Check -->|No| Block[Block Query]
-    Check -->|Yes| Continue[Continue]
-    
-    style Start fill:#ddf4ff,stroke:#0969da
-    style Parse fill:#ddf4ff,stroke:#0969da
-    style Analyze fill:#ddf4ff,stroke:#0969da
-    style Block fill:#ffebe9,stroke:#cf222e
-    style Continue fill:#ddf4ff,stroke:#0969da
-`}
+<QueryPipeline
+  title="Stage 4: enforcement at parse time"
+  hooks={[
+    {
+      at: "Analyzer",
+      name: "post_parse_analyze_hook",
+      verdict: "correct",
+      steps: ['Read the query tree', 'No WHERE: block. WHERE: continue.'],
+      result: "Parsed one time",
+    },
+  ]}
 />
 
 ---
@@ -507,39 +468,7 @@ pub fn init_gucs() {
 
 Now the extension flows like this:
 
-<InteractiveDiagram
-  title="pg_strict decision flow"
-  code={`
-graph TB
-    Start([post_parse_analyze_hook fires]) --> GetMode[Read GUC Settings]
-    
-    GetMode --> BothOff{Both modes OFF?}
-    BothOff -->|Yes| Pass[Pass]
-    
-    BothOff -->|No| CheckCmd{commandType?}
-    CheckCmd -->|UPDATE| CheckUpdateMode{update_mode?}
-    CheckCmd -->|DELETE| CheckDeleteMode{delete_mode?}
-    
-    CheckUpdateMode -->|On/Warn| CheckUpdateWhere{quals NULL?}
-    
-    CheckDeleteMode -->|On/Warn| CheckDeleteWhere{quals NULL?}
-    
-    CheckUpdateWhere -->|Yes (No Where)| UpdateAction{Mode?}
-    UpdateAction -->|Warn| Warn1[WARNING] --> Pass
-    UpdateAction -->|On| Block1[BLOCK]
-    
-    CheckDeleteWhere -->|Yes (No Where)| DeleteAction{Mode?}
-    DeleteAction -->|Warn| Warn2[WARNING] --> Pass
-    DeleteAction -->|On| Block2[BLOCK]
-    
-    style Start fill:#f6f8fa,stroke:#57606a,stroke-width:2px
-    style Pass fill:#ddf4ff,stroke:#0969da,stroke-width:2px
-    style Block1 fill:#ffebe9,stroke:#cf222e,stroke-width:2px
-    style Block2 fill:#ffebe9,stroke:#cf222e,stroke-width:2px
-    style Warn1 fill:#fff8c5,stroke:#bf8700
-    style Warn2 fill:#fff8c5,stroke:#bf8700
-`}
-/>
+<ModeGrid />
 
 <PgStrictPlayground client:load />
 
@@ -568,39 +497,7 @@ The architecture is deliberately simple:
 - **hooks.rs**: The `post_parse_analyze_hook` that reads the `Query` tree.
 - **analyzer.rs**: Contains the safe wrappers around Postgres internals (used mostly for unit testing the logic without running a full DB).
 
-<InteractiveDiagram
-  title="pg_strict extension architecture"
-  code={`
-graph TB
-    subgraph "Extension Components"
-        Init[_PG_init]
-        Hook[post_parse_analyze_hook]
-        GUC[GUC Settings]
-        Logic[Analyzer Logic]
-    end
-    
-    subgraph "Postgres Core"
-        PGParser[Parser]
-        PGAnalyzer[Analyzer]
-    end
-    
-    Init -->|Register| Hook
-    Init -->|Define| GUC
-    
-    PGParser --> PGAnalyzer
-    PGAnalyzer -->|Calls| Hook
-    
-    Hook -->|Reads| GUC
-    Hook -->|Inspects| Logic
-    Logic -->|Reads| PGAnalyzer
-    
-    style Init fill:#f6f8fa,stroke:#57606a
-    style Hook fill:#ddf4ff,stroke:#0969da,stroke-width:2px
-    style Logic fill:#ddf4ff,stroke:#0969da
-    style PGParser fill:#f6f8fa,stroke:#57606a
-    style PGAnalyzer fill:#f6f8fa,stroke:#57606a
-`}
-/>
+<ExtensionMap />
 
 ---
 
