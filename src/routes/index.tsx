@@ -1,8 +1,13 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 
 import { PageHero } from '@/components/paper/PageHero'
-import { PostList } from '@/components/paper/PostList'
-import { posts } from '@/lib/content'
+import {
+  PostTiles,
+  PostTimeline,
+  PostsByYear,
+} from '@/components/paper/HomeParts'
+import { formatDate, posts } from '@/lib/content'
+import { heroOf } from '@/lib/heroes'
 import { PAGE_META, SITE, breadcrumb, seo } from '@/lib/site'
 
 export const Route = createFileRoute('/')({
@@ -58,19 +63,34 @@ export const Route = createFileRoute('/')({
 })
 
 function Home() {
+  const [lead, ...rest] = posts
   return (
     <>
       <PageHero
-        motif={{ name: 'squares' }}
-        title="Backend systems, measured and drawn."
-        meta="Kamran Tahir. Postgres, Go, and the tools around coding agents."
+        motif={heroOf(lead)}
+        eyebrow={<span className="hand">newest</span>}
+        title={
+          <Link to="/blog/$slug/" params={{ slug: lead.slug }} reloadDocument>
+            {lead.title}
+          </Link>
+        }
+        meta={
+          <>
+            {lead.description}
+            <span className="home-lead-date">
+              {formatDate(lead.date)} · {lead.readingMinutes} min
+            </span>
+          </>
+        }
         heading={false}
       />
-      <section className="page-narrow home">
+      <section className="page-frame home">
         <h1 className="sr-only">
           SayBackend: backend engineering and DevOps blog
         </h1>
-        <PostList posts={posts.slice(0, 8)} flagNewest motifs />
+        <PostTiles posts={rest.slice(0, 6)} />
+        <PostTimeline posts={posts} />
+        <PostsByYear posts={posts} />
         <div className="home-more">
           <Link to="/blog/" className="pill">
             All writing →
