@@ -54,7 +54,7 @@ function SiteHeader() {
   useEffect(() => setOpen(false), [pathname])
 
   // After the first scroll, the bar gets a paper backing and the name folds
-  // into the square mark.
+  // into the S mark.
   useEffect(() => {
     const update = () => setScrolled(window.scrollY > 24)
     update()
@@ -72,7 +72,7 @@ function SiteHeader() {
         </nav>
         <Link to="/" className="wordmark" aria-label="SayBackend home">
           <svg className="wordmark-icon" aria-hidden="true">
-            <use href="#pp-square" />
+            <use href="#pp-mark" />
           </svg>
           <span>SayBackend</span>
         </Link>
@@ -171,7 +171,7 @@ function SiteFooter() {
       <div className="footer-top">
         <a href="/" className="footer-brand">
           <svg className="wordmark-icon" aria-hidden="true">
-            <use href="#pp-square" />
+            <use href="#pp-mark" />
           </svg>
           SayBackend
         </a>
