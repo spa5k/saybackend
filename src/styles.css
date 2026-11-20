@@ -607,7 +607,7 @@ mark,
   overflow: hidden;
   border-top: 1px solid var(--line);
   margin-top: 88px;
-  padding: 52px clamp(18px, 3.4vw, 44px) 0;
+  padding: 44px clamp(18px, 3.4vw, 44px) 0;
 }
 
 /* The paper drifts by one tile. Only a transform animates, so the browser
@@ -630,59 +630,132 @@ mark,
 .footer-top {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 20px;
-  font-size: 14px;
+  gap: 14px 32px;
+}
+
+.footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .footer-top nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 26px;
+  gap: 6px 26px;
+  font-family: var(--font-serif);
+  font-size: 18px;
 }
 
-.footer-top a {
+.footer-top nav a {
   background: linear-gradient(var(--pen), var(--pen)) no-repeat 0 100% / 0 1.5px;
-  padding-bottom: 3px;
+  padding-bottom: 2px;
   transition: background-size 300ms ease;
 }
 
-.footer-top a:hover {
+.footer-top nav a:hover {
   background-size: 100% 1.5px;
 }
 
+/* The drawing has its own band. No text sits on the lines. */
+.footer-art {
+  position: relative;
+  height: 200px;
+  margin: 26px calc(-1 * clamp(18px, 3.4vw, 44px)) 0;
+}
+
+.footer-art.flow {
+  height: 180px;
+}
+
+.footer-art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.footer-line {
+  fill: none;
+  stroke: var(--pen);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.3;
+  vector-effect: non-scaling-stroke;
+}
+
+.footer-line.far {
+  stroke-opacity: 0.42;
+}
+
+.footer-line.mark {
+  stroke: var(--m-lilac);
+  stroke-width: 2.6;
+}
+
+.footer-line.mark.amber {
+  stroke: var(--m-amber);
+}
+
+.footer-line.mark.teal {
+  stroke: var(--m-blue);
+}
+
+.footer-ridge {
+  fill: var(--paper);
+}
+
+.footer-dot {
+  animation: footer-run 5s linear infinite;
+  fill: none;
+  stroke-dasharray: 0.1 190;
+  stroke-linecap: round;
+  stroke-width: 7;
+  vector-effect: non-scaling-stroke;
+}
+
+@keyframes footer-run {
+  to {
+    stroke-dashoffset: -190.1;
+  }
+}
+
 .footer-sign {
-  font-size: 40px;
+  font-size: 34px;
   line-height: 1;
   transform: rotate(-3deg);
 }
 
-.footer-wordmark {
-  margin: 56px -0.06em -0.06em;
-  font-size: min(15.8vw, 250px);
-  font-weight: 700;
-  letter-spacing: -0.065em;
-  line-height: 0.86;
+/* In the flow drawing the lines end at 76% of the width, at the name. */
+.footer-art .footer-sign {
+  position: absolute;
+  top: 50%;
+  left: 77.5%;
+  transform: translateY(-58%) rotate(-4deg);
   white-space: nowrap;
 }
 
-.footer-wordmark span {
-  color: var(--m-lilac);
-}
-
 .footer-note {
-  position: absolute;
-  top: 108px;
-  left: clamp(18px, 3.4vw, 44px);
+  position: relative;
+  display: flex;
+  min-height: 60px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   background: var(--paper);
-  padding: 2px 6px;
-  color: var(--muted);
-  font-size: 12px;
+  margin-inline: calc(-1 * clamp(18px, 3.4vw, 44px));
+  padding: 10px clamp(18px, 3.4vw, 44px) 16px;
+  color: var(--ink-soft);
+  font-size: 13px;
 }
 
 .footer-note a:hover {
   color: var(--ink);
+  text-decoration: underline;
 }
 
 .search-dialog {
@@ -2659,6 +2732,7 @@ html.dark .shiki-code span {
 
 @media (prefers-reduced-motion: reduce) {
   .site-footer::before,
+  .footer-dot,
   .page-hero-art > g,
   .motif-lane {
     animation: none;
@@ -2746,14 +2820,18 @@ html {
     margin-inline: 20px;
   }
 
-  .footer-note {
-    position: static;
-    display: block;
+  .footer-art {
+    height: 150px;
     margin-top: 18px;
   }
 
-  .footer-wordmark {
-    margin-top: 28px;
+  .footer-art.flow {
+    height: 130px;
+  }
+
+  .footer-art .footer-sign,
+  .footer-sign {
+    font-size: 28px;
   }
 
   .number-band {

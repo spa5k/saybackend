@@ -3,6 +3,7 @@ import { Link, useRouterState } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { SearchDialog } from './SearchDialog'
+import { FooterArt, footerKindOf } from './paper/FooterArt'
 import { PaperDefs } from './paper/PaperDefs'
 
 const leftNavigation = [
@@ -162,9 +163,18 @@ function ThemeToggle() {
 }
 
 function SiteFooter() {
+  const kind = footerKindOf(
+    useRouterState({ select: (state) => state.location.pathname }),
+  )
   return (
     <footer className="site-footer">
       <div className="footer-top">
+        <a href="/" className="footer-brand">
+          <svg className="wordmark-icon" aria-hidden="true">
+            <use href="#pp-square" />
+          </svg>
+          SayBackend
+        </a>
         <nav aria-label="Footer navigation">
           <a href="/blog/">Writing</a>
           <a href="/topics/">Topics</a>
@@ -172,19 +182,22 @@ function SiteFooter() {
           <a href="/about/">About</a>
           <a href="/guides/">Guides</a>
           <a href="/rss.xml">RSS</a>
-          <a href="https://happyformatter.com">Tools</a>
-          <a href="https://kamran.sh">Portfolio</a>
           <a href="mailto:hello@kamran.sh">Email</a>
         </nav>
-        <span className="hand footer-sign">— Kamran</span>
       </div>
-      <p className="footer-wordmark" aria-hidden="true">
-        SayBackend<span>.</span>
-      </p>
-      <small className="footer-note">
-        © {new Date().getFullYear()} SayBackend · Drawn on graph paper ·{' '}
-        <a href="/llms.txt">LLMs</a> · <a href="/sitemap-index.xml">Sitemap</a>
-      </small>
+      <FooterArt kind={kind} />
+      <div className="footer-note">
+        <small>
+          © {new Date().getFullYear()} SayBackend ·{' '}
+          <a href="https://happyformatter.com">Tools</a> ·{' '}
+          <a href="https://kamran.sh">Portfolio</a> ·{' '}
+          <a href="/llms.txt">LLMs</a> ·{' '}
+          <a href="/sitemap-index.xml">Sitemap</a>
+        </small>
+        {kind === 'flow' ? null : (
+          <span className="hand footer-sign">— Kamran</span>
+        )}
+      </div>
     </footer>
   )
 }
