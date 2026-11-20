@@ -66,6 +66,6 @@ The topic square uses the post's colour from `src/lib/marks.ts`.
 - `design/og/blog.html` is the default card, `public/images/blog.png`.
 - `design/og/saybackend.html` is the publisher logo. Export it at
   `--window-size=672,378` to `public/images/saybackend.png`.
-- `public/favicon.svg` is the mark: a blue marker square on paper. The PNG
+- `public/favicon.svg` is the mark: a tilted ink S block on paper (source in `design/logo/`). The PNG
   icons, `favicon.ico` and `public/images/logo.svg` copy it. Change them
   together.

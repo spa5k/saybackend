@@ -1,0 +1,14 @@
+{
+ "name": "SayBackend",
+ "direction": "Marker S",
+ "palette": {
+  "ink": "#141413",
+  "paper": "#faf9f5",
+  "accent": "#f2a48f",
+  "neutral": "#73726c",
+  "tint": "#e3e0d3"
+ },
+ "fonts": [
+  "Newsreader"
+ ]
+}
