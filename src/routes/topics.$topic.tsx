@@ -1,4 +1,5 @@
 import { Link, createFileRoute, notFound } from '@tanstack/react-router'
+import { PageHero } from '@/components/paper/PageHero'
 
 import { formatDate } from '@/lib/content'
 import { SITE, breadcrumb, seo } from '@/lib/site'
@@ -53,37 +54,42 @@ function TopicPage() {
   const topic = Route.useLoaderData()
   const topicPosts = postsForTopic(topic)
   return (
-    <section className="page-frame archive-page">
-      <header className="page-heading">
-        <Link to="/topics/" className="eyebrow">
-          ← All topics
-        </Link>
-        <h1>{topic.title}</h1>
-        <p>{topic.description}</p>
-      </header>
-      <div className="archive-year topic-results">
-        <h2>{topicPosts.length}</h2>
-        <div>
-          {topicPosts.map((post) => (
-            <article className="archive-row" key={post.slug}>
-              <time dateTime={post.date}>{formatDate(post.date)}</time>
-              <div>
-                <h3>
-                  <Link
-                    to="/blog/$slug/"
-                    params={{ slug: post.slug }}
-                    reloadDocument
-                  >
-                    {post.title}
-                  </Link>
-                </h3>
-                <p>{post.description}</p>
-              </div>
-              <span>{post.readingMinutes} min</span>
-            </article>
-          ))}
+    <>
+      <PageHero
+        motif={{ name: 'squares' }}
+        eyebrow={
+          <Link to="/topics/" className="eyebrow">
+            ← All topics
+          </Link>
+        }
+        title={topic.title}
+        meta={topic.description}
+      />
+      <section className="page-frame archive-page">
+        <div className="archive-year topic-results">
+          <h2>{topicPosts.length}</h2>
+          <div>
+            {topicPosts.map((post) => (
+              <article className="archive-row" key={post.slug}>
+                <time dateTime={post.date}>{formatDate(post.date)}</time>
+                <div>
+                  <h3>
+                    <Link
+                      to="/blog/$slug/"
+                      params={{ slug: post.slug }}
+                      reloadDocument
+                    >
+                      {post.title}
+                    </Link>
+                  </h3>
+                  <p>{post.description}</p>
+                </div>
+                <span>{post.readingMinutes} min</span>
+              </article>
+            ))}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   )
 }

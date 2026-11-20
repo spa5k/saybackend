@@ -1,6 +1,7 @@
 ---
 title: "Prompt Caching in Coding Agents: How prompt caching works in various harnesses."
 seoTitle: "How Prompt Caching Works in Coding Agent Harnesses"
+ogImage: "/images/prompt-caching-og.png"
 description: "Coding agents resend full context every turn and providers cache by exact prefix match. See how each harness shapes that prefix and why the economics differ."
 date: "2026-10-14"
 slug: "prompt-caching-agent-harnesses"
@@ -21,15 +22,13 @@ faqs:
     answer: "The cache lives at the provider for all of them. The difference is how much each harness keeps the prefix stable. Claude Code documents the invalidation list, pi and opencode v2 rebuild a shorter prefix on compaction, and the rest rely on provider defaults so session shape decides the hit rate."
 ---
 
-import { Picture } from "@/components/mdx/Picture";
-import ClaudeCode from "./claude-code.png";
-import Codex from "./codex.png";
-import Pi from "./pi.png";
-import Opencode from "./opencode.png";
+import "katex/dist/katex.min.css";
 import PrefixCacheStructure from "@/components/mdx/PrefixCacheStructure";
 import PrefixCacheWorkflow from "@/components/mdx/PrefixCacheWorkflow";
-import CacheCostMultiplierChart from "@/components/mdx/CacheCostMultiplierChart";
-import CacheBreakevenChart from "@/components/mdx/CacheBreakevenChart";
+import { BlockRows } from "@/components/paper/BlockRows";
+import { NumberBand } from "@/components/paper/NumberBand";
+import { Chain } from "@/components/paper/Chain";
+import { LineFigure } from "@/components/paper/LineFigure";
 
 Some turns are fast and cheap. Some turns are slow for no visible reason. Same model, same repo, same session. The difference is almost never the model. It is whether the start of the request still matches what the provider recently processed.
 
@@ -42,6 +41,47 @@ The model does not remember the session. Every turn, the harness resends the ful
 The provider avoids reprocessing that identical part by matching the start of the request against content it recently processed. Only what changed after the match is recomputed. The cached part bills at a lower rate.
 
 The match is exact. A change anywhere in the prefix recomputes everything after it. There is no per-file or per-segment caching. That is the constraint every harness has to work within.
+
+<BlockRows
+  bleed
+  title="Three turns of one session"
+  description="Three turns of one session. Turn 1 writes the system prompt, the project context, and message 1 to the cache. Turn 2 reads those three from the cache and writes message 2. In turn 3 the project context changed, so the system prompt is read from the cache and everything after it is computed again."
+  rows={[
+    {
+      label: "Turn 1",
+      blocks: [
+        { text: "system", mark: "amber" },
+        { text: "project", mark: "amber" },
+        { text: "message 1", mark: "amber" },
+      ],
+    },
+    {
+      label: "Turn 2",
+      blocks: [
+        { text: "system", mark: "lilac" },
+        { text: "project", mark: "lilac" },
+        { text: "message 1", mark: "lilac" },
+        { text: "message 2", mark: "amber" },
+      ],
+    },
+    {
+      label: "Turn 3",
+      blocks: [
+        { text: "system", mark: "lilac" },
+        { text: "project, edited", mark: "rose" },
+        { text: "message 1", mark: "rose" },
+        { text: "message 2", mark: "rose" },
+        { text: "message 3", mark: "rose" },
+      ],
+    },
+  ]}
+  legend={[
+    { label: "Read from the cache", mark: "lilac" },
+    { label: "Written to the cache", mark: "amber" },
+    { label: "Computed again", mark: "rose" },
+  ]}
+  notes={[{ row: 2, block: 1, side: "below", text: "one edit here: everything after it is computed again" }]}
+/>
 
 ## What the engine actually caches
 
@@ -56,6 +96,32 @@ vLLM implements this as automatic prefix caching. It caches the key-value blocks
 <PrefixCacheStructure title="The prefix cache data structure" caption="The block pool holds every block. The free block queue tracks blocks with no request using them. Cache blocks map a block hash to a block ID. Request blocks map a request to its allocated block IDs." />
 
 The match is not on the whole prompt. It is block by block. The engine splits the key-value state into fixed-size blocks. Each block is identified by a hash, and that hash depends on the tokens in the block plus the hash of the parent block before it. So the third block is not identified by its own tokens alone. It is identified by those tokens together with the hash of the first two blocks.
+
+<BlockRows
+  title="One changed token breaks the chain"
+  description="Four cached blocks, each with a hash that includes the hash of the block before it. A new request has the same tokens, except for one token in block 1. Block 0 matches. Block 1 does not match, and blocks 2 and 3 do not match either, because their parent hash changed."
+  rows={[
+    {
+      label: "In the cache",
+      blocks: [
+        { text: "blk 0", mark: "lilac", sub: "h0 = H(t0)" },
+        { text: "blk 1", mark: "lilac", sub: "h1 = H(h0, t1)" },
+        { text: "blk 2", mark: "lilac", sub: "h2 = H(h1, t2)" },
+        { text: "blk 3", mark: "lilac", sub: "h3 = H(h2, t3)" },
+      ],
+    },
+    {
+      label: "New request",
+      blocks: [
+        { text: "same tokens", mark: "lilac", sub: "h0: hit" },
+        { text: "1 token differs", mark: "rose", sub: "new hash: miss" },
+        { text: "same tokens", mark: "rose", sub: "new parent: miss" },
+        { text: "same tokens", mark: "rose", sub: "new parent: miss" },
+      ],
+    },
+  ]}
+  notes={[{ row: 1, block: 2, side: "below", text: "same tokens, but the parent hash changed" }]}
+/>
 
 <PrefixCacheWorkflow title="How a new request reuses the prefix" caption="The scheduler hashes the request prompt, looks up already-computed blocks, touches them so they are not evicted, then allocates the new tail." />
 
@@ -73,11 +139,36 @@ Prompt caching lowers the input token bill, not the output bill. On both major p
 
 That makes the numbers stark. Write a prefix once and read it once: about 1.35x the ordinary input cost, versus 2x to process the same prefix twice without caching. Across ten requests, one write and nine reads cost about 2.15x, versus 10x uncached.
 
+<NumberBand value="2.15x" note="against 10x with no cache">
+  The input cost of ten requests on one cached prefix.
+</NumberBand>
+
 So the harness that keeps your prefix stable is not a nicety. It is the difference between a 2x and a 10x input bill on a long session. That is why one harness can score much better than another on the same model: not because the model is faster, but because more of each request is served from cache.
 
-<CacheCostMultiplierChart
-  title="The price of an unstable prefix"
-  caption="One cache write at 1.25x, then each re-read at 0.1x. The cached line flattens; the uncached line grows linearly with every turn that recomputes the same prefix."
+<LineFigure
+  title="Input cost of one prefix, as a multiple of one uncached read"
+  description="Input cost against the number of requests on the same prefix. Uncached cost grows from 1x to 10x over ten requests. Cached cost starts at 1.25x and reaches 2.15x."
+  series={[
+    {
+      name: "Uncached",
+      mark: "rose",
+      dashed: true,
+      endLabel: "10x",
+      points: [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6], [7, 7], [8, 8], [9, 9], [10, 10]],
+    },
+    {
+      name: "Cached",
+      mark: "lilac",
+      endLabel: "2.15x",
+      points: [[1, 1.25], [2, 1.35], [3, 1.45], [4, 1.55], [5, 1.65], [6, 1.75], [7, 1.85], [8, 1.95], [9, 2.05], [10, 2.15]],
+    },
+  ]}
+  xTicks={[1, 2, 4, 6, 8, 10]}
+  yTicks={[0, 2, 4, 6, 8, 10]}
+  yFormat={(value) => `${value}x`}
+  xLabel="Requests on the same prefix"
+  notes={[{ x: 6, y: 1.75, text: "one write at 1.25x,\nthen 0.1x re-reads", dx: -34, dy: -64 }]}
+  caption="One cache write at 1.25x, then each re-read at 0.1x. The cached line flattens. The uncached line grows with every turn that recomputes the same prefix."
 />
 
 The numbers come from the providers' own pricing. On OpenAI, a cached read is discounted up to 90% off the uncached input rate, and a cache write costs 1.25x. On Anthropic, a cache read is 0.1x and a cache write is 1.25x. The shape is the same on both.
@@ -92,9 +183,23 @@ $$L = 102.4 + \frac{1177.6}{N}$$
 
 where N is the number of requests that reuse the prefix. Reuse drives the crossover down.
 
-<CacheBreakevenChart
-  title="The break-even prefix length"
-  caption="A prefix of at least 221 tokens is cheaper to cache once it is reused across ten requests. A 103-token prefix needs about two thousand requests to pay off. A prefix of 102 tokens or fewer never does, under these assumptions."
+<LineFigure
+  title="Break-even prefix length (tokens)"
+  description="Break-even prefix length against the number of requests that reuse the prefix, on a log scale. 691 tokens at 2 requests, 220 at 10, 114 at 100, and 103 at 1,963 requests. The floor is 102.4 tokens."
+  xScale="log"
+  series={[
+    {
+      name: "Shortest prefix that is cheaper to expand to 1024 tokens",
+      mark: "lilac",
+      points: [[2, 691.2], [3, 494.9], [4, 396.8], [5, 337.9], [6, 298.7], [8, 249.6], [10, 220.2], [20, 161.3], [50, 125.9], [100, 114.2], [500, 104.8], [1963, 103]],
+    },
+  ]}
+  xTicks={[2, 10, 50, 100, 500, 2000]}
+  yTicks={[100, 300, 500, 700]}
+  xFormat={(value) => (value >= 1000 ? `${value / 1000}k` : String(value))}
+  xLabel="Requests that reuse the prefix"
+  reference={{ y: 102.4, label: "102.4 floor" }}
+  notes={[{ x: 10, y: 220.2, text: "221 tokens\nat 10 requests", dx: 26, dy: -74 }]}
 />
 
 Across ten requests, expanding an original prefix of at least 221 tokens to 1024 tokens is cheaper. As reuse grows, the crossover approaches 102.4 tokens. This is why a harness that keeps a huge system prompt stable wins on a long session, but a tiny session with no reuse never sees the payoff.
@@ -105,17 +210,35 @@ One honest caveat: there is no published, apples-to-apples benchmark that measur
 
 Claude Code is the clearest example because it writes the strategy down. It orders each request so rarely-changing content comes first:
 
-| Layer | Content | Changes when |
-|---|---|---|
-| System prompt | Core instructions, tool definitions, output style | Tools load or the CLI upgrades |
-| Project context | CLAUDE.md, auto memory, rules | Session starts, or after clear/compact |
-| Conversation | Messages and tool results | Every turn |
+<Chain
+  title="Claude Code request order: what changes least comes first"
+  steps={[
+    { label: "System prompt", mark: "lilac", sub: "Core instructions,\ntool definitions, output style\nChanges: tools load, CLI upgrade" },
+    { label: "Project context", mark: "blue", sub: "CLAUDE.md, auto memory, rules\nChanges: session start,\nclear or compact" },
+    { label: "Conversation", mark: "amber", sub: "Messages and tool results\nChanges: every turn" },
+  ]}
+/>
 
 A change in the conversation layer keeps the first two layers cached. A change in the system prompt invalidates everything, because all later content now sits behind a different prefix. Plan mode and skill loading append their instructions as conversation messages, so they leave the cached prefix intact.
 
 Two settings are not part of the prompt text but are part of the cache key: the model and the effort level. Switch either mid-session and the identical prompt is a brand-new prefix. That is the slow turn after a model switch. Fast mode adds a request header that is also part of the key, so the first request with it on re-reads the whole conversation.
 
-<Picture src={ClaudeCode} alt="Claude Code prompt-cache turns: stable layers stay cached, a changed system prompt recomputes the tail." />
+<BlockRows
+  stacked
+  title="Claude Code: four turns"
+  description="Four turns in Claude Code. Turn 1 processes the whole request. Turns 2 and 3 read the unchanged prefix from the cache and process only the new tail. In turn 4 the model was switched, so everything is computed again."
+  rows={[
+    { label: "Turn 1", note: "No cache yet. The whole request is processed.", blocks: [{ text: "system", mark: "amber" }, { text: "project", mark: "amber" }, { text: "msg 1", mark: "amber" }] },
+    { label: "Turn 2", note: "The unchanged prefix is read from the cache.", blocks: [{ text: "system", mark: "lilac" }, { text: "project", mark: "lilac" }, { text: "msg 1", mark: "lilac" }, { text: "reply 1", mark: "amber" }, { text: "msg 2", mark: "amber" }] },
+    { label: "Turn 3", note: "Only the new tail is processed.", blocks: [{ text: "system", mark: "lilac" }, { text: "project", mark: "lilac" }, { text: "msg 1", mark: "lilac" }, { text: "reply 1", mark: "lilac" }, { text: "msg 2", mark: "lilac" }, { text: "reply 2", mark: "amber" }, { text: "msg 3", mark: "amber" }] },
+    { label: "Turn 4: model switched", note: "The model and the effort level are part of the cache key. Everything is computed again.", blocks: [{ text: "system", mark: "rose" }, { text: "project", mark: "rose" }, { text: "msg 1", mark: "rose" }, { text: "reply 1", mark: "rose" }, { text: "msg 2", mark: "rose" }, { text: "reply 2", mark: "rose" }, { text: "msg 3", mark: "rose" }, { text: "msg 4", mark: "rose" }] },
+  ]}
+  legend={[
+    { label: "Read from the cache", mark: "lilac" },
+    { label: "New", mark: "amber" },
+    { label: "Computed again", mark: "rose" },
+  ]}
+/>
 
 ### What invalidates the cache
 
@@ -171,7 +294,22 @@ For a per-session summary, run /usage after the first response. Claude Code adds
 
 Codex takes the other extreme. It does not document a prefix-ordering strategy. The caching is entirely OpenAI automatic prompt caching. The full rendered context is cached, and a cached prefix stays eligible for roughly 30 minutes after the last write or reuse. Older models hold it for 5-10 minutes up to an hour.
 
-<Picture src={Codex} alt="Codex prompt-cache turns: full context cached automatically, with a cached prefix eligible for about 30 minutes." />
+<BlockRows
+  stacked
+  title="Codex: four turns"
+  description="Four turns in Codex. Prompt caching is on by default. Turns 2 and 3 read the matching prefix from the cache. In turn 4 the instructions changed, so everything after the change is computed again."
+  rows={[
+    { label: "Turn 1", note: "OpenAI prompt caching is on by default.", blocks: [{ text: "instructions", mark: "amber" }, { text: "project", mark: "amber" }, { text: "msg 1", mark: "amber" }] },
+    { label: "Turn 2", note: "The full rendered prefix must match to reuse the cache.", blocks: [{ text: "instructions", mark: "lilac" }, { text: "project", mark: "lilac" }, { text: "msg 1", mark: "lilac" }, { text: "reply 1", mark: "amber" }, { text: "msg 2", mark: "amber" }] },
+    { label: "Turn 3", note: "A cached prefix stays eligible for about 30 minutes.", blocks: [{ text: "instructions", mark: "lilac" }, { text: "project", mark: "lilac" }, { text: "msg 1", mark: "lilac" }, { text: "reply 1", mark: "lilac" }, { text: "msg 2", mark: "lilac" }, { text: "reply 2", mark: "amber" }, { text: "msg 3", mark: "amber" }] },
+    { label: "Turn 4: instructions changed", note: "A change before a breakpoint invalidates everything after it.", blocks: [{ text: "instructions", mark: "rose" }, { text: "project", mark: "rose" }, { text: "msg 1", mark: "rose" }, { text: "reply 1", mark: "rose" }, { text: "msg 2", mark: "rose" }, { text: "reply 2", mark: "rose" }, { text: "msg 3", mark: "rose" }, { text: "msg 4", mark: "rose" }] },
+  ]}
+  legend={[
+    { label: "Read from the cache", mark: "lilac" },
+    { label: "New", mark: "amber" },
+    { label: "Computed again", mark: "rose" },
+  ]}
+/>
 
 That means a long pause costs you the cache, not a code change. There is no harness-level layering to protect the system context, so the hit rate depends almost entirely on session shape: how much of the prefix stays byte-identical between turns and how short the gaps are.
 
@@ -181,7 +319,22 @@ Codex also relies on the provider's other constraints. OpenAI caches individual 
 
 pi handles the long-session problem with compaction. Auto-compaction triggers when the estimated context exceeds the window minus a reserve. The default reserve is 16,384 tokens, and the default keep-recent window is 20,000 tokens, both configurable in settings.
 
-<Picture src={Pi} alt="pi prompt-cache turns: compaction rebuilds the prefix as system plus summary plus kept messages." />
+<BlockRows
+  stacked
+  title="pi: compaction"
+  description="Four turns in pi. Turns 2 and 3 reuse the prefix as history is appended. In turn 4, compaction rebuilds the prefix as system, summary, and kept messages."
+  rows={[
+    { label: "Turn 1", note: "Caching is managed by the provider.", blocks: [{ text: "system", mark: "amber" }, { text: "msg 1", mark: "amber" }] },
+    { label: "Turn 2", note: "Appended history reuses the prefix.", blocks: [{ text: "system", mark: "lilac" }, { text: "msg 1", mark: "lilac" }, { text: "reply 1", mark: "amber" }, { text: "msg 2", mark: "amber" }] },
+    { label: "Turn 3", note: "The context grows toward the window limit.", blocks: [{ text: "system", mark: "lilac" }, { text: "msg 1", mark: "lilac" }, { text: "reply 1", mark: "lilac" }, { text: "msg 2", mark: "lilac" }, { text: "reply 2", mark: "amber" }, { text: "msg 3", mark: "amber" }] },
+    { label: "Turn 4: /compact", note: "The prefix is rebuilt from the summary and the kept messages. Cache writes are off for the compaction call.", blocks: [{ text: "system", mark: "lilac" }, { text: "summary", mark: "amber" }, { text: "kept msgs", mark: "amber" }] },
+  ]}
+  legend={[
+    { label: "Read from the cache", mark: "lilac" },
+    { label: "New", mark: "amber" },
+    { label: "Computed again", mark: "rose" },
+  ]}
+/>
 
 It walks backwards from the newest message until it reaches the keep-recent threshold, collects the older messages, and generates a structured summary. It then rebuilds the context for the next request as system plus summary plus the kept messages from the boundary onwards. The compaction call itself is a one-off prompt that is unlikely to be reused, so where the provider supports it, pi disables cache writes on that call.
 
@@ -191,7 +344,22 @@ Compaction is a deliberate tradeoff: it produces a much shorter prefix, so subse
 
 opencode v2 combines both ideas. Session warming sends periodic keep-alive model requests that preserve the provider-side prompt cache while you pause. It is disabled by default. When enabled, it sends a warming request after four minutes idle, repeats while the session stays idle, and stops 30 minutes after the last non-warming request.
 
-<Picture src={Opencode} alt="opencode v2 prompt-cache turns: idle keep-alive warming, then automatic checkpoint compaction." />
+<BlockRows
+  stacked
+  title="opencode v2: warming and compaction"
+  description="Four turns in opencode v2. Turn 2 reuses the prefix. In turn 3, after four idle minutes, a warming request keeps the provider cache alive. In turn 4, auto-compaction rebuilds the request from a checkpoint."
+  rows={[
+    { label: "Turn 1", note: "Caching is managed by the provider.", blocks: [{ text: "system", mark: "amber" }, { text: "msg 1", mark: "amber" }] },
+    { label: "Turn 2", note: "Appended history reuses the prefix.", blocks: [{ text: "system", mark: "lilac" }, { text: "msg 1", mark: "lilac" }, { text: "reply 1", mark: "amber" }, { text: "msg 2", mark: "amber" }] },
+    { label: "Turn 3: idle for 4 minutes", note: "A warming request keeps the provider cache alive. The response is discarded.", blocks: [{ text: "system", mark: "lilac" }, { text: "msg 1", mark: "lilac" }, { text: "reply 1", mark: "lilac" }, { text: "msg 2", mark: "lilac" }, { text: "warming", mark: "amber" }] },
+    { label: "Turn 4: auto-compaction", note: "Requests rebuild from the latest checkpoint. The prefix restarts there.", blocks: [{ text: "system", mark: "lilac" }, { text: "checkpoint", mark: "amber" }, { text: "recent msgs", mark: "amber" }] },
+  ]}
+  legend={[
+    { label: "Read from the cache", mark: "lilac" },
+    { label: "New", mark: "amber" },
+    { label: "Computed again", mark: "rose" },
+  ]}
+/>
 
 The warming request is a no-op the model is told not to do work and to reply with OK. It costs a real provider request, so it has a cost and count against rate limits. Its whole job is to keep a short-lived cache entry alive across a break.
 

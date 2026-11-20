@@ -1,0 +1,18 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>prompt-caching-og</title>
+<link rel="stylesheet" href="card.css">
+<svg width="0" height="0" style="position:absolute"><defs>
+<filter id="marker" x="-6%" y="-6%" width="112%" height="112%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="3" result="g"/><feColorMatrix in="g" type="luminanceToAlpha" result="a"/><feComposite in="SourceGraphic" in2="a" operator="arithmetic" k1="0" k2="1" k3="-.15" k4="0" result="i"/><feTurbulence type="fractalNoise" baseFrequency=".1" numOctaves="2" seed="8" result="w"/><feDisplacementMap in="i" in2="w" scale="2.8" xChannelSelector="R" yChannelSelector="G"/></filter>
+<pattern id="plus" width="44" height="44" patternUnits="userSpaceOnUse"><path d="M22 18v8M18 22h8" stroke="#141413" stroke-opacity=".13" fill="none"/></pattern>
+<marker id="pa" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1.5 1.5L8 5L2 8.5" fill="none" stroke="#141413" stroke-width="1.6" stroke-linecap="round"/></marker>
+<marker id="ga" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1L7 4L1 7" fill="none" stroke="#73726c" stroke-width="1.2"/></marker>
+</defs></svg>
+<svg class="paper" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="url(#plus)"/></svg>
+<div class="brand"><svg viewBox="0 0 20 20"><rect x="2" y="2" width="16" height="16" fill="#93b2f2" filter="url(#marker)"/></svg>SayBackend</div>
+<h1><span><b>Prompt caching:</b>how coding agents keep the prefix</span></h1>
+<svg class="art" viewBox="0 0 480 400">
+<rect class="m" x="0" y="70" width="80" height="42" fill="#f1cd80"/><rect class="m" x="92" y="70" width="80" height="42" fill="#f1cd80"/><rect class="m" x="184" y="70" width="80" height="42" fill="#f1cd80"/><rect class="m" x="0" y="150" width="80" height="42" fill="#93b2f2"/><rect class="m" x="92" y="150" width="80" height="42" fill="#93b2f2"/><rect class="m" x="184" y="150" width="80" height="42" fill="#93b2f2"/><rect class="m" x="276" y="150" width="80" height="42" fill="#f1cd80"/><rect class="m" x="0" y="230" width="80" height="42" fill="#93b2f2"/><rect class="m" x="92" y="230" width="80" height="42" fill="#93b2f2"/><rect class="m" x="184" y="230" width="80" height="42" fill="#93b2f2"/><rect class="m" x="276" y="230" width="80" height="42" fill="#93b2f2"/><rect class="m" x="368" y="230" width="80" height="42" fill="#f1cd80"/><text x="-14" y="98" text-anchor="end" class="dim">1</text><text x="-14" y="178" text-anchor="end" class="dim">2</text><text x="-14" y="258" text-anchor="end" class="dim">3</text><text x="96" y="336" text-anchor="start" class="hand" transform="rotate(-3 96 336)">same prefix = cheap turn</text><path class="pen" d="M88 324C66 312 58 296 66 280" marker-end="url(#pa)"/>
+</svg>
+<div class="topic"><svg viewBox="0 0 20 20"><rect x="2" y="2" width="16" height="16" fill="#f1cd80" filter="url(#marker)"/></svg>Agents</div>
+<div class="sign">— Kamran</div>

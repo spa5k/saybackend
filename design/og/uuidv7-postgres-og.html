@@ -1,0 +1,18 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>uuidv7-postgres-og</title>
+<link rel="stylesheet" href="card.css">
+<svg width="0" height="0" style="position:absolute"><defs>
+<filter id="marker" x="-6%" y="-6%" width="112%" height="112%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="3" result="g"/><feColorMatrix in="g" type="luminanceToAlpha" result="a"/><feComposite in="SourceGraphic" in2="a" operator="arithmetic" k1="0" k2="1" k3="-.15" k4="0" result="i"/><feTurbulence type="fractalNoise" baseFrequency=".1" numOctaves="2" seed="8" result="w"/><feDisplacementMap in="i" in2="w" scale="2.8" xChannelSelector="R" yChannelSelector="G"/></filter>
+<pattern id="plus" width="44" height="44" patternUnits="userSpaceOnUse"><path d="M22 18v8M18 22h8" stroke="#141413" stroke-opacity=".13" fill="none"/></pattern>
+<marker id="pa" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1.5 1.5L8 5L2 8.5" fill="none" stroke="#141413" stroke-width="1.6" stroke-linecap="round"/></marker>
+<marker id="ga" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1L7 4L1 7" fill="none" stroke="#73726c" stroke-width="1.2"/></marker>
+</defs></svg>
+<svg class="paper" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="url(#plus)"/></svg>
+<div class="brand"><svg viewBox="0 0 20 20"><rect x="2" y="2" width="16" height="16" fill="#93b2f2" filter="url(#marker)"/></svg>SayBackend</div>
+<h1><span><b>PostgreSQL UUIDv7:</b>native uuidv7() against the extensions</span></h1>
+<svg class="art" viewBox="0 0 480 400">
+<rect class="m" x="0" y="150" width="180" height="70" fill="#86cfc5"/><rect class="m" x="182" y="150" width="15" height="70" fill="#f2a48f"/><rect class="m" x="199" y="150" width="45" height="70" fill="#abd3a6"/><rect class="m" x="246" y="150" width="8" height="70" fill="#f1cd80"/><rect class="m" x="256" y="150" width="224" height="70" fill="#93b2f2"/><text x="90" y="191" text-anchor="middle">48 bits of time</text><text x="368" y="191" text-anchor="middle">random</text><text x="0" y="266" text-anchor="start" class="mono" font-size="19">TTTTTTTT-TTTT-7RRR-VARR-RRRRRRRRRRRR</text><text x="60" y="106" text-anchor="start" class="hand" transform="rotate(-3 60 106)">time first, so it sorts</text><path class="pen" d="M52 100C36 106 30 122 36 142" marker-end="url(#pa)"/>
+</svg>
+<div class="topic"><svg viewBox="0 0 20 20"><rect x="2" y="2" width="16" height="16" fill="#86cfc5" filter="url(#marker)"/></svg>Postgres</div>
+<div class="sign">— Kamran</div>

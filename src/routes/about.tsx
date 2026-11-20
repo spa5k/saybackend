@@ -1,4 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { PageHero } from '@/components/paper/PageHero'
+import { career } from '@/components/paper/scenes'
 
 import { PAGE_META, SITE, breadcrumb, seo } from '@/lib/site'
 
@@ -63,67 +65,101 @@ export const Route = createFileRoute('/about')({
   component: About,
 })
 
+const places = [
+  { name: 'GoKwik', work: 'payments', mark: 'var(--m-sand)' },
+  { name: 'Shiba Inu', work: 'analytics', mark: 'var(--m-sage)' },
+  { name: 'Zeller', work: 'POS integrations', mark: 'var(--m-blue)' },
+  { name: 'Trelium', work: 'AI agents', mark: 'var(--m-lilac)' },
+]
+
+const focus = [
+  { text: 'Go, TypeScript and Node.js', mark: 'var(--m-lilac)' },
+  { text: 'PostgreSQL and data pipelines', mark: 'var(--m-blue)' },
+  { text: 'AWS serverless and microservices', mark: 'var(--m-amber)' },
+  { text: 'Performance, reliability and observability', mark: 'var(--m-sage)' },
+]
+
 function About() {
   return (
-    <section className="page-frame profile-page">
-      <header className="page-heading">
-        <p className="eyebrow">About the author</p>
-        <h1>Kamran Tahir</h1>
-        <p>
-          I build scalable backend systems, event-driven pipelines, and
-          pragmatic infrastructure on AWS.
-        </p>
-      </header>
-      <div className="profile-intro">
-        <img
-          src="/images/pfp.png"
-          alt="Kamran Tahir"
-          width={1024}
-          height={1536}
-          decoding="async"
-        />
-        <div>
-          <p>
-            I’m a Senior Software Engineer focused on reliable systems, clean
-            interfaces, and steady delivery. SayBackend is where I document the
-            decisions, failures, and patterns worth carrying forward.
-          </p>
-          <div className="profile-actions">
-            <a href={`mailto:${SITE.email}`}>Email</a>
-            <a href="https://kamran.sh/" target="_blank" rel="noopener">
-              Resume
-            </a>
-            <a
-              href="https://linkedin.com/in/kamrantahir2"
-              target="_blank"
-              rel="noopener"
-            >
-              LinkedIn
-            </a>
+    <>
+      <PageHero
+        motif={{ name: 'lanes' }}
+        scene={career}
+        eyebrow="About"
+        title="Kamran Tahir"
+        meta={<>I build backend systems.</>}
+      />
+      <section className="page-frame me-page">
+        <div className="me-top">
+          <div>
+            <p className="me-lead">
+              I am a senior software engineer. I care about systems that stay
+              understandable. SayBackend is where I write down the decisions,
+              failures and patterns worth keeping.
+            </p>
+            <div className="me-links">
+              <a href={`mailto:${SITE.email}`}>Email</a>
+              <a href="https://kamran.sh/" target="_blank" rel="noopener">
+                Resume
+              </a>
+              <a
+                href="https://linkedin.com/in/kamrantahir2"
+                target="_blank"
+                rel="noopener"
+              >
+                LinkedIn
+              </a>
+              <a href="https://github.com/spa5k" target="_blank" rel="noopener">
+                GitHub
+              </a>
+            </div>
           </div>
+          <figure className="me-photo">
+            <img
+              src="/images/pfp.png"
+              alt="Kamran Tahir"
+              width={1024}
+              height={1536}
+              decoding="async"
+            />
+            <figcaption className="hand">that is me</figcaption>
+          </figure>
         </div>
-      </div>
-      <div className="profile-columns">
-        <section>
-          <p className="eyebrow">Focus</p>
-          <h2>Systems that stay understandable.</h2>
-          <ul>
-            <li>AWS serverless and microservices</li>
-            <li>Node.js, TypeScript, and Go</li>
-            <li>PostgreSQL and data pipelines</li>
-            <li>Performance, reliability, and observability</li>
-          </ul>
-        </section>
-        <section>
-          <p className="eyebrow">Recent work</p>
-          <h2>Product and platform delivery.</h2>
-          <ul>
-            <li>Zeller — POS integrations across Go, Node, and AWS</li>
-            <li>Shiba Inu — analytics at 100k+ events per minute</li>
-            <li>GoKwik — payments, microservices, and test modernization</li>
-          </ul>
-        </section>
-      </div>
-    </section>
+
+        <p className="eyebrow">Where I worked</p>
+        <ol className="me-places">
+          <svg
+            aria-hidden="true"
+            preserveAspectRatio="none"
+            viewBox="0 0 100 10"
+          >
+            <path d="M0 5.4C22 4.6 60 6 100 4.8" />
+          </svg>
+          {places.map((place, index) => (
+            <li
+              key={place.name}
+              style={{ animationDelay: `${300 + index * 260}ms` }}
+            >
+              <span
+                className="mark-square"
+                style={{ background: place.mark }}
+              />
+              <strong>{place.name}</strong>
+              <small>{place.work}</small>
+            </li>
+          ))}
+        </ol>
+
+        <p className="eyebrow">What I work on</p>
+        <ul className="me-rows">
+          {focus.map((item, index) => (
+            <li key={item.text} style={{ animationDelay: `${index * 90}ms` }}>
+              <span className="mark-square" style={{ background: item.mark }} />
+              {item.text}
+            </li>
+          ))}
+        </ul>
+      </section>
+    </>
   )
 }

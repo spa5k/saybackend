@@ -24,6 +24,11 @@ faqs:
 ---
 
 import Callout from "@/components/mdx/Callout";
+import { DecisionList } from "@/components/paper/Lists";
+import { NumberBand } from "@/components/paper/NumberBand";
+import { PatchGate } from "@/components/react/blog/lint/PatchGate";
+import { RankBars } from "@/components/paper/RankBars";
+import { ShareGrid } from "@/components/paper/ShareGrid";
 
 ## Introduction
 
@@ -44,13 +49,7 @@ Many of these rules were already in `CLAUDE.md` and our repository skills. The a
 
 The repository was also giving it bad examples. Open a file full of mirrored pending state, raw `fetch`, or `as unknown as`, and the agent sees concrete code that compiled and passed review before. That example is easy to continue. The sentence in `CLAUDE.md` is somewhere else. Making the agent file longer improved the odds, but the bad patch was still valid code.
 
-```text
-prompt + agent instructions + retrieved source + nearby examples
-                              ↓
-                       generated patch
-                              ↓
-             syntax lint + type lint + project rules
-```
+<PatchGate />
 
 Lint runs after the code is generated. The same AST node gets the same error whether it came from Claude, Cursor, another model, or me.
 
@@ -64,11 +63,13 @@ I did not begin with every strict preset I could find. I started with review com
 
 I split the list into three classes before writing rules:
 
-| Class | Evidence | Enforcement |
-| --- | --- | --- |
-| Mechanical regression | Syntax or import graph is enough | Error |
-| Existing measurable smell | Signal is useful, backlog exists | Warning plus ratchet |
-| Intent or architecture | Correct answer depends on behavior | Review or tests |
+<DecisionList
+  rows={[
+    { need: "Mechanical regression", pick: "Error", why: "Syntax or the import graph is enough evidence." },
+    { need: "Existing measurable smell", pick: "Warning plus ratchet", why: "The signal is useful, and a backlog exists." },
+    { need: "Intent or architecture", pick: "Review or tests", why: "The correct answer depends on behavior." },
+  ]}
+/>
 
 By ratchet, I mean the current count can stay for now, but it cannot go up. When somebody fixes a warning, the accepted count moves down with it.
 
@@ -118,16 +119,29 @@ I generated a temporary config with only the rules I was promoting. That brought
 
 The last group had good signals and a large existing mess.
 
-| Rule | Findings | Signal |
-| --- | ---: | --- |
-| `typescript/no-unnecessary-condition` | 691 | Branches the type system says cannot vary |
-| `typescript/no-unnecessary-type-assertion` | 327 | Assertions that do not change the type |
-| `unicorn/no-useless-undefined` | 258 | Explicit `undefined` noise |
-| `typescript/prefer-nullish-coalescing` | 219 | `||` where `0` or `""` may be valid |
-| `unicorn/prefer-string-replace-all` | 175 | Regex machinery for global replacement |
-| `unicorn/catch-error-name` | 165 | Inconsistent error binding names |
-| `unicorn/no-negated-condition` | 85 | Branches written backwards |
-| `unicorn/consistent-function-scoping` | 57 | Nested functions with no closure dependency |
+<RankBars
+  bleed
+  mono
+  title="Findings for each rule in the existing code"
+  rows={[
+    { label: "no-unnecessary-condition", value: 691, mark: "lilac", sub: "Branches the type system says cannot vary" },
+    { label: "no-unnecessary-type-assertion", value: 327, mark: "lilac", sub: "Assertions that do not change the type" },
+    { label: "no-useless-undefined", value: 258, mark: "amber", sub: "Explicit undefined noise" },
+    { label: "prefer-nullish-coalescing", value: 219, mark: "lilac", sub: "|| where 0 or \"\" may be valid" },
+    { label: "prefer-string-replace-all", value: 175, mark: "amber", sub: "Regex machinery for global replacement" },
+    { label: "catch-error-name", value: 165, mark: "amber", sub: "Inconsistent error binding names" },
+    { label: "no-negated-condition", value: 85, mark: "amber", sub: "Branches written backwards" },
+    { label: "consistent-function-scoping", value: 57, mark: "amber", sub: "Nested functions with no closure dependency" },
+  ]}
+  legend={[
+    { label: "typescript rules", mark: "lilac" },
+    { label: "unicorn rules", mark: "amber" },
+  ]}
+/>
+
+<NumberBand value="1,977" note="too many to fix in one pull request">
+  Findings from eight rules, before I turned one of them on.
+</NumberBand>
 
 The total was 1,977 findings. There was no sensible pull request where all of those became errors at once. As errors, they would stop almost every useful change. As normal warnings, they would become terminal decoration. I kept them as warnings and added a touched-file gate later.
 
@@ -428,13 +442,15 @@ After the local rules were working, I copied all 15 rules from [`dmmulroy/anti-s
 
 The README recommends vendoring the plugin and changing it for the repository. That is exactly what I wanted. I did disagree with most of the example severities:
 
-| Policy | Upstream example | This repository |
-| --- | --- | --- |
-| Generic rules | All 15 at `error` | 3 `error`, 10 `warn`, 2 `off` |
-| Test files | No separate tier | Type-evidence tier exempted |
-| `no-module-mocking` | `error` | `warn` in `tests/integration` |
-| `no-runtime-typeof` | `error` | `off` |
-| Effect rules | Opt-in plugin | Skipped because the project does not use Effect |
+<DecisionList
+  rows={[
+    { need: "Generic rules", pick: "3 `error`, 10 `warn`, 2 `off`", why: "Upstream example: all 15 at `error`." },
+    { need: "Test files", pick: "Type-evidence tier exempted", why: "Upstream example: no separate tier." },
+    { need: "`no-module-mocking`", pick: "`warn` in `tests/integration`", why: "Upstream example: `error`." },
+    { need: "`no-runtime-typeof`", pick: "`off`", why: "Upstream example: `error`." },
+    { need: "Effect rules", pick: "Skipped", why: "Upstream: an opt-in plugin. The project does not use Effect." },
+  ]}
+/>
 
 Enabling all 15 as errors produced roughly 2,400 failures here. `require-safety-comment-for-type-assertion` was 713 of them. At that point you do not have a gate. You have a large migration report that blocks all work.
 
@@ -484,12 +500,17 @@ Errors always block. Warnings become errors only for the staged files. This conf
 
 I measured the cleanup cost before enabling the hook:
 
-| Metric | Result |
-| --- | ---: |
-| Files with at least one warning | 605 of 1,192 |
-| Median warnings per affected file | 3 |
-| 90th percentile | 13 |
-| Worst file | 130 |
+<ShareGrid
+  title="Files that have a warning"
+  part={605}
+  total={1192}
+  label="files with at least one warning"
+  stats={[
+    { value: "3", label: "median warnings in an affected file" },
+    { value: "13", label: "90th percentile" },
+    { value: "130", label: "worst file" },
+  ]}
+/>
 
 Three warnings in the median file was fine. A file with 130 needed an escape hatch and an explicit note in the pull request.
 

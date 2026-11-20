@@ -1,5 +1,15 @@
 import handler from '@tanstack/react-start/server-entry'
 
+import giscusPaperDark from './giscus/paper-dark.css?raw'
+import giscusPaper from './giscus/paper.css?raw'
+
+// The comment frame on giscus.app loads these as its theme. It asks for them
+// with CORS, so they come from the worker with the header it needs.
+const giscusThemes = new Map([
+  ['/giscus/paper.css', giscusPaper],
+  ['/giscus/paper-dark.css', giscusPaperDark],
+])
+
 const legacyPosts = new Map([
   ['00-saybackend-changelog', '/blog/2024-jun-saybackend-changelog'],
   ['01-zustand-url-state', '/blog/2023-dec-zustand-url-state-sharing'],
@@ -124,6 +134,17 @@ export default {
 
     // Trailing-slash and www redirects live in Cloudflare Redirect Rules, which
     // run before static assets. Only this one file path needs handling here.
+    const giscusTheme = giscusThemes.get(pathname)
+    if (giscusTheme) {
+      return new Response(giscusTheme, {
+        headers: {
+          'Content-Type': 'text/css; charset=utf-8',
+          'Access-Control-Allow-Origin': 'https://giscus.app',
+          'Cache-Control': 'public, max-age=3600',
+        },
+      })
+    }
+
     if (pathname === '/sitemap.xml') {
       return Response.redirect('https://saybackend.com/sitemap-index.xml', 301)
     }

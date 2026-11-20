@@ -1,5 +1,16 @@
 import { useEffect, useRef } from 'react'
 
+/**
+ * The comment frame loads our own stylesheet, so it matches the page. The
+ * frame cannot load a file from a local address, so local runs use the
+ * standard themes.
+ */
+function themeUrl() {
+  const dark = document.documentElement.classList.contains('dark')
+  if (location.protocol !== 'https:') return dark ? 'dark' : 'light'
+  return `${location.origin}/giscus/${dark ? 'paper-dark' : 'paper'}.css`
+}
+
 export function Giscus({ term }: { term?: string }) {
   const container = useRef<HTMLDivElement>(null)
 
@@ -21,9 +32,7 @@ export function Giscus({ term }: { term?: string }) {
     script.dataset.reactionsEnabled = '1'
     script.dataset.emitMetadata = '0'
     script.dataset.inputPosition = 'top'
-    script.dataset.theme = document.documentElement.classList.contains('dark')
-      ? 'dark'
-      : 'light'
+    script.dataset.theme = themeUrl()
     script.dataset.lang = 'en'
     script.dataset.loading = 'lazy'
     root.append(script)
@@ -34,9 +43,7 @@ export function Giscus({ term }: { term?: string }) {
         {
           giscus: {
             setConfig: {
-              theme: document.documentElement.classList.contains('dark')
-                ? 'dark'
-                : 'light',
+              theme: themeUrl(),
             },
           },
         },

@@ -28,7 +28,7 @@ export const PAGE_META = {
       'Senior Software Engineer for backend systems, AWS serverless architecture, PostgreSQL, and DevOps. 6+ years in production.',
   },
   hiring: {
-    title: 'Hire Kamran Tahir - Senior Software Engineer',
+    title: 'Work with Kamran Tahir - Senior Software Engineer',
     description:
       'Kamran Tahir is a Senior Software Engineer, currently Member of Technical Staff at Trelium and happy to discuss scalable systems and architectural challenges.',
   },

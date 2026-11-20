@@ -31,42 +31,20 @@ ogImage: "/images/uuidv7-postgres-og.png"
 
 import Callout from "@/components/mdx/Callout";
 import GitHubRepoCard from "@/components/mdx/GitHubRepoCard";
-import {
-  MultiMetricRadarChart,
-  PerformanceStorageScatterChart,
-} from "@components/react/charts/UUIDAdvancedCharts";
-import {
-  PerformanceComparisonChart,
-  StorageComparisonChart,
-} from "@components/react/charts/UUIDBenchmarkCharts";
-import AnalysisTable from "@components/react/tables/AnalysisTable";
-import ComprehensivePerformanceTable from "@components/react/tables/ComprehensivePerformanceTable";
-import DecisionMatrixTable from "@components/react/tables/DecisionMatrixTable";
-import FeatureComparisonTable from "@components/react/tables/FeatureComparisonTable";
-import PerformanceRankingTable from "@components/react/tables/PerformanceRankingTable";
-import PerformanceTable from "@components/react/tables/PerformanceTable";
 import { Picture } from "@/components/mdx/Picture";
-import bitManipulation from "./assets/bit_manipulation.png";
-import collisionProbability from "./assets/collision_probability.png";
-import comprehensiveOverview from "./assets/comprehensive_overview.png";
-import uuidStructure from "./assets/uuid_structure.png";
+import { BlockRows } from "@/components/paper/BlockRows";
+import { DotMatrix } from "@/components/paper/DotMatrix";
+import { LineFigure } from "@/components/paper/LineFigure";
+import { DecisionList, ProsCons } from "@/components/paper/Lists";
+import { PairedDots } from "@/components/paper/PairedDots";
+import { RankBars } from "@/components/paper/RankBars";
+import { SegmentBar } from "@/components/paper/SegmentBar";
+import { StepStrings } from "@/components/paper/StepStrings";
 import performanceData from "./benchmark_data/performance_summary.json";
 import analysisData from "./data/analysis-data.json";
 import decisionData from "./data/decision-matrix.json";
 import featureData from "./data/feature-comparison.json";
 import rankingData from "./data/ranking-data.json";
-import OgImage from "./uuidv7-postgres-og.png";
-
-<Picture
-  src={OgImage}
-  alt="Strategies for Chunking Text Data for RAG Applications"
-  width={1200}
-  height={630}
-  loading="eager"
-  fetchPriority="high"
-  inferSize
-  formats={["avif", "webp"]}
-/>
 
 ## Introduction
 
@@ -99,9 +77,17 @@ If you are evaluating PostgreSQL behavior beyond ID generation, the related [pg_
 
 Before diving into implementations, let's understand what makes UUIDv7 special. Unlike its predecessor UUIDv4 (which is completely random), UUIDv7 incorporates a timestamp, making it naturally sortable by creation time.
 
-<Picture
-  src={uuidStructure}
-  alt="UUIDv7 Structure showing 48-bit timestamp, version bits, and random components"
+<SegmentBar
+  bleed
+  title="UUIDv7 layout (128 bits)"
+  segments={[
+    { label: "unix_ts_ms", size: 48, mark: "blue" },
+    { label: "ver", size: 4, mark: "rose" },
+    { label: "rand_a", size: 12, mark: "sage" },
+    { label: "var", size: 2, mark: "amber" },
+    { label: "rand_b", size: 62, mark: "lilac" },
+  ]}
+  pattern="TTTTTTTT-TTTT-7RRR-VARR-RRRRRRRRRRRR"
 />
 
 The structure consists of:
@@ -141,13 +127,7 @@ SELECT uuid_extract_timestamp('01976408-e525-78fb-889c-818826fc412f'::uuid);
 - **Built-in extraction functions**: `uuid_extract_timestamp()`, `uuid_extract_version()`
 - **RFC 9562 compliance**: Follows latest UUID standard published May 2024
 
-#### PostgreSQL 18 Native Analysis
-
-<AnalysisTable
-  title={analysisData.postgresql_18_native.title}
-  data={analysisData.postgresql_18_native}
-  client:load
-/>
+<ProsCons pros={analysisData.postgresql_18_native.pros} cons={analysisData.postgresql_18_native.cons} />
 
 ## Custom UUIDv7 Implementations (PostgreSQL < 18)
 
@@ -188,13 +168,7 @@ This implementation:
 3. Overlays the timestamp onto the first 48 bits
 4. Sets the version bits to make it a valid UUIDv7
 
-#### Implementation 1 Analysis
-
-<AnalysisTable
-  title={analysisData.implementation_1.title}
-  data={analysisData.implementation_1}
-  client:load
-/>
+<ProsCons pros={analysisData.implementation_1.pros} cons={analysisData.implementation_1.cons} />
 
 ### Implementation 2: Pure SQL Method (`uuidv7_custom`)
 
@@ -217,13 +191,7 @@ $$ LANGUAGE sql VOLATILE;
 
 This is essentially the same algorithm as Function 1, but implemented as a pure SQL function.
 
-#### Implementation 2 Analysis
-
-<AnalysisTable
-  title={analysisData.implementation_2.title}
-  data={analysisData.implementation_2}
-  client:load
-/>
+<ProsCons pros={analysisData.implementation_2.pros} cons={analysisData.implementation_2.cons} />
 
 ### Implementation 3: Sub-millisecond Precision (`uuidv7_sub_ms`)
 
@@ -245,57 +213,34 @@ This implementation builds the UUID from scratch:
 2. Uses the fractional part for sub-millisecond precision
 3. Manually constructs the UUID by concatenating components
 
-#### Implementation 3 Analysis
-
-<AnalysisTable
-  title={analysisData.implementation_3.title}
-  data={analysisData.implementation_3}
-  client:load
-/>
+<ProsCons pros={analysisData.implementation_3.pros} cons={analysisData.implementation_3.cons} />
 
 ### Implementation Flow Overview
 
-```
-Start UUID Generation
-        ↓
-  Choose Implementation
-        ↓
-    ┌───────────────────────────────────────┐
-    │                                       │
-    ↓                                       ↓
-PostgreSQL 18+                    Custom Implementations
-    ↓                                       ↓
-Native uuidv7                      ┌───────┼───────┐
-    ↓                              ↓       ↓       ↓
-C-level Processing           Custom 1  Custom 2  Custom 3
-    ↓                              ↓       ↓       ↓
-12-bit Sub-ms Precision      Generate  Generate  Extract
-    ↓                        UUIDv4    UUIDv4    Timestamp
-Ensure Monotonicity          Base      Base         ↓
-    ↓                          ↓       ↓       Split Integer
-Return Native UUIDv7      Extract  Extract    & Fractional
-    ↓                     Timestamp Timestamp      ↓
-    └───────────────────────────┼───────┼─────────┘
-                                ↓       ↓
-                          Overlay on   Overlay on
-                          48 bits     48 bits
-                                ↓       ↓
-                          Set Version Set Version
-                          Bits to 7   Bits to 7
-                                ↓       ↓
-                          Return UUID Return UUID
-                                └───┬───┘
-                                    ↓
-                               Final UUIDv7
-```
+<BlockRows
+  stacked
+  title="The steps of each implementation"
+  description="Four ways to make a UUIDv7. Native uuidv7 on PostgreSQL 18: C-level processing, 12-bit sub-millisecond precision, then a monotonicity check. Functions 1 and 2: generate a UUIDv4, extract the timestamp, overlay it on the first 48 bits, set the version bits to 7. Function 3: extract the timestamp, split it into integer and fraction, build the UUID from the parts."
+  rows={[
+    { label: "Native uuidv7() on PostgreSQL 18", blocks: [{ text: "C-level processing", mark: "sage" }, { text: "12-bit sub-ms precision", mark: "sage" }, { text: "ensure monotonicity", mark: "sage" }] },
+    { label: "Function 1: PL/pgSQL overlay", blocks: [{ text: "generate a UUIDv4", mark: "blue" }, { text: "extract the timestamp", mark: "blue" }, { text: "overlay on 48 bits", mark: "blue" }, { text: "set version bits to 7", mark: "blue" }] },
+    { label: "Function 2: pure SQL", blocks: [{ text: "generate a UUIDv4", mark: "lilac" }, { text: "extract the timestamp", mark: "lilac" }, { text: "overlay on 48 bits", mark: "lilac" }, { text: "set version bits to 7", mark: "lilac" }] },
+    { label: "Function 3: sub-millisecond", blocks: [{ text: "extract the timestamp", mark: "amber" }, { text: "split whole and fraction", mark: "amber" }, { text: "join the parts", mark: "amber" }] },
+  ]}
+/>
 
 ## Bit Manipulation Visualization
 
 To better understand how Function 1 and 2 work, here's a visual representation of the bit manipulation process:
 
-<Picture
-  src={bitManipulation}
-  alt="Step-by-step visualization of bit manipulation in UUIDv7 generation"
+<StepStrings
+  title="From a UUIDv4 to a UUIDv7"
+  steps={[
+    { label: "Original UUIDv4", text: "RRRRRRRR-RRRR-4RRR-VARR-RRRRRRRRRRRR" },
+    { label: "After the timestamp overlay", text: "[TTTTTTTT-TTTT]-4RRR-VARR-RRRRRRRRRRRR" },
+    { label: "Set bit 52 (version bit 1)", text: "TTTTTTTT-TTTT-[5]RRR-VARR-RRRRRRRRRRRR" },
+    { label: "Set bit 53 (version bit 2): final UUIDv7", text: "TTTTTTTT-TTTT-[7]RRR-VARR-RRRRRRRRRRRR" },
+  ]}
 />
 
 ## Performance Benchmarks
@@ -331,7 +276,22 @@ Based on professional-grade benchmarking with **10 runs × 100,000 iterations** 
 
 #### Single-Thread Performance
 
-<PerformanceTable data={performanceData.summary_statistics} client:load />
+<PairedDots
+  title="Average time for one ID, single thread"
+  unit="μs, lower is better"
+  aLabel="PostgreSQL 17"
+  bLabel="PostgreSQL 18"
+  rows={[
+    ...new Set([
+      ...Object.keys(performanceData.summary_statistics.postgresql17),
+      ...Object.keys(performanceData.summary_statistics.postgresql18),
+    ]),
+  ].map((name) => ({
+    label: name,
+    a: performanceData.summary_statistics.postgresql17[name]?.avg_single_thread_us,
+    b: performanceData.summary_statistics.postgresql18[name]?.avg_single_thread_us,
+  }))}
+/>
 
 <Callout type="info">
   **Key Finding:** PostgreSQL 18's native uuidv7() now delivers **UUIDv4-parity
@@ -354,9 +314,25 @@ Based on professional-grade benchmarking with **10 runs × 100,000 iterations** 
 
 One concern with UUIDs is collision probability. Here's how our implementations compare:
 
-<Picture
-  src={collisionProbability}
-  alt="Graph showing collision probability vs generation rate for different implementations"
+<LineFigure
+  title="Collision probability in one millisecond"
+  description="Collision probability against IDs generated in one millisecond, on log scales. With 74 random bits the probability stays below 1 in a quadrillion up to about 4,000 IDs per millisecond. With 62 random bits it stays below that level up to about 70 IDs per millisecond."
+  xScale="log"
+  yScale="log"
+  series={[
+    { name: "Functions 1 and 2 (74 random bits)", mark: "blue", points: [[1, 2.65e-23], [10, 2.65e-21], [100, 2.65e-19], [1000, 2.65e-17], [10000, 2.65e-15], [100000, 2.65e-13], [1000000, 2.65e-11], [10000000, 2.65e-09], [100000000, 2.65e-07], [1000000000, 2.65e-05]] },
+    { name: "Function 3 (62 random bits)", mark: "rose", points: [[1, 1.08e-19], [10, 1.08e-17], [100, 1.08e-15], [1000, 1.08e-13], [10000, 1.08e-11], [100000, 1.08e-09], [1000000, 1.08e-07], [10000000, 1.08e-05], [100000000, 0.00108], [1000000000, 0.108]] },
+  ]}
+  xTicks={[1, 1000, 1000000, 1000000000]}
+  yTicks={[1e-21, 1e-15, 1e-9, 1e-3]}
+  xFormat={(value) => ({ 1: "1", 1000: "1k", 1000000: "1M", 1000000000: "1B" })[value]}
+  yFormat={(value) => ({ "-21": "10⁻²¹", "-15": "10⁻¹⁵", "-9": "10⁻⁹", "-3": "10⁻³" })[Math.round(Math.log10(value))]}
+  xLabel="IDs generated in one millisecond"
+  references={[
+    { y: 1e-15, label: "1 in a quadrillion" },
+    { y: 1e-9, label: "1 in a billion" },
+  ]}
+  caption="Birthday approximation: p ≈ n² / 2^(bits + 1), for n IDs that share one millisecond."
 />
 
 Key insights:
@@ -483,9 +459,7 @@ UUIDs are 128-bit values, stored as 16 bytes in PostgreSQL. For large tables:
 - Partition by time ranges that align with your UUID timestamps
 - Use `CLUSTER` periodically to maintain physical ordering
 
-## Performance Comparison Charts
-
-<PerformanceComparisonChart client:load />
+## Performance Comparison
 
 ### Updated Performance Results (Professional Benchmark Data)
 
@@ -493,7 +467,30 @@ Our professional-grade benchmarks with **10 runs × 100,000 iterations** and sta
 
 #### Performance Rankings
 
-<PerformanceRankingTable data={rankingData.performance_rankings} client:load />
+<RankBars
+  title="Average time for one ID"
+  unit="μs, lower is better"
+  rows={rankingData.performance_rankings.map((row) => ({
+    label: row.implementation.replace(/^\w+ \(|\)$/g, ""),
+    value: row.avgTime,
+    mark: row.implementation.startsWith("UUIDv7") ? "lilac" : "sand",
+    note: row.implementation.includes("native") ? "near parity" : undefined,
+  }))}
+  legend={[
+    { label: "UUIDv7", mark: "lilac" },
+    { label: "Other", mark: "sand" },
+  ]}
+/>
+
+<RankBars
+  title="Throughput"
+  unit="IDs per second, higher is better"
+  rows={rankingData.performance_rankings.map((row) => ({
+    label: row.implementation.replace(/^\w+ \(|\)$/g, ""),
+    value: row.throughput,
+    mark: row.implementation.startsWith("UUIDv7") ? "lilac" : "sand",
+  }))}
+/>
 
 ### Key Insights from Professional Benchmark Analysis
 
@@ -503,66 +500,29 @@ Our professional-grade benchmarks with **10 runs × 100,000 iterations** and sta
 4. **Statistical Significance**: Results based on 10 runs × 100,000 iterations with multiple runs for reliability
 5. **Zero Collision Rate**: All implementations maintain perfect uniqueness guarantees (50k collision sample)
 
-<Picture
-  src={comprehensiveOverview}
-  alt="Comprehensive PostgreSQL UUIDv7 performance analysis overview showing all implementations, latency distribution, and throughput comparison"
-/>
-
-### Multi-dimensional Performance Analysis
-
-<PerformanceStorageScatterChart client:load />
-
-<MultiMetricRadarChart
-  client:load
-  selectedImplementations={["UUIDv4", "Native uuidv7()", "ULID", "TypeID"]}
-/>
 
 ## Implementation Architecture Overview
 
 Understanding the architectural differences helps explain the performance characteristics:
 
-```
-UUID Family
-├── 🔴 UUIDv4 (Baseline)
-│   ├── Pure random
-│   ├── No time info
-│   └── PostgreSQL native
-│
-├── UUIDv7 Implementations
-│   ├── 🔵 UUIDv7 (PL/pgSQL)
-│   │   ├── Overlay method
-│   │   ├── Best single-thread
-│   │   └── Readable code
-│   │
-│   ├── 🟢 UUIDv7 (Pure SQL)
-│   │   ├── Bit operations
-│   │   ├── No PL/pgSQL overhead
-│   │   └── Balanced performance
-│   │
-│   └── 🟡 UUIDv7 (Sub-ms)
-│       ├── Custom precision
-│       ├── Manual construction
-│       └── Best time ordering
-│
-└── Alternative Formats
-    ├── 🟠 ULID
-    │   ├── Base32 encoded
-    │   ├── Human readable
-    │   ├── Lexicographic sort
-    │   └── Compact storage
-    │
-    └── 🟣 TypeID
-        ├── Prefixed identifiers
-        ├── Type safety
-        ├── Based on UUIDv7
-        └── Self-documenting
+<BlockRows
+  stacked
+  title="The ID family"
+  description="Six ID types and their main traits. UUIDv4: pure random, no time information, native to PostgreSQL. UUIDv7 in PL/pgSQL: overlay method, best single-thread, readable code. UUIDv7 in pure SQL: bit operations, no PL/pgSQL overhead, balanced performance. UUIDv7 sub-millisecond: custom precision, manual construction, best time ordering. ULID: Base32 encoded, human readable, lexicographic sort, compact storage. TypeID: prefixed identifiers, type safety, based on UUIDv7, self-documenting."
+  rows={[
+    { label: "UUIDv4 (baseline)", blocks: [{ text: "pure random", mark: "sand" }, { text: "no time information", mark: "sand" }, { text: "PostgreSQL native", mark: "sand" }] },
+    { label: "UUIDv7, PL/pgSQL", blocks: [{ text: "overlay method", mark: "blue" }, { text: "best single-thread", mark: "blue" }, { text: "readable code", mark: "blue" }] },
+    { label: "UUIDv7, pure SQL", blocks: [{ text: "bit operations", mark: "lilac" }, { text: "no PL/pgSQL overhead", mark: "lilac" }, { text: "balanced performance", mark: "lilac" }] },
+    { label: "UUIDv7, sub-millisecond", blocks: [{ text: "custom precision", mark: "amber" }, { text: "manual construction", mark: "amber" }, { text: "best time ordering", mark: "amber" }] },
+    { label: "ULID", blocks: [{ text: "Base32 encoded", mark: "rose" }, { text: "human readable", mark: "rose" }, { text: "lexicographic sort", mark: "rose" }, { text: "compact storage", mark: "rose" }] },
+    { label: "TypeID", blocks: [{ text: "prefixed identifiers", mark: "sage" }, { text: "type safety", mark: "sage" }, { text: "based on UUIDv7", mark: "sage" }, { text: "self-documenting", mark: "sage" }] },
+  ]}
+/>
 
-Performance Characteristics:
-📈 Single-threaded:    gen_random_uuid fastest → 71.4 μs (UUIDv4 baseline)
-📈 Fastest UUIDv7:     uuidv7_custom (PG18) → 71.8 μs (≈0.6% off UUIDv4)
-⚡ Throughput:         ulid_generate (PG17) → 23,160 ops/sec
-💾 Storage:           ULID most compact → 26 bytes text
-```
+- **Single-threaded:** `gen_random_uuid` is the fastest at 71.4 μs (the UUIDv4 baseline).
+- **Fastest UUIDv7:** `uuidv7_custom` on PG18 at 71.8 μs, about 0.6% off UUIDv4.
+- **Throughput:** `ulid_generate` on PG17 at 23,160 ops/sec.
+- **Storage:** ULID is the most compact text form at 26 bytes.
 
 The architecture diagram reveals why certain implementations perform differently:
 
@@ -573,7 +533,21 @@ The architecture diagram reveals why certain implementations perform differently
 
 ### Feature Comparison Matrix
 
-<FeatureComparisonTable data={featureData.feature_comparison} client:load />
+<DotMatrix
+  title="What each ID type gives you"
+  columns={[
+    { label: "UUIDv4", mark: "sand" },
+    { label: "UUIDv7\nPL/pgSQL" },
+    { label: "UUIDv7\nSQL" },
+    { label: "UUIDv7\nsub-ms" },
+    { label: "ULID", mark: "blue" },
+    { label: "TypeID", mark: "amber" },
+  ]}
+  rows={featureData.feature_comparison.map((row) => ({
+    label: row.feature,
+    values: [row.uuidv4, row.uuidv7_plpgsql, row.uuidv7_sql, row.uuidv7_subms, row.ulid, row.typeid],
+  }))}
+/>
 
 ## Beyond UUIDv7: ULID and TypeID Alternatives
 
@@ -671,15 +645,23 @@ $$ LANGUAGE plpgsql VOLATILE;
 
 Based on professional-grade benchmarking with **10 runs × 100,000 iterations** per test:
 
-### Storage Efficiency Analysis
-
-<StorageComparisonChart client:load />
-
 ### Comprehensive Performance Summary
 
-<ComprehensivePerformanceTable
-  data={performanceData.summary_statistics}
-  client:load
+<PairedDots
+  title="Throughput"
+  unit="IDs per second, higher is better"
+  aLabel="PostgreSQL 17"
+  bLabel="PostgreSQL 18"
+  rows={[
+    ...new Set([
+      ...Object.keys(performanceData.summary_statistics.postgresql17),
+      ...Object.keys(performanceData.summary_statistics.postgresql18),
+    ]),
+  ].map((name) => ({
+    label: name,
+    a: performanceData.summary_statistics.postgresql17[name]?.avg_throughput_per_second,
+    b: performanceData.summary_statistics.postgresql18[name]?.avg_throughput_per_second,
+  }))}
 />
 
 ### Collision Resistance
@@ -828,7 +810,13 @@ Modern applications have excellent choices for time-ordered identifiers in Postg
 
 ### Decision Matrix
 
-<DecisionMatrixTable data={decisionData.decision_matrix} client:load />
+<DecisionList
+  rows={decisionData.decision_matrix.map((row) => ({
+    need: row.priority,
+    pick: row.recommendation,
+    why: row.why,
+  }))}
+/>
 
 ### Key Findings
 
@@ -842,37 +830,17 @@ Modern applications have excellent choices for time-ordered identifiers in Postg
 
 ### Decision Guide
 
-```
-Choose ID Generation Method
-         ↓
-  Primary Requirement?
-         ↓
-    ┌────┼────┬────────────────┬──────────────┐
-    ↓         ↓                ↓              ↓
-Maximum    Time           Human        Type
-Concurrent Ordering      Readability   Safety
-Performance   ↓              ↓          ↓
-    ↓         ↓              ↓          ↓
-🔴 UUIDv4   Need Sub-ms  🟠 ULID    🟣 TypeID
-~21.6K      Precision?      Base32     Prefixed
-ops/sec        ↓            encoded    identifiers
-Battle-        ↓            Lexicographic Self-documenting
-tested      ┌──┴──┐         sort
-           Yes   No
-            ↓     ↓
-       PostgreSQL Performance
-       Version?   Priority?
-          ↓         ↓
-       ┌──┴──┐  ┌──┴──┐
-      18+   <18 Single- Balanced
-       ↓     ↓  threaded Approach
-   🟢 PostgreSQL 🟡 UUIDv7    ↓        ↓
-   18 native     Sub-ms   🔵 UUIDv7  🟢 UUIDv7
-   uuidv7        Custom    PL/pgSQL   Pure SQL
-   C-level       precision 75.9 μs    No PL/pgSQL
-   performance   Best time ~71.8–73 μs overhead
-                 ordering  UUIDv4     Good all-around
-```
+<DecisionList
+  rows={[
+    { need: "Maximum concurrent performance", pick: "UUIDv4", why: "About 21.6K ops/sec. Battle-tested." },
+    { need: "Time ordering with sub-ms precision, on PostgreSQL 18", pick: "Native `uuidv7()`", why: "C-level performance." },
+    { need: "Time ordering with sub-ms precision, before PostgreSQL 18", pick: "UUIDv7 sub-ms (custom)", why: "Custom precision. Best time ordering." },
+    { need: "Time ordering, single-threaded priority", pick: "UUIDv7 in PL/pgSQL", why: "The overlay method." },
+    { need: "Time ordering, balanced approach", pick: "UUIDv7 in pure SQL", why: "No PL/pgSQL overhead. Good all-around." },
+    { need: "Human readability", pick: "ULID", why: "Base32 encoded. Lexicographic sort." },
+    { need: "Type safety", pick: "TypeID", why: "Prefixed identifiers. Self-documenting." },
+  ]}
+/>
 
 ### Performance Summary
 

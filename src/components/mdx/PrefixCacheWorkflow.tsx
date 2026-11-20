@@ -1,116 +1,60 @@
+import { BlockRows } from '@/components/paper/BlockRows'
+
 type Props = {
   title?: string
   caption?: string
 }
 
-const stepBox = 'rounded-lg border border-[var(--border)] bg-[var(--card)] p-3'
-const stepTitle =
-  'mb-2 font-mono text-[11px] font-medium uppercase tracking-wide text-[var(--muted)]'
-const mono = 'font-mono text-xs'
-
+/** The four things the scheduler does with the blocks of a new request. */
 export default function PrefixCacheWorkflow({ title, caption }: Props) {
   return (
-    <figure className="my-8">
-      {title && (
-        <figcaption className="mb-4 text-[var(--foreground)]">
-          <strong className="font-sans text-lg">{title}</strong>
-        </figcaption>
-      )}
-      <div className="space-y-4">
-        <div className={stepBox}>
-          <div className={stepTitle}>New request</div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`${mono} rounded border border-[var(--green)] bg-[var(--green-soft)] px-2 py-1 text-[var(--green)]`}
-            >
-              prompt tokens
-            </span>
-            <span className="text-[var(--muted)]">→</span>
-            <span
-              className={`${mono} rounded border border-[var(--border)] px-2 py-1 text-[var(--foreground)]`}
-            >
-              hash each block
-            </span>
-          </div>
-        </div>
-
-        <div className={stepBox}>
-          <div className={stepTitle}>get_computed_blocks()</div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`${mono} rounded border border-[var(--green)] bg-[var(--green-soft)] px-2 py-1 text-[var(--green)]`}
-            >
-              lookup cache map
-            </span>
-            <span className="text-[var(--muted)]">→</span>
-            <span
-              className={`${mono} rounded border px-2 py-1 text-[var(--green)]`}
-              style={{ borderColor: 'var(--green)' }}
-            >
-              blk 0 · blk 1 · blk 2
-            </span>
-            <span className="text-[var(--muted)]">
-              returns computed sequence
-            </span>
-          </div>
-        </div>
-
-        <div className={stepBox}>
-          <div className={stepTitle}>allocate_slots()</div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <div className={`${mono} text-[var(--muted)]`}>
-                Touch computed blocks
-              </div>
-              <div className="mt-1 space-y-1">
-                {[
-                  'increment ref count',
-                  'remove from free queue if unused',
-                ].map((s) => (
-                  <div key={s} className={`${mono} flex items-center gap-2`}>
-                    <span className="h-1.5 w-1.5 rounded-full bg-[var(--green)]" />
-                    <span className="text-[var(--foreground)]">{s}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className={`${mono} text-[var(--muted)]`}>
-                Allocate new blocks
-              </div>
-              <div className="mt-1 flex flex-wrap gap-2">
-                <span
-                  className={`${mono} rounded border border-[var(--brick)] px-2 py-1 text-[var(--brick)]`}
-                >
-                  blk 3
-                </span>
-                <span
-                  className={`${mono} text-[var(--muted)]`}
-                >{`if pool has capacity`}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className={stepBox}>
-          <div className={stepTitle}>Result</div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`${mono} rounded border border-[var(--green)] bg-[var(--green-soft)] px-2 py-1 text-[var(--green)]`}
-            >
-              reuse computed prefix
-            </span>
-            <span
-              className={`${mono} rounded border border-[var(--brick)] px-2 py-1 text-[var(--brick)]`}
-            >
-              decode new tail
-            </span>
-          </div>
-        </div>
-      </div>
-      {caption && (
-        <p className="mt-3 text-sm text-[var(--muted-foreground)]">{caption}</p>
-      )}
-    </figure>
+    <BlockRows
+      stacked
+      title={title ?? 'How a new request reuses the prefix'}
+      caption={caption}
+      description="A new request with four blocks. Step 1: each block is hashed. Step 2: the cache map has blocks 0 to 2 and does not have block 3. Step 3: blocks 0 to 2 get one more reference and leave the free queue. Step 4: block 3 is allocated and computed, and decoding starts after it."
+      rows={[
+        {
+          label: '1. Hash each block of the request',
+          blocks: [
+            { text: 'tokens 0', mark: 'sand', sub: 'h0' },
+            { text: 'tokens 1', mark: 'sand', sub: 'h1' },
+            { text: 'tokens 2', mark: 'sand', sub: 'h2' },
+            { text: 'tokens 3', mark: 'sand', sub: 'h3' },
+          ],
+        },
+        {
+          label: '2. Look up each hash: get_computed_blocks()',
+          blocks: [
+            { text: 'blk 0', mark: 'lilac', sub: 'hit' },
+            { text: 'blk 1', mark: 'lilac', sub: 'hit' },
+            { text: 'blk 2', mark: 'lilac', sub: 'hit' },
+            { text: 'no block', mark: 'rose', sub: 'miss' },
+          ],
+        },
+        {
+          label: '3. Touch the computed blocks: allocate_slots()',
+          blocks: [
+            { text: 'blk 0', mark: 'lilac', sub: '+1 ref' },
+            { text: 'blk 1', mark: 'lilac', sub: '+1 ref' },
+            { text: 'blk 2', mark: 'lilac', sub: '+1 ref' },
+          ],
+        },
+        {
+          label: '4. Allocate the tail, if the pool has capacity',
+          blocks: [
+            { text: 'blk 0', mark: 'lilac' },
+            { text: 'blk 1', mark: 'lilac' },
+            { text: 'blk 2', mark: 'lilac' },
+            { text: 'blk 3', mark: 'amber', sub: 'computed now' },
+          ],
+        },
+      ]}
+      legend={[
+        { label: 'Reused prefix', mark: 'lilac' },
+        { label: 'New tail', mark: 'amber' },
+      ]}
+      notes={[{ row: 2, block: 2, text: 'they leave the free queue' }]}
+    />
   )
 }

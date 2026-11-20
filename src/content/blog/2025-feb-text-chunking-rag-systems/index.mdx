@@ -50,23 +50,8 @@ ogImage: "/images/6-rag-chunking-strategies/rag_strategies_og.png"
 
 import Callout from "@/components/mdx/Callout";
 import { Picture } from "@/components/mdx/Picture";
-import CookieCutter from "./1-cookie-cutter.png";
-import NaturalBreaks from "./2-natural-chunking.png";
-import StructureAware from "./3-structure-aware-chunking.png";
-import MeaningBased from "./4-semantic-chunking.png";
-import Adaptive from "./5-adaptive-chunking.png";
-import OgImage from "./rag_strategies_og.png";
-
-<Picture
-  src={OgImage}
-  alt="Strategies for Chunking Text Data for RAG Applications"
-  width={1200}
-  height={630}
-  loading="eager"
-  fetchPriority="high"
-  inferSize
-  formats={["avif", "webp"]}
-/>
+import { LevelRows } from "@/components/paper/LevelRows";
+import { TextChunks } from "@/components/paper/TextChunks";
 
 ## Text Chunking for RAG Systems: How to Make AI Understand Documents Better
 
@@ -128,11 +113,17 @@ Output:
 
 **Watch out for:** Split terms like "segmen|tation" losing meaning.
 
-<Picture
-  src={CookieCutter}
-  alt="Cookie-cutter splitting"
-  inferSize
-  formats={["avif", "webp"]}
+<TextChunks
+  title="Cookie-cutter: a cut every fixed number of characters"
+  description="One sentence cut into four chunks of a fixed size, with a small overlap. The first cut is in the middle of the word segmentation."
+  lines={["Effective text segmentation acts as a cognitive aid for language models."]}
+  chunks={[
+    { line: 0, from: 0, to: 21, mark: "lilac" },
+    { line: 0, from: 16, to: 37, mark: "blue" },
+    { line: 0, from: 34, to: 55, mark: "amber" },
+    { line: 0, from: 54, to: 72, mark: "sage" },
+  ]}
+  note={{ text: "cut inside a word", line: 0, at: 21 }}
 />
 
 ---
@@ -163,11 +154,20 @@ Output:
 'Proper chunking improves model performance significantly.']
 ```
 
-<Picture
-  src={NaturalBreaks}
-  alt="Natural breaks splitting"
-  inferSize
-  formats={["avif", "webp"]}
+<TextChunks
+  title="Natural breaks: a cut at each sentence end"
+  description="Three sentences. Each sentence is one chunk."
+  lines={[
+    "Modern NLP requires careful data preparation.",
+    "Transformer models like BERT need clean input.",
+    "Proper chunking improves model performance significantly.",
+  ]}
+  chunks={[
+    { line: 0, from: 0, to: 45, mark: "lilac" },
+    { line: 1, from: 0, to: 46, mark: "blue" },
+    { line: 2, from: 0, to: 57, mark: "amber" },
+  ]}
+  note={{ text: "each chunk is a full sentence", line: 2, at: 57 }}
 />
 ---
 
@@ -202,11 +202,28 @@ Output:
 '### Rate Limits\n- 100 requests/minute\n- Exponential backoff recommended']
 ```
 
-<Picture
-  src={StructureAware}
-  alt="Structure-aware splitting"
-  inferSize
-  formats={["avif", "webp"]}
+<TextChunks
+  title="Structure-aware: a cut at each section"
+  description="A Markdown document cut into three chunks: the two headings at the top, the list under Authentication, and the Rate Limits section with its list."
+  lines={[
+    "## API Documentation",
+    "### Authentication",
+    "- Use OAuth2.0 tokens",
+    "- Token expires every 3600 seconds",
+    "### Rate Limits",
+    "- 100 requests/minute",
+    "- Exponential backoff recommended",
+  ]}
+  chunks={[
+    { line: 0, from: 0, to: 20, mark: "lilac" },
+    { line: 1, from: 0, to: 18, mark: "lilac" },
+    { line: 2, from: 0, to: 21, mark: "blue" },
+    { line: 3, from: 0, to: 34, mark: "blue" },
+    { line: 4, from: 0, to: 15, mark: "amber" },
+    { line: 5, from: 0, to: 21, mark: "amber" },
+    { line: 6, from: 0, to: 33, mark: "amber" },
+  ]}
+  note={{ text: "a heading stays with its list", line: 6, at: 33 }}
 />
 ---
 
@@ -237,11 +254,20 @@ Output:
 'Together they form modern information retrieval systems.']
 ```
 
-<Picture
-  src={MeaningBased}
-  alt="Meaning-based chunking"
-  inferSize
-  formats={["avif", "webp"]}
+<TextChunks
+  title="Meaning-based: a cut where the idea changes"
+  description="Three sentences. Each one states a different idea, so each one is its own chunk."
+  lines={[
+    "Knowledge representation challenges AI systems.",
+    "Vector databases enable semantic similarity searches.",
+    "Together they form modern information retrieval systems.",
+  ]}
+  chunks={[
+    { line: 0, from: 0, to: 47, mark: "lilac" },
+    { line: 1, from: 0, to: 53, mark: "blue" },
+    { line: 2, from: 0, to: 56, mark: "amber" },
+  ]}
+  note={{ text: "three ideas, three chunks", line: 2, at: 56 }}
 />
 ---
 
@@ -280,23 +306,45 @@ Output:
  Document(content='Embedding models convert text to numerical vectors.', metadata={'group_type': 'implementation_details'})]
 ```
 
-<Picture
-  src={Adaptive}
-  alt="Adaptive chunking"
-  inferSize
-  formats={["avif", "webp"]}
+<TextChunks
+  title="Adaptive: the model groups blocks by type"
+  description="Three content blocks. The model puts the first and the third block in one group, technical concepts, and the second block in another group, implementation details."
+  lines={[
+    "Neural networks require quality training data.",
+    "Embedding models convert text to numerical vectors.",
+    "These components power modern semantic search systems.",
+  ]}
+  chunks={[
+    { line: 0, from: 0, to: 46, mark: "lilac" },
+    { line: 1, from: 0, to: 51, mark: "amber" },
+    { line: 2, from: 0, to: 54, mark: "lilac" },
+  ]}
+  legend={[
+    { label: "technical_concepts", mark: "lilac" },
+    { label: "implementation_details", mark: "amber" },
+  ]}
+  note={{ text: "grouped with block 1", line: 2, at: 54 }}
 />
 ---
 
 ## **Choosing Your Chunking Strategy**
 
-| Method          | Best For                     | Complexity | Context Preservation | Cost                                          |
-| --------------- | ---------------------------- | ---------- | -------------------- | --------------------------------------------- |
-| Cookie-Cutter   | Quick prototypes             | Low        | ⭐                   | Low                                           |
-| Natural Breaks  | Articles & reports           | Medium     | ⭐⭐⭐⭐             | Medium                                        |
-| Structure-Aware | Technical documentation      | Medium     | ⭐⭐⭐⭐⭐           | Medium                                        |
-| Meaning-Based   | Research papers              | High       | ⭐⭐⭐⭐⭐           | High                                          |
-| Adaptive        | Enterprise knowledge systems | Very High  | ⭐⭐⭐⭐⭐           | Very High (Use prompt caching to reduce cost) |
+<LevelRows
+  title="The five strategies compared"
+  columns={[
+    { label: "Complexity", max: 4, mark: "blue" },
+    { label: "Context kept", max: 5, mark: "lilac" },
+    { label: "Cost", max: 4, mark: "amber" },
+  ]}
+  rows={[
+    { label: "Cookie-cutter", sub: "Quick prototypes", values: [1, 1, 1] },
+    { label: "Natural breaks", sub: "Articles and reports", values: [2, 4, 2] },
+    { label: "Structure-aware", sub: "Technical documentation", values: [2, 5, 2] },
+    { label: "Meaning-based", sub: "Research papers", values: [3, 5, 3] },
+    { label: "Adaptive", sub: "Enterprise knowledge systems", values: [4, 5, 4] },
+  ]}
+  caption="For adaptive chunking, use prompt caching to reduce the cost."
+/>
 
 **Pro Tip:** Start simple and scale up. Most applications do well with natural breaks splitting, while technical docs benefit from structure-aware approaches. Save adaptive chunking for mission-critical systems.
 

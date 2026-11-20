@@ -1,6 +1,8 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 
-import { formatDate, posts } from '@/lib/content'
+import { PageHero } from '@/components/paper/PageHero'
+import { PostList } from '@/components/paper/PostList'
+import { posts } from '@/lib/content'
 import { PAGE_META, SITE, breadcrumb, seo } from '@/lib/site'
 import { topicCards } from '@/lib/topics'
 
@@ -34,50 +36,33 @@ function BlogIndex() {
     return years
   }, {})
   return (
-    <section className="page-frame archive-page">
-      <header className="page-heading">
-        <p className="eyebrow">The archive</p>
-        <h1>Writing on systems that have to work.</h1>
-        <p>{PAGE_META.blog.description}</p>
-      </header>
-      <div className="topic-pills">
-        {topicCards().map((topic) => (
-          <Link
-            key={topic.slug}
-            to="/topics/$topic/"
-            params={{ topic: topic.slug }}
-          >
-            {topic.name} <span>{topic.count}</span>
-          </Link>
-        ))}
-      </div>
-      {Object.entries(byYear)
-        .sort(([a], [b]) => Number(b) - Number(a))
-        .map(([year, yearPosts]) => (
-          <section className="archive-year" key={year}>
-            <h2>{year}</h2>
-            <div>
-              {yearPosts.map((post) => (
-                <article className="archive-row" key={post.slug}>
-                  <time dateTime={post.date}>{formatDate(post.date)}</time>
-                  <div>
-                    <h3>
-                      <Link
-                        to="/blog/$slug/"
-                        params={{ slug: post.slug }}
-                        reloadDocument
-                      >
-                        {post.title}
-                      </Link>
-                    </h3>
-                    <p>{post.description}</p>
-                  </div>
-                  <span>{post.readingMinutes} min</span>
-                </article>
-              ))}
-            </div>
-          </section>
-        ))}
-    </section>
+    <>
+      <PageHero
+        motif={{ name: 'squares' }}
+        title="All writing"
+        meta={`${posts.length} posts, newest first.`}
+      />
+      <section className="page-narrow archive-page">
+        <div className="topic-pills">
+          {topicCards().map((topic) => (
+            <Link
+              key={topic.slug}
+              to="/topics/$topic/"
+              params={{ topic: topic.slug }}
+            >
+              {topic.name} <span>{topic.count}</span>
+            </Link>
+          ))}
+        </div>
+        {Object.entries(byYear)
+          .sort(([a], [b]) => Number(b) - Number(a))
+          .map(([year, yearPosts]) => (
+            <section className="archive-year" key={year}>
+              <h2>{year}</h2>
+              <PostList posts={yearPosts} motifs />
+            </section>
+          ))}
+      </section>
+    </>
   )
 }

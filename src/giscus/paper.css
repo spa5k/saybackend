@@ -1,0 +1,300 @@
+/* SayBackend comment theme for giscus. The site passes this file as the
+   giscus theme, so the comment frame matches the paper pages. */
+main {
+  --color-prettylights-syntax-comment: #6e7781;
+  --color-prettylights-syntax-constant: #0550ae;
+  --color-prettylights-syntax-entity: #8250df;
+  --color-prettylights-syntax-storage-modifier-import: #24292f;
+  --color-prettylights-syntax-entity-tag: #116329;
+  --color-prettylights-syntax-keyword: #cf222e;
+  --color-prettylights-syntax-string: #0a3069;
+  --color-prettylights-syntax-variable: #953800;
+  --color-prettylights-syntax-brackethighlighter-unmatched: #82071e;
+  --color-prettylights-syntax-invalid-illegal-text: #f6f8fa;
+  --color-prettylights-syntax-invalid-illegal-bg: #82071e;
+  --color-prettylights-syntax-carriage-return-text: #f6f8fa;
+  --color-prettylights-syntax-carriage-return-bg: #cf222e;
+  --color-prettylights-syntax-string-regexp: #116329;
+  --color-prettylights-syntax-markup-list: #3b2300;
+  --color-prettylights-syntax-markup-heading: #0550ae;
+  --color-prettylights-syntax-markup-italic: #24292f;
+  --color-prettylights-syntax-markup-bold: #24292f;
+  --color-prettylights-syntax-markup-deleted-text: #82071e;
+  --color-prettylights-syntax-markup-deleted-bg: #ffebe9;
+  --color-prettylights-syntax-markup-inserted-text: #116329;
+  --color-prettylights-syntax-markup-inserted-bg: #dafbe1;
+  --color-prettylights-syntax-markup-changed-text: #953800;
+  --color-prettylights-syntax-markup-changed-bg: #ffd8b5;
+  --color-prettylights-syntax-markup-ignored-text: #eaeef2;
+  --color-prettylights-syntax-markup-ignored-bg: #0550ae;
+  --color-prettylights-syntax-meta-diff-range: #8250df;
+  --color-prettylights-syntax-brackethighlighter-angle: #57606a;
+  --color-prettylights-syntax-sublimelinter-gutter-mark: #8c959f;
+  --color-prettylights-syntax-constant-other-reference-link: #0a3069;
+  --color-btn-text: #141413;
+  --color-btn-bg: #f0eee6;
+  --color-btn-border: #e3e0d3;
+  --color-btn-shadow: 0 0 transparent;
+  --color-btn-inset-shadow: 0 0 transparent;
+  --color-btn-hover-bg: #e8e6dc;
+  --color-btn-hover-border: #c2c0b6;
+  --color-btn-active-bg: #e8e6dc;
+  --color-btn-active-border: #c2c0b6;
+  --color-btn-selected-bg: #e8e6dc;
+  --color-btn-primary-text: #faf9f5;
+  --color-btn-primary-bg: #141413;
+  --color-btn-primary-border: #141413;
+  --color-btn-primary-shadow: 0 0 transparent;
+  --color-btn-primary-inset-shadow: 0 0 transparent;
+  --color-btn-primary-hover-bg: #3d3d3a;
+  --color-btn-primary-hover-border: #3d3d3a;
+  --color-btn-primary-selected-bg: #3d3d3a;
+  --color-btn-primary-selected-shadow: 0 0 transparent;
+  --color-btn-primary-disabled-text: #faf9f5;
+  --color-btn-primary-disabled-bg: #c2c0b6;
+  --color-btn-primary-disabled-border: #c2c0b6;
+  --color-action-list-item-default-hover-bg: #f0eee6;
+  --color-segmented-control-bg: #f0eee6;
+  --color-segmented-control-button-bg: #faf9f5;
+  --color-segmented-control-button-selected-border: #c2c0b6;
+  --color-fg-default: #141413;
+  --color-fg-muted: #73726c;
+  --color-fg-subtle: #73726c;
+  --color-canvas-default: #faf9f5;
+  --color-canvas-overlay: #f5f4ed;
+  --color-canvas-inset: #f5f4ed;
+  --color-canvas-subtle: #f0eee6;
+  --color-border-default: #e3e0d3;
+  --color-border-muted: #e3e0d3;
+  --color-neutral-muted: #f0eee6;
+  --color-accent-fg: #141413;
+  --color-accent-emphasis: #141413;
+  --color-accent-muted: #c2c0b6;
+  --color-accent-subtle: #f0eee6;
+  --color-success-fg: #4d7a3a;
+  --color-attention-fg: #9a641d;
+  --color-attention-muted: #f1cd80;
+  --color-attention-subtle: #f0eee6;
+  --color-danger-fg: #b5493c;
+  --color-danger-muted: #f2a48f;
+  --color-danger-subtle: #f0eee6;
+  --color-primer-shadow-inset: 0 0 transparent;
+  --color-scale-gray-1: #f0eee6;
+  --color-scale-blue-1: color-mix(in srgb, #93b2f2 35%, transparent);
+  --color-social-reaction-bg-hover: var(--color-scale-gray-1);
+  --color-social-reaction-bg-reacted-hover: var(--color-scale-blue-1);
+
+  background: transparent;
+  font-family:
+    'Instrument Sans',
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+}
+
+main .pagination-loader-container {
+  background-image: none;
+}
+
+main .gsc-loading-image {
+  width: 22px;
+  height: 22px;
+  border: 2px solid #e3e0d3;
+  border-top-color: #141413;
+  border-radius: 50%;
+  background-image: none;
+  animation: gsc-spin 800ms linear infinite;
+}
+
+@keyframes gsc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Header: the count in the serif face, reactions as round chips. */
+.gsc-reactions-count,
+.gsc-comments-count {
+  font-family: 'Newsreader', 'Iowan Old Style', Georgia, serif;
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+}
+
+.gsc-reactions-count {
+  text-align: left;
+}
+
+.gsc-reactions > div {
+  justify-content: flex-start !important;
+}
+
+.gsc-reactions-menu {
+  flex: none;
+}
+
+.gsc-direct-reaction-buttons {
+  justify-content: flex-start;
+}
+
+.gsc-comments-count-separator {
+  display: none;
+}
+
+.gsc-social-reaction-summary-item,
+.gsc-emoji-button,
+.gsc-reactions-button {
+  border-radius: 999px;
+}
+
+.gsc-social-reaction-summary-item {
+  height: 30px;
+  padding-inline: 10px;
+  background: #f0eee6;
+}
+
+.gsc-social-reaction-summary-item.has-reacted {
+  border-color: #93b2f2;
+  background: color-mix(in srgb, #93b2f2 30%, transparent);
+  color: #141413;
+}
+
+.gsc-reactions-popover {
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgb(20 20 19 / 12%);
+}
+
+/* Comment box: one soft panel, no tab bar line. */
+.gsc-comment-box:not(.gsc-comment-box-is-reply) {
+  border-color: #e3e0d3;
+  border-radius: 12px;
+  background: #f5f4ed;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.gsc-comment-box-tabs {
+  border-bottom-color: transparent;
+  background: transparent;
+  padding: 6px 8px 0;
+}
+
+.gsc-comment-box-tabs > div:first-child {
+  margin-bottom: 4px;
+}
+
+.gsc-comment-box-tabs button {
+  border: 0 !important;
+  border-radius: 999px !important;
+  padding: 5px 14px;
+  font-weight: 500;
+}
+
+.gsc-comment-box-textarea,
+.gsc-comment-box-preview {
+  border-color: #e3e0d3;
+  border-radius: 8px;
+  background: #faf9f5;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.gsc-comment-box-textarea:focus {
+  border-color: #141413;
+  box-shadow: 0 0 0 1px #141413;
+  outline: none;
+}
+
+.gsc-comment-box-textarea-extras {
+  border-color: #e3e0d3;
+}
+
+.gsc-comment-box-bottom {
+  margin: 10px 12px 12px;
+}
+
+.gsc-comment-box-buttons .btn,
+.gsc-pagination-button {
+  border-radius: 999px;
+  padding-inline: 16px;
+  font-weight: 600;
+}
+
+/* Comments: no boxes. A rule above each one, like the post lists. */
+.gsc-comments {
+  gap: 0;
+}
+
+.gsc-comment {
+  border-top: 1px solid #e3e0d3;
+  padding-top: 10px;
+  margin-top: 6px;
+  font-size: 15px;
+}
+
+.gsc-comment > div {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.gsc-comment-header,
+.gsc-comment-content,
+.gsc-comment-footer {
+  padding-inline: 0;
+}
+
+.gsc-comment-content {
+  line-height: 1.6;
+}
+
+.gsc-comment-author-avatar img,
+.gsc-reply-author-avatar img {
+  border-radius: 6px;
+}
+
+.gsc-comment-author .link-primary {
+  font-weight: 600;
+}
+
+.gsc-replies {
+  border-top: 0;
+  border-left: 2px solid #e3e0d3;
+  border-radius: 0;
+  background: transparent;
+  margin: 4px 0 0 4px;
+}
+
+.gsc-tl-line {
+  display: none;
+}
+
+.gsc-reply-box {
+  border-top: 0;
+  background: transparent;
+}
+
+.gsc-reply-box button {
+  border-radius: 999px;
+}
+
+.markdown a,
+.gsc-comment-content a {
+  color: #141413;
+  text-decoration: underline;
+  text-decoration-color: #c2c0b6;
+  text-underline-offset: 3px;
+}
+
+.markdown pre,
+.markdown code {
+  border-radius: 6px;
+  background: #f0eee6;
+}
+
+.markdown blockquote {
+  border-left-color: #c2c0b6;
+  color: #3d3d3a;
+}

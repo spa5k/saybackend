@@ -28,16 +28,7 @@ faqs:
 ---
 
 import Callout from "@/components/mdx/Callout";
-import InteractiveDiagram from "@/components/react/InteractiveDiagram";
-
-<img
-  src="/images/conductor-claude-code-cliproxyapi-og.png"
-  alt="How to run a Codex subscription in Claude Code and Conductor"
-  width="1200"
-  height="630"
-  loading="eager"
-  fetchPriority="high"
-/>
+import { Chain } from "@/components/paper/Chain";
 
 Claude Code expects Anthropic-style configuration. Conductor can run Codex directly, but if you want to use Conductor's Claude Code runner with a Codex subscription, CLIProxyAPI can sit in the middle and expose a local Anthropic-compatible endpoint while routing requests to Codex-backed OpenAI models.
 
@@ -49,14 +40,14 @@ The setup is:
 
 So the chain becomes:
 
-<InteractiveDiagram
+<Chain
   title="Codex subscription routing chain"
-  code={`
-flowchart LR
-    B[Conductor Claude Code runner] --> A[Claude Code]
-    A --> C[CLIProxyAPI]
-    C --> D[Codex-backed models]
-`}
+  steps={[
+    { label: "Conductor Claude Code runner" },
+    { label: "Claude Code", mark: "amber" },
+    { label: "CLIProxyAPI", mark: "lilac" },
+    { label: "Codex-backed models", mark: "blue" },
+  ]}
 />
 
 This post is the version that finally worked.
@@ -446,14 +437,14 @@ If this returns `200`, the proxy side is fixed.
 
 Once the aliases are in place, the Claude Code runner path in Conductor can use the same local proxy path:
 
-<InteractiveDiagram
+<Chain
   title="Working Conductor routing chain"
-  code={`
-flowchart LR
-    A[Conductor Claude Code runner] --> B[Claude Code]
-    B --> C[CLIProxyAPI]
-    C --> D[Codex-backed models]
-`}
+  steps={[
+    { label: "Conductor Claude Code runner" },
+    { label: "Claude Code", mark: "amber" },
+    { label: "CLIProxyAPI", mark: "lilac" },
+    { label: "Codex-backed models", mark: "blue" },
+  ]}
 />
 
 The main trick is not the Claude Code env. It is making sure the proxy translates the Claude model IDs that Conductor actually sends.

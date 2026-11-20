@@ -1,0 +1,172 @@
+---
+title: "SayBackend, Redrawn: Paper, Marker and Pen"
+seoTitle: "SayBackend Redesign: Paper, Marker and Pen"
+description: "The new look of SayBackend: figures drawn in plain SVG with one filter, no chart library, a colour per subject, and a share card made by hand for each post."
+date: "2026-11-20"
+slug: "saybackend-redesign-paper-marker-pen"
+ogImage: "/images/2026-redesign-og.png"
+tags:
+  - "changelog"
+  - "design"
+  - "svg"
+  - "css"
+  - "cloudflare-workers"
+---
+
+import { NumberBand } from "@/components/paper/NumberBand";
+import {
+  FooterBand,
+  MarkerEdge,
+  SceneBand,
+  SceneWall,
+  SubjectColours,
+  ThreeLayers,
+} from "@/components/react/blog/redesign/RedesignFigures";
+
+The site had become a wall of text with charts that looked like every other dashboard. I wanted a page that reads like my own notebook: little text, large numbers, and drawings that show how a thing works.
+
+This post is the changelog for that redesign, and the notes on how it is built.
+
+## Three layers
+
+Each page and each figure is made from the same three layers. **Paper** is the warm background, with faint plus marks where a drawing sits. **Marker** is each filled shape: a flat, light tint with a rough edge. **Pen** is the part that is mine: a handwritten note, an arrow, a circle round one number.
+
+<ThreeLayers />
+
+The limit on the pen layer matters most. A figure gets one note, and the note points at the result. With two notes, the reader does not know where to look.
+
+## One filter makes the marker
+
+I did not draw rough shapes. Each shape is a normal SVG `rect` or `path`, and one filter gives all of them the marker look.
+
+<MarkerEdge />
+
+The filter runs noise two times. Fine noise becomes an alpha mask that takes a little ink out of the fill, so the tint is not flat. Coarse noise then moves the pixels by a small distance, so a straight edge is no longer straight.
+
+```xml
+<filter id="pp-marker" x="-6%" y="-6%" width="112%" height="112%">
+  <!-- 1. fine grain: take a little ink out of the fill -->
+  <feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="3" result="grain" />
+  <feColorMatrix in="grain" type="luminanceToAlpha" result="alpha" />
+  <feComposite in="SourceGraphic" in2="alpha" operator="arithmetic"
+    k1="0" k2="1" k3="-.15" k4="0" result="inked" />
+  <!-- 2. coarse noise: move the pixels, so the edge is rough -->
+  <feTurbulence type="fractalNoise" baseFrequency=".1" numOctaves="2" seed="8" result="warp" />
+  <feDisplacementMap in="inked" in2="warp" scale="2.8"
+    xChannelSelector="R" yChannelSelector="G" />
+</filter>
+```
+
+The site shell renders this filter one time. A shape opts in with `filter="url(#pp-marker)"`. The seeds are fixed, so a figure looks the same on each load and in each share card.
+
+## No chart library
+
+<NumberBand value="7" note="and no new one added">
+  chart and diagram packages removed. Each figure is now a small React component that returns SVG.
+</NumberBand>
+
+The old posts used four different chart and diagram libraries, and each one brought its own look. I removed `recharts`, `chart.js` with its React wrapper and date adapter, `@tanstack/charts`, `@xyflow/react` and `d3-scale`.
+
+In their place is a small set of figure components: before-and-after bars, ranked bars, a segment bar, a line figure, a dot matrix, rows of blocks. When none of them fits, the post gets its own drawing. That is the normal case for a mechanism, and the figures in this post are drawings of that kind.
+
+One rule decides what I draw. The figure must show the mechanism of the post: what is reused, where the hook runs, where the text is cut. A drawing that fits any post is the wrong drawing.
+
+## One colour per subject
+
+A post gets its colour from its tags. The colour then follows the post to the home page, the post lists, the hero and the share card.
+
+<SubjectColours />
+
+In a figure, the colours have a second job. Sand is the baseline: "before", or "the rest". One tint is the subject. A second tint appears only when the figure has a second subject.
+
+## The home page
+
+The home page has three parts. The newest post leads, with its drawing. Below it is a grid of tiles, where each tile shows the drawing of its post. Last is a timeline: one square per post on a drawn line, in the colour of its subject.
+
+The drawing in a tile is the hero drawing of the post, cropped by its `viewBox`. I keep one crop per drawing in a table, because one fixed crop cut most of them badly.
+
+## Share cards, made by hand
+
+Each post has its own share card. A card is one HTML file of 1200 × 630, with a short title written for the card and a drawing of the post's mechanism. A shared stylesheet holds the layout and the fonts.
+
+I tried a script that stamps out cards from the post data. All the cards came out the same, so I deleted it. Now I write each card, and headless Chrome exports it:
+
+```sh
+chrome --headless=new --hide-scrollbars --allow-file-access-from-files \
+  --window-size=1200,630 \
+  --screenshot=public/images/my-post-og.png \
+  "file://$PWD/design/og/my-post-og.html"
+```
+
+For this redesign I moved all 19 cards to the new paper and colours and exported them again.
+
+## Comments that match
+
+Comments run on giscus, which renders in a frame on another origin. Its standard themes looked like a different site, so I wrote two themes, light and dark, from the same colour tokens.
+
+giscus loads a custom theme as a stylesheet with CORS. A static file has no such header here, so the Worker in front of the site returns the two files:
+
+```ts
+const giscusTheme = giscusThemes.get(pathname)
+if (giscusTheme) {
+  return new Response(giscusTheme, {
+    headers: {
+      'Content-Type': 'text/css; charset=utf-8',
+      'Access-Control-Allow-Origin': 'https://giscus.app',
+      'Cache-Control': 'public, max-age=3600',
+    },
+  })
+}
+```
+
+When the reader changes the theme of the site, the page sends the frame a `setConfig` message with the other stylesheet.
+
+## A header that moves
+
+Each post has its own line drawing in its header. The drawing shows the mechanism of the post, and it moves. This is the one at the top of this page: straight lines become hand-drawn lines.
+
+<SceneBand slug="saybackend-redesign-paper-marker-pen" caption="Move the pointer across the drawing. It moves the point where the lines change." />
+
+A drawing is one function. It takes the time and the pointer position, and it returns a list of SVG paths.
+
+```ts
+type Shape = { d: string; k: ShapeKind; c?: MarkName }
+type Scene = (time: number, pointer: number | null) => Array<Shape>
+```
+
+The server calls the function with time zero and sends that frame as plain SVG, so the drawing is there before any script runs. In the browser, a loop calls the function 30 times a second and changes only the `d` of each path. No element is added or removed.
+
+Three rules keep it quiet. A drawing moves only while it is on screen. It stays still for a reader who turns motion off. And it has no text, so it never competes with the title.
+
+<SceneWall />
+
+These lines are pen, not marker. They do not go through the filter, so they are cheap to move.
+
+## A footer that changes
+
+The footer has a drawing too. On a post, it is the drawing from the header, so the page ends where it started. On each other page it is one of three line drawings: lines that join into one, ridges, or contours. The path of the page picks the drawing, so one page always shows the same one.
+
+<FooterBand />
+
+## Inspirations
+
+This look did not start from nothing. Three sites set the direction.
+
+- [vincent.build](https://vincent.build/openclaw-ci-cost-reduction/). One post there showed me how little text a technical post needs, and how much room a large header can take.
+- [Armin Ronacher's site](https://ronacher.eu/). It is tidy and quiet, and nothing on the page is there for decoration.
+- Anthropic's research pages, such as the [Economic Index](https://www.anthropic.com/economic-index) and [Teaching AI to build scientific models](https://www.anthropic.com/research/teaching-ai-to-build-scientific-models). Their diagrams are flat and light, some figures use the full width of the page, and the headers move a little.
+
+My first version looked too much like the Anthropic pages. So I changed the paper, the colours and the line until the page was my own: the pen became black, the tints became lighter, and each post got its own drawing.
+
+## References
+
+- [`feTurbulence`](https://developer.mozilla.org/en-US/docs/Web/SVG/Element/feTurbulence) and [`feDisplacementMap`](https://developer.mozilla.org/en-US/docs/Web/SVG/Element/feDisplacementMap) on MDN, the two filter primitives behind the marker edge.
+- [giscus advanced usage](https://github.com/giscus/giscus/blob/main/ADVANCED-USAGE.md), for custom themes and the `setConfig` message.
+
+## Limits
+
+- A figure on a phone keeps its full size and scrolls sideways. I chose that over small labels that nobody can read.
+- The comment frame uses system fonts. The fonts of the site do not load inside it.
+- The rough edge is a filter, and a filter runs again each time its shape changes. So no shape moves inside the filter. A marker figure fades in as one layer, and only the pen lines move.
+
+The rules for all of this are in the repository, as a short design guide next to the code, so the next post starts from the same page.

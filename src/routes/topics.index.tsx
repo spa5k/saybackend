@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
+import { PageHero } from '@/components/paper/PageHero'
 
 import { SITE, breadcrumb, seo } from '@/lib/site'
 import { topicCards } from '@/lib/topics'
@@ -29,27 +30,30 @@ export const Route = createFileRoute('/topics/')({
 
 function Topics() {
   return (
-    <section className="page-frame collection-page">
-      <header className="page-heading">
-        <p className="eyebrow">Learning paths</p>
-        <h1>Topics</h1>
-        <p>Focused trails through the writing, grouped by the problem space.</p>
-      </header>
-      <div className="topic-grid">
-        {topicCards().map((topic) => (
-          <Link
-            key={topic.slug}
-            to="/topics/$topic/"
-            params={{ topic: topic.slug }}
-          >
-            <span className="eyebrow">
-              {topic.count} article{topic.count === 1 ? '' : 's'}
-            </span>
-            <h2>{topic.name}</h2>
-            <p>{topic.description}</p>
-          </Link>
-        ))}
-      </div>
-    </section>
+    <>
+      <PageHero
+        motif={{ name: 'blocks' }}
+        eyebrow="Learning paths"
+        title="Topics"
+        meta="Focused trails through the writing, grouped by the problem space."
+      />
+      <section className="page-frame collection-page">
+        <div className="topic-grid">
+          {topicCards().map((topic) => (
+            <Link
+              key={topic.slug}
+              to="/topics/$topic/"
+              params={{ topic: topic.slug }}
+            >
+              <span className="eyebrow">
+                {topic.count} article{topic.count === 1 ? '' : 's'}
+              </span>
+              <h2>{topic.name}</h2>
+              <p>{topic.description}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
+    </>
   )
 }

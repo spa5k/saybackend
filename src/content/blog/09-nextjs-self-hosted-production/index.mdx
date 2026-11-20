@@ -78,7 +78,8 @@ readingTime: "45 minutes"
 ---
 
 import Callout from "@/components/mdx/Callout";
-import InteractiveDiagram from "@/components/react/InteractiveDiagram";
+import { BlockRows } from "@/components/paper/BlockRows";
+import { Chain } from "@/components/paper/Chain";
 
 ## Introduction
 
@@ -204,51 +205,14 @@ Setting up the right infrastructure is crucial for a successful self-hosted Next
 
 ### System Architecture Overview
 
-<InteractiveDiagram
-  code={`
-graph TB
-    subgraph "Load Balancer"
-        LB[Load Balancer]
-    end
-    
-    subgraph "Application"
-        APP1[Next.js App 1]
-        APP2[Next.js App 2]
-    end
-    
-    subgraph "Caching"
-        REDIS[Redis Cache]
-        CDN[CDN]
-    end
-    
-    subgraph "Database"
-        DB[(Database)]
-    end
-    
-    subgraph "Monitoring"
-        MON[Monitoring]
-    end
-    
-    LB --> APP1
-    LB --> APP2
-    
-    APP1 --> REDIS
-    APP2 --> REDIS
-    
-    APP1 --> DB
-    APP2 --> DB
-    
-    APP1 --> MON
-    APP2 --> MON
-    
-    style LB fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style APP1 fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style APP2 fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style REDIS fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style CDN fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style DB fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style MON fill:#e1f5fe,stroke:#333,stroke-width:2px
-`}
+<BlockRows
+  title="A self-hosted Next.js stack"
+  description="A load balancer sends traffic to two Next.js app instances. Both instances use the same Redis cache, database, and monitoring."
+  rows={[
+    { label: "Entry", blocks: [{ text: "Load balancer", mark: "sand" }] },
+    { label: "Application", blocks: [{ text: "Next.js app 1", mark: "lilac" }, { text: "Next.js app 2", mark: "lilac" }] },
+    { label: "Shared", blocks: [{ text: "Redis cache", mark: "blue" }, { text: "Database", mark: "blue" }, { text: "Monitoring", mark: "blue" }] },
+  ]}
 />
 
 ### Server Specifications
@@ -444,34 +408,13 @@ The solution involves deploying two components:
 1. **Backend Data Routes** (`/_next/data/{{buildId}}/`)
 2. **Main Application Server** (handles all other routes)
 
-<InteractiveDiagram
-  code={`
-graph LR
-    subgraph "Phase 1"
-        B1[Build New Version]
-        D1[Deploy Backend Data]
-        W1[Wait for Health Check]
-    end
-    
-    subgraph "Phase 2"
-        D2[Deploy Main App]
-        V1[Verify Traffic]
-        C1[Cleanup Old Version]
-    end
-    
-    B1 --> D1
-    D1 --> W1
-    W1 --> D2
-    D2 --> V1
-    V1 --> C1
-    
-    style B1 fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style D1 fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style W1 fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style D2 fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style V1 fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style C1 fill:#e1f5fe,stroke:#333,stroke-width:2px
-`}
+<BlockRows
+  title="A deployment in two phases"
+  description="Phase 1: build the new version, deploy the backend data, wait for the health check. Phase 2: deploy the main app, verify traffic, clean up the old version."
+  rows={[
+    { label: "Phase 1", blocks: [{ text: "Build", mark: "amber" }, { text: "Deploy data", mark: "amber" }, { text: "Health check", mark: "amber" }] },
+    { label: "Phase 2", blocks: [{ text: "Deploy app", mark: "sage" }, { text: "Verify traffic", mark: "sage" }, { text: "Clean up", mark: "sage" }] },
+  ]}
 />
 
 #### 1. Build ID Management
@@ -742,31 +685,14 @@ Optimizing your Next.js application's performance is crucial for providing a gre
 
 ### Caching Strategies
 
-<InteractiveDiagram
-  code={`
-graph TB
-    subgraph "Client"
-        B[Browser]
-    end
-    
-    subgraph "Edge"
-        CDN[CDN Cache]
-    end
-    
-    subgraph "Server"
-        APP[Next.js App]
-        REDIS[Redis Cache]
-    end
-    
-    B --> CDN
-    CDN --> APP
-    APP --> REDIS
-    
-    style B fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style CDN fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style APP fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style REDIS fill:#e1f5fe,stroke:#333,stroke-width:2px
-`}
+<Chain
+  title="The cache layers of one request"
+  steps={[
+    { label: "Browser", sub: "client" },
+    { label: "CDN cache", mark: "amber", sub: "edge" },
+    { label: "Next.js app", mark: "lilac", sub: "server" },
+    { label: "Redis cache", mark: "blue", sub: "server" },
+  ]}
 />
 
 #### 1. Redis Caching Setup
@@ -1215,46 +1141,15 @@ export function PerformanceMonitor() {
 
 ## Security Considerations
 
-<InteractiveDiagram
-  code={`
-graph TB
-    subgraph "External"
-        ATT[Attacker]
-        WAF[WAF]
-    end
-    
-    subgraph "Edge"
-        LB[Load Balancer]
-        SSL[SSL/TLS]
-    end
-    
-    subgraph "Application"
-        APP[Next.js App]
-        RATE[Rate Limiter]
-    end
-    
-    subgraph "Data"
-        DB[(Database)]
-        SEC[Secrets]
-    end
-    
-    ATT --> WAF
-    WAF --> LB
-    LB --> SSL
-    SSL --> APP
-    APP --> RATE
-    APP --> DB
-    APP --> SEC
-    
-    style ATT fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style WAF fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style LB fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style SSL fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style APP fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style RATE fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style DB fill:#e1f5fe,stroke:#333,stroke-width:2px
-    style SEC fill:#e1f5fe,stroke:#333,stroke-width:2px
-`}
+<BlockRows
+  title="The security layers"
+  description="External: the attacker meets the WAF. Edge: the load balancer and TLS. Application: the Next.js app and the rate limiter. Data: the database and the secrets."
+  rows={[
+    { label: "External", blocks: [{ text: "Attacker", mark: "rose" }, { text: "WAF", mark: "rose" }] },
+    { label: "Edge", blocks: [{ text: "Load balancer", mark: "amber" }, { text: "SSL/TLS", mark: "amber" }] },
+    { label: "Application", blocks: [{ text: "Next.js app", mark: "lilac" }, { text: "Rate limiter", mark: "lilac" }] },
+    { label: "Data", blocks: [{ text: "Database", mark: "blue" }, { text: "Secrets", mark: "blue" }] },
+  ]}
 />
 
 ### SSL/TLS Configuration
