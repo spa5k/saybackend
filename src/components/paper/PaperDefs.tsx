@@ -212,14 +212,10 @@ export function PaperDefs() {
             vectorEffect="non-scaling-stroke"
           />
         </symbol>
-        <symbol id="pp-square" viewBox="0 0 20 20">
-          <rect
-            x="2"
-            y="2"
-            width="16"
-            height="16"
-            filter="url(#pp-marker)"
-            style={{ fill: 'var(--m-lilac)' }}
+        <symbol id="pp-mark" viewBox="2 2 44 44">
+          <path
+            d="M6 6 43 3 42.78 11.66 18.24 13.38 18.66 19.36 42.62 17.69 42 42 5 45 5.22 36.34 29.76 34.62 29.34 28.64 5.38 30.31Z"
+            style={{ fill: 'var(--ink)' }}
           />
         </symbol>
       </defs>
