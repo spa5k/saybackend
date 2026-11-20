@@ -1,0 +1,88 @@
+{
+ "name": "SayBackend",
+ "title": "Prompt bubble",
+ "idea": "A speech bubble that holds a shell prompt: say it to the backend.",
+ "grid": 48,
+ "mark": [
+  {
+   "shape": "rect",
+   "x": 4,
+   "y": 4,
+   "w": 40,
+   "h": 33,
+   "r": 6
+  },
+  {
+   "shape": "polygon",
+   "points": [
+    [
+     10,
+     34
+    ],
+    [
+     23,
+     34
+    ],
+    [
+     10,
+     46
+    ]
+   ]
+  },
+  {
+   "op": "cut",
+   "shape": "polygon",
+   "points": [
+    [
+     12,
+     12
+    ],
+    [
+     17,
+     12
+    ],
+    [
+     25,
+     20.5
+    ],
+    [
+     17,
+     29
+    ],
+    [
+     12,
+     29
+    ],
+    [
+     20,
+     20.5
+    ]
+   ]
+  },
+  {
+   "op": "cut",
+   "shape": "rect",
+   "x": 26,
+   "y": 24.5,
+   "w": 11,
+   "h": 4.5
+  }
+ ],
+ "wordmark": {
+  "text": "SayBackend",
+  "font": "Bricolage Grotesque",
+  "weight": 700,
+  "tracking": -15
+ },
+ "lockup": {
+  "mark_scale": 1.8,
+  "gap": 0.8
+ },
+ "palette": {
+  "ink": "#141413",
+  "paper": "#faf9f5",
+  "accent": "#f1cd80",
+  "neutral": "#73726c",
+  "tint": "#e3e0d3"
+ }
+}
