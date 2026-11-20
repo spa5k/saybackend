@@ -18,6 +18,7 @@ import {
 import { Giscus } from '@/components/Giscus'
 import { Circled } from '@/components/paper/Figure'
 import { PageHero } from '@/components/paper/PageHero'
+import { sceneOf } from '@/components/paper/scenes'
 import { heroOf } from '@/lib/heroes'
 import { markOf } from '@/lib/marks'
 import CodeWindow from '@/components/mdx/CodeWindow'
@@ -143,6 +144,7 @@ function PostPage() {
     <article className="post-page">
       <PageHero
         motif={heroOf(post)}
+        scene={sceneOf(post.slug)}
         eyebrow={markOf(post).name}
         title={<PostTitle title={post.title} />}
         meta={

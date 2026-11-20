@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 
 import { MARKS } from './Figure'
+import { SceneArt } from './SceneArt'
+import type { Scene } from './scenes'
 
 /**
  * The line drawing at the foot of each page. A page gets one of three
@@ -187,7 +189,21 @@ const contourClass = (index: number) =>
       ? 'footer-line mark teal'
       : 'footer-line far'
 
-export function FooterArt({ kind }: { kind: FooterKind }) {
+export function FooterArt({
+  kind,
+  scene,
+}: {
+  kind: FooterKind
+  /** The drawing of the post on this page. It replaces the site drawing. */
+  scene?: Scene
+}) {
+  if (scene) {
+    return (
+      <div className="footer-art">
+        <SceneArt scene={scene} />
+      </div>
+    )
+  }
   return (
     <div className={`footer-art ${kind}`} aria-hidden="true">
       {kind === 'flow' ? (

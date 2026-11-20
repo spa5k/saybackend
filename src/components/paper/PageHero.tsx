@@ -1,9 +1,13 @@
 import { Motif, PAPER_OF } from './Motifs'
 import type { MotifSpec } from './Motifs'
+import { SceneArt } from './SceneArt'
+import type { Scene } from './scenes'
 import type { ReactNode } from 'react'
 
 type Props = {
   motif: MotifSpec
+  /** A moving line drawing for this page. It replaces the motif. */
+  scene?: Scene
   eyebrow?: ReactNode
   title: ReactNode
   /** A line under the title: the byline of a post, or a short description. */
@@ -19,6 +23,7 @@ type Props = {
  */
 export function PageHero({
   motif,
+  scene,
   eyebrow,
   title,
   meta,
@@ -39,10 +44,13 @@ export function PageHero({
           <path className="paper-margin" d="M150 0V400" />
         ) : null}
         {/* Moved down, so the drawing clears the site header. */}
-        <g transform="translate(0 64)">
-          <Motif {...drawing} />
-        </g>
+        {scene ? null : (
+          <g transform="translate(0 64)">
+            <Motif {...drawing} />
+          </g>
+        )}
       </svg>
+      {scene ? <SceneArt scene={scene} className="page-hero-scene" /> : null}
       <div className="page-hero-text">
         {eyebrow ? <p className="page-hero-eyebrow">{eyebrow}</p> : null}
         <Title className="page-hero-title">{title}</Title>

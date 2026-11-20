@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { SearchDialog } from './SearchDialog'
 import { FooterArt, footerKindOf } from './paper/FooterArt'
 import { PaperDefs } from './paper/PaperDefs'
+import { sceneOf, slugOfPath } from './paper/scenes'
 
 const leftNavigation = [
   { label: 'Writing', to: '/blog/' },
@@ -12,10 +13,7 @@ const leftNavigation = [
   { label: 'Projects', to: '/projects/' },
 ]
 
-const rightNavigation = [
-  { label: 'About', to: '/about/' },
-  { label: 'Hire me', to: '/hiring/' },
-]
+const rightNavigation = [{ label: 'About', to: '/about/' }]
 
 export function SiteShell({ children }: { children: React.ReactNode }) {
   return (
@@ -163,9 +161,11 @@ function ThemeToggle() {
 }
 
 function SiteFooter() {
-  const kind = footerKindOf(
-    useRouterState({ select: (state) => state.location.pathname }),
-  )
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
+  const scene = sceneOf(slugOfPath(pathname))
+  const kind = footerKindOf(pathname)
   return (
     <footer className="site-footer">
       <div className="footer-top">
@@ -182,10 +182,11 @@ function SiteFooter() {
           <a href="/about/">About</a>
           <a href="/guides/">Guides</a>
           <a href="/rss.xml">RSS</a>
+          <a href="/hiring/">Work with me</a>
           <a href="mailto:hello@kamran.sh">Email</a>
         </nav>
       </div>
-      <FooterArt kind={kind} />
+      <FooterArt kind={kind} scene={scene} />
       <div className="footer-note">
         <small>
           © {new Date().getFullYear()} SayBackend ·{' '}
@@ -194,7 +195,7 @@ function SiteFooter() {
           <a href="/llms.txt">LLMs</a> ·{' '}
           <a href="/sitemap-index.xml">Sitemap</a>
         </small>
-        {kind === 'flow' ? null : (
+        {kind === 'flow' && !scene ? null : (
           <span className="hand footer-sign">— Kamran</span>
         )}
       </div>

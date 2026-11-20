@@ -1,5 +1,9 @@
 import { Figure, MARKS } from '@/components/paper/Figure'
 import type { MarkName } from '@/components/paper/Figure'
+import { FooterArt } from '@/components/paper/FooterArt'
+import type { FooterKind } from '@/components/paper/FooterArt'
+import { SceneArt } from '@/components/paper/SceneArt'
+import { sceneOf } from '@/components/paper/scenes'
 
 const SHEET_W = 128
 const SHEET_H = 150
@@ -229,5 +233,66 @@ export function SubjectColours() {
         ))}
       </svg>
     </Figure>
+  )
+}
+
+/** One post drawing across the full width of the page. It is live. */
+export function SceneBand({ slug, caption }: { slug: string; caption: string }) {
+  const scene = sceneOf(slug)
+  if (!scene) return null
+  return (
+    <figure className="scene-band not-typography">
+      <div className="scene-band-art">
+        <SceneArt scene={scene} />
+      </div>
+      <figcaption className="fig-caption">{caption}</figcaption>
+    </figure>
+  )
+}
+
+const wall = [
+  { slug: 'prompt-caching-agent-harnesses', label: 'prompt caching' },
+  { slug: 'uuidv7-postgres-comparison', label: 'UUIDv7' },
+  { slug: 'happycontext-wide-logging-golang', label: 'wide logging' },
+  { slug: '2025-feb-text-chunking-rag-systems', label: 'text chunking' },
+  { slug: 'recreating-planetscale-pg-strict-in-rust', label: 'pg_strict' },
+  { slug: '2025-jan-kafka-docker-kraft-mode', label: 'Kafka' },
+]
+
+/** Six post drawings in a grid, edge to edge. Each one follows the pointer. */
+export function SceneWall() {
+  return (
+    <figure className="scene-band scene-wall not-typography">
+      <div className="scene-wall-grid">
+        {wall.map((item) => {
+          const scene = sceneOf(item.slug)
+          return scene ? (
+            <div key={item.slug} className="scene-wall-cell">
+              <SceneArt scene={scene} />
+              <span className="hand">{item.label}</span>
+            </div>
+          ) : null
+        })}
+      </div>
+      <figcaption className="fig-caption">
+        Six posts, six drawings. Move the pointer across one.
+      </figcaption>
+    </figure>
+  )
+}
+
+const footers: Array<FooterKind> = ['ridges', 'contours']
+
+/** Two of the three site footers, at full width. */
+export function FooterBand() {
+  return (
+    <figure className="scene-band not-typography">
+      {footers.map((kind) => (
+        <FooterArt key={kind} kind={kind} />
+      ))}
+      <figcaption className="fig-caption">
+        Two of the three site footers: ridges and contours.
+      </figcaption>
+    </figure>
   )
 }

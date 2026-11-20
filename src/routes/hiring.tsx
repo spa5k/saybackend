@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { PageHero } from '@/components/paper/PageHero'
+import { meet } from '@/components/paper/scenes'
 
 import { PAGE_META, SITE, breadcrumb, seo } from '@/lib/site'
 
@@ -13,7 +14,7 @@ export const Route = createFileRoute('/hiring')({
         '@graph': [
           {
             '@type': 'WebPage',
-            name: 'Hire Kamran Tahir',
+            name: 'Work with Kamran Tahir',
             description: PAGE_META.hiring.description,
             url: `${SITE.origin}/hiring/`,
             isPartOf: {
@@ -28,7 +29,7 @@ export const Route = createFileRoute('/hiring')({
             name: 'Kamran Tahir',
             jobTitle: 'Senior Software Engineer',
             description:
-              'Senior Software Engineer, currently Member of Technical Staff at Trelium and happy to discuss scalable systems and architectural challenges.',
+              'Senior Software Engineer, happy to discuss scalable systems and architectural challenges.',
             image: `${SITE.origin}/images/pfp.png`,
             url: `${SITE.origin}/hiring/`,
             email: SITE.email,
@@ -52,7 +53,7 @@ export const Route = createFileRoute('/hiring')({
           },
           breadcrumb([
             { name: 'Home', path: '/' },
-            { name: 'Hire Me', path: '/hiring/' },
+            { name: 'Work with me', path: '/hiring/' },
           ]),
         ],
       },
@@ -60,18 +61,23 @@ export const Route = createFileRoute('/hiring')({
   component: Hiring,
 })
 
-const roleFocus = [
-  'Senior Software Engineer',
-  'Backend Engineer',
-  'Full-Stack Engineer',
-  'Frontend Engineer',
-]
-
-const strengths = [
-  'AWS architecture and serverless systems',
-  'Distributed APIs and microservices',
-  'Data pipelines and event-driven workflows',
-  'Modern frontend and product collaboration',
+const areas = [
+  {
+    text: 'Distributed APIs and microservices',
+    tag: 'backend',
+    mark: 'var(--m-lilac)',
+  },
+  {
+    text: 'Data pipelines and event-driven workflows',
+    tag: 'data',
+    mark: 'var(--m-blue)',
+  },
+  { text: 'AI agent platforms', tag: 'agents', mark: 'var(--m-amber)' },
+  {
+    text: 'Modern frontend with product teams',
+    tag: 'web',
+    mark: 'var(--m-sage)',
+  },
 ]
 
 function Hiring() {
@@ -79,65 +85,44 @@ function Hiring() {
     <>
       <PageHero
         motif={{ name: 'layers' }}
-        eyebrow="Currently at Trelium"
+        scene={meet}
+        eyebrow="Work with me"
         title="Let’s build reliable products together."
         meta={
           <>
-            I’m currently Member of Technical Staff at Trelium, building AI
-            agent platform workflows. I’m always happy to discuss scalable
-            systems and architectural challenges.
+            I am glad to talk about scalable systems and hard architecture
+            problems.
           </>
         }
       />
-      <section className="page-frame hiring-page">
-        <div className="hiring-profile">
-          <img
-            src="/images/pfp.png"
-            alt="Kamran Tahir"
-            width={1024}
-            height={1536}
-            decoding="async"
-          />
-          <div>
-            <h2>Senior engineer, product-minded delivery.</h2>
-            <p>
-              I build reliable systems across product and platform layers, with
-              strong experience in AWS architectures, distributed services,
-              data-heavy workflows, and pragmatic delivery.
-            </p>
-            <div className="profile-actions">
-              <a href={`mailto:${SITE.email}`}>Hiring? Email me</a>
-              <a
-                href="https://cal.com/kamrantahir"
-                target="_blank"
-                rel="noopener"
-              >
-                Book intro call
-              </a>
-              <a href="https://kamran.sh/" target="_blank" rel="noopener">
-                View resume
-              </a>
-              <Link to="/projects/">Projects</Link>
-            </div>
-          </div>
+      <section className="page-frame me-page">
+        <p className="eyebrow">Where I can help</p>
+        <ul className="me-rows">
+          {areas.map((area, index) => (
+            <li key={area.text} style={{ animationDelay: `${index * 90}ms` }}>
+              <span className="mark-square" style={{ background: area.mark }} />
+              {area.text}
+              <small>{area.tag}</small>
+            </li>
+          ))}
+        </ul>
+
+        <div className="me-contact">
+          <a href={`mailto:${SITE.email}`}>{SITE.email}</a>
+          <svg aria-hidden="true" viewBox="0 0 70 30">
+            <path d="M66 22C44 26 22 20 6 10" />
+            <path d="M16 6L5 9l5 11" />
+          </svg>
+          <span className="hand">the fastest way</span>
         </div>
-        <div className="hiring-columns">
-          <section>
-            <p className="eyebrow">Role focus</p>
-            <ul>
-              {roleFocus.map((role) => (
-                <li key={role}>{role}</li>
-              ))}
-            </ul>
-          </section>
-          <section>
-            <p className="eyebrow">Technical scope</p>
-            <ul>
-              {strengths.map((strength) => (
-                <li key={strength}>{strength}</li>
-              ))}
-            </ul>
-          </section>
+        <div className="me-links">
+          <a href="https://cal.com/kamrantahir" target="_blank" rel="noopener">
+            Book a call
+          </a>
+          <a href="https://kamran.sh/" target="_blank" rel="noopener">
+            Resume
+          </a>
+          <Link to="/projects/">Projects</Link>
         </div>
       </section>
     </>

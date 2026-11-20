@@ -41,6 +41,8 @@ Read these before you write. They are the single source of truth for values.
 | Figure frame, mark colours, pen note | `src/components/paper/Figure.tsx` |
 | Hero and tile drawings | `src/components/paper/Motifs.tsx` |
 | Which drawing a post gets | `src/lib/heroes.ts` |
+| Moving line drawing of a post or page (hero and footer) | `src/components/paper/scenes.ts`, drawn by `SceneArt.tsx` |
+| Site footer drawings | `src/components/paper/FooterArt.tsx` |
 | Which colour a post gets, from its tags | `src/lib/marks.ts` |
 | Header and footer | `src/components/SiteShell.tsx` |
 | Home page parts | `src/components/paper/HomeParts.tsx` |
@@ -60,6 +62,10 @@ lead-ins, Caveat for pen, JetBrains Mono for code.
    needs four entries: `Motif`, `MiniMotif`, `PAPER_OF`, and `TILE_VIEW` in
    `HomeParts.tsx`. Done when the hero, the home tile and the list row all show
    it.
+   Then add a scene for the post's slug in `scenes.ts`. A scene is a function
+   `(time, pointer) => Array<Shape>` in a 1000 x 200 box: lines only, no text,
+   the same number of shapes on each call, and the pointer moves the one thing
+   the post is about. It shows in the post hero and the post footer.
 3. **Figures.** Follow [FIGURES.md](FIGURES.md). Done when every number the
    post argues from has a figure or a `NumberBand`, and no Mermaid, ASCII
    diagram or plain comparison table is left.
