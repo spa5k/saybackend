@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>template-og</title>
+<link rel="stylesheet" href="card.css">
+<!-- Copy this file for a new share card. Change the title, the drawing in
+     .art, the topic and its colour. Keep the paper, brand and signature. -->
+<svg width="0" height="0" style="position:absolute"><defs>
+<filter id="marker" x="-6%" y="-6%" width="112%" height="112%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="3" result="g"/><feColorMatrix in="g" type="luminanceToAlpha" result="a"/><feComposite in="SourceGraphic" in2="a" operator="arithmetic" k1="0" k2="1" k3="-.15" k4="0" result="i"/><feTurbulence type="fractalNoise" baseFrequency=".1" numOctaves="2" seed="8" result="w"/><feDisplacementMap in="i" in2="w" scale="2.8" xChannelSelector="R" yChannelSelector="G"/></filter>
+<pattern id="plus" width="44" height="44" patternUnits="userSpaceOnUse"><path d="M22 18v8M18 22h8" stroke="#141413" stroke-opacity=".13" fill="none"/></pattern>
+<marker id="pa" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1L9 5L1 9" fill="none" stroke="#141413" stroke-width="1.6" stroke-linecap="round"/></marker>
+</defs></svg>
+<svg class="paper" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="url(#plus)"/></svg>
+<div class="brand"><svg viewBox="0 0 20 20"><rect x="2" y="2" width="16" height="16" fill="#93b2f2" filter="url(#marker)"/></svg>SayBackend</div>
+<h1><span><b>subject:</b><span><span class="circled">77×<svg viewBox="0 0 200 100" preserveAspectRatio="none"><path d="M12 56C6 26 44 7 104 8C162 9 196 26 193 54C190 82 148 95 94 93C42 91 9 78 9 50C9 32 24 17 52 11"/></svg></span> one short claim</span></span></h1>
+<svg class="art" viewBox="0 0 480 400">
+<rect class="m" x="120" y="56" width="84" height="250" fill="#c8c4b2"/><rect class="m" x="236" y="303" width="84" height="4" fill="#93b2f2"/><path class="line" d="M90 308H360"/><text x="162" y="42" text-anchor="middle" font-size="24">237 ns</text><text x="278" y="290" text-anchor="middle" font-size="24">3.07 ns</text><text x="162" y="336" text-anchor="middle" class="dim">before</text><text x="278" y="336" text-anchor="middle" class="dim">after</text><text x="330" y="220" class="hand" transform="rotate(-4 330 220)">one pen note</text><path class="pen" d="M338 232C326 254 316 274 306 296" marker-end="url(#pa)"/>
+</svg>
+<div class="topic"><svg viewBox="0 0 20 20"><rect x="2" y="2" width="16" height="16" fill="#93b2f2" filter="url(#marker)"/></svg>Topic</div>
+<div class="sign">— Kamran</div>

@@ -90,7 +90,7 @@ h1.long {
 }
 .circled path {
   fill: none;
-  stroke: #3353c4;
+  stroke: #141413;
   stroke-linecap: round;
   stroke-width: 3.5;
   vector-effect: non-scaling-stroke;
@@ -113,7 +113,7 @@ h1.long {
   position: absolute;
   right: 72px;
   bottom: 50px;
-  color: #3353c4;
+  color: #141413;
   font: 500 48px/1 Hand;
   transform: rotate(-3deg);
 }
@@ -137,14 +137,14 @@ h1.long {
   font-family: Mono;
 }
 .art .hand {
-  fill: #3353c4;
+  fill: #141413;
   font-family: Hand;
   font-size: 36px;
   font-weight: 500;
 }
 .art .pen {
   fill: none;
-  stroke: #3353c4;
+  stroke: #141413;
   stroke-linecap: round;
   stroke-width: 2.6;
 }
