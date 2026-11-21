@@ -28,3 +28,6 @@ interface Window {
     showImages?: boolean
   }) => unknown
 }
+
+/** The UTC day of the build, as YYYY-MM-DD. Set in vite.config.ts. */
+declare const __BUILD_DATE__: string

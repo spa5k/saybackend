@@ -22,6 +22,7 @@ import { sceneOf } from '@/components/paper/scenes'
 import { heroOf } from '@/lib/heroes'
 import { markOf } from '@/lib/marks'
 import CodeWindow from '@/components/mdx/CodeWindow'
+import PostLink from '@/components/mdx/PostLink'
 import ResponsiveTable from '@/components/mdx/ResponsiveTable'
 import { SITE, breadcrumb, seo, toIsoDateTime } from '@/lib/site'
 
@@ -178,7 +179,13 @@ function PostPage() {
       ) : null}
       <div className="post-body" data-pagefind-body>
         <Suspense fallback={null}>
-          <Content components={{ pre: CodeWindow, table: ResponsiveTable }} />
+          <Content
+            components={{
+              a: PostLink,
+              pre: CodeWindow,
+              table: ResponsiveTable,
+            }}
+          />
         </Suspense>
         <footer className="post-end not-typography" data-pagefind-ignore="">
           <div className="post-tags">

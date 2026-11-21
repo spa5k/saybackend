@@ -1,0 +1,278 @@
+---
+title: "TanStack Start Server Functions: What Goes Over the Wire"
+seoTitle: "TanStack Start Server Functions: Requests, Errors and Security"
+description: "A createServerFn call is a public HTTP endpoint. The URL, the body, the error envelope, the middleware order, a forged context and an XSS fix, captured with curl on TanStack Start 1.169."
+date: "2027-01-08"
+ogImage: "/images/2027-tanstack-start-server-functions-og.png"
+slug: "tanstack-start-server-functions-wire"
+tags:
+  - "tanstack-start"
+  - "security"
+  - "backend"
+---
+
+import { NumberBand } from "@/components/paper/NumberBand";
+import { RankBars } from "@/components/paper/RankBars";
+import {
+  CompileSplit,
+  ContextMerge,
+  ServerFnRequestPath,
+} from "@/components/react/blog/tanstack/TanStackFigures";
+
+A server function in TanStack Start looks like a local async call, and the code review usually treats it like one. It is an HTTP endpoint that anyone who can reach your server can call, with any body they like. This post is for the engineer who has to review and secure an app built on `createServerFn`: what the compiler generates, what the request and the response contain, and what a caller without your client can send.
+
+Everything here was captured on `@tanstack/react-start` 1.169.7, `@tanstack/react-router` 1.170.46, Vite 8.3.8, React 19.3.1 and zod 4.6.7, served by srvx 1.0.8 on Node 25.9.0 with `NODE_ENV=production`. 1.169 is the first stable release of Start, announced on 13 October 2026. The [previous post in this series](/blog/self-host-tanstack-start-docker/) puts the same kind of app in a container.
+
+## The test app
+
+One file holds the functions. Two of them are enough to show the shape:
+
+```ts
+// src/fns.ts
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+
+const User = z.object({ name: z.string().max(40), age: z.number().int().min(0) });
+
+export const saveUser = createServerFn({ method: "POST" })
+  .validator(User)
+  .handler(async ({ data }) => ({ saved: data.name, nextAge: data.age + 1 }));
+
+export const saveUserUnchecked = createServerFn({ method: "POST" })
+  .handler(async ({ data }: { data: { name: string; age: number } }) => ({
+    saved: data.name,
+    nextAge: data.age + 1,
+  }));
+```
+
+The stable release removed `.inputValidator()`. The method is now `.validator()` and takes the same argument, on server functions and on middleware.
+
+## What the compiler does with that file
+
+The Vite plugin compiles the file twice. The server build keeps the handler and the validator and wraps them in `createServerRpc({ id, name: "saveUser", filename: "src/fns.ts" }, ...)`. The client build keeps the builder chain, deletes the `.validator()` call and replaces the handler with a stub. This is the whole client side of `saveUser`, from the production bundle:
+
+```js
+var x = m({ method: `POST` }).handler(
+  i(`4579f64c19eafab69604b51bd13f99a1677295504ee97af4c52480764e88e073`),
+);
+```
+
+`i` is `createClientRpc`. It builds the URL `/_serverFn/<id>` and calls a shared fetcher. zod is not in the client bundle at all, and a middleware keeps only its `.client()` part there. Twenty extra functions added 98 bytes each to the client JavaScript, or 45 bytes after gzip, so the stubs cost almost nothing.
+
+<CompileSplit />
+
+The id is not random. In a production build it is the SHA-256 of `<file path relative to the project root>--<variable name>_createServerFn_handler`:
+
+```sh
+$ printf '%s' 'src/fns.ts--saveUser_createServerFn_handler' | shasum -a 256
+4579f64c19eafab69604b51bd13f99a1677295504ee97af4c52480764e88e073  -
+```
+
+Two builds of the same source gave the same nine ids. Renaming one variable changed its id, and an id the server does not know answers `500` with `Server function info not found for <id>`. So the id is stable across deploys until someone renames or moves a function, and a browser tab that still runs the old bundle breaks on that function. It is also not a secret: anyone can read every id from your JavaScript, or compute it from a file name. In development the id is base64url JSON with the module path in it.
+
+## The request
+
+The method rules are simple. `GET` is the default, its payload goes into a `payload` query parameter, and a `GET` function cannot take `FormData`. `POST` sends a JSON body, or the `FormData` as it is. A request with the wrong method gets `405` with an `Allow` header before the body is read.
+
+This is the browser's request for `saveUser({ data: { name: "Ada", age: 36 } })`:
+
+```http
+POST /_serverFn/4579f64c19eafab69604b51bd13f99a1677295504ee97af4c52480764e88e073
+content-type: application/json
+accept: application/x-tss-framed, application/x-ndjson, application/json
+x-tsr-serverfn: true
+origin: http://localhost:3917
+sec-fetch-site: same-origin
+
+{"t":{"t":10,"i":0,"p":{"k":["data"],"v":[{"t":10,"i":1,"p":{"k":["name","age"],"v":[{"t":1,"s":"Ada"},{"t":0,"s":36}]},"o":0}]},"o":0},"f":127,"m":[]}
+```
+
+The body is not your JSON. It is the output of seroval 1.8.2, the serializer Start uses in both directions: every value is a node with a type tag `t` (10 for an object, 1 for a string, 0 for a number), and objects list their keys and values separately. That format is why a `Date` and a `Set` survive the trip. A `GET` function that returned `{ id, at: new Date(0), tags: new Set(["a", "b"]) }` came back with `{"t":5,...,"s":"1970-01-01T00:00:00.000Z"}` and `{"t":7,...}`, and the client rebuilt both types. Plain JSON in the body does not work: `{"data":{"name":"Ada","age":36}}` got `500` with `Seroval Error (step: 3)`.
+
+A `FormData` upload goes out as ordinary `multipart/form-data` with the file part, and the server function receives a real `FormData`. A result with a `ReadableStream` in it uses a separate framed response type, `application/x-tss-framed; v=1`.
+
+## The response envelope
+
+A successful call returns the result under a `result` key, in the same format:
+
+```http
+HTTP/1.1 200
+content-type: application/json
+x-tss-serialized: true
+
+{"t":10,"i":0,"p":{"k":["result"],"v":[{"t":10,"i":1,"p":{"k":["saved","nextAge"],"v":[{"t":1,"s":"Ada"},{"t":0,"s":37}]},"o":0}]},"o":0}
+```
+
+There are no cache headers. A `GET` function is cacheable by URL only if you set `Cache-Control` yourself with `setResponseHeaders`, and a proxy does exactly what that header says, so a `public` response that depends on the session cookie goes to the next user. Static server functions, an experimental mode turned on with `staticFunctionMiddleware`, are the other way to cache: the function runs during prerendering, and the client then fetches its result as a static JSON file from the build output.
+
+The envelope costs bytes. I returned the same object from a `GET` server function and from a server route that calls `Response.json`, then 100 copies of it:
+
+<RankBars
+  title="Server-function response size relative to plain JSON"
+  unit="ratio"
+  rows={[
+    { label: "1 object, raw", value: 2.7, mark: "lilac", sub: "302 B against 112 B" },
+    { label: "1 object, gzip", value: 1.45, sub: "190 B against 131 B" },
+    { label: "100 rows, raw", value: 1.8, mark: "lilac", sub: "20,313 B against 11,291 B" },
+    { label: "100 rows, gzip", value: 1.89, sub: "789 B against 418 B" },
+  ]}
+  caption="Same data from a GET server function and from a server route with Response.json. Neither response is compressed by the server; the gzip rows are gzip -9 of the body."
+/>
+
+## Errors, redirects and notFound
+
+A function that throws `new Error("connect ECONNREFUSED 10.0.3.7:5432 (user=billing)")` sends this in production:
+
+```http
+HTTP/1.1 200
+content-type: application/json
+x-tss-serialized: true
+
+{"t":10,"i":0,"p":{"k":["error"],"v":[{"t":25,"i":1,"s":{"message":{"t":1,"s":"connect ECONNREFUSED 10.0.3.7:5432 (user=billing)"}},"c":"$TSR/Error"}]},"o":0}
+```
+
+Three things in that response matter to an operator. The message goes to the caller word for word, with the internal address and the database user. The stack trace does not. The status is `200`, so a dashboard that counts `5xx` sees nothing, and the server printed nothing either. Only failures outside the handler, such as a bad payload or an unknown id, got a `500` and a line in the server log.
+
+`throw notFound()` also answers `200`, with `{"isNotFound":true}` under the `error` key. `throw redirect({ to: "/login" })` depends on the caller. With `x-tsr-serverfn: true` the response is `200` with a JSON body that the client turns into a navigation:
+
+```json
+{"to":"/login","search":{"next":"/billing"},"statusCode":307,"href":"/login?next=%2Fbilling","isSerializedRedirect":true}
+```
+
+Without that header, as for a plain form post or a link, the same request gets a real `307` with `location: /login?next=%2Fbilling`.
+
+## Middleware, validator, handler
+
+I logged one line from each layer and called a function with one middleware and a validator. The server ran them in this order:
+
+```text
+1 request middleware (global)
+2 function middleware (global)
+3 function middleware (.middleware([auth]))
+4 validator
+5 handler
+```
+
+On the client, the `.client()` parts of the global and the function middleware run first, in the same order, and the last one sends the request. The validator runs only on the server, because the compiler deleted it from the client. Without a validator, `data` is whatever the request decoded to, and the TypeScript type on the handler is only a claim.
+
+<ServerFnRequestPath />
+
+## Calling it without the client
+
+The server needs none of the client's headers except for the CSRF check. Since my app defines `src/start.ts`, I added the middleware there. Start installs it on its own only when that file does not exist:
+
+```ts
+// src/start.ts
+import { createCsrfMiddleware, createStart } from "@tanstack/react-start";
+
+const csrf = createCsrfMiddleware({ filter: (ctx) => ctx.handlerType === "serverFn" });
+
+export const startInstance = createStart(() => ({ requestMiddleware: [csrf] }));
+```
+
+A request with no `Sec-Fetch-Site`, `Origin` or `Referer` got `403 Forbidden`, and so did `Origin: https://evil.example` and `Sec-Fetch-Site: cross-site`. One extra header from curl was enough to get through:
+
+```sh
+curl -i -X POST http://localhost:3917/_serverFn/4579f64c19eafab69604b51bd13f99a1677295504ee97af4c52480764e88e073 \
+  -H 'content-type: application/json' \
+  -H 'origin: http://localhost:3917' \
+  -d '{"t":{"t":10,"i":0,"p":{"k":["data"],"v":[{"t":10,"i":1,"p":{"k":["name","age"],"v":[{"t":1,"s":"Ada"},{"t":0,"s":"36"}]},"o":0}]},"o":0},"f":127,"m":[]}'
+```
+
+That body sends the age as the string `"36"`. `saveUser` rejected it with `200` and the zod issues as the error message, `Invalid input: expected number, received string`. `saveUserUnchecked` accepted it and returned `nextAge: "361"`, because `"36" + 1` is string concatenation.
+
+The CSRF check stops a browser on another site. It does nothing against a script, and without `src/start.ts` set up correctly the only sign of a missing check is a warning in development.
+
+## A forged middleware context
+
+Client middleware can send data to the server with `next({ sendContext })`, and it arrives on the server as `context`. The server merges the client context first and the server context after it, so a key that server middleware sets always wins. A key that it does not set comes from the client. This is the bug I wrote on purpose:
+
+```ts
+const auth = createMiddleware({ type: "function" }).server(({ next }) => {
+  const session = readSession(getRequestHeader("cookie"));
+  if (session) return next({ context: { user: session.user } });
+  return next();
+});
+```
+
+With no cookie, a `GET` with `context: { user: { name: "mallory", role: "admin" } }` in its payload got the admin report, decoded here from the envelope:
+
+```json
+{"report":"revenue 2026","for":"mallory"}
+```
+
+With Alice's cookie the server set `user` and the same request got `forbidden`. The fix is to always set the key: `next({ context: { user: session?.user ?? null } })`. That version rejected the forged request without a cookie. The `FormData` path has the same door, a `__TSS_CONTEXT` form field that the server parses as context.
+
+<ContextMerge />
+
+## Oversized bodies
+
+Start puts no size limit on a `POST` body. A 100 MB JSON body with a 100 MB `name` was read and decoded in full before zod rejected it for being longer than 40 characters. The request took 0.21 s and the server's resident memory went from 84 MB to 495 MB in one run. `GET` payloads have a 1 MB check in Start, but Node's 16 KB header limit comes first: a 20 KB query string got `431 Request Header Fields Too Large`. Put the body limit in the proxy in front of the app.
+
+## Overhead against a server route
+
+I compared a `GET` server function with a server route that returns the same data with `Response.json`, using autocannon 9.0.0 with 50 connections for 10 seconds per run, and the median of three runs. The server was srvx's `serve()` without request logging.
+
+<RankBars
+  bleed
+  title="Throughput, server function against server route"
+  unit="requests per second"
+  rows={[
+    { label: "server route, 1 object", value: 49645 },
+    { label: "server function, 1 object", value: 45296, mark: "lilac", note: "9% fewer" },
+    { label: "server route, 100 rows", value: 30868 },
+    { label: "server function, 100 rows", value: 12066, mark: "rose" },
+  ]}
+  caption="Median of three runs. Mean latency was 0.39 against 0.58 ms for one object and 1.12 against 3.49 ms for 100 rows."
+/>
+
+<NumberBand value="2.6×" note="same data, same server">
+  fewer requests per second for a 100-row result from a server function than from a server route: 12,066 against 30,868.
+</NumberBand>
+
+For a small object the envelope is close to free. The cost grows with the size of the result, because seroval walks every value to tag its type. For a large list that a non-JavaScript client also needs, a server route with plain JSON is the cheaper endpoint.
+
+## The XSS fix in 1.168.60
+
+[GHSA-qx66-fv34-fjm8](https://github.com/TanStack/router/security/advisories/GHSA-qx66-fv34-fjm8), CVE-2026-102989, is an unauthenticated reflected XSS with a CVSS score of 9.3. A crafted link to a server function could make the app return attacker-controlled HTML from its own origin. It affects `@tanstack/react-start` from 1.143.12 up to 1.168.60, where it is fixed, and the matching `@tanstack/start-server-core` 1.169.39. Version 1.168.61 is the last release that accepts Vite 7; 1.169.0 requires Vite 8.
+
+The fixing commit, [d521abd](https://github.com/TanStack/router/commit/d521abd71c69f1ff010bb3def4d417cb5fa058cb), shows three holes that lined up. The server spread the whole decoded payload into the middleware state:
+
+```diff
+-              ...opts,
++              data: opts.data,
++              method: opts.method ?? resolvedOptions.method,
+```
+
+so a caller could put a `result` or `error` key in the payload. When the `x-tsr-serverfn` header was missing, as for a link opened in a browser, the handler returned that unwrapped value to the request handler as it was. And `isSsrResponse` accepted any object with `response` and `serverSsrCleanup` keys. After the fix, only `data`, `context` and `method` pass from the payload, a value without the header is returned raw only if it is a `Response` or a primitive, and anything that is not a real `Response` becomes `500 Internal Server Error`.
+
+## Review checklist
+
+- **Validation.** Every client-reachable function has `.validator()`. Without it, `"36"` became `"361"`. The validator runs on the server only.
+- **Authentication in middleware.** Read the session from the cookie in server middleware, and set every context key it owns on every request, also to `null`. A key it skips can come from the client.
+- **CSRF.** If `src/start.ts` exists, `createCsrfMiddleware` is in `requestMiddleware`. It stops other sites, not curl.
+- **Method choice.** `GET` for reads only: its payload is in the URL and in every access log. Anything that changes state is `POST`, which gets a `405` for the wrong method.
+- **Caching.** A `GET` function sends no `Cache-Control`. Set `private` or `no-store` for anything that depends on the user.
+- **Error leakage.** Error messages reach the caller verbatim in production. Catch database and network errors and throw a short message of your own.
+- **Rate limits and body size.** Start has no `POST` body limit and no rate limit. Set both in the proxy for `/_serverFn/*`.
+- **Logging.** A thrown error is HTTP `200` and is not logged. Log in a global function middleware around `next()`, because access logs and `5xx` alerts will not show it.
+- **Deploys.** Renaming a function or its file changes its id. Old tabs get `500` for that function until they reload.
+- **Version.** `@tanstack/react-start` 1.168.60 or later, for CVE-2026-102989.
+
+## Sources
+
+- [TanStack Start: Server Functions](https://tanstack.com/start/latest/docs/framework/react/guide/server-functions)
+- [TanStack Start: Middleware](https://tanstack.com/start/latest/docs/framework/react/guide/middleware)
+- [TanStack Start: Static Server Functions](https://tanstack.com/start/latest/docs/framework/react/guide/static-server-functions)
+- [TanStack Start: Migrate from the Release Candidate](https://github.com/TanStack/router/blob/main/docs/start/framework/react/migrate-from-release-candidate.md)
+- [createServerFn.ts](https://github.com/TanStack/router/blob/main/packages/start-client-core/src/createServerFn.ts)
+- [serverFnFetcher.ts](https://github.com/TanStack/router/blob/main/packages/start-client-core/src/client-rpc/serverFnFetcher.ts)
+- [server-functions-handler.ts](https://github.com/TanStack/router/blob/main/packages/start-server-core/src/server-functions-handler.ts)
+- [createCsrfMiddleware.ts](https://github.com/TanStack/router/blob/main/packages/start-client-core/src/createCsrfMiddleware.ts)
+- [Function id generation in the Start compiler](https://github.com/TanStack/router/blob/main/packages/start-plugin-core/src/start-compiler/compiler.ts)
+- [GHSA-qx66-fv34-fjm8 / CVE-2026-102989](https://github.com/TanStack/router/security/advisories/GHSA-qx66-fv34-fjm8)
+- [Fix commit d521abd (#8573)](https://github.com/TanStack/router/commit/d521abd71c69f1ff010bb3def4d417cb5fa058cb)
+- [@tanstack/react-start on npm](https://www.npmjs.com/package/@tanstack/react-start)
+- [seroval](https://github.com/lxsmnsyc/seroval)
+- [autocannon](https://github.com/mcollina/autocannon)
+- [Node.js: --max-http-header-size](https://nodejs.org/api/cli.html#--max-http-header-sizesize)

@@ -1,0 +1,326 @@
+---
+title: "Solid 2.0 Start mode against TanStack Start on Solid: the same app, built twice"
+seoTitle: "Solid 2.0 Start Mode vs TanStack Start: Measured"
+description: "One small notes app built with Solid 2.0's Start mode and with TanStack Start on Solid 2.0, measured: install size, build time, client JS, req/s, streaming and types."
+date: "2026-12-18"
+ogImage: "/images/2027-solid-start-mode-vs-tanstack-og.png"
+slug: "solid-start-mode-vs-tanstack-start-solid"
+tags:
+  - "solidjs"
+  - "tanstack-start"
+  - "performance"
+---
+
+import { BeforeAfterBars } from "@/components/paper/BeforeAfterBars";
+import { NumberBand } from "@/components/paper/NumberBand";
+import { RankBars } from "@/components/paper/RankBars";
+import {
+  MutationRoundTrips,
+  NavigationPath,
+} from "@/components/react/blog/solid2/SolidFigures";
+
+I built one small app twice: once with the Start mode that ships in `@solidjs/vite-plugin` 3.0.1 for Solid 2.0, and once with TanStack Start on the same Solid 2.0.3. TanStack Start's `latest` tag on npm, 1.169.7, still runs on Solid 1.9: its router has the peer dependency `solid-js@^1.9.10`. Solid 2.0 support is on the `rc` tag. The newest release candidate, `2.0.0-rc.11`, did not build, so the TanStack side here is `@tanstack/solid-start@2.0.0-rc.10`. Both apps use Solid 2.0.3, Vite 8.3.8, TypeScript 7.0.2 and Node.js 26.13.1, the current LTS.
+
+[Part 3 of this series](/blog/solidstart-maintenance-what-to-use/) is the decision guide. This post is the measurement behind it.
+
+## The results
+
+| Measure | Solid Start mode | TanStack Start (rc.10) |
+| --- | --- | --- |
+| `node_modules` after `npm install` | 99.3 MB, 69 packages | 163.3 MB, 149 packages |
+| Cold build | 1.54 s | 0.96 s |
+| Warm build | 1.54 s | 0.96 s |
+| Client JS on `/notes`, brotli | 55.0 KB | 96.5 KB |
+| All client JS, brotli | 64.0 KB | 98.4 KB |
+| Server output | 148 KB + 54.2 MB of `node_modules` | 1.08 MB, self-contained |
+| Server start, idle memory | 84 ms, 77.8 MB | 60 ms, 68.3 MB |
+| SSR list page | 1,300 req/s, p50 33.2 ms, p99 101.9 ms | 1,224 req/s, p50 39.9 ms, p99 62.5 ms |
+| Prerendered page | 11,455 req/s, p50 3.8 ms, p99 13.2 ms | 4,101 req/s, p50 10.8 ms, p99 21.3 ms |
+| API route | 19,203 req/s, p50 2.3 ms, p99 8.8 ms | 32,018 req/s, p50 1.4 ms, p99 4.1 ms |
+| Streamed page, first byte / last byte | 3.1 ms / 206.9 ms | 3.7 ms / 206.7 ms |
+| App code, lines without blanks and comments | 171 | 154 |
+
+The machine is an Apple M4 with 10 cores. Builds ran natively. The servers ran in Docker (`node:26.13.1-bookworm-slim`, `linux/arm64`, 2 CPUs and 1 GB per server container), and the load came from [oha](https://github.com/hatoo/oha) 1.17 in a separate container with 4 CPUs on the same Docker network: 50 connections for 10 seconds, with a browser `User-Agent`. Each number is the median of 3 runs, 5 for builds and server starts, and 31 requests for the streamed page.
+
+## The app
+
+The app is a list of notes. Both versions have the same features:
+
+- four page routes: `/`, a `/notes` layout, the `/notes` list inside it, and `/notes/:id`
+- a list page with a loader, and a detail page with a route parameter
+- a form that adds a note through a server function, with an optimistic row
+- a detail page that streams: the note is in the shell, and the comments arrive 200 ms later
+- a JSON API route at `/api/notes`
+- `/` prerendered at build time
+
+The data layer is one in-memory module that both apps share, file for file. The comments call waits 200 ms to stand in for a slow query.
+
+## Client JavaScript
+
+<RankBars
+  bleed
+  title="Client JS loaded on the /notes page"
+  unit="KB, brotli"
+  rows={[
+    { label: "Solid Start mode", value: 55.0, mark: "lilac", note: "6 files" },
+    { label: "TanStack Start rc.10", value: 96.5, note: "11 files" },
+  ]}
+  caption="Script requests recorded in Chrome after the page settled, then compressed with brotli quality 11. Gzip: 60.7 KB and 107.0 KB. Raw: 160.9 KB and 300.9 KB."
+/>
+
+<NumberBand value="43%" note="same app, same Solid 2.0.3">
+  less client JavaScript on the list page with Start mode: 55.0 KB against 96.5 KB, brotli.
+</NumberBand>
+
+The difference is almost the same on every route: 54.5 KB against 95.8 KB on `/`, and 55.0 KB against 96.5 KB on `/notes/3`. Solid Router 2.0 is one 8.8 KB chunk before compression. In the TanStack build, two chunks that every route loads hold the router core (location building, history, scroll restoration, `beforeLoad` and loader handling) and the seroval serializer: 72 KB and 44 KB before compression. The chunk with the Solid 2.0 web runtime is 112 KB in the Solid build and 139 KB in the TanStack build.
+
+## Build time
+
+<RankBars
+  title="Production build, median of 5"
+  unit="seconds"
+  rows={[
+    { label: "Solid, cold", value: 1.54, mark: "lilac" },
+    { label: "Solid, warm", value: 1.54, mark: "lilac" },
+    { label: "TanStack, cold", value: 0.96 },
+    { label: "TanStack, warm", value: 0.96 },
+  ]}
+  caption="Cold: build output and the Vite and Nitro caches deleted before each run. Both builds include the prerender step."
+/>
+
+TanStack builds faster although it does more work: a client build, an SSR build, a Nitro build, and then a prerender pass that starts a Vite preview server and fetches `/` from it. The Solid build is a client build, an SSR build, and my prerender script. Cold and warm runs are within 0.01 s of each other in both. At this scale the gap is 0.6 s per build; it says nothing about a large app.
+
+That preview server needs a free port during `vite build`. With `preview: { port: 4610, strictPort: true }` in the Vite config and port 3000 already taken by another process, the build failed:
+
+```text
+error during build:
+Error: Failed to start the Vite preview server for prerendering
+  [cause]: Error: Port 3000 is already in use
+```
+
+Without `strictPort` it falls back to another port and works. Keep that in mind on a CI runner that runs several jobs at once.
+
+## Server: start, memory and throughput
+
+<RankBars
+  bleed
+  title="Requests per second, 50 connections"
+  unit="req/s"
+  rows={[
+    { label: "Solid, SSR /notes", value: 1300, mark: "lilac", sub: "runs: 868 to 2,607" },
+    { label: "TanStack, SSR /notes", value: 1224 },
+    { label: "Solid, prerendered /", value: 11455, mark: "lilac" },
+    { label: "TanStack, prerendered /", value: 4101, sub: "rendered on each request" },
+    { label: "Solid, /api/notes", value: 19203, mark: "lilac" },
+    { label: "TanStack, /api/notes", value: 32018 },
+  ]}
+  caption="oha 1.17, 10 s per run, median of 3 runs. p50 and p99 latency are in the table above."
+/>
+
+On the SSR list page the medians are close, 1,300 against 1,224 req/s. TanStack was the steadier of the two: its three runs stayed between 1,152 and 1,249 req/s, and its p99 was 62.5 ms against Solid's 101.9 ms. On the JSON route TanStack answered 67% more requests, 32,018 against 19,203 req/s. TanStack also started faster, 60 ms against 84 ms from `node` to the first answer, and idled lower, 68.3 MB against 77.8 MB of resident memory five seconds after the start (median of 5 starts). After the load runs, `docker stats` showed 92 MiB for TanStack and 142 MiB for Solid.
+
+The prerendered row needs an explanation. TanStack wrote `.output/public/index.html`, but the Nitro `node-server` output did not serve it. The build log shows Nitro generating `.output/public` before the prerender pass runs, and `index.html` is not in the asset list compiled into `.output/server/index.mjs`. Each request to `/` ran the full SSR again. The payload shows it: the match timestamp `u:` in the HTML changes on each request and does not match the file on disk. A CDN or a static host in front of `.output/public` would serve the file; the Node server alone does not.
+
+Solid's Start mode has no prerender option for SSR pages. Its emitted `dist/server/node.js` also serves exact file paths only, so `/` does not map to `index.html`. I wrote two small files: a script that renders `/` through the built handler, and a server that answers `/` from that file.
+
+```js
+// prerender.mjs, runs after vite build
+import { writeFile } from "node:fs/promises";
+import { handleRequest } from "./dist/server/server.js";
+
+const res = await handleRequest(new Request("http://localhost/"));
+await writeFile("dist/client/index.html", await res.text());
+```
+
+```js
+// serve.mjs
+import { createReadStream } from "node:fs";
+import { createServer } from "node:http";
+import { listener } from "./dist/server/node.js";
+
+createServer((req, res) => {
+  if (req.method === "GET" && req.url === "/") {
+    res.setHeader("content-type", "text/html; charset=utf-8");
+    return createReadStream("dist/client/index.html").pipe(res);
+  }
+  listener(req, res);
+}).listen(Number(process.env.PORT ?? 3000));
+```
+
+The server output sizes differ in kind. Nitro bundles every dependency into `.output/server`: 1.08 MB, and the container needs nothing else. Solid's `dist/server` is 148 KB, but it imports `solid-js`, `@solidjs/web` and `filesystem-routing` at run time. `npm ci --omit=dev` in the container installed 54.2 MB, because `filesystem-routing` 0.5.0 is a peer of `@solidjs/router` and lists `vite`, `oxc-parser` and `fast-glob` as dependencies. Rolldown alone is 19 MB of that.
+
+## Streaming and Suspense under Solid 2.0
+
+<BeforeAfterBars
+  title="First byte of the streamed /notes/3, by User-Agent"
+  unit="ms"
+  beforeLabel="curl/8.7.1"
+  afterLabel="Chrome 142"
+  data={[
+    { label: "Solid Start mode", before: 3.9, after: 3.1 },
+    { label: "TanStack Start", before: 206.8, after: 3.7 },
+  ]}
+  caption="Median of 31 sequential requests from a container on the same Docker network. The last byte came after 207 ms to 210 ms in all four cases."
+/>
+
+Both apps send the shell first and the comments 200 ms later, and both use Solid 2.0's `<Loading>` boundary. The code that feeds the boundary is different. In Start mode the component reads a `query()` through a memo, and the boundary holds while the promise is open:
+
+```tsx
+// solid-app/src/routes/notes/[id].tsx
+const note = createMemo(() => getNote(props.params.id));
+const comments = createMemo(() => getComments(props.params.id));
+// ...
+<Loading fallback={<p>Loading comments…</p>}>
+  <For each={comments()}>{(c) => <li>{c.text}</li>}</For>
+</Loading>
+```
+
+In TanStack the loader decides what streams. An awaited value is in the shell, a promise that the loader returns without `await` streams, and `<Await>` unwraps it:
+
+```tsx
+// tanstack-app/src/routes/notes.$id.tsx
+loader: async ({ params }) => ({
+  note: await getNote({ data: params.id }),
+  comments: getComments({ data: params.id }),
+}),
+// ...
+<Loading fallback={<p>Loading comments…</p>}>
+  <Await promise={data().comments}>
+    {(comments) => <For each={comments}>{(c) => <li>{c.text}</li>}</For>}
+  </Await>
+</Loading>
+```
+
+TanStack also changes the render for bots. `renderRouterToStream` calls `isbot()` on the `User-Agent` and, for a match, waits for the whole document. `curl` counts as a bot: with a `curl` agent the first byte of `/notes/3` came after 206.8 ms, and with a Chrome agent after 3.7 ms. Solid streams for every client unless middleware sets `event.renderMode = "async"`. Use a browser `User-Agent` when you load-test TanStack, or you measure a different code path.
+
+## Router and type inference
+
+Both routers type the path and the parameters from the files. Solid's `filesystem-routing` writes `file-routes.d.ts`; TanStack's plugin writes `routeTree.gen.ts`. I put the same two mistakes in each app: a wrong parameter name and a wrong field on the loaded note.
+
+Start mode, with `props.params.noteId` and `note()?.titel`:
+
+```text
+src/routes/notes/typo.tsx(7,41): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+src/routes/notes/typo.tsx(8,38): error TS2551: Property 'titel' does not exist on type 'Note'. Did you mean 'title'?
+```
+
+TanStack, with `params={{ noteId: '1' }}` on a `<Link>` and `data().note?.titel`:
+
+```text
+src/routes/typo.tsx(7,42): error TS2353: Object literal may only specify known properties, and 'noteId' does not exist in type 'ParamsReducerFn<RouterCore<Route<Register, any, "/", "/", string, "__root__", ...
+src/routes/typo.tsx(7,71): error TS2551: Property 'titel' does not exist on type 'Note'. Did you mean 'title'?
+```
+
+Both catch both mistakes. The difference is where. Solid's `RouteProps<'/notes/:id'>` accepts `params.noteId` and types it as `string | undefined`; the error appears only because `getNote` wants a `string`. TanStack rejects the unknown key at the link, and it types the parameters of every `<Link to>` in the app. Solid does the same for links through `paths`: `paths.note(...)` fails with `Property 'note' does not exist ... Did you mean 'notes'?`.
+
+## Server functions and the mutation
+
+Start mode compiles a `"use server"` directive inside any function. `query()` turns a read into a cached `GET` with a key, and `formAction()` binds a write to a `<form>`:
+
+```ts
+// solid-app/src/lib/notes.ts
+export const getNotes = query(async () => {
+  "use server";
+  return listNotes();
+}, "notes");
+
+export const addNote = formAction(async (form: FormData) => {
+  "use server";
+  return insertNote(String(form.get("title") ?? ""));
+});
+```
+
+TanStack uses a builder with an explicit method and a validator:
+
+```ts
+// tanstack-app/src/lib/notes.ts
+export const addNote = createServerFn({ method: "POST" })
+  .validator((title: string) => title)
+  .handler(({ data }) => insertNote(data));
+```
+
+For the optimistic row both apps use Solid 2.0's `createOptimisticStore`. In Start mode the hook is on the action, and the router reconciles:
+
+```tsx
+const [notes, setNotes] = createOptimisticStore(() => getNotes(), []);
+addNote.onSubmit((form: FormData) => {
+  setNotes((list) => {
+    list.unshift({ id: "pending", title: String(form.get("title")), body: "" });
+  });
+});
+```
+
+In TanStack I wrote the action myself, and I had to refresh the loader by hand:
+
+```tsx
+const [notes, setNotes] = createOptimisticStore(() => data(), []);
+const add = action(function* (title: string) {
+  setNotes((list) => {
+    list.unshift({ id: "pending", title, body: "" });
+  });
+  yield addNote({ data: title });
+  void router.invalidate();
+});
+```
+
+My first version had `yield router.invalidate()`. The note was saved on the server, but the optimistic row stayed in the list with the link `/notes/pending`, and the page never showed the saved note. There was no error in the console. Starting the invalidation without waiting for it inside the action fixed it.
+
+The network trace shows the second design difference. In Start mode the mutation is one `POST /_server/data/addNote-…`, and its response carries the fresh list, because `server-config.ts` registers the router's single-flight collector. TanStack sends the `POST`, then a `GET` for the list loader.
+
+<MutationRoundTrips />
+
+## One navigation, request by request
+
+A client navigation from `/notes` to `/notes/3` has the same shape in both apps: one route chunk and two server function reads. In Start mode the route `preload` starts `getNote` and `getComments` together. In TanStack the loader awaits `getNote` first and starts `getComments` after it, because the comments are the deferred part.
+
+<NavigationPath />
+
+## Lines of code per feature
+
+| Feature | Solid Start mode | TanStack Start |
+| --- | --- | --- |
+| Document, router, home, layout | 55 | 47 |
+| List, form, optimistic row | 30 | 44 |
+| Detail with streaming | 28 | 32 |
+| Server functions | 18 | 12 |
+| API route | 7 | 5 |
+| Prerender | 15 | in `vite.config.ts` |
+| Vite and server config | 18 | 14 |
+| Total | 171 | 154 |
+
+The API route is short in both. Solid needs a `GET` export and one middleware line, `createAPIHandler(routes)`; TanStack puts `server.handlers.GET` on a file route. Solid's extra lines are the prerender files and the single-flight setup; TanStack's are the hand-written action.
+
+## Deployment targets
+
+Start mode builds one fetch handler, `dist/server/server.js`, with a `{ fetch }` default export for Workers, Bun, Deno and Netlify, plus `node.js` for Node.js when you set `start: { nodeServer: true }`. It ships no platform adapters. TanStack Start builds through Nitro here, so Nitro's presets apply, and the [self-hosting post](/blog/self-host-tanstack-start-docker/) covers the Docker image for it.
+
+## Maturity
+
+TanStack Start's first stable release, 1.169.0, was announced on 13 October 2026, and Solid 2.0.0 on 16 November 2026. The Solid 2.0 line of TanStack Start is still a release candidate. With `@tanstack/solid-start@2.0.0-rc.11` the SSR build failed:
+
+```text
+"./request-scope" is not exported under the conditions ["solid", "production", "wasm", "unwasm", "node", "import"] from package node_modules/@tanstack/start-server-core
+```
+
+The rc.11 code imports `@tanstack/start-server-core/request-scope`. In the repository at the rc.11 tag, `start-server-core` 1.169.45 exports that path. The `1.169.45` tarball on npm, which rc.11 pins, does not. rc.10 depends on 1.169.26 and builds. The install also warns about three packages that still want Solid 1: `@solid-devtools/logger@0.9.11` (`solid-js@^1.9.0`), `@solid-primitives/refs@1.1.4` and `@solidjs/meta@0.29.8`.
+
+Start mode has its own rough edges. `serverFunctions` is marked experimental in the plugin's README. Prerendering an SSR page is your own script. But it is the Solid team's stable 3.0 release on stable Solid 2.0.
+
+## When to pick which
+
+Pick Start mode when the bundle and the deploy shape matter most: 43% less client JS on every route of this app, one request per mutation, and a server that is a plain fetch handler. Accept that you write the prerender step, and ship `node_modules` with the server.
+
+Pick TanStack Start when you want TanStack Router's typed links and loaders, Nitro's hosting presets, a self-contained server bundle and built-in prerendering. On Solid 2.0 today that means a release candidate, pinned to a version that builds, and a CDN in front of `.output/public` if prerendered pages must skip SSR.
+
+## Sources
+
+- [@solidjs/vite-plugin 3.0.1 README: start mode, serverFunctions, nodeServer](https://github.com/solidjs/solid-vite-plugin)
+- [filesystem-routing 0.5.0: conventions and API routes](https://github.com/solidjs/filesystem-routing)
+- [@solidjs/router 2.0.1 README: query, formAction, optimistic UI](https://github.com/solidjs/solid-router)
+- [Solid 2 templates: fullstack and fullstack-tanstack](https://github.com/solidjs/templates/tree/main/solid-v2)
+- [TanStack Router repository at @tanstack/solid-start@2.0.0-rc.11](https://github.com/TanStack/router/tree/%40tanstack/solid-start%402.0.0-rc.11)
+- [TanStack Start: Static Prerendering (Solid)](https://tanstack.com/start/latest/docs/framework/solid/guide/static-prerendering)
+- [TanStack Start: Migrate from the Release Candidate (1.169, first stable)](https://tanstack.com/start/latest/docs/framework/react/migrate-from-release-candidate)
+- [solid-js on npm](https://www.npmjs.com/package/solid-js) and [@tanstack/solid-start on npm](https://www.npmjs.com/package/@tanstack/solid-start)
+- [oha, HTTP load generator](https://github.com/hatoo/oha)
+- [Node.js 26 release index](https://nodejs.org/dist/index.json)

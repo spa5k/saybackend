@@ -1,0 +1,239 @@
+---
+title: "How Code Mode Works in Claude Code"
+seoTitle: "Claude Code Code Mode: the REPL Tool, Limits and Measured Tokens"
+description: "Claude Code's experimental Code Mode runs Claude's JavaScript in a sealed VM inside the CLI. What the shipped bundle shows, where rules and hooks fire, and 12 requests cut to 3 on a ten-call MCP task."
+date: "2026-12-04"
+ogImage: "/images/2026-code-mode-claude-code-og.png"
+slug: "code-mode-claude-code"
+tags:
+  - "ai"
+  - "agents"
+  - "claude-code"
+---
+
+import { LineFigure } from "@/components/paper/LineFigure";
+import { NumberBand } from "@/components/paper/NumberBand";
+import { RankBars } from "@/components/paper/RankBars";
+import {
+  ClaudeCodeMode,
+  ClaudeCodeModeChecks,
+} from "@/components/react/blog/codemode/CodeModeFigures";
+
+Claude Code 2.1.323, released on November 12, 2026, added Code Mode. With it on, Claude does not ask for `Read`, `Bash` or an MCP tool one call at a time. It writes JavaScript, and Claude Code runs that script inside its own process. Every tool call the script makes still goes through the permission rules and hooks under the tool's usual name.
+
+The [first post in this series](/blog/code-mode-explained/) covers the idea. This one covers Claude Code's version: how to turn it on, what the shipped bundle shows about the runtime and its limits, and what it did on a ten-call MCP task. Everything here is on 2.1.329, the current `latest` release.
+
+## Turn it on
+
+Code Mode is experimental and off by default. One environment variable turns it on:
+
+```bash
+claude --version   # 2.1.323 or later
+CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1 claude
+```
+
+To keep it on, put the variable in the `env` block of `~/.claude/settings.json`. Claude Code ignores it in a project's settings files, so a cloned repository cannot switch it on. The value `0` in managed settings blocks it for an organization.
+
+The first start asks for confirmation. After **Yes, turn on Code Mode**, Claude Code restarts and prints this line:
+
+```text
+Code Mode (experimental) is on · this session can be resumed only with Code Mode on
+```
+
+The requirements are narrow. It needs the native build, an interactive terminal, a direct Claude API or subscription login, and Opus 5.5, Sonnet 5.5, Haiku 5.5 or Fable 5.2. Bedrock and the other cloud providers, gateways, a custom `ANTHROPIC_BASE_URL`, an API key helper and OpenTelemetry tracing all keep it off. The `stable` release channel is at 2.1.311, so it does not have Code Mode yet.
+
+Print mode is also out. `claude -p` with the variable set starts with the ordinary tools and writes this to stderr:
+
+```text
+Warning: Code Mode (experimental) isn't available: for now it only works in the interactive terminal. Starting with the ordinary tools.
+```
+
+I got the same refusal in a real terminal when the shell had inherited `CLAUDE_CODE_ENTRYPOINT` from another agent tool. Starting Claude Code from a clean environment fixed it.
+
+The feature changes fast. The changelog has 52 Code Mode entries in the five releases after 2.1.323.
+
+## One tool, called REPL
+
+Code Mode replaces direct tool calls with one tool. Its name in the bundle and in permission rules is `REPL`, and the terminal shows it as **Code**. The input schema has three fields:
+
+- `code`: "JavaScript code to execute. Supports top-level await. State persists across calls."
+- `description`: a 5 to 10 word summary.
+- `timeout`: "Optional limit on the script's own running time in milliseconds; time spent inside the tool calls it awaits is not counted (default 30000, max 600000)".
+
+The npm package `@anthropic-ai/claude-code` is now a wrapper around a 360 MB native binary, so I read the prompt text and the runtime with `strings`. The script does not run in a child process or a container. Claude Code transpiles it with `Bun.Transpiler` and runs it in a `vm` context in its own process. The context is created with string code generation and WebAssembly off, so `eval` and `new Function` do not work either. The tool prompt says it directly:
+
+> There is no `import`, `require` or `process`: the context is sealed, and the globals below are how it reaches the machine. The REPL language is always JavaScript, whatever the codebase is written in — run the codebase's own tools (pytest, cargo, go test, …) with `$`.
+
+The globals are the tool API. `$` is a template tag for shell commands, which become `Bash` calls. `edit()` and `write()` change files. `self.log()` adds a line to the output that Claude reads. `preview()` cuts a long value. `searchTools()`, `describeTool()` and `tools.list()` find tools, and `tools.mcp__server__tool(input)` calls one, MCP tools included. Variables stay in the context between scripts, but not across a restart or a resume.
+
+The bundle carries two versions of the paragraph that tells Claude what a call costs. One of them reads:
+
+> What a `REPL` call costs: each call is a full model round-trip — the whole conversation is re-read before your script runs, and you wait for the reply — while the work inside a script (shell commands, file reads, searches, tool calls) is comparatively free, and runs concurrently when you fan it out with `Promise.all`.
+
+<ClaudeCodeMode />
+
+## The limits in the bundle
+
+These constants sit next to the REPL runtime in 2.1.329:
+
+- A script that Claude waits for stops after 10 minutes (600,000 ms) of wall-clock time. In auto and `bypassPermissions` modes a script can move to the background, and there the limit is 2 hours (7,200,000 ms).
+- The script's own running time, without tool calls, defaults to 30 seconds and can be raised to 10 minutes with `timeout`.
+- After about 30 seconds a running script detaches and the next script starts beside it. The two share variables.
+- One script can make at most 50,000 tool calls. Call number 50,001 throws "this script has made 50,000 calls, its cap."
+- The transpiler puts a step counter into the code, and each script gets a budget of 300,000,000 steps.
+- Memory growth is stopped at a quarter of the machine's memory, with a floor of 1 GiB and a ceiling of 4 GiB. Before 2.1.329, a runaway loop in a script could fill the machine's memory.
+- A read of a line range over 256 MiB is refused.
+
+## What I measured
+
+I wrote a stdio MCP server in Node with 20 mock tools for a small shop: orders, customers, invoices, stock and so on. `get_order` returns about 1,250 characters of JSON with a `next_order_id`. The ten orders in the chain are not in id order, so the only way to the answer is to follow the chain one call at a time.
+
+The server goes in `mcp.json`:
+
+```json
+{ "mcpServers": { "mock": { "type": "stdio", "command": "node", "args": ["/abs/path/mock-mcp.mjs"] } } }
+```
+
+`settings.json` allows the server's tools and adds a `PreToolUse` hook that logs every call:
+
+```json
+{
+  "permissions": { "allow": ["mcp__mock"] },
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "node /abs/path/hook-log.mjs /abs/path/hook.log" }] }
+    ]
+  }
+}
+```
+
+```bash
+CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1 claude --model haiku --permission-mode default \
+  --setting-sources local --settings settings.json \
+  --mcp-config mcp.json --strict-mcp-config
+```
+
+Because Code Mode needs a terminal, I drove the session through tmux and read the token counts from the session transcript in `~/.claude/projects/`. The prompt was the same in every run:
+
+```text
+Use the tools of the "mock" MCP server. Start with order O-1. Each order has a next_order_id.
+Follow the chain until next_order_id is null, and reply with the sum of the total fields of
+every order in the chain. Reply with only the number.
+```
+
+All six runs answered 1603.75, which is correct. With Code Mode on, Haiku 5.5 first searched for the tool, for example with `searchTools("order", 20)`. In the first run it then wrote this script:
+
+```javascript
+const seen = [];
+let id = "O-1";
+const orders = {};
+while (id !== null && id !== undefined) {
+  if (seen.includes(id)) throw new Error("cycle at " + id);
+  const o = await tools.mcp__mock__get_order({ id });
+  orders[id] = o;
+  seen.push(id);
+  id = o.next_order_id;
+}
+self.log(JSON.stringify(orders, null, 2));
+```
+
+The ten calls ran inside one REPL call, and the hook log shows them 40 ms apart. With Code Mode off, Claude made one `ToolSearch` request and then one request per order.
+
+<NumberBand value="6.7×" note="12 requests → 3">
+  less input for the same ten dependent MCP calls: 73,125 tokens with Code Mode on, 492,147 with it off.
+</NumberBand>
+
+The cause is the re-reading. With Code Mode off, each of the 12 requests read the whole conversation again. In the median run that grew from 37,346 tokens at the first request to 45,190 at the last. With it on, there were three requests: find the tool, run the script, answer.
+
+<LineFigure
+  title="Input tokens read by the model, added up request by request (thousands)"
+  description="With Code Mode off the total grows to 492,147 tokens over 12 requests. With Code Mode on it reaches 73,125 tokens after 3 requests."
+  series={[
+    {
+      name: "Code Mode off",
+      mark: "rose",
+      endLabel: "492k",
+      points: [[1, 37.3], [2, 74.9], [3, 113.2], [4, 152.4], [5, 192.3], [6, 232.8], [7, 274.2], [8, 316.3], [9, 359.0], [10, 402.6], [11, 447.0], [12, 492.1]],
+    },
+    {
+      name: "Code Mode on",
+      mark: "lilac",
+      endLabel: "73k",
+      points: [[1, 21.1], [2, 43.6], [3, 73.1]],
+    },
+  ]}
+  xTicks={[1, 3, 6, 9, 12]}
+  yTicks={[0, 100, 200, 300, 400, 500]}
+  yFormat={(value) => `${value}k`}
+  xLabel="Model request"
+  notes={[{ x: 3, y: 73.1, text: "answer after\n3 requests", dx: 34, dy: -60 }]}
+  caption="The median run of three per setting, Haiku 5.5 on Claude Code 2.1.329. Input includes cache reads and cache writes."
+/>
+
+Two other numbers moved. The first request was smaller with Code Mode on, 21,091 tokens against 37,342, because one REPL tool replaces the definitions of the built-in tools. Output fell from 948 to 562 tokens at the median. Most of the input was cache reads in both settings, so the bill moves less than the token count: 478,275 cached tokens with the flag off, 59,700 with it on.
+
+Code Mode does not stop a model from printing too much. In two of the three runs, Haiku sent all ten full orders back into its context, about 7,000 tokens, where ten numbers were enough. In the third it logged only the id, total and next id of each order, and its last request grew by 736 tokens.
+
+I also ran a task with independent calls: list ten orders, fetch each, sum. That is one run per setting, so read it as a direction. With the flag off, Haiku asked for all ten `get_order` calls in one message, so both settings took four requests. Code Mode still read less, 96,373 input tokens against 158,074, because its prompt is smaller. The wall-clock time did not improve.
+
+<RankBars
+  title="Time from prompt to answer"
+  unit="seconds"
+  rows={[
+    { label: "Chain of 10, Code Mode off", value: 14.8, mark: "rose", sub: "12 requests" },
+    { label: "Chain of 10, Code Mode on", value: 5.5, mark: "lilac", sub: "3 requests" },
+    { label: "10 in parallel, Code Mode off", value: 6.7, sub: "4 requests, one run" },
+    { label: "10 in parallel, Code Mode on", value: 7.2, mark: "lilac", sub: "4 requests, one run" },
+  ]}
+  caption="Chain rows are the median of three runs, from the prompt to the last reply in the transcript. Haiku 5.5."
+/>
+
+Code Mode pays off when each call depends on the result of the one before. When the calls are independent, parallel tool calls already remove most of the round trips.
+
+## Permissions and hooks, per call
+
+The hook log of a Code Mode chain run had 12 entries: two for `REPL` and ten for `mcp__mock__get_order`, each with its own `{"id": ...}` input. The `searchTools` calls did not reach the hook. The `REPL` entry carries the whole script in `tool_input.code`, so a hook can inspect the code before it runs.
+
+For a deny rule that matches some calls and not others, I added `"deny": ["Bash(touch *)"]` and asked for one script that runs `echo one`, `touch denied.txt` and `echo two`. The hook saw all three commands. The middle one was refused and the script went on. The script's result for that command was:
+
+```text
+exitCode: 1
+error: 'Permission denied for Bash: Permission to use Bash with command touch denied.txt has been denied.'
+```
+
+The REPL result also listed it under "Tool calls that were refused while this script ran", and `denied.txt` was not created.
+
+A deny rule on a whole MCP tool works differently: the tool is removed. With `"deny": ["mcp__mock__get_customer"]`, Claude's script got this from `describeTool`:
+
+```text
+describeTool: no tool named mcp__mock__get_customer. searchTools('words') finds one.
+```
+
+With the flag off, the same rule made `ToolSearch` return "No matching deferred tools found." In both settings the tool does not exist for Claude.
+
+Three parts of the model are new:
+
+- **Auto mode** reviews each script once, before it runs, and not each tool call. The classifier cannot see values that the script computes, such as a path taken from search output. Rules and hooks still run per call.
+- **`ask: ["REPL"]`** asks for approval of every script before it starts.
+- **The sandbox** covers the shell commands a script runs. The JavaScript and its file, web and MCP calls run outside it, in the Claude Code process.
+
+Output checks moved too. A `PostToolUse` hook that matches `REPL` can rewrite what Claude reads through `updatedToolOutput`. Since 2.1.328, `UserPromptSubmit` hooks no longer receive script output. Since 2.1.329, a `PreToolUse` hook that errors no longer refuses a script's call; set `"onFailure": "block"` on a hook that must refuse.
+
+<ClaudeCodeModeChecks />
+
+## How it differs from programmatic tool calling
+
+The Claude API has a related feature, programmatic tool calling. There, Claude writes Python that runs in an Anthropic code execution container. Tools opt in with `allowed_callers`, and each call pauses the code until your application returns a `tool_result`. MCP connector tools cannot be called that way.
+
+Code Mode is the local counterpart. The language is JavaScript, the host is the Claude Code process, and every tool the session has is callable, MCP servers included. Your permission rules and hooks are the place to put checks, because Claude Code runs each call itself.
+
+## Sources
+
+- [Run tool calls from code with Code Mode (Claude Code docs)](https://code.claude.com/docs/en/code-mode)
+- [Claude Code changelog](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md)
+- [Environment variables (Claude Code docs)](https://code.claude.com/docs/en/env-vars)
+- [Permissions (Claude Code docs)](https://code.claude.com/docs/en/permissions)
+- [Hooks reference (Claude Code docs)](https://code.claude.com/docs/en/hooks)
+- [Sandboxing (Claude Code docs)](https://code.claude.com/docs/en/sandboxing)
+- [Programmatic tool calling (Claude API docs)](https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling)
+- [@anthropic-ai/claude-code on npm](https://www.npmjs.com/package/@anthropic-ai/claude-code)

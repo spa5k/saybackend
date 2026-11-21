@@ -1,0 +1,331 @@
+---
+title: "How This Blog Runs on TanStack Start and Cloudflare Workers"
+seoTitle: "TanStack Start on Cloudflare Workers: How This Blog Works"
+description: "The build behind this blog: MDX through Vite, every page prerendered by the Worker itself, Pagefind search with no server, and a daily rebuild that publishes posts by date."
+date: "2027-01-29"
+ogImage: "/images/2027-blog-on-tanstack-start-og.png"
+slug: "blog-on-tanstack-start-cloudflare-workers"
+tags:
+  - "tanstack-start"
+  - "cloudflare"
+  - "react"
+---
+
+import { BeforeAfterBars } from "@/components/paper/BeforeAfterBars";
+import { NumberBand } from "@/components/paper/NumberBand";
+import { RankBars } from "@/components/paper/RankBars";
+import { SegmentBar } from "@/components/paper/SegmentBar";
+import {
+  BlogRequestPath,
+  BuildPipeline,
+  StreamedBody,
+} from "@/components/react/blog/tanstack/TanStackFigures";
+
+This blog is a TanStack Start app with React and MDX. Every public page becomes an HTML file at build time, Cloudflare serves those files, and a small Worker answers the few requests that have no file. This post is how that works, what each step costs, and what broke on the way. The visual side is in [the redesign post](/blog/saybackend-redesign-paper-marker-pen/).
+
+The site ran on Astro from its first commit in December 2023, first on Vercel and from September 2025 as static assets on a Cloudflare Worker. On 29 July 2026 I moved it to TanStack Start, and on 30 July the Astro app was deleted.
+
+The numbers are for the versions in the lock file: TanStack Start 1.169.5 (1.169.7 is the latest), TanStack Router 1.170.46, React 19.3.1, Vite 8.3.8 with Rolldown 1.2.19, `@cloudflare/vite-plugin` 1.69.1 (latest 1.70.1), Wrangler 4.162.0 (latest 4.166.0) and Pagefind 1.6.0, on Node 25.9.0 and an Apple M4.
+
+## The whole pipeline
+
+<BuildPipeline />
+
+The core of the setup is two plugins in `vite.config.ts`. The Cloudflare plugin builds the server environment as a Worker, and TanStack Start renders pages through it:
+
+```ts
+plugins: [
+  cloudflare({ viteEnvironment: { name: 'ssr' } }),
+  // ... MDX, Tailwind, SVG and two small plugins of my own
+  tanstackStart({
+    pages: [
+      { path: '/404' },
+      { path: '/guides' },
+      { path: '/rss.xml' },
+      { path: '/llms.txt' },
+      { path: '/sitemap-index.xml' },
+      { path: '/sitemap-0.xml' },
+    ],
+    prerender: {
+      enabled: true,
+      crawlLinks: true,
+      autoStaticPathsDiscovery: true,
+      filter: ({ path }) => !path.endsWith('.md'),
+      failOnError: true,
+    },
+  }),
+  viteReact(),
+],
+```
+
+`wrangler.jsonc` points `main` at `src/worker.ts`, sets `nodejs_compat` and binds the custom domain. There is no `assets` block: the Cloudflare plugin writes `dist/server/wrangler.json` with `"assets": { "directory": "../client" }`, so the prerendered pages and the Worker deploy together.
+
+## How posts are loaded and filtered
+
+All posts come from `import.meta.glob` in `src/lib/content.tsx`. There are two globs over the same files. The first is eager and imports only the front matter; the second is lazy and imports the compiled MDX:
+
+```ts
+// one of the three glob patterns in the file
+const blogFrontmatter = import.meta.glob<Frontmatter>(
+  '../content/blog/20*/index.mdx',
+  { eager: true, import: 'default', query: '?frontmatter-only' },
+)
+const blogModules = import.meta.glob<ContentModule>(
+  '../content/blog/20*/index.mdx',
+)
+```
+
+`?frontmatter-only` is handled by a small Vite plugin in the config. Its `load` hook reads the file, parses the YAML between the `---` lines and returns `export default {...}`, so the post list never touches the MDX compiler. Before that plugin, the eager glob imported the `frontmatter` export of each compiled post, and the home page pulled every post with it. I put the old line back in a copy of the repository and built both:
+
+<BeforeAfterBars
+  title="JavaScript the home page loads"
+  unit="KB"
+  beforeLabel="eager import of each post"
+  afterLabel="front matter only"
+  data={[
+    { label: "Raw", before: 1747.6, after: 455.1 },
+    { label: "gzip", before: 366.3, after: 148.1 },
+  ]}
+  caption="Script files named in the prerendered home page: 44 before, 10 after. 1 KB is 1,024 bytes."
+/>
+
+The list is then filtered once, at module load:
+
+```ts
+.filter(
+  (post) =>
+    import.meta.env.DEV ||
+    (!post.draft && post.date.slice(0, 10) <= __BUILD_DATE__),
+)
+```
+
+`__BUILD_DATE__` is a Vite `define`, set in the config to the UTC day of the build:
+
+```ts
+define: {
+  __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+},
+```
+
+ISO dates compare correctly as strings, so the check is one comparison. The dev server shows drafts and future posts, and a production build leaves out both. Every route reads the same `posts` array, so the post pages, the archive, the RSS feed, the sitemaps and `llms.txt` agree about which posts exist.
+
+## How prerender finds the pages
+
+Three things add paths. `autoStaticPathsDiscovery` adds every route without parameters, such as `/`, `/about/` and `/blog/`. `crawlLinks` reads each rendered page and queues its links, which is how `/blog/$slug/`, `/topics/$topic/` and `/projects/$slug/` are found: no list of slugs exists anywhere. `pages` adds what neither of them finds. Discovery skips routes without a component, and the RSS feed, `llms.txt` and the sitemaps are server routes that return a `Response`.
+
+The `filter` keeps out the Markdown copy of each post (`/blog/<slug>.md`). Those stay dynamic and the Worker renders them on request.
+
+The prerender does not run in Node. TanStack Start starts a Vite preview server, and the Cloudflare plugin runs the built Worker in workerd behind it. My first build in a sandbox failed on exactly that:
+
+```text
+Error: Failed to start the Vite preview server for prerendering
+  [cause]: Error: listen EPERM: operation not permitted 0.0.0.0:9229
+```
+
+Port 9229 is the inspector port of the local Worker runtime. So the HTML on the site is rendered by the same code that runs in production, in the same runtime.
+
+This build made 47 prerender requests and wrote 40 HTML files and 4 feed and text files. The difference is three routes that discovery adds without the trailing slash and the crawler adds with it. Both write the same `index.html`. 18 of the pages are posts. The guides section comes from an outside API that needs a key, so `/guides/` is empty in my copy and in these numbers.
+
+## What the Worker still does
+
+On Cloudflare a request that matches a static file never reaches the Worker. Everything left is in `src/worker.ts`, in front of TanStack's handler: the giscus theme files with a CORS header, a 301 for `/sitemap.xml`, 301 or 410 for the retired `/tags/` archive, the old Astro slugs, and lowercase redirects. The last line is `return handler.fetch(request)`, which renders the `.md` routes.
+
+<BlogRequestPath />
+
+Locally, through `vite preview`, a prerendered post came back in 3.0 ms and a Worker-rendered `.md` page in 4.2 ms, medians of 30 requests each. That is a local loop with no network, so it only shows that both paths are cheap.
+
+The full Worker upload is 3,776.80 KiB, 638.58 KiB with gzip, in 66 modules (`wrangler deploy --dry-run`). About half of it, 1.8 MB, is the compiled posts. The prerender needed them, and at run time every post URL is answered by its file.
+
+## Search with no server
+
+Search is Pagefind. After `vite build`, `pagefind --site dist/client` reads the HTML and writes a static index next to it. The search dialog and the search page load `pagefind-ui.js` only when they open, so a page without search pays nothing for it. The full build script is a chain of five commands:
+
+```json
+"build": "node scripts/prepare-static-build.mjs && node scripts/sync-outrank.mjs --required && vite build && pagefind --site dist/client && node scripts/finalize-static-build.mjs"
+```
+
+The last script checks that `404.html`, `llms.txt`, `rss.xml`, both sitemaps and `pagefind/pagefind.js` exist and are not empty. Indexing 18 posts took 0.28 s, median of three runs.
+
+When I measured this step, the index had no posts in it:
+
+```text
+Found a data-pagefind-body element on the site.
+↳ Ignoring pages without this tag.
+  Indexed 0 pages
+  Indexed 0 words
+```
+
+<NumberBand value="0 of 18" note="the text was in the page">
+  posts were in the search index. The body sat in a hidden div, outside the element that Pagefind reads.
+</NumberBand>
+
+The post route renders the body as `<Suspense><Content /></Suspense>`, where `Content` is `React.lazy` around the dynamic import. The prerendered HTML now streams that boundary:
+
+```html
+<div class="post-body" data-pagefind-body="true"><!--$?--><template id="B:0"></template><!--/$--><footer class="post-end not-typography" data-pagefind-ignore="">...</footer></div>
+...
+<div hidden id="S:0"><h2>Introduction</h2>
+```
+
+A small inline script moves `S:0` into place in the browser. Pagefind does not run scripts, so it sees an empty body and drops the page. All 18 posts were built this way.
+
+<StreamedBody />
+
+The index committed on 9 September 2026 had 16 pages. The one committed on 15 November, with a dependency update, has 3: two guides and one post. In a copy of the repository I built the same code with TanStack Start 1.168.49 and Router 1.170.32, the versions before that update. Pagefind indexed 18 posts. React 19.2.8 in place of 19.3.1 did not change the result. `package.json` lists the TanStack packages as `"latest"`, so the update took them as they were.
+
+The repair that worked in my copy loads the module in the route loader, before render, and renders it directly when it is there:
+
+```tsx
+loader: async ({ params }) => {
+  const post = getPost(params.slug)
+  if (!post) throw notFound()
+  await post.load() // await loadModule(), keep module.default by slug
+  // ...
+},
+```
+
+```tsx
+const Content = loadedBody(post.slug) ?? post.Content
+```
+
+With it, every post body is inside `data-pagefind-body`, Pagefind indexed 18 pages and 4,156 words, and Lighthouse gave the same scores as before.
+
+## The daily rebuild
+
+Scheduled posts and the guides both need a fresh build, and nothing runs at request time to publish them. One GitHub Actions workflow asks Cloudflare for a build every morning:
+
+```yaml
+on:
+  schedule:
+    - cron: '0 6 * * *' # daily, 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trigger Cloudflare build
+        env:
+          DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
+        run: curl --fail --silent --show-error -X POST "$DEPLOY_HOOK"
+      - name: Wait for deploy
+        run: sleep 360
+      - name: Ping IndexNow
+        run: node scripts/ping-indexnow.mjs
+```
+
+The deploy hook starts a Workers Builds run. That build sets `__BUILD_DATE__` to the day, so a post dated 10 February appears with the 06:00 UTC build on 10 February, or earlier that day if I push to `main`. Then the job waits six minutes and submits the sitemap to IndexNow. The real `run` step also fails with a clear error when the secret is missing.
+
+## The numbers
+
+<RankBars
+  bleed
+  title="Build phases, cold copy"
+  unit="seconds"
+  rows={[
+    { label: "client build", value: 4.75, mark: "lilac", sub: "warm: 4.47 s" },
+    { label: "start-up and config", value: 2.16, sub: "warm: 0.98 s" },
+    { label: "prerender, 47 paths", value: 1.72, sub: "warm: 0.49 s" },
+    { label: "server build (Worker)", value: 1.52, sub: "warm: 1.38 s" },
+    { label: "shutdown", value: 0.32, sub: "warm: 0.11 s" },
+    { label: "Pagefind, 18 posts", value: 0.28 },
+  ]}
+  caption="Medians of three runs. Cold is a fresh copy of the repository after npm ci; warm is the next builds in the same copy."
+/>
+
+A cold `vite build` took 10.45 s and a warm one 7.52 s. The build leaves no cache on disk, and most of the difference is in start-up and the prerender. The client build is the largest part in both.
+
+The client output is 273 files and 13.3 MB, and 7.4 MB of that is images. A post page loads this:
+
+<SegmentBar
+  title="Bytes of one post page, compressed"
+  unit="KB"
+  segments={[
+    { label: "HTML", size: 18.8, mark: "lilac" },
+    { label: "CSS", size: 13.3, mark: "sand" },
+    { label: "JavaScript", size: 136.6, mark: "rose" },
+    { label: "Fonts", size: 198.7, mark: "amber" },
+    { label: "Other", size: 5.5, mark: "sage" },
+  ]}
+  caption="The redesign post. Text files with brotli at quality 11, computed locally; fonts are WOFF2 as served."
+/>
+
+Uncompressed, the HTML is 97.7 KB and the JavaScript is 500.6 KB in 13 files, five times the page it hydrates. The largest file is the shared 321 KB chunk with React and the router. The front matter of every post is a 41 KB chunk that each page loads, because the eager glob puts the whole list in one module. Compressed, the four font files are the largest part.
+
+Lighthouse 13.6 (mobile defaults, three runs against `vite preview`) gave the home page 100 with a largest contentful paint of 1.37 s, and the post 100 with 1.52 s.
+
+## What broke during the move
+
+The migration branch had three fixes on 30 July. Each one was a gap between how TanStack Start builds and how Cloudflare deploys.
+
+The first Worker served files and nothing else. `src/worker.ts` handled the legacy redirects and then called `env.ASSETS.fetch(request)`, so no route of the new app could run on Cloudflare. The fix, "align Cloudflare TanStack deployment", added the Cloudflare plugin to the Vite config and handed the request to TanStack:
+
+```diff
++import handler from '@tanstack/react-start/server-entry'
+ ...
+-    return env.ASSETS.fetch(request)
++    return handler.fetch(request)
+```
+
+The new app lived in a `tanstack/` folder while the Astro app was still at the root. Cloudflare builds from the root, and the root `package.json` did not know about the app. "Install TanStack workspace in Cloudflare builds" made the root an npm workspace:
+
+```diff
++  "private": true,
++  "workspaces": [
++    "tanstack"
++  ],
+```
+
+Then `wrangler deploy` ran at the root and did not find the config that the Vite build wrote inside `tanstack/`. "Route Cloudflare upload to TanStack output" writes Wrangler's redirect file by hand:
+
+```js
+const deployDirectory = new URL('../../.wrangler/deploy/', import.meta.url)
+await mkdir(deployDirectory, { recursive: true })
+await writeFile(
+  new URL('config.json', deployDirectory),
+  `${JSON.stringify({
+    configPath: '../../tanstack/dist/server/wrangler.json',
+    auxiliaryWorkers: [],
+  })}\n`,
+)
+```
+
+On 27 August the app moved from `tanstack/` to the root.
+
+The trailing-slash redirect broke in a quieter way. The Worker had a rule that sent `/blog/<slug>` to `/blog/<slug>/` with a 301, but a URL without the slash also matches the prerendered file, and the static layer answers first with a 307:
+
+```text
+GET /blog/saybackend-redesign-paper-marker-pen
+HTTP/1.1 307 Temporary Redirect
+location: /blog/saybackend-redesign-paper-marker-pen/
+```
+
+The Worker rule never ran for those pages. On 15 November the redirect moved to Cloudflare Redirect Rules, which run before static files, and the Worker code was deleted.
+
+## What I would do differently
+
+- **Pin TanStack.** `"latest"` in `package.json` is how the streaming change arrived with no diff to read. I would pin exact versions and update them in a commit of their own.
+- **Check the index, not only the file.** `finalize-static-build.mjs` checks that `pagefind.js` exists. It should read `pagefind-entry.json` and fail when `page_count` is lower than the number of posts. This check would have stopped the November deploy.
+- **Load the body before render.** A lazy component is right for client navigation, but a static page should have its text in the first HTML. The loader change above does that.
+- **Delete the deploy redirect.** Since the app moved to the root, `vite build` writes `.wrangler/deploy/config.json` by itself with the same `configPath`. The copy in the finalize script does nothing.
+- **Count reading time in the plugin.** Reading minutes are a hand-kept map in `content.tsx`, and a missing entry shows "1 min". The front matter plugin already reads each file, so it can count the words. The `reading-time` package is in `package.json` and nothing imports it.
+
+## Sources
+
+- [TanStack Start: static prerendering](https://tanstack.com/start/latest/docs/framework/react/guide/static-prerendering)
+- [TanStack Start: hosting on Cloudflare Workers](https://tanstack.com/start/latest/docs/framework/react/guide/hosting)
+- [Cloudflare Workers: TanStack Start framework guide](https://developers.cloudflare.com/workers/framework-guides/web-apps/tanstack-start/)
+- [Cloudflare Workers: static assets routing](https://developers.cloudflare.com/workers/static-assets/routing/)
+- [Cloudflare Workers: HTML handling and trailing slashes](https://developers.cloudflare.com/workers/static-assets/routing/advanced/html-handling/)
+- [Cloudflare Vite plugin](https://developers.cloudflare.com/workers/vite-plugin/)
+- [Cloudflare Redirect Rules](https://developers.cloudflare.com/rules/url-forwarding/single-redirects/)
+- [Workers Builds deploy hooks](https://developers.cloudflare.com/workers/ci-cd/builds/deploy-hooks/)
+- [Vite: glob import](https://vite.dev/guide/features#glob-import)
+- [Vite: define](https://vite.dev/config/shared-options#define)
+- [Pagefind: indexing configuration](https://pagefind.app/docs/indexing/)
+- [React: lazy](https://react.dev/reference/react/lazy)
+- [Lighthouse](https://github.com/GoogleChrome/lighthouse)
+- [IndexNow](https://www.indexnow.org/documentation)
+- [TanStack Router and Start releases](https://github.com/TanStack/router/releases)

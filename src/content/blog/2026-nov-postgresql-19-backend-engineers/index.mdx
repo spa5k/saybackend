@@ -1,0 +1,254 @@
+---
+title: "PostgreSQL 19 for Backend Engineers: REPACK, Parallel Autovacuum and WAIT FOR LSN"
+seoTitle: "PostgreSQL 19: REPACK, Parallel Autovacuum, WAIT FOR LSN"
+description: "What PostgreSQL 19 changes for production backends: REPACK CONCURRENTLY, WAIT FOR LSN, ON CONFLICT DO SELECT and parallel autovacuum, with measurements on 19.0."
+date: "2026-11-25"
+ogImage: "/images/2026-postgresql-19-og.png"
+slug: "postgresql-19-backend-engineers"
+tags:
+  - "postgres"
+  - "databases"
+---
+
+import { NumberBand } from "@/components/paper/NumberBand";
+import { RankBars } from "@/components/paper/RankBars";
+import {
+  OnConflictSelect,
+  RepackTimeline,
+  WaitForLsn,
+} from "@/components/react/blog/nov2026/NovFigures";
+
+PostgreSQL 19 puts three things in core that needed an extension or a workaround before: a table rewrite that does not block, read-your-writes on a replica, and a get-or-create that returns the row. I ran all three on 19.0 and measured them. The rest of this post covers the other changes that matter for a production backend, and the upgrade checklist.
+
+## REPACK replaces VACUUM FULL and CLUSTER
+
+`VACUUM FULL` and `CLUSTER` both rewrite a table into a new file. PostgreSQL 19 puts them behind one command, `REPACK`. The two old commands still work.
+
+```sql
+REPACK [ ( option [, ...] ) ] [ table_name [ ( column_name [, ...] ) ] [ USING INDEX [ index_name ] ] ]
+REPACK [ ( option [, ...] ) ] USING INDEX
+
+-- where option is one of:
+VERBOSE [ boolean ]
+ANALYZE [ boolean ]
+CONCURRENTLY [ boolean ]
+```
+
+Plain `REPACK employees;` behaves like `VACUUM FULL`: it holds an `ACCESS EXCLUSIVE` lock for the whole rewrite. Adding `USING INDEX employees_ind` orders the rows by that index, which is what `CLUSTER` did.
+
+The option that matters in production is `CONCURRENTLY`.
+
+```sql
+REPACK (CONCURRENTLY) employees USING INDEX;
+```
+
+In this mode most of the work runs under `SHARE UPDATE EXCLUSIVE`, so reads and writes continue. Changes made during the copy are captured with logical decoding and applied to the new file. The `ACCESS EXCLUSIVE` lock is taken only for the final swap.
+
+<RepackTimeline />
+
+I measured the blocked time on 19.0, in Docker on an Apple M4. The table had 12 million rows and a second index. I deleted 70% of the rows, which left 1,803 MB of table for 542 MB of live data. During each command, one connection ran a small `SELECT` in a loop and another ran a small `UPDATE`.
+
+<RankBars
+  bleed
+  title="Longest wait of a query while the table was rewritten"
+  unit="seconds"
+  mono
+  rows={[
+    { label: "VACUUM FULL", value: 3.97, mark: "rose", sub: "reads and writes wait for the whole run" },
+    { label: "REPACK", value: 4.57, mark: "rose", sub: "the same lock, the same wait" },
+    { label: "REPACK (CONCURRENTLY), read", value: 0.009, mark: "lilac", sub: "9 ms", note: "not blocked" },
+    { label: "REPACK (CONCURRENTLY), write", value: 0.86, mark: "lilac", sub: "one UPDATE waited this long" },
+  ]}
+  caption="Median of three runs. All three commands took 4 to 5 seconds and left the same 542 MB table."
+/>
+
+All three commands did the same work in the same time. What changed is who waits. With the two locking commands, each query waited for the whole rewrite. With `CONCURRENTLY`, the slowest read took 9 ms. The slowest write took between 0.3 and 0.9 s across the runs, so plan for a short write stall and not for none. The concurrent run also wrote 10% more WAL, 778 MB against 708 MB.
+
+One setup detail: I ran the server with `wal_level=logical`.
+
+Here is how the three options compare.
+
+| | `VACUUM FULL` / `REPACK` | `REPACK (CONCURRENTLY)` | pg_repack |
+| --- | --- | --- | --- |
+| Ships with | core | core | extension plus client |
+| Change capture | none, table is locked | logical decoding | trigger and log table |
+| `ACCESS EXCLUSIVE` held | whole operation | final swap | setup, then swap and drop |
+| Key requirement | none | primary key or index-based replica identity | primary key or unique index on a `NOT NULL` column |
+
+`CONCURRENTLY` has restrictions to check before it goes in a runbook:
+
+- It does not work on partitioned tables, `UNLOGGED` tables, materialized views or system catalogs.
+- It cannot run inside a transaction block.
+- It needs a free slot under `max_repack_replication_slots`. The default is 5 and the setting changes only at server start.
+- It is not MVCC-safe. A transaction holding a snapshot from before the repack may see the table as empty afterwards.
+- It needs free disk space at least equal to the table plus its indexes.
+
+Progress is visible in `pg_stat_progress_repack`. pg_repack does not list PostgreSQL 19 as supported yet.
+
+## Parallel autovacuum for indexes
+
+Manual `VACUUM` has a `PARALLEL` option and autovacuum did not, so a table with many large indexes was vacuumed one index at a time. In 19 an autovacuum worker can start parallel workers for the index vacuuming and index cleanup phases.
+
+It is off by default. `autovacuum_max_parallel_workers` defaults to 0 and is further limited by `max_parallel_workers`.
+
+```ini
+# postgresql.conf, the value is an example and not a recommendation
+autovacuum_max_parallel_workers = 4
+```
+
+```sql
+-- per table: -1 uses the server setting, 0 disables it for this table
+ALTER TABLE events SET (autovacuum_parallel_workers = 2);
+```
+
+Two details decide whether this helps a given table. Only one worker is used per index, and an index takes part only when it is larger than `min_parallel_index_scan_size`, so nothing is launched unless the table has at least two such indexes.
+
+The leader and its parallel workers now share one cost limit, where before each worker had its own budget. So a parallel `VACUUM` with cost-based delay can run slower than it did on 18.
+
+Autovacuum also orders tables by a score in 19 instead of by their order in `pg_class`. The `pg_stat_autovacuum_scores` view shows the current scores, and five `autovacuum_*_score_weight` settings adjust the components.
+
+## WAIT FOR LSN gives read-your-writes on a replica
+
+Sending reads to a standby has one well-known failure: a user saves a form, the next request reads from a replica that has not replayed the write, and the old value comes back. PostgreSQL 19 adds a command for this.
+
+```sql
+WAIT FOR LSN 'lsn'
+    [ WITH ( option [, ...] ) ]
+
+-- where option is:
+MODE 'mode'
+TIMEOUT 'timeout'
+NO_THROW
+
+-- where mode is:
+standby_replay | standby_write | standby_flush | primary_flush
+```
+
+Record the LSN on the primary after the write, pass it to the session on the standby, and wait before reading.
+
+```sql
+-- on the primary, after the write
+SELECT pg_current_wal_insert_lsn();
+
+-- on the standby, before the read
+WAIT FOR LSN '0/0306EE20' WITH (TIMEOUT '100ms', NO_THROW);
+```
+
+With `NO_THROW` the command returns a `status` of `success`, `timeout` or `not in recovery` instead of raising an error, so the application can fall back to the primary. Without a `TIMEOUT` it waits indefinitely.
+
+<WaitForLsn />
+
+I set up a primary and a streaming standby in two containers on one machine. A script wrote a row on the primary and read it from the standby at once, 3,000 times.
+
+<NumberBand value="2,995" note="with the wait: 0">
+  of 3,000 reads from the standby returned the old value, with no network between the two servers.
+</NumberBand>
+
+With `WAIT FOR LSN` before the read, all 3,000 reads returned the new value. The wait took 0.13 ms at the median and 0.28 ms at the 99th percentile. On a real network the wait is as long as the replication lag, and this test only shows that the command costs almost nothing above that.
+
+I also paused replay on the standby. With a `TIMEOUT` of `100ms` and `NO_THROW`, the command returned `timeout` after 106 ms. Without `NO_THROW` it raised this error:
+
+```text
+timed out while waiting for target LSN 0/030D6EC0 to be replayed; current standby_replay LSN 0/030D6E70
+```
+
+The same command on the primary returned `not in recovery`.
+
+The restrictions are strict enough to shape the client code. `WAIT` must be a top-level command, so it cannot be wrapped in a function. It cannot run once the transaction holds a snapshot, and on a standby it should come before any statement that takes a lock. It also compares LSNs only and ignores timelines, so after a failover the application has to decide whether an old LSN still means anything.
+
+## Logical replication of sequences
+
+Logical replication has never carried sequence values, which made a cutover to the subscriber a manual `setval` exercise. In 19 a publication can include them.
+
+```sql
+CREATE PUBLICATION pub1 FOR ALL SEQUENCES;
+
+ALTER SUBSCRIPTION sub1 REFRESH SEQUENCES;
+```
+
+This is synchronization on demand and not a continuous stream. Values are copied when the subscription is created and again each time `REFRESH SEQUENCES` runs, so the command belongs in the cutover procedure right before writes move. The publisher must be on 19 or later.
+
+Tables keyed by UUIDs have no sequence state to carry over, which is one more operational argument for them. I compared the options in [PostgreSQL UUIDv7: native uuidv7 vs extensions](/blog/uuidv7-postgres-comparison/).
+
+## ON CONFLICT DO SELECT
+
+Get-or-create with `ON CONFLICT DO NOTHING` returns no row when the row already exists, so the code needs a second `SELECT` or a no-op `DO UPDATE` that writes a new row version. The new action returns the existing row directly.
+
+```sql
+INSERT INTO distributors (did, dname) VALUES (11, 'Global Electronics')
+    ON CONFLICT (did) DO SELECT
+    RETURNING *;
+```
+
+<OnConflictSelect />
+
+I compared the three ways to do it. The table had 1 million rows, and 8 connections made 200,000 get-or-create calls for keys that already existed.
+
+<RankBars
+  title="Get-or-create calls per second, when the row exists"
+  mono
+  rows={[
+    { label: "DO SELECT", value: 100757, mark: "lilac", sub: "0 bytes of WAL" },
+    { label: "DO NOTHING, then SELECT", value: 52524, sub: "0 bytes of WAL, two statements" },
+    { label: "no-op DO UPDATE", value: 24259, mark: "rose", sub: "120 MB of WAL, 200,000 new row versions" },
+  ]}
+  caption="Median of three runs with pgbench, 8 clients. The no-op update is DO UPDATE SET did = EXCLUDED.did."
+/>
+
+The no-op update is the one to stop using. Each call wrote a new row version and about 630 bytes of WAL to return a row that did not change. `DO SELECT` wrote nothing and was twice as fast as the two-statement form, because it is one round trip.
+
+`RETURNING` and a conflict target are both required. `DO SELECT FOR UPDATE` also locks the existing row, and that form needs `UPDATE` privilege on at least one column.
+
+## pg_plan_advice
+
+Core PostgreSQL now ships a module for constraining planner decisions. It is loaded per session with `LOAD` or through `shared_preload_libraries`.
+
+```sql
+LOAD 'pg_plan_advice';
+
+EXPLAIN (COSTS OFF, PLAN_ADVICE)
+        SELECT * FROM join_fact f JOIN join_dim d ON f.dim_id = d.id;
+
+SET pg_plan_advice.advice = 'JOIN_ORDER(f d)';
+```
+
+`EXPLAIN` prints a "Generated Plan Advice" block with tags such as `JOIN_ORDER`, `HASH_JOIN` and `SEQ_SCAN`, and reports whether each item of supplied advice matched. The companion `pg_stash_advice` extension applies stored advice by query identifier, so the application SQL does not change.
+
+It has limits. Advice narrows the planner's choices and cannot produce a plan the planner would never consider. It does not control aggregation or set operations, and cached plans of prepared statements are not replanned when the advice changes.
+
+## Smaller items
+
+- `io_workers` is removed. The worker pool now scales between `io_min_workers` (default 2) and `io_max_workers` (default 8).
+- A successful `md5` password login now produces a warning. `md5_password_warnings` turns it off, but moving to SCRAM is the real fix.
+- The server supports SNI. With `ssl_sni` enabled, `pg_hosts.conf` maps hostnames to certificates and keys, so one server can present different certificates.
+
+## What did not ship
+
+SQL/PGQ property graph queries (`CREATE PROPERTY GRAPH` and `GRAPH_TABLE`) were committed during the 19 cycle and many articles from the beta period describe them as a 19 feature. The feature was reverted on the `REL_19_STABLE` branch on September 7, 2026, and it is not in 19.0.
+
+## Upgrade checklist
+
+- Remove `io_workers` from `postgresql.conf` and set the new pair if the old value was tuned.
+- `max_locks_per_transaction` now defaults to 128, and an existing setting must be doubled to keep the same capacity.
+- JIT is disabled by default. Enable it explicitly for large analytical queries.
+- RADIUS authentication is removed, and `standard_conforming_strings` is always `on`.
+- `pg_upgrade` refuses clusters that have btree_gist indexes on `inet` or `cidr` columns.
+- `pg_stat_subscription_stats.sync_error_count` is now `sync_table_error_count`, and the `BufferPin` wait event is now `BufferCleanup`. Update dashboards that reference them.
+
+## Sources
+
+- [PostgreSQL 19 release notes](https://www.postgresql.org/docs/19/release-19.html)
+- [PostgreSQL 19 Released! (announcement)](https://www.postgresql.org/about/news/postgresql-19-released-3449/)
+- [REPACK](https://www.postgresql.org/docs/19/sql-repack.html)
+- [WAIT](https://www.postgresql.org/docs/19/sql-wait.html)
+- [INSERT](https://www.postgresql.org/docs/19/sql-insert.html)
+- [Vacuuming configuration](https://www.postgresql.org/docs/19/runtime-config-vacuum.html)
+- [Routine vacuuming](https://www.postgresql.org/docs/19/routine-vacuuming.html)
+- [CREATE TABLE storage parameters](https://www.postgresql.org/docs/19/sql-createtable.html)
+- [Replicating sequences](https://www.postgresql.org/docs/19/logical-replication-sequences.html)
+- [pg_plan_advice](https://www.postgresql.org/docs/19/pgplanadvice.html)
+- [Resource consumption configuration](https://www.postgresql.org/docs/19/runtime-config-resource.html)
+- [Replication configuration](https://www.postgresql.org/docs/19/runtime-config-replication.html)
+- [Secure TCP/IP connections with SSL](https://www.postgresql.org/docs/19/ssl-tcp.html)
+- [Revert SQL Property Graph Queries (pgsql-committers)](https://www.postgresql.org/message-id/E1x3f62-00000003sxF-0zQO@gemulon.postgresql.org)
+- [pg_repack documentation](https://reorg.github.io/pg_repack/)

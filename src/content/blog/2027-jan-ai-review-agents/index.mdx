@@ -1,0 +1,175 @@
+---
+title: "Trying PR review agents: what stuck, what didn't"
+seoTitle: "Trying AI PR Review Agents: What Stuck and What Didn't"
+description: "Eight months of AI review on our pull requests: a review on every push, a custom multi-agent reviewer, a third tool, and the small setup that remains. With the run counts for each stage."
+date: "2027-01-15"
+ogImage: "/images/pr-review-agents-og.png"
+slug: "pr-review-agents-what-stuck"
+tags:
+  - "ai-coding"
+  - "code-review"
+  - "coding-agents"
+  - "ci"
+  - "github-actions"
+  - "developer-tools"
+faqs:
+  - question: "Should an AI reviewer run on every push?"
+    answer: "In our repository it did at first, and a pull request got 8.4 review runs on average. Most later runs repeated the earlier ones. The review now runs when someone adds a label, and a pull request gets 0.54 runs on average. I did not measure whether the smaller number lets more defects through."
+  - question: "What is a finding validator?"
+    answer: "A second agent with fresh context that checks the reviewer's findings before they are posted. Ours gets the whole batch in one call, has read-only tools, and stops after 20 turns. It judges the bug and the proposed fix separately, so a real bug stays visible when its fix is unsafe."
+  - question: "Is a custom multi-agent reviewer worth building?"
+    answer: "Ours gave real findings, and its safety model was sound. Its first review took 17 minutes and 3.7 million tokens, and the review automation needed 18 pull requests in the three weeks that it ran. A single reviewer session with one validator replaced it."
+  - question: "How do you keep an AI reviewer quiet?"
+    answer: "Tell it to prefer silence over a low-confidence comment, limit inline comments to three, keep everything else in one summary comment that is updated in place, and move style and other mechanical checks to lint."
+---
+
+import { RankBars } from "@/components/paper/RankBars";
+import {
+  ReviewTimeline,
+  ReviewerValidatorFlow,
+} from "@/components/react/blog/workposts/WorkFigures";
+
+Our monorepo at work has had an AI reviewer on its pull requests from the first week. Between April and November 2026 I changed that setup many times. In September and early October we tried three reviewers: the Claude Code review action, a custom multi-agent reviewer that I built, and an open-source review CLI as a comparison.
+
+One of the three is left. It is the simplest one, it runs only when someone asks for it, and a second agent checks its findings before they are posted.
+
+- **Almost 7x fewer review runs for each pull request** than in August, and about 15x fewer than in April.
+- **About 8x less review code to maintain**: 2,699 lines in eight files at the peak, 326 lines in two files now.
+- **The first review moved into the coding agent's own session**, where the change is already in context and no CI job starts.
+
+<RankBars
+  bleed
+  title="Review runs for each pull request opened"
+  rows={[
+    { label: "April: every push", value: 8.4 },
+    { label: "August: quieter prompt", value: 3.7 },
+    { label: "Oct to Nov: on request", value: 0.54, mark: "lilac" },
+  ]}
+  caption="A run is a successful run of the review workflow. Each period has its own count of opened pull requests."
+/>
+
+| Period | Review runs | Pull requests opened | Runs for each pull request |
+| --- | ---: | ---: | ---: |
+| April 2026 | 1,922 | 228 | 8.4 |
+| August 2026 | 1,162 | 313 | 3.7 |
+| 23 October to 19 November 2026 | 241 | 443 | 0.54 |
+
+This post is about cost, noise, and upkeep. It goes through the three rounds in order, because each one left something behind that we still use.
+
+<ReviewTimeline />
+
+## Round one: a review on every push
+
+The first setup was the default one. The Claude Code review action ran on each push to a pull request and wrote its review as a comment. My first change, in April, was small: one comment for each pull request, updated in place, where before each push had added a new one.
+
+That month the review ran 1,922 times for 228 pull requests. A pull request with eight pushes got eight reviews, and the later ones mostly repeated the earlier ones.
+
+Over the next two months I changed what the reviewer was told.
+
+- **May: project rules in the prompt.** Ten checks in priority order, from architecture and API wiring to migrations and React patterns. The reviewer also got read tools, so that it could follow a caller outside the diff. A new push cancelled the review of the old one.
+- **June: less text, quieter output.** That change removed more lines than it added. The reviewer got one standard, "prefer silence over low-confidence comments", and a limit of three inline comments. It leaves style and formatting to lint and the formatter. On a later pass it reads its own earlier comments and the human replies first, and it does not raise a point again after a human corrected it. A label on the pull request asks for another pass.
+
+By September one more rule was in the prompt, and it is still there. A missing test is not a finding: the reviewer reports the production failure, or nothing.
+
+**What stuck:** one summary comment, the limit of three inline comments, and the silence rule.
+
+**What didn't:** the long checklist. Most of its mechanical items are [lint rules](/blog/lint-ratchet-ai-written-code/) now. A lint rule costs nothing for each run, and nobody can skip it.
+
+### Pin the model like a dependency
+
+In late July the default model behind the action changed to a newer one. Reviews that took about three and a half minutes in April now took 17 to 45, and the job had a 10-minute limit, so most of them were stopped before they posted anything. A teammate traced it. The share of reviews that finished went from 96.4% to 27.8% in one day, and large pull requests stalled far more often than small ones.
+
+The fix was to pin the model by its exact identifier, cap the number of turns, and raise the time limit. I now treat the model the same way as any other dependency: it has a version, and the version changes only in a pull request.
+
+## Round two: a custom multi-agent reviewer
+
+In September I built our own reviewer on an agent framework. I wanted depth that one prompt could not give.
+
+- **A parent reviewer** reads the change and decides which specialists it needs.
+- **Specialist reviewers** take one view each: correctness and intent on every pull request, standards and domain when the risk calls for them.
+- **A separate verifier checks each candidate blocker.** No blocker is posted on the word of the agent that found it.
+- **Memory across pushes.** Findings have stable IDs. After the first pass, the reviewer reads only the new commits, and it resolves an old thread when the code fixes it.
+
+The safety model is the part that I would build again without a change:
+
+- Analysis runs from the trusted base branch. Code from the pull request is never executed.
+- The analysis job has read-only access, and a separate job publishes.
+- Before each write, the publisher checks the report schema, the commit, the file, and the line. It stops when the head of the pull request has moved.
+
+The first live review ran on the pull request that added the reviewer.
+
+| Measure | Value |
+| --- | ---: |
+| Analysis | 17 min 12 s |
+| Publish | 54 s |
+| Model turns | 72 |
+| Tokens | 3,665,597 |
+| Result | Three findings, none a blocker |
+
+I addressed all three findings in the same pull request. The price was 17 minutes and 3.7 million tokens for one review, so the next days went to speed and cost: three reviewers at most, all blockers verified in one batch, a smaller model by default, and then a different model provider with a context size that stays in its lower price tier. The trigger changed too. The reviewer ran for a new ready pull request and for a label, and no longer for each push.
+
+### The plumbing was the real cost
+
+Between 12 September and 3 October I merged 18 pull requests on review automation. Some of what they fixed is useful on any pipeline of this kind:
+
+- **Removing a label from a pull request needs `pull-requests: write`.** `issues: write` alone returns HTTP 403, although labels are in the issues API.
+- **Consume the request label when the review starts**, not when it ends. A late removal can delete a newer request.
+- **A turn limit can reject a finished review.** One review completed in 86 turns against a limit of 80, and the action failed it.
+- **A pinned action carries a pinned CLI.** When we moved to a newer model, the pinned CLI was too old for it, and the review stopped on the first model call with zero tokens.
+- **A reviewer that runs trusted base code cannot review a change to its own workflow.** Those pull requests need their live check after the merge.
+
+At the peak, on 1 October, the review automation was 2,699 lines in eight files: three workflows, the agent, its library, two publishers, and a usage reporter.
+
+## Round three: a third tool, as a comparison
+
+On 1 October I added a third reviewer: an open-source review CLI, pinned, with a checksum check on its binary. It had the same triggers and the same trusted pipeline as the custom reviewer, and no merge gate. It was there as a comparison only.
+
+| Pilot against one fixed pull request head | Value |
+| --- | ---: |
+| Duration | 26 min 50 s |
+| Requests over the 300-second limit | 3 |
+| File-tool calls | 79, all passed |
+| Selected files complete | 0 of 4 |
+
+The run did not finish, and I did not establish the cause. I never confirmed a complete run, so I have nothing to say about the quality of its reviews.
+
+## Two of three removed
+
+On 3 October I disabled the custom reviewer and the comparison tool. In November I deleted their code.
+
+What I can compare is cost and upkeep. The custom reviewer needed 17 minutes and 3.7 million tokens for its first review, and keeping three review pipelines in step took 18 pull requests in three weeks. The comparison tool had not completed a run. The simple reviewer finished in a median of 3 min 26 s in August, from one workflow file.
+
+The custom reviewer left its best ideas behind. A separate check of each blocker, the head check before a write, and the label that is consumed at the start are all in the setup that remains.
+
+## What we run now
+
+<ReviewerValidatorFlow />
+
+The reviewer must earn each finding before the validator sees it. It traces the changed behavior through its real callers, states a concrete trigger and a failure that a user can see, and checks its own fix against one state that is valid today. The validator returns one of four results for each candidate: confirmed with a safe fix, confirmed with no safe fix, rejected, or unverified. Only the first two are posted. A missing or partial validation is reported as incomplete coverage, and the reviewer does not approve.
+
+The reviewer cannot edit, commit, push, merge, or call the GitHub API directly. Each run stores its usage metrics as an artifact.
+
+## Review moved into the agent's own loop
+
+The larger change is where the first review happens. Since 8 October, the agent that writes a change must review it before it verifies it. It runs a code review skill on its own diff, adds a React review when React code changed, fixes the confirmed blockers, and reviews again.
+
+The skill holds the same standard as the reviewer in CI. A finding needs a changed line that causes it, a concrete trigger, material impact, direct evidence, and a practical fix. One line of the skill carries most of the weight: "Prefer no finding over a weak finding."
+
+This review runs in the session that already has the change in context, so it starts no CI job. The reviewer in CI is now a second opinion that a person asks for.
+
+## How this saves cost
+
+- **Fewer runs.** From 3.7 review runs for each pull request in August to 0.54 in the four weeks after the review became opt-in.
+- **Shorter runs.** The median run took 3 min 26 s in August and 2 min 43 s in those four weeks.
+- **Less run time in total.** The successful review runs of August add up to 78.5 hours. In the four opt-in weeks they add up to 11.5 hours, which is about 6x less for each day, with more pull requests opened.
+- **Less code.** 326 lines in two files, against 2,699 in eight.
+- **Mechanical checks in lint.** A lint rule finds the same mistake on every run. A model does not have to find it again.
+
+## What I did not measure
+
+- **Correct findings.** I have no count for any of the three reviewers, so this post does not rank them by quality.
+- **Defects that the old schedule would have caught.** A review on every push looks at more commits. I did not measure what the opt-in review misses.
+- **Tokens for each review, across the tools.** I have one sample for the custom reviewer and the counts of one unfinished pilot for the third tool.
+- **The cause of the pilot timeouts.**
+- **The first review in the agent's session.** It runs on the developer's machine, and I have no count of its runs or its findings.
+- **The run counts have limits.** A run is a successful run of the review workflow. The three periods have 30, 31, and 28 days, and each is compared with the pull requests opened in it.

@@ -1,0 +1,285 @@
+---
+title: "Golang Dockerfile Best Practices: Every Line and the Reason for It"
+seoTitle: "Golang Dockerfile Best Practices, Line by Line"
+description: "A Go Dockerfile with the reason for each line: multi-stage build, cache mounts, a static binary, a distroless final image, and a non-root user."
+date: "2027-01-04"
+ogImage: "/images/2026-golang-dockerfile-best-practices-og.png"
+slug: "golang-dockerfile-best-practices"
+tags:
+  - "golang"
+  - "docker"
+  - "devops"
+---
+
+import { BeforeAfterBars } from "@/components/paper/BeforeAfterBars";
+import { NumberBand } from "@/components/paper/NumberBand";
+import { RankBars } from "@/components/paper/RankBars";
+import {
+  FinalImages,
+  LayerCache,
+  TwoStages,
+} from "@/components/react/blog/nov2026/NovFigures";
+
+This is the Dockerfile I start from for a Go service, followed by the reason for each line. I wrote [a worked example in 2024](/blog/2024-jun-golang-dockerfile-optimized/) that shrinks one image step by step and shows the sizes at each step. This post is the checklist that sits next to it.
+
+The tags are Go 1.27.4, the current stable release, and the distroless images on Debian 13.
+
+The numbers in this post come from one test service. It is a small HTTP server with four real dependencies (chi, pgx, the Prometheus client and zap): 18 modules and 310 packages. The machine is an Apple M4 with Docker Desktop 29.4.1, and all images are `linux/arm64`. Each time is the median of three runs.
+
+## The complete Dockerfile
+
+```dockerfile
+# syntax=docker/dockerfile:1
+
+FROM --platform=$BUILDPLATFORM golang:1.27.4-trixie AS build
+ARG TARGETOS
+ARG TARGETARCH
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+COPY . .
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/app
+
+FROM gcr.io/distroless/static-debian13:nonroot
+COPY --from=build /out/app /app
+HEALTHCHECK --interval=30s --timeout=3s CMD ["/app", "healthcheck"]
+ENTRYPOINT ["/app"]
+```
+
+It assumes the main package is in `./cmd/app` and that the binary has a `healthcheck` subcommand. Change both to match your project.
+
+<TwoStages />
+
+<NumberBand value="69×" note="same service, same code">
+  smaller than a single-stage build on the `golang` image: 17.5 MB against 1,213 MB, both unpacked.
+</NumberBand>
+
+## Two stages: build in one, ship the other
+
+The `build` stage has the Go toolchain. The final stage has one file from it, copied with `COPY --from=build`. The toolchain, the source and the intermediate files stay in the first stage and are not saved in the final image. Every other practice here depends on that split, because it lets the build image be large and convenient while the image you ship stays small.
+
+## Pin the Go version and the base image
+
+`golang:1.27.4-trixie` names a patch release and a Debian release. A tag like `golang:latest` or `golang:1` changes under you, and then a build that passed yesterday fails today with no change in your repository.
+
+A tag can still be moved by its publisher. A digest cannot, so for a build that must not change, add the digest to the tag:
+
+```sh
+docker buildx imagetools inspect golang:1.27.4-trixie
+```
+
+```dockerfile
+FROM golang:1.27.4-trixie@sha256:<digest from the command above> AS build
+```
+
+The cost is real: with a pinned digest you opt out of automated security fixes. So pin digests only if something (Dependabot can do it) opens a pull request when a new one appears.
+
+## Copy go.mod and go.sum before the source
+
+Docker reuses a layer when the instruction and its inputs did not change. The source changes on every commit, but `go.mod` and `go.sum` change rarely. Copying those two files first means `go mod download` runs again only when the dependencies change, and an edit to a `.go` file starts the build at `COPY . .`.
+
+<LayerCache />
+
+On my test service the order alone saved little: a one-line edit to a `.go` file took 11.7 s with `COPY . .` first and 10.1 s with the module files first. The download was back in the cache, but the compiler still built all 310 packages. The next section removes that part.
+
+## Cache mounts for modules and for the build cache
+
+Layer caching is all or nothing: one changed dependency downloads all of them again, and one changed file compiles every package again. A cache mount fixes that. `RUN --mount=type=cache,target=...` gives the instruction a directory that persists across builds, so Go finds its module cache and its build cache from the last run.
+
+The two targets are Go's two caches. `/go/pkg/mod` is the module cache, because the official image sets `GOPATH` to `/go`. `/root/.cache/go-build` is the build cache for the root user. The mounts live in the builder's local storage. They are not part of a layer, so the caches do not add to the image.
+
+<BeforeAfterBars
+  bleed
+  title="Rebuild time, without and with cache mounts"
+  unit="seconds"
+  beforeLabel="layer cache only"
+  afterLabel="with both cache mounts"
+  data={[
+    { label: "Edit one .go file", before: 10.1, after: 1.6 },
+    { label: "Add one dependency", before: 19.0, after: 3.2 },
+  ]}
+  caption="Median of three builds. A cold build with nothing cached took 28.4 s, and a build with no change took 1.1 s."
+/>
+
+With the mounts, the compile step after a source edit took 0.4 s. A new dependency no longer starts from zero: Go downloads one module and compiles the packages that are new.
+
+One limit matters in CI: cache mounts are not included in an exported build cache. A fresh CI runner starts with empty mounts unless you keep the builder itself between jobs.
+
+## CGO_ENABLED=0, and when you cannot use it
+
+With cgo off, the binary does not link against a C library, and that is what lets it run on an image with no libc at all. The `net` package already prefers its pure Go resolver on Unix, so most services lose nothing.
+
+You cannot turn cgo off if a dependency wraps C code. In that case, build with cgo on and change the final image to `gcr.io/distroless/base-debian13`, which adds glibc and libssl to what the static image has. Build on the Debian variant of the Go image, not on Alpine, so that the binary links against glibc and not musl.
+
+## -trimpath and -ldflags="-s -w"
+
+`-trimpath` removes file system paths from the executable. Stack traces then show module paths in place of `/src/...`.
+
+`-s` omits the symbol table and debug information, and `-w` omits the DWARF symbol table. `-s` implies `-w`, so `-ldflags="-s"` gives a binary of the same size, to the byte. I keep both because that is the spelling people search for. Leave these flags out if you need the debug information in the production binary.
+
+<RankBars
+  title="Size of the binary"
+  unit="MB"
+  mono
+  rows={[
+    { label: "go build", value: 20.5 },
+    { label: "-trimpath", value: 20.5 },
+    { label: '-ldflags="-w"', value: 15.7 },
+    { label: '-ldflags="-s -w"', value: 14.0, mark: "lilac", note: "32% smaller" },
+  ]}
+  caption="Go 1.27.4, linux/arm64, CGO_ENABLED=0. -trimpath changes the paths in the binary and saves 6 KB."
+/>
+
+## Choose the final image
+
+| | `scratch` | `distroless/static` | `alpine` |
+| --- | --- | --- | --- |
+| CA certificates | no | yes | yes |
+| Timezone data | no | yes | no |
+| Shell | no | no (`:debug` tag has busybox) | yes |
+| Package manager | no | no | yes |
+
+<FinalImages />
+
+<RankBars
+  bleed
+  title="Final image with the same 14 MB binary"
+  unit="MB, unpacked"
+  mono
+  rows={[
+    { label: "scratch", value: 14.0 },
+    { label: "distroless/static", value: 17.5, mark: "lilac", note: "my default" },
+    { label: "alpine:3.24", value: 23.0 },
+    { label: "distroless/base", value: 50.4 },
+    { label: "debian:trixie-slim", value: 117.2 },
+  ]}
+  caption="Sum of the unpacked layers. The compressed sizes that a registry stores are 5.0, 5.8, 9.2, 14.8 and 35.2 MB."
+/>
+
+The binary is most of the image in the first three rows. Distroless static adds 3.4 MB to it, and for that you get the certificates, the timezone data and the user.
+
+`scratch` is an empty image. A static Go binary runs on it, but the first outbound HTTPS request fails because there are no root certificates, and `time.LoadLocation` fails for a named zone because there is no timezone database. These are the two errors from my test service on `scratch`:
+
+```text
+Get "https://go.dev/": tls: failed to verify certificate: x509: certificate signed by unknown authority
+unknown time zone Europe/Berlin
+```
+ You can fix both by hand: copy `/etc/ssl/certs/ca-certificates.crt` from the build stage, and build with `-tags timetzdata` to embed the timezone database. With Go 1.27.4 that added 393 KB to my binary.
+
+The distroless static image has both already, plus a `/tmp` directory and an `/etc/passwd`, and it still has no shell and no package manager. That is why it is my default. When I need a shell in a running container, I rebuild with the `:debug-nonroot` tag and start it with `--entrypoint=sh`.
+
+Alpine is the choice when the container must run other programs or you need to install packages at build time. Its base image has a shell, `apk` and a CA bundle but no timezone data. The same `LoadLocation` call failed on `alpine:3.24` and passed on both distroless images.
+
+## Run as a non-root user
+
+The `:nonroot` tag makes the container run as an unprivileged user with UID 65532, so the Dockerfile needs no `USER` line. On `scratch` there is no user database, but `USER` accepts numeric IDs:
+
+```dockerfile
+USER 65532:65532
+```
+
+On Alpine or Debian, create the user with an explicit UID and GID. Automatically assigned IDs can change between rebuilds.
+
+## A .dockerignore file
+
+`COPY . .` copies the whole build context, and any changed file in it invalidates that layer. A `.dockerignore` file in the context root keeps files out before they are sent to the builder.
+
+```text
+.git
+.env
+bin/
+dist/
+*.md
+```
+
+Two of those lines are about more than speed. `.env` stays out so that a secret never reaches a layer. Without `.git`, the `go` command has no repository to read, so the binary carries no version control stamp. Remove that line if you read the commit from `go version -m`.
+
+## Multi-platform builds without emulation
+
+`--platform=$BUILDPLATFORM` pins the build stage to the platform of the machine that runs the build. The compiler runs natively, and `GOOS` and `GOARCH` tell it what to produce. `TARGETOS` and `TARGETARCH` are set by BuildKit, but they are global, so each stage that reads them must declare them again with `ARG`.
+
+```sh
+docker buildx build --platform linux/amd64,linux/arm64 -t registry.example.com/app:1.0.0 --push .
+```
+
+On my arm64 machine, a build for both platforms took 13.4 s, and the amd64 compile step took 6.0 s of that. The build log shows it as `linux/arm64->amd64`: a cross-compile, with no emulator.
+
+Without the pin, an arm64 image built on an amd64 machine runs the whole Go compiler under emulation. Multi-platform images also need an image store that supports manifest lists. Docker Desktop and Docker Engine 29.0 or later have one by default.
+
+## HEALTHCHECK without a shell
+
+The usual `HEALTHCHECK CMD curl ...` needs a shell and `curl`, and the final image has neither. The exec form, written as a JSON array, runs the binary directly. The `healthcheck` subcommand is code you write: it requests the service's own health endpoint and exits with 0 for healthy or 1 for unhealthy.
+
+The defaults for `--interval` and `--timeout` are both 30 seconds. I set a short timeout because a health endpoint that takes three seconds is already a failure.
+
+The first check runs one interval after the start. In my test the container reached `healthy` after 30.5 s, and one check took about 40 ms.
+
+Kubernetes ignores this instruction and uses its own probes. There, the same subcommand works as an `exec` probe.
+
+## Exec-form ENTRYPOINT and signals
+
+`ENTRYPOINT ["/app"]` makes the binary PID 1. The shell form, `ENTRYPOINT /app`, starts `/bin/sh -c` as PID 1. Whether your binary then receives the `SIGTERM` from `docker stop` depends on the shell, so I timed `docker stop -t 10` on four images:
+
+<RankBars
+  title="Time for docker stop -t 10 to return"
+  unit="seconds"
+  rows={[
+    { label: 'exec form ["/app"]', value: 0.24, mark: "lilac" },
+    { label: "shell form, alpine", value: 0.24 },
+    { label: "shell form, alpine, 2 commands", value: 10.2, mark: "rose", sub: "killed, exit code 137" },
+    { label: "shell form, debian slim", value: 10.1, mark: "rose", sub: "killed, exit code 137" },
+  ]}
+  caption="Median of three runs. In the two fast rows the Go process logged the SIGTERM and exited with 0."
+/>
+
+On Debian, the shell stays as PID 1 and does not pass the signal on. The binary never sees it, and Docker kills the container when the timeout ends. On Alpine, the shell replaces itself with a single command, so the plain shell form worked. It stopped working when the line had a second command. I would not depend on that difference: the exec form behaves the same on every image.
+
+On distroless the shell form does not start at all, because there is no `/bin/sh`:
+
+```text
+exec: "/bin/sh": stat /bin/sh: no such file or directory
+```
+
+Receiving the signal is half of the work. By default a Go program exits on `SIGTERM` immediately, with requests still in flight. Use `signal.NotifyContext` with `SIGTERM` and call `Shutdown` on the HTTP server when the context is done.
+
+## Common mistakes
+
+- `FROM golang:latest`, or an unpinned final image such as `alpine:latest`.
+- `COPY . .` before `go mod download`, which downloads every module again on each source change.
+- Cache mount targets that do not match `go env GOMODCACHE` and `go env GOCACHE` inside the build image. The build still passes, only slowly.
+- `CGO_ENABLED=1` with a `scratch` or `distroless/static` final image. The binary needs a libc that is not there, and the error does not say so: `exec /app: no such file or directory`.
+- `scratch` without CA certificates, found only when the first HTTPS call fails in production.
+- A `HEALTHCHECK` that calls `curl` or `wget` in an image without them.
+- Shell-form `ENTRYPOINT` or `CMD`, which on most base images keeps `SIGTERM` away from the process.
+- No `.dockerignore`, so `.git` and local `.env` files go into the build context.
+- Reading `TARGETOS` or `TARGETARCH` in a `RUN` line without an `ARG` declaration in that stage. The values are empty.
+
+## Sources
+
+- [Dockerfile reference](https://docs.docker.com/reference/dockerfile/)
+- [Optimize cache usage in builds](https://docs.docker.com/build/cache/optimize/)
+- [Multi-stage builds](https://docs.docker.com/build/building/multi-stage/)
+- [Multi-platform builds](https://docs.docker.com/build/building/multi-platform/)
+- [Building best practices](https://docs.docker.com/build/building/best-practices/)
+- [Build context and .dockerignore](https://docs.docker.com/build/concepts/context/)
+- [docker buildx imagetools inspect](https://docs.docker.com/reference/cli/docker/buildx/imagetools/inspect/)
+- [The scratch image on Docker Hub](https://hub.docker.com/_/scratch)
+- [Official golang image: tag list](https://github.com/docker-library/official-images/blob/master/library/golang)
+- [Official golang image: Dockerfile for 1.27 on trixie](https://github.com/docker-library/golang/blob/master/1.27/trixie/Dockerfile)
+- [Go releases](https://go.dev/dl/)
+- [go command: build flags](https://pkg.go.dev/cmd/go)
+- [Go linker flags](https://pkg.go.dev/cmd/link)
+- [net: name resolution](https://pkg.go.dev/net)
+- [time/tzdata](https://pkg.go.dev/time/tzdata)
+- [os/signal](https://pkg.go.dev/os/signal)
+- [crypto/x509 root certificate paths on Linux](https://github.com/golang/go/blob/master/src/crypto/x509/root_linux.go)
+- [Distroless README](https://github.com/GoogleContainerTools/distroless/blob/main/README.md)
+- [Distroless base and static images](https://github.com/GoogleContainerTools/distroless/blob/main/base/README.md)
+- [Distroless user IDs](https://github.com/GoogleContainerTools/distroless/blob/main/common/variables.bzl)
+- [Alpine Linux 3.24 release files](https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/)

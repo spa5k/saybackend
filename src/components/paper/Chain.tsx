@@ -89,7 +89,7 @@ export function Chain({ title, steps, note, caption }: Props) {
                     (lineIndex - (lines.length - 1) / 2) * 13
                   }
                   textAnchor="middle"
-                  style={{ fill: '#141413', fontSize: 11 }}
+                  style={{ fill: 'var(--ink)', fontSize: 11 }}
                 >
                   {line}
                 </text>

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 
-import { MARKS } from './Figure'
+import { LINES } from './Figure'
 import type { Scene } from './scenes'
 
 /**
@@ -76,7 +76,7 @@ export function SceneArt({
         <path
           key={index}
           className={`scene-${shape.k}`}
-          style={shape.c ? { stroke: MARKS[shape.c] } : undefined}
+          style={shape.c ? { stroke: LINES[shape.c] } : undefined}
           d={shape.d}
         />
       ))}

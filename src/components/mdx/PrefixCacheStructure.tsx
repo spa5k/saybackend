@@ -96,7 +96,7 @@ export default function PrefixCacheStructure({ title, caption }: Props) {
               x={x(index) + BLOCK_W / 2}
               y={POOL_Y + 23}
               textAnchor="middle"
-              style={{ fill: '#141413' }}
+              style={{ fill: 'var(--ink)' }}
             >
               blk {index}
             </text>

@@ -1,0 +1,155 @@
+---
+title: "Code Mode Compared: pi, Claude Code, OpenCode and Cloudflare"
+seoTitle: "Code Mode Compared: Sandboxes, Time Limits, Permissions and Token Costs"
+description: "pi 1.6.0, Claude Code 2.1.329, OpenCode 2.3.2, Cloudflare's codemode and Anthropic's programmatic tool calling side by side: where the program runs, what stops a runaway loop, where permission checks fire, and the first request with GitHub's 46 MCP tools."
+date: "2026-12-09"
+ogImage: "/images/2026-code-mode-compared-og.png"
+slug: "code-mode-compared"
+tags:
+  - "ai"
+  - "agents"
+---
+
+import { BeforeAfterBars } from "@/components/paper/BeforeAfterBars";
+import { RankBars } from "@/components/paper/RankBars";
+import {
+  CodeModeChecks,
+  CodeModeSandboxes,
+} from "@/components/react/blog/codemode/CodeModeFigures";
+
+pi, Claude Code and OpenCode ship code mode, and Cloudflare and Anthropic offer the parts to build one. All five agree on the idea: the model writes one program, a sandbox runs it, and only the result goes back. They differ on where the program runs, what can stop it, where the permission check sits, and how the model finds its tools. The earlier posts cover [the concept, Cloudflare and Anthropic](/blog/code-mode-explained/), [pi](/blog/code-mode-pi/), [Claude Code](/blog/code-mode-claude-code/) and [OpenCode](/blog/code-mode-opencode/) one at a time.
+
+## The table
+
+|                     | pi                                          | Claude Code                                         | OpenCode                                     | Cloudflare                                             | Claude API                       |
+| ------------------- | ------------------------------------------- | --------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------ | -------------------------------- |
+| Version             | 1.6.0                                       | 2.1.329                                             | 2.3.2                                        | `@cloudflare/codemode` 0.5.6                           | `code_execution_20260120`+       |
+| Default             | Off; on by itself when an MCP server connects | Off, experimental                                 | On for every MCP server                      | A library you call                                     | Off; opt in per tool             |
+| Switch              | `--tools +codemode`                         | `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1`              | `codemode: false` per server, or deny `execute` | `createCodeTool`, `codeMcpServer`                   | `allowed_callers`                |
+| Language            | JavaScript                                  | JavaScript                                          | JavaScript subset                            | JavaScript                                             | Python                           |
+| Runs in             | QuickJS (WebAssembly) on a worker thread    | `vm` context in the CLI process                     | Own bytecode VM, in process                  | New V8 isolate                                         | Anthropic container              |
+| Time limit          | None, unless the script sets `timeout_ms`   | 30 s script time, 10 min wall clock, 300M steps     | None                                         | 60 s, a `setTimeout` race                              | 90 s per cell                    |
+| `while (true) {}`   | Runs until cancelled                        | `RangeError` at 300M steps, in 0.3 s                | Runs until cancelled                         | Hangs `wrangler dev`; production CPU limit stops it    | 90 s cell limit applies          |
+
+|                     | pi                                          | Claude Code                                         | OpenCode                                     | Cloudflare                                             | Claude API                       |
+| ------------------- | ------------------------------------------- | --------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------ | -------------------------------- |
+| Network             | None                                        | Only through tools                                  | Real `fetch`, checked as `webfetch`          | None, `globalOutbound: null`                           | None                             |
+| Reachable tools     | Active built-in and extension tools, all MCP tools | Every tool in the session, MCP included      | MCP tools and 8 `opencode` tools; built-ins stay direct | The tools or MCP server you pass in         | Tools with `allowed_callers`, not MCP connector tools |
+| Nested-call permission | `tool_call` hooks of extensions, per call; no built-in approval | Rules and hooks per call, plus a check on the script | Permission rule per call; the default allows all | `needsApproval` tools left out, or the run pauses | Your application runs each call |
+| Back to the model   | Script output, cut at 10,000 estimated tokens | Last value and `self.log` lines                   | JSON result and logs, cut at 2,000 lines or 50 KiB | Result and logs; `codeMcpServer` cuts at 24,000 characters | Final output of the code |
+
+## One tool list, three agents
+
+The earlier posts measured different tasks, so their headline ratios do not compare. For one common number, I attached the same MCP server to each agent and captured the first model request. The server is a local stdio mock that returns the 46 default tools of GitHub's MCP server v2.2.0, the fixture from parts 1 and 4. pi and OpenCode sent their requests to a mock endpoint that logs them; the count is the `messages` and `tools` arrays as JSON, in o200k_base tokens.
+
+<BeforeAfterBars
+  title="First model request with GitHub's 46 MCP tools attached"
+  unit="o200k_base tokens"
+  beforeLabel="Code mode off"
+  afterLabel="Code mode on"
+  data={[
+    { label: "pi 1.6.0", before: 12816, after: 1812 },
+    { label: "OpenCode 2.3.2", before: 17154, after: 6331 },
+  ]}
+  caption="pi off is direct exposure; pi on is the default codemode exposure. With no MCP server the requests are 1,230 tokens for pi and 5,562 for OpenCode."
+/>
+
+The two floors differ because the agents differ before any MCP server connects: OpenCode sends 12 built-in tools and `execute`; pi sends 4 built-in tools, plus `codemode` when it is on. The cleaner comparison is what the 46 tools add on top of that floor.
+
+<RankBars
+  title="What GitHub's 46 MCP tools add to the first request"
+  unit="tokens"
+  rows={[
+    { label: "OpenCode, codemode: false", value: 11592, mark: "rose", sub: "46 JSON tool definitions" },
+    { label: "pi, direct exposure", value: 11586, mark: "rose", sub: "46 JSON tool definitions" },
+    { label: "OpenCode, Code Mode", value: 769, mark: "lilac", sub: "catalog: github (46 tools, 3 shown)" },
+    { label: "Claude Code, flag off", value: 567, sub: "deferred behind ToolSearch, Claude tokenizer" },
+    { label: "pi, codemode exposure", value: 50, mark: "lilac", sub: "one system prompt line" },
+    { label: "Claude Code, flag on", value: 5, mark: "lilac", sub: "Claude tokenizer" },
+  ]}
+  caption="One request per setting. Claude Code rows are the difference in the first request's input tokens, with and without the server, from the session transcript."
+/>
+
+Code Mode in Claude Code needs a direct login, so its rows come from the usage records of four short Haiku 5.5 sessions. Its first request was 38,128 tokens with the flag off and 21,235 with it on; those counts use Claude's tokenizer and include Claude Code's whole system prompt, so compare the change, not the size. With the flag off, Claude Code already defers MCP definitions behind `ToolSearch`. Its Code Mode saves on the built-in tools instead, because one `REPL` tool replaces their definitions.
+
+## Isolation
+
+The five walls sit at different distances from the host.
+
+- **Claude API**: the farthest. The Python runs in Anthropic's container with no internet, and each tool call pauses the code until your application answers.
+- **Cloudflare**: a new V8 isolate per run, loaded with no network. Tool calls cross to a `ToolDispatcher` on the host over Workers RPC, and credentials stay there.
+- **pi**: a new QuickJS VM, compiled to WebAssembly, on its own worker thread. Its only imports are a WASI shim and one host-call entry point. The heap stops at 256 MiB.
+- **Claude Code**: a `vm` context inside the Claude Code process, with no `import`, `require` or `process`, and with `eval` and WebAssembly turned off. The sandbox setting covers the shell commands a script runs; the JavaScript and its file, web and MCP calls run in the CLI process.
+- **OpenCode**: the closest. Its own bytecode VM, written in TypeScript, runs in the OpenCode process. It is safe because it implements no file system, process or module, not because a runtime walls it off. It has no memory cap, and its `fetch` reaches the network.
+
+<CodeModeSandboxes />
+
+The same small program ran in the three sandboxes that need no model: ten sequential calls to a mock tool that returns its input.
+
+<RankBars
+  title="Start a sandbox and make ten tool calls"
+  unit="ms"
+  rows={[
+    { label: "pi, QuickJS worker", value: 21.3, sub: "about 20 ms is the new worker and VM" },
+    { label: "Cloudflare, V8 isolate", value: 2, sub: "wrangler dev 4.166.0, timed inside the Worker" },
+    { label: "OpenCode, bytecode VM", value: 0.58, mark: "lilac", sub: "@opencode/codemode 2.3.2" },
+  ]}
+  caption="Median of 21 runs after one warm-up, Apple M4, Node 25.9.0. The Worker clock has millisecond resolution."
+/>
+
+In part 3, the Code Mode chain took 5.5 seconds for three model requests. The slowest sandbox here adds less than half a percent to that.
+
+## Who can stop a runaway program
+
+A `while (true) {}` never yields, so a timer in the same event loop never fires. The stop must come from something the loop cannot block. Claude Code builds it into the program: the transpiler adds a step counter, and my test script stopped 0.3 seconds after the call with this error:
+
+```text
+RangeError: REPL: a turn ran 300000000 steps, its budget (a step is one pass through a loop
+or one call of a function), and was stopped.
+```
+
+pi runs the program on a worker thread, so the main thread can stop it, but only when the script set `timeout_ms` or the user cancels. OpenCode's VM yields to the Effect scheduler between slices, so a cancel interrupts it; without one, the loop ran 300 seconds at full CPU. Cloudflare's executor races a `setTimeout` inside the isolate, which the loop blocks, so only the platform's CPU limit stops it in production.
+
+## Where permission checks fire
+
+Claude Code checks twice. A hook or `ask` rule on `REPL` and the auto mode classifier see the whole script before it runs. Then every call inside it goes through the rules and hooks under the tool's own name: a deny rule on `Bash(touch *)` refused one command and the script went on.
+
+OpenCode checks each call: the action `<server>_<tool>` for MCP tools, and `webfetch` with the URL for `fetch`. Its default policy allows every action except reading `.env` files, so nothing prompts. pi sends each nested call through the same `tool_call` hooks as a direct call, but has no approval step of its own; the check exists only when an extension adds one.
+
+Cloudflare decides before the run: `createCodeTool` leaves tools marked `needsApproval` out of the sandbox, and the connector runtime pauses on `requiresApproval`. The Claude API leaves the check to you, because your application runs every call.
+
+<CodeModeChecks />
+
+## Tool discovery
+
+- **The full typed API in the prompt.** Cloudflare's `codeMcpServer` renders every tool as TypeScript. For the same 46 GitHub tools that is 18,362 tokens, more than the 11,132 of the JSON definitions, and any schema change breaks the prompt cache.
+- **A search step.** pi lists no MCP tools, only one system prompt line per server; scripts find them with `searchTools()` and `describeTool()`, as in Claude Code. Cloudflare's `openApiMcpServer` has `search` and `execute` at 1,264 tokens for any size of API. The cost is one more step before the real call.
+- **A budgeted catalog.** OpenCode lists namespaces with tool counts, then signatures up to about 2,000 tokens. For GitHub that was the first 3 of 46 in alphabetical order; the rest need `search()`. The catalog saves a step only when the right tools fit in the budget.
+
+## Other agents
+
+Codex CLI 0.171.0 has code mode behind the `code_mode` feature, at the stage the source calls "under development", off by default. The model sends raw JavaScript to an `exec` tool, which runs it in V8 in a separate code-mode host process. A script that runs past 10 seconds returns a cell ID and continues through `wait`, and output stops at 10,000 tokens per call by default.
+
+Goose 1.60.2 has a **Code Mode** platform extension, off by default. The model finds tools with `list_functions` and calls them with `tools.call("extension__tool", args)`. The JavaScript runs on Boa, an interpreter written in Rust, inside the Goose process, with a budget of 2,000,000 instructions and 100,000 loop iterations.
+
+Gemini CLI 0.70.0 and Cline 4.1.26 have no tool that runs model-written code against the agent's other tools.
+
+## Which one to use when
+
+- **You use Claude Code.** Turn Code Mode on for chains of dependent calls: in part 3 it cut a ten-call chain from 12 requests to 3. Of the three agents, it is the only one with a default limit on a runaway script, and it checks both the script and each call. It needs the interactive terminal and a direct login, and it saves little on MCP definitions, which Claude Code already defers.
+- **You build your own agent or MCP server.** Use Cloudflare's executor. Of the designs you run yourself, the V8 isolate with no network is the strongest wall. For a large API, use `search` and `execute`, not the full typed API.
+- **You build on the Claude API and Python is fine.** Use programmatic tool calling. Anthropic hosts the sandbox and your code sees every call; MCP connector tools are out.
+- **You pick an open-source agent for MCP-heavy work.** Use pi. Its request grew by 50 tokens for 46 tools, its VM runs on a thread that a cancel or `timeout_ms` can stop, and nested calls fire the same hooks as direct ones. Add a `tool_call` hook if you want approvals. OpenCode is the close second: on by default and the fastest sandbox, but add a `webfetch` deny or ask rule, because its programs reach the network and only a cancel stops a loop.
+
+## Sources
+
+- [Code Mode: the better way to use MCP (Cloudflare)](https://blog.cloudflare.com/code-mode/) and [`@cloudflare/codemode` source](https://github.com/cloudflare/agents/tree/main/packages/codemode)
+- [Programmatic tool calling (Claude API docs)](https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling)
+- [pi v1.6.0 codemode docs](https://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/docs/codemode.md) and [execute.ts](https://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/src/extensions/codemode/execute.ts)
+- [Run tool calls from code with Code Mode (Claude Code docs)](https://code.claude.com/docs/en/code-mode) and [Claude Code changelog](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md)
+- [`@opencode/codemode` README, v2.3.2](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/codemode/README.md) and [`packages/core/src/codemode/catalog.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/core/src/codemode/catalog.ts)
+- [Codex `features/src/lib.rs`, rust-v0.171.0](https://github.com/openai/codex/blob/rust-v0.171.0/codex-rs/features/src/lib.rs) and [`code-mode-runtime`](https://github.com/openai/codex/tree/rust-v0.171.0/codex-rs/code-mode-runtime)
+- [Goose `platform_extensions/code_execution.rs`, v1.60.2](https://github.com/aaif-goose/goose/blob/v1.60.2/crates/goose/src/agents/platform_extensions/code_execution.rs) and [`javascript.rs`](https://github.com/aaif-goose/goose/blob/v1.60.2/crates/goose/src/agents/platform_extensions/javascript.rs)
+- [Gemini CLI v0.70.0](https://github.com/google-gemini/gemini-cli/tree/v0.70.0) and [Cline v4.1.26](https://github.com/cline/cline/tree/v4.1.26)
+- [GitHub MCP server v2.2.0](https://github.com/github/github-mcp-server/tree/v2.2.0)
+- [tiktoken](https://github.com/openai/tiktoken), `o200k_base` encoding

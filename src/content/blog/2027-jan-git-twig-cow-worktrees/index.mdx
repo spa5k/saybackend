@@ -1,0 +1,236 @@
+---
+title: "Copy-on-write git worktrees: twenty worktrees for the disk of one"
+seoTitle: "git-twig: Copy-on-Write Git Worktrees on APFS, Measured"
+description: "git twig new creates a linked worktree from APFS clones of the tracked files. Measured on Vite and ripgrep: real disk for 1, 5 and 20 worktrees, creation time, and how the saving decays."
+date: "2026-12-28"
+ogImage: "/images/2027-git-twig-cow-worktrees-og.png"
+slug: "git-twig-copy-on-write-worktrees"
+tags:
+  - "git"
+  - "tooling"
+  - "agents"
+---
+
+import { LineFigure } from "@/components/paper/LineFigure";
+import { NumberBand } from "@/components/paper/NumberBand";
+import { RankBars } from "@/components/paper/RankBars";
+import {
+  CloneBlocks,
+  TargetMtime,
+  TwigNewPipeline,
+} from "@/components/react/blog/rustlaptop/RustFigures";
+
+Every coding agent I run in parallel gets its own git worktree. `git worktree add` writes every tracked file again, and the install or build that follows writes more. With twenty agents on one laptop, that is twenty copies of the same bytes.
+
+[git-twig](https://github.com/leostera/git-twig), by leostera, makes the worktree from filesystem clones instead. Version 0.5.0 came out on 17 November 2026. This post is part 3 of "Rust on a laptop". [Part 1](/blog/rust-target-directory-disk-space/) shows where the disk under `target/` goes, and [part 2](/blog/rust-build-cache-worktrees-mbx/) shares one build cache across worktrees with mbx. This part is not only about Rust: one of the two test repositories is the Vite monorepo.
+
+## Copy-on-write in four commands
+
+On APFS, `cp -c` calls `clonefile(2)`. The new file gets its own inode but points at the same data blocks as the original. A block is copied only when one of the two files writes to it.
+
+`du` adds up the size of every file, so it counts a clone twice. To see real use, I measure on a separate APFS volume and read its "Volume Used Space", which `diskutil` gives in bytes:
+
+```sh
+diskutil image create blank --fs APFS --size 2G --volumeName cowtest cowtest.asif
+diskutil image attach cowtest.asif          # mounts /Volumes/cowtest
+cd /Volumes/cowtest
+used() { sync; diskutil info /Volumes/cowtest | grep 'Volume Used Space'; }
+
+head -c 1073741824 /dev/urandom > big.bin
+cp -c big.bin clone.bin; used
+du -sh .
+head -c 1048576 /dev/urandom | dd of=clone.bin bs=1m conv=notrunc; used
+```
+
+```text
+   Volume Used Space:         1.1 GB (1073766400 Bytes) (exactly 2097200 512-Byte-Units)
+2.0G	.
+   Volume Used Space:         1.1 GB (1074814976 Bytes) (exactly 2099248 512-Byte-Units)
+```
+
+The clone costs nothing, `du` reports 2 GB for 1 GiB of data, and a 1 MiB write into the clone adds exactly 1,048,576 bytes. Read the number twice after a large write, because it moves for a second while APFS settles. A separate volume matters: on the boot volume, the used space also moves with every other program that writes. Every disk number below comes from this method, on a 60 GB image used only for this test. `hdiutil detach /Volumes/cowtest` removes the demo volume.
+
+<CloneBlocks />
+
+## What git twig new does
+
+```sh
+cargo install git-twig --locked    # Rust 1.95+ and Git 2.40+
+git -C main twig new -b feat-x ../feat-x HEAD
+```
+
+I read the v0.5.0 source; the crate on crates.io is the same code as the `v0.5.0` tag. `git twig new -b <branch> <path> [<commit>]` (or `--detach`) runs these steps:
+
+1. Build the target index in private staging under `.git/twigs/staging` with `git read-tree <commit>`. The staging directory must be on the same filesystem as the destination.
+2. Pick a donor: up to five registered worktrees on the same device, the main checkout first. The donor is the one whose `HEAD` tree has the most paths with the same blob ID as the target.
+3. Clone. On macOS each top-level tracked directory is one `clonefile` call, and then every entry that is not in the target tree is deleted. On Linux it walks the tracked files and clones each with `FICLONE`.
+4. Verify. Every cloned file goes through `git hash-object` with no filters and must equal the target blob. Files that fail, and files with no donor match, are written by `git checkout-index`.
+5. Register with `git worktree add --no-checkout`, move the staged files in, write a fresh index with `git read-tree`, and run the `post-checkout` hook.
+
+So only committed, tracked files are shared. A dirty file in the donor is rewritten by Git, and ignored files such as `node_modules/` and `target/` do not reach the new worktree. The index is new, not cloned. `git twig list`, `remove`, `prune` and the other subcommands pass straight to `git worktree`.
+
+Anything outside that path falls back to plain `git worktree add`: an omitted `-b`, options like `-B` or `--lock`, sparse checkout, `GIT_DIR` and similar overrides, replace refs, and a `reference-transaction` or `post-index-change` hook. With `TWIG_TRACE=1` it prints what it did:
+
+```text
+git-twig: donor: ".../js/main", 3016 matching target paths
+git-twig: APFS directory clones: 6
+git-twig: checkout: 3011 verified file clones, 0 Git-written paths
+git-twig: native preparation: snapshot 0.514s; raw verification/repair 1.414s; total 2.195s
+```
+
+<TwigNewPipeline />
+
+## The test
+
+The machine is an Apple M4 with macOS 27.2.1. The tools are Git 2.56.1 (built from source), git-twig 0.5.0, Rust 1.100.0, Node 26.13.1 and pnpm 12.21.0.
+
+- **Vite** at commit `3567471`: 3,016 tracked files, 18.0 MB. `node_modules` installed with pnpm, the store on the same volume.
+- **ripgrep** at commit `4d592f1`: 227 tracked files, 3.3 MB. A debug `cargo build` makes a 296 MB `target/`.
+
+For each method a script makes 20 worktrees from the main checkout, one after another, and reads the volume after 1, 5 and 20. A second run of the plain methods gave the same numbers to within 0.1%. The methods:
+
+- `git worktree add -b <name> <path> HEAD`, alone and followed by `pnpm install --offline` or `cargo build`.
+- `git twig new -b <name> <path> HEAD`, alone and with the same install. For ripgrep, `cp -c -R main/target` into the worktree and then `cargo build`.
+- `cp -c -R main <path>`, a clone of the whole checkout with `.git`, `node_modules` and `target/`. This is a separate repository, not a worktree, but it is the baseline for "clone everything".
+
+## Disk: the tracked files
+
+<LineFigure
+  title="Real disk used by N Vite worktrees (MB)"
+  description="Twenty git worktree add worktrees use 609 MB, 1,007 MB with pnpm install. Twenty git twig worktrees use 38 MB, 434 MB with pnpm install. Twenty cp -c clones of the whole checkout use 329 MB."
+  series={[
+    { name: "git worktree + pnpm install", mark: "rose", dashed: true, endLabel: "1,007", points: [[1, 50.3], [5, 251.6], [20, 1006.7]] },
+    { name: "git worktree", mark: "rose", endLabel: "609", points: [[1, 30.4], [5, 152.2], [20, 609.2]] },
+    { name: "git twig + pnpm install", mark: "lilac", dashed: true, endLabel: "434", points: [[1, 21.7], [5, 108.1], [20, 434.4]] },
+    { name: "cp -c -R of the checkout", mark: "sand", endLabel: "329", points: [[1, 16.4], [5, 82.1], [20, 328.7]] },
+    { name: "git twig", mark: "lilac", endLabel: "38", points: [[1, 1.9], [5, 9.6], [20, 38.5]] },
+  ]}
+  xTicks={[1, 5, 20]}
+  yTicks={[0, 250, 500, 750, 1000]}
+  xLabel="worktrees"
+  caption="Volume Used Space on a dedicated APFS image, after 1, 5 and 20 worktrees. MB is 10^6 bytes."
+/>
+
+A Vite worktree from `git worktree add` costs 30.4 MB, more than its 18 MB of files, because every file fills whole 4 KiB blocks and each file and directory needs metadata. A `git twig` worktree costs 1.9 MB: a 0.38 MB index plus the metadata of 3,016 files and their directories. Twenty of them use 38 MB, about what one plain worktree uses.
+
+ripgrep shows the same ratio at a smaller size: 4.06 MB for `git worktree add` and 0.15 MB for `git twig`, so twenty twig worktrees (3.0 MB) use less than one plain worktree.
+
+The dependencies add the same amount in both cases. pnpm on macOS already clones packages from its store, so the files in `node_modules` are almost free in both cases. Each install still adds about 20 MB of directories, symlinks and metadata, and takes about 7 seconds. `cp -c -R` of the whole checkout, with `node_modules` and `.git`, uses 16.4 MB per copy, less than one `git worktree add`, because a clone of a file costs only its metadata.
+
+## Disk: the build directory
+
+<LineFigure
+  title="Real disk used by N ripgrep worktrees with a built target/ (MB, log scale)"
+  description="Twenty worktrees with a fresh cargo build use 5,987 MB. With a cloned target/ in a git worktree, 3,209 MB. With a cloned target/ in a git twig worktree, 23 MB. Plain git worktree add uses 81 MB and git twig uses 3 MB without a build."
+  series={[
+    { name: "git worktree + cargo build", mark: "rose", dashed: true, endLabel: "5,987", points: [[1, 296.9], [5, 1491.3], [20, 5987.1]] },
+    { name: "git worktree + cloned target/ + build", mark: "amber", dashed: true, endLabel: "3,209", points: [[1, 162.2], [5, 805.5], [20, 3209.2]] },
+    { name: "git worktree, no build", mark: "rose", endLabel: "81", points: [[1, 4.06], [5, 20.3], [20, 81.2]] },
+    { name: "git twig + cloned target/ + build", mark: "lilac", dashed: true, endLabel: "23", points: [[1, 1.18], [5, 5.78], [20, 23.1]] },
+    { name: "git twig, no build", mark: "lilac", endLabel: "3", points: [[1, 0.15], [5, 0.75], [20, 2.99]] },
+  ]}
+  xTicks={[1, 5, 20]}
+  yTicks={[0.1, 1, 10, 100, 1000, 10000]}
+  yScale="log"
+  yFormat={(value) => (value >= 1000 ? `${value / 1000} GB` : `${value} MB`)}
+  xLabel="worktrees"
+  caption="Debug build, Rust 1.100.0. cp -c -R of the whole checkout, target/ included, used 22 MB for twenty and also needed no rebuild."
+/>
+
+For Rust the tracked files are small and `target/` is not: a fresh `cargo build` adds 297 MB to every worktree. git-twig does not touch `target/`, but it changes what a cloned `target/` is worth:
+
+```sh
+git -C main twig new -b agent-7 ../agent-7 HEAD
+cp -c -R main/target agent-7/target
+cargo build --manifest-path agent-7/Cargo.toml
+```
+
+In a twig worktree the copy and the build take 0.65 s together, and Cargo compiles nothing. In a `git worktree add` worktree the same steps take 5.0 s, rebuild the 9 workspace crates and add 162 MB. The cause is the modification time. Cargo compares source mtimes with its build records, and `clonefile` keeps the donor's mtime: a cloned file showed `Nov 21 04:11:36`, the time of the original checkout, while Git's copy showed `06:35:18`, the time it was written. Crates from the registry are not affected, because their sources are outside the worktree.
+
+<NumberBand value="259×" note="twenty agents, one laptop">
+  less disk for twenty ripgrep worktrees with a working build: 23 MB with git twig and a cloned target/, against 6.0 GB with git worktree add and cargo build.
+</NumberBand>
+
+<TargetMtime />
+
+That is one way to give every worktree a build. [Part 2](/blog/rust-build-cache-worktrees-mbx/) covers the other, one shared build cache.
+
+## Creation time
+
+<RankBars
+  title="Time to create one worktree and its dependencies"
+  unit="seconds"
+  rows={[
+    { label: "Vite: cp -c -R checkout", value: 8.32 },
+    { label: "Vite: twig + pnpm install", value: 8.43, mark: "lilac" },
+    { label: "Vite: worktree + pnpm install", value: 7.18 },
+    { label: "Vite: git twig", value: 1.15, mark: "lilac", note: "2.1× slower" },
+    { label: "Vite: git worktree", value: 0.56 },
+    { label: "rg: worktree + cargo build", value: 8.68 },
+    { label: "rg: worktree + cloned target/", value: 5.05 },
+    { label: "rg: twig + cloned target/", value: 0.93, mark: "lilac" },
+    { label: "rg: git twig", value: 0.31, mark: "lilac", note: "4.7× slower" },
+    { label: "rg: git worktree", value: 0.07 },
+  ]}
+  caption="Median of 15 creations in 3 runs of 5, with no other timed job on the machine. The build times include the cp -c of target/."
+/>
+
+git-twig is slower to create: 1.15 s against 0.56 s for Vite, 0.31 s against 0.07 s for ripgrep. It runs Git several times, hashes every cloned file, and then registers the worktree, where `git worktree add` runs one checkout. Next to an install or a build the difference disappears, and for ripgrep the twig path with a cloned `target/` is the fastest way to a built worktree.
+
+## How the saving decays
+
+A clone shares blocks only until something writes the file. I took one twig Vite worktree (1.9 MB) and changed it step by step:
+
+<RankBars
+  title="Disk of one twig Vite worktree after each step"
+  unit="MB"
+  rows={[
+    { label: "new twig worktree", value: 1.9, mark: "lilac" },
+    { label: "checkout HEAD~300", value: 7.1, mark: "lilac", sub: "601 paths differ: +5.2 MB" },
+    { label: "checkout HEAD~1000", value: 8.7, mark: "lilac", sub: "+1.7 MB" },
+    { label: "checkout back to HEAD", value: 12.9, mark: "lilac", sub: "+4.1 MB" },
+    { label: "rewrite every file, same bytes", value: 30.5, mark: "lilac", sub: "+17.6 MB", note: "no sharing left" },
+    { label: "plain git worktree", value: 30.4 },
+  ]}
+  caption="Totals in the same worktree, one step after the other. The last row is a new git worktree add worktree, for comparison."
+/>
+
+The checkout back to HEAD does not restore the sharing: Git writes new files, even though their bytes equal the donor's. A formatter, a code generator or an editor that saves by rename does the same, and `git status` then shows no change at all while the worktree costs as much as a plain one. In ripgrep, editing the `rg` binary crate and rebuilding added 63 MB, and editing `grep-searcher` added 25 MB.
+
+A new worktree on another branch or an old commit shares only the files that match. Version 0.5.0 picks the donor with the most matching blobs. With only the main checkout to choose from, a twig worktree at `HEAD~300` cloned 2,414 files and let Git write 395, for 7.1 MB against 29.1 MB from `git worktree add`. At `HEAD~1000`, nine months older, it cloned 1,836 and wrote 703, for 8.7 MB against 26.3 MB.
+
+## Removal, gc and prune
+
+`git twig remove` frees only the private blocks: 1.9 MB for a worktree that `du` reports as 27.7 MB. Deleting a worktree directory and then running `git worktree prune -v` prints `Removing worktrees/<name>: gitdir file points to non-existent location`, the same as for any linked worktree. `git gc --prune=now` in the main checkout left the twig worktrees clean: `git status` and `git fsck` reported nothing. The clones are working files, not Git objects, so gc does not see them. After every successful creation, `.git/twigs/staging` was empty.
+
+`git twig adopt` is experimental in 0.5.0. On a plain worktree, `adopt --dry-run` reported `matched_files=2660 matched_logical_bytes=17923990 skipped_files=356 kernel_deduped_bytes=0; physical savings NOT measured`. `--prepare` wrote its 2,660 candidates as verified clones into `.git/twig-adopt-prototype-*` and left them there, without replacing a file. `--dedupe` on APFS stops with `in-place adoption is Linux-only; APFS live file replacement is intentionally unsupported`. In this release adopt does not reclaim space on macOS.
+
+## The alternatives I tested
+
+- `git clone --shared`, `--local` and `--reference` share objects, not the working tree. Each Vite clone used 30.6 MB, the same as `git worktree add`.
+- Sparse checkout cuts the files themselves: a worktree with only `packages/vite` (649 files) used 6.3 MB. git-twig does not combine with it; from a sparse worktree it falls back with `sparse checkout requires stock Git`.
+- `jj workspace add` in jj 0.47.1 wrote a full working copy: 31.0 MB.
+- A pnpm store on the same disk already makes `node_modules` cheap on macOS. For build output, a shared cache is the alternative to cloning `target/`.
+
+## The trade
+
+- Creation is 2.1 to 4.7 times slower for the files alone.
+- It needs APFS, Btrfs or XFS with reflinks, with the repository, its `.git` and the new worktree on one filesystem. On ext4 or NTFS you get plain `git worktree add`.
+- Only `-b` and `--detach` take the fast path. An app that calls `git worktree add` itself gets no saving; `git twig skill` prints instructions that tell an agent to call `git twig new`.
+- Only tracked, committed files are shared. Dependencies and build output need their own plan.
+- Clones diverge as files are written, and the sharing does not come back.
+- `du` reports the full size of every clone. Measure on a separate volume.
+- A failed creation keeps its staging directory and can leave a registered, partial worktree. Inspect it before you retry.
+
+## Sources
+
+- [git-twig repository](https://github.com/leostera/git-twig), [README](https://github.com/leostera/git-twig/blob/v0.5.0/README.md) and [CHANGELOG](https://github.com/leostera/git-twig/blob/v0.5.0/CHANGELOG.md) at v0.5.0
+- [git-twig website](https://twig.leostera.dev/)
+- [git-twig on crates.io](https://crates.io/crates/git-twig)
+- [clonefile(2) man page, Apple xnu source](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/man/man2/clonefile.2)
+- [git-worktree documentation](https://git-scm.com/docs/git-worktree)
+- [git-clone documentation: --shared, --local, --reference](https://git-scm.com/docs/git-clone)
+- [git-sparse-checkout documentation](https://git-scm.com/docs/git-sparse-checkout)
+- [pnpm packageImportMethod](https://pnpm.io/settings/node-modules#packageimportmethod)
+- [Jujutsu: workspaces](https://docs.jj-vcs.dev/latest/working-copy/#workspaces)
+- [Vite repository](https://github.com/vitejs/vite), [ripgrep repository](https://github.com/BurntSushi/ripgrep)

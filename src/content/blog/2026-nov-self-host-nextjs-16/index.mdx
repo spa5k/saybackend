@@ -1,0 +1,265 @@
+---
+title: "Self-Host Next.js 16 Without Vercel: Standalone Output or the Adapter API?"
+seoTitle: "Self-Host Next.js 16: Standalone Output vs Adapter API"
+description: "Next.js 16 runs on any Node.js server. How to choose between next start, standalone output, the adapter API and static export when you self-host."
+date: "2026-12-14"
+ogImage: "/images/2026-self-host-nextjs-16-og.png"
+slug: "self-host-nextjs-16-standalone-adapter"
+tags:
+  - "nextjs"
+  - "deployment"
+  - "docker"
+---
+
+import { NumberBand } from "@/components/paper/NumberBand";
+import { RankBars } from "@/components/paper/RankBars";
+import {
+  AdapterFlow,
+  SharedCache,
+  StandaloneFolder,
+} from "@/components/react/blog/nov2026/NovFigures";
+
+Next.js 16.2 made the Deployment Adapter API stable, which adds a fourth answer to an old question and makes it less obvious whether an app that only has to run in a container now needs an adapter. It does not. Next.js needs a Node.js server and nothing more: a single `next start` process handles every feature, including ISR, Partial Prerendering, Cache Components, Server Actions, Proxy and `after()`.
+
+The adapter API and `output: "standalone"` solve different problems. Standalone changes how the build is packaged for a Node.js server. An adapter lets a platform turn the build into something that is not a plain Node.js server at all.
+
+I tested each claim below on a new `create-next-app` project: Next.js 16.4.6, React 19.3, Node.js 26.13.1, in Docker on an Apple M4. The app has a static page, a dynamic page, a cached page, three route handlers and one `next/image`.
+
+## The short answer
+
+| Option | Config | What you deploy | Fits when |
+| --- | --- | --- | --- |
+| Node.js server | none | The project, `node_modules`, and `next start` | A VM or a PaaS that builds from source and runs Node.js |
+| Standalone output | `output: 'standalone'` | `.next/standalone` plus two folders you copy | Docker, Kubernetes, any container host |
+| Adapter | `adapterPath` | Whatever the adapter emits | The target platform ships an adapter, or you are building the platform |
+| Static export | `output: 'export'` | The `out` folder | No feature in the app needs a server |
+
+The Node.js server and Docker support every feature. Static export supports a limited set, and with an adapter it depends on the platform. If your target is a server or a container that you control, the first two rows are the whole decision, and standalone is the one I reach for.
+
+## Standalone output
+
+The config is one line:
+
+```js
+module.exports = {
+  output: 'standalone',
+}
+```
+
+During `next build`, Next.js traces which files each page and the production server load. With this option it copies those files, including the needed parts of `node_modules`, into `.next/standalone`, and writes a minimal `server.js` that replaces `next start`. That folder runs without installing dependencies.
+
+<NumberBand value="9.6×" note="1,331 files, not 21,550">
+  smaller: `.next/standalone` is 56.5 MB, and the `node_modules` folder it replaces is 541 MB.
+</NumberBand>
+
+Two folders are left out on purpose. `public` and `.next/static` are meant for a CDN, so the build does not copy them. If you want `server.js` to serve them, copy them yourself:
+
+```bash
+cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/
+```
+
+<StandaloneFolder />
+
+Forgetting this is the classic first failure: the page renders with no CSS and no images. In my test the HTML and the route handler still returned 200. The CSS file, the JavaScript chunk, the file from `public` and the `/_next/image` URL all returned 404. I walked into it myself in my [step-by-step Docker post](/blog/2024-sep-nextjs-deploy-any-server/), which also shows the image for one of my projects going from 1.53 GB to about 290 MB once the standalone folder replaced a full install.
+
+For the test app, the same change looks like this:
+
+<RankBars
+  bleed
+  title="Image size for the same app"
+  unit="MB, unpacked"
+  rows={[
+    { label: "next start, all dependencies", value: 947.0 },
+    { label: "next start, production only", value: 790.2 },
+    { label: "standalone, node slim", value: 352.2, mark: "lilac", note: "2.7× smaller" },
+    { label: "standalone, node alpine", value: 252.5, mark: "lilac" },
+    { label: "node:26.13.1-slim alone", value: 289.1 },
+  ]}
+  caption="Sum of the unpacked layers. The compressed sizes are 276, 247, 108, 90 and 86 MB."
+/>
+
+The standalone layers add 63 MB to the base image. After that change, the base image is most of what you ship, so the base is the next thing to look at.
+
+One detail in that 56.5 MB surprised me: 38 MB of it is `sharp`. With this lockfile, `npm ci` installed the glibc build and the musl build of it, and the trace copied both.
+
+Standalone is a packaging change. It did not change how the server runs:
+
+| | `next start` | `node server.js` |
+| --- | --- | --- |
+| Process start to first 200 | 260 ms | 229 ms |
+| Memory after one request | 58.8 MiB | 52.1 MiB |
+| Memory after 2,000 requests | 279 MiB | 271 MiB |
+| Static page, requests per second | 9,506 | 9,379 |
+| Dynamic page, requests per second | 913 | 785 |
+
+Each value is the median of five runs. The differences in the last two rows are inside the noise of my machine.
+
+The server reads `PORT` and `HOSTNAME`:
+
+```bash
+PORT=8080 HOSTNAME=0.0.0.0 node server.js
+```
+
+`HOSTNAME` matters more in Docker than the example shows. `server.js` falls back to `0.0.0.0` only when the variable is empty, and Docker always sets it to the container ID. Without the override, my server listened on the container's own address only. The published port still worked from the host, but a request to `127.0.0.1:3000` inside the container got `ECONNREFUSED`. A health check that calls `localhost` fails in that state.
+
+One behaviour is easy to miss. When the build loads a `.env` or `.env.production` file, standalone output copies it into `.next/standalone`, and `server.js` uses those values as defaults at runtime. Variables set when the server starts take precedence. `.env.local` and `.env.production.local` are not copied. So keep secrets out of the two copied files; the official Docker example goes further and excludes `.env` from the build context with `.dockerignore`.
+
+Separately, anything prefixed with `NEXT_PUBLIC_` is inlined into the JavaScript bundle during `next build`. Server-side variables read during dynamic rendering are evaluated at runtime, which is what lets one image move through staging and production with different values.
+
+### A minimal Dockerfile
+
+This is the official `with-docker` example reduced to the npm path, with the comments removed. The original also handles Yarn and pnpm lockfiles.
+
+```dockerfile
+ARG NODE_VERSION=26.13.1-slim
+
+FROM node:${NODE_VERSION} AS dependencies
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN --mount=type=cache,target=/root/.npm \
+  npm ci --no-audit --no-fund
+
+FROM node:${NODE_VERSION} AS builder
+WORKDIR /app
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY . .
+ENV NODE_ENV=production
+RUN npm run build
+
+FROM node:${NODE_VERSION} AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+COPY --from=builder --chown=node:node /app/public ./public
+RUN mkdir .next
+RUN chown node:node .next
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+
+USER node
+EXPOSE 3000
+CMD ["node", "server.js"]
+```
+
+The `mkdir .next` and `chown` lines exist so the non-root `node` user can write the prerender cache. In my build they changed nothing, because `COPY --chown=node:node` already creates `.next` with that owner. The server wrote its cache files and the optimized images without them. I keep the lines because they are in the official example. `HOSTNAME="0.0.0.0"` makes the server listen on all interfaces inside the container. The Node.js version is the current LTS, 26.13.1.
+
+## The adapter API
+
+`adapterPath` became a stable, top-level option in v16.2.0; before that it lived at `experimental.adapterPath`. An adapter is an API that lets a platform customize the build process.
+
+```js
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  adapterPath: require.resolve('./my-adapter.js'),
+}
+
+module.exports = nextConfig
+```
+
+A platform can also set the `NEXT_ADAPTER_PATH` environment variable, so that the app needs no config change at all.
+
+An adapter is a module that exports an object implementing the `NextAdapter` interface. It has a `name` and two optional hooks. `modifyConfig` receives the resolved config and the build phase, and returns a config. `onBuildComplete` runs after the build and receives the routing tables, the list of outputs (pages, App Router pages, route handlers, prerenders, static files, middleware), the build ID and the relevant directories. From that, the adapter writes whatever its platform expects.
+
+<AdapterFlow />
+
+Everything an adapter does happens at build time. The adapter handles build-time output, while `cacheHandler` and `cacheHandlers` cover runtime caching. Together they are the full platform integration surface, and Vercel's own adapter uses the same public API.
+
+You need one in two cases. The first is that you deploy to a platform that publishes an adapter, in which case you install theirs and write nothing. Today the verified adapters are Vercel and Bun; Cloudflare and Netlify are working on verified adapters, and several other platforms still ship integrations that are not built on the public API. The second is that you are the platform team: you need to split the build into functions, generate a CDN routing config from the route information, or validate build output.
+
+If the target is a Node.js process in a container, neither case applies. Most community adapters today do the same thing anyway: they deploy Next.js as a Docker container or a Node.js server.
+
+You can set `adapterPath` and `output: 'standalone'` together. I tried it with an adapter that only logs what it receives. The build passed. `.next/standalone` was there with the same 1,331 files, and `node server.js` served every route. For my six pages and three route handlers, `onBuildComplete` received 12 App Router page outputs, 6 route handler outputs, 26 prerenders and 26 static files. `NEXT_ADAPTER_PATH` gave the same result with no config change.
+
+## Caching and ISR with more than one instance
+
+ISR and page caching use the same server cache. By default it lives in memory (50 MB) and on the local disk of each instance. That is correct for one server with a persistent disk. With several pods, each one has its own copy, and a `revalidateTag()` call on one instance only invalidates the cache on that instance.
+
+<SharedCache />
+
+I ran two containers from one standalone image, with a cached page that prints the time it was rendered. Then I called a route that runs `revalidateTag` on the first container only.
+
+| | Container A | Container B |
+| --- | --- | --- |
+| Before | 19:46:56 | 19:46:56 |
+| `revalidateTag` on A | | |
+| Next three requests | 19:57:05 | 19:46:56 |
+
+B served the old page on all three requests, and it had no way to know that the tag changed.
+
+The fix is a custom handler plus disabling the in-memory layer:
+
+```js
+module.exports = {
+  cacheHandler: require.resolve('./cache-handler.js'),
+  cacheMaxMemorySize: 0, // disable default in-memory caching
+}
+```
+
+The handler class implements `get`, `set`, `revalidateTag` and `resetRequestCache`. A production handler must store entries where every instance can reach them, bound the size of the store, serialize `Buffer` and `Map` values properly, index entries by tag, and handle storage errors. I have a full Redis handler, based on the official example, in the [cache handler section of the Docker post](/blog/2024-sep-nextjs-deploy-any-server/), so I will not repeat it here.
+
+Two things are separate from that handler. `'use cache'` entries are configured through `cacheHandlers` (plural), and its `refreshTags()` method is where instances sync tag state from shared storage before each request.
+
+Multiple instances also need the same `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` at build time, otherwise a Server Function encrypted by one instance fails on another with "Failed to find Server Action". And a `deploymentId` gives you version skew protection during rolling deploys: on a mismatch, Next.js does a full page reload instead of a client-side navigation.
+
+```js
+module.exports = {
+  deploymentId: process.env.DEPLOYMENT_VERSION,
+}
+```
+
+Build once and promote that image. If you rebuild per environment, set `generateBuildId` so the containers agree on a build ID.
+
+## Images, streaming and shutdown
+
+Image Optimization through `next/image` works with zero configuration under `next start`, with `sharp` as its one extra dependency. The standalone trace already includes it, so the image needs no extra step. On glibc-based Linux, image optimization may need memory allocator configuration to avoid excessive memory use; the sharp install notes cover it. A custom `loader` moves the work to a separate service.
+
+Put a reverse proxy in front of the Next.js server. It handles malformed requests, slow connection attacks, payload limits and rate limiting. The catch is buffering: with nginx or a similar proxy, you must disable buffering for streaming to work. A header does it:
+
+```js
+module.exports = {
+  async headers() {
+    return [
+      {
+        source: '/:path*{/}?',
+        headers: [
+          {
+            key: 'X-Accel-Buffering',
+            value: 'no',
+          },
+        ],
+      },
+    ]
+  },
+}
+```
+
+Load balancers in the path must pass chunked responses through as well. Without streaming, Partial Prerendering still works, but the static shell and the dynamic content arrive together.
+
+For shutdown, send `SIGINT` or `SIGTERM` and wait. The server finishes in-flight requests and pending `after()` callbacks before it exits. Allow a drain period of 10 to 30 seconds.
+
+I tested it with a route that takes 5 s and has an `after()` callback of 2 s. I sent `SIGTERM` 1 s after the request started. The request still returned 200 after 5.0 s, the callback ran, and `docker stop` returned after 6.2 s. An idle server stopped in 0.2 s. The exit code is 143 in both cases, so do not alert on a non-zero code here.
+
+## Checklist
+
+- `output: 'standalone'` is set, and the image copies `public` and `.next/static` next to `server.js`.
+- `HOSTNAME` is `0.0.0.0` in the container and `PORT` matches the exposed port.
+- No secrets in `.env` or `.env.production`; they are passed when the server starts.
+- The container runs as a non-root user that can write to `.next`.
+- More than one instance: shared `cacheHandler`, `cacheMaxMemorySize: 0`, one `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`, a `deploymentId`.
+- The reverse proxy does not buffer, and the orchestrator allows a drain period on `SIGTERM`.
+- No `adapterPath`, unless the platform you deploy to gives you one.
+
+## Sources
+
+- [How to self-host your Next.js application](https://nextjs.org/docs/app/guides/self-hosting)
+- [next.config.js: output](https://nextjs.org/docs/app/api-reference/config/next-config-js/output)
+- [Getting Started: Deploying](https://nextjs.org/docs/app/getting-started/deploying)
+- [Deploying Next.js to different platforms](https://nextjs.org/docs/app/guides/deploying-to-platforms)
+- [next.config.js: adapterPath](https://nextjs.org/docs/app/api-reference/config/next-config-js/adapterPath)
+- [Adapters: Creating an Adapter](https://nextjs.org/docs/app/api-reference/adapters/creating-an-adapter)
+- [Adapters: Use Cases](https://nextjs.org/docs/app/api-reference/adapters/use-cases)
+- [Next.js 16.2 release post](https://nextjs.org/blog/next-16-2)
+- [How to create a static export](https://nextjs.org/docs/app/guides/static-exports)
+- [Official with-docker example](https://github.com/vercel/next.js/tree/canary/examples/with-docker)

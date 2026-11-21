@@ -147,6 +147,13 @@ function frontmatterOnly(): Plugin {
 }
 
 const config = defineConfig({
+  // The day of this build. A post with a later date stays hidden until a
+  // build on or after that date. The daily rebuild publishes it.
+  define: {
+    __BUILD_DATE__: JSON.stringify(
+      process.env.BUILD_DATE ?? new Date().toISOString().slice(0, 10),
+    ),
+  },
   resolve: {
     tsconfigPaths: true,
     alias: [

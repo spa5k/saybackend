@@ -1,0 +1,422 @@
+---
+title: "Migrating a SolidStart App to Solid 2.0: Every Error and Its Fix"
+seoTitle: "Migrate SolidStart to Solid 2.0: Every Error and Fix"
+description: "A real SolidStart app moved to Solid 2.0 and Start mode, step by step: 29 problems with the exact error text, the cause, the fix, and the build and bundle numbers before and after."
+date: "2026-11-30"
+ogImage: "/images/2027-migrate-solidstart-solid-2-og.png"
+slug: "migrate-solidstart-to-solid-2"
+tags:
+  - "solidjs"
+  - "solidstart"
+  - "migration"
+---
+
+import { BeforeAfterBars } from "@/components/paper/BeforeAfterBars";
+import { NumberBand } from "@/components/paper/NumberBand";
+import { RankBars } from "@/components/paper/RankBars";
+import {
+  PackageMoves,
+  StartModeRequest,
+  WhereErrorsSurface,
+} from "@/components/react/blog/solid2/SolidFigures";
+
+I built a small SolidStart app on the latest SolidStart for Solid 1.x, then moved it to Solid 2.0. This post is the log of that move, in the order the problems came up. Every error text below is copied from my terminal or my browser console.
+
+The [first post in this series](/blog/solid-2-async-reactive-graph/) explains how async values work in the Solid 2.0 graph. This one is the practical part: which lines break, and what replaces them.
+
+## The app and the versions
+
+The app has file routes, a root layout, a nested `/todos` layout with a `/todos/:id` child, a 404 route, an API route at `/api/health`, and a middleware that adds a `server-timing` header. Data comes in through `createResource` on the home page and `createAsync` with `query` on the todo pages. Two server functions are bound to forms with `action`, one form shows its pending state with `useSubmission`, and a store holds the filter and the selection. The home page streams: a 400 ms server function sits under `Suspense`, and the shell arrives first.
+
+Before: `@solidjs/start` 2.2.3, `solid-js` 1.9.20, `@solidjs/router` 1.0.3, `@solidjs/meta` 0.29.8, Nitro 3.0.261103-rc and Vite 8.3.8. SolidStart 2.2.3 has no Vinxi; it runs on Vite, h3 and srvx, and its `engines` field asks for Node.js 24 or later. I used Node.js 25.9.0 on an Apple M4.
+
+After: `solid-js` 2.0.3, `@solidjs/web` 2.0.3, `@solidjs/router` 2.0.1, `@solidjs/meta` 2.0.0, `@solidjs/vite-plugin` 3.0.1, `filesystem-routing` 0.5.0 and the same Vite. `solid-js` 2.0.0 was published to npm on 17 November 2026; 2.0.3 followed two days later.
+
+## There is no SolidStart for Solid 2.0
+
+SolidStart 2.2.3 declares `solid-js` `^1.9.15` and `@solidjs/router` `>=0.16.0 <2.0.0-0` as peers. The Solid 2.0 path does not go through SolidStart at all. The framework layer is now **Start mode**, an option of `@solidjs/vite-plugin` that generates the entries, serves dev and builds a production server. Server functions are a second plugin option, with the runtime in `@solidjs/web`. File-system routing is a separate package, `filesystem-routing`, with an adapter in `@solidjs/router/fs`. The official `solid-v2/fullstack` template wires the three together, and I copied its config. Part 3 of this series covers [the options after SolidStart](/blog/solidstart-maintenance-what-to-use/).
+
+<PackageMoves />
+
+No official codemod exists for 1.x to 2.0. `MIGRATION.md` in the Solid repository is a manual checklist, and there is no `@solidjs/codemod` package. The only Solid codemod project linked from the repository converts React code to Solid. Every change below was by hand.
+
+## Step 1: npm refuses the upgrade
+
+```sh
+npm install solid-js@2.0.3
+```
+
+```text
+npm error ERESOLVE unable to resolve dependency tree
+npm error Found: solid-js@2.0.3
+npm error Could not resolve dependency:
+npm error peer solid-js@"^1.8.4" from @solidjs/meta@0.29.8
+```
+
+This is the correct answer. With `--legacy-peer-deps` the install goes through, and the first build fails inside SolidStart's own compile step, because its JSX output imports a subpath that 2.0 removed:
+
+```text
+"./web" is not exported under the conditions ["solid", "module", "browser", "production", "import"] from package .../node_modules/solid-js
+```
+
+So I swapped the packages instead:
+
+```sh
+npm uninstall @solidjs/start nitro
+npm install solid-js@2.0.3 @solidjs/web@2.0.3 @solidjs/router@2.0.1 @solidjs/meta@2.0.0
+npm install -D @solidjs/vite-plugin@3.0.1 filesystem-routing@0.5.0
+```
+
+## Step 2: the Vite config
+
+The old config fails with `Could not resolve 'nitro/vite'` and `Could not resolve '@solidjs/start/config'`. The new one:
+
+```ts
+// vite.config.ts
+import { defineConfig } from "vite";
+import solid from "@solidjs/vite-plugin";
+import { fileRoutes } from "filesystem-routing/vite";
+
+export default defineConfig({
+  plugins: [
+    solid({
+      start: { middleware: "./src/middleware.ts", nodeServer: true },
+      ssr: true,
+      serverFunctions: true,
+      extensions: [".jsx", ".tsx"],
+    }),
+    fileRoutes({ httpMethods: true, types: true }),
+  ],
+  resolve: { tsconfigPaths: true },
+});
+```
+
+`ssr: true` selects streaming SSR. `nodeServer: true` writes `dist/server/node.js`, which replaces `.output/server/index.mjs`, so the `start` script in `package.json` changes too. `extensions` lets the plugin compile the `?pick=` modules that `fileRoutes` emits. `httpMethods` makes the scanner pick up `GET` exports. The last line comes from step 9.
+
+## Step 3: the old entry files are picked up
+
+```text
+Error: [vite]: Rolldown failed to resolve import "@solidjs/start/client" from ".../src/entry-client.tsx".
+```
+
+Start mode looks for `src/entry-server.*` and `src/entry-client.*` first and uses them if they exist. The SolidStart versions import `@solidjs/start/client` and `@solidjs/start/server`. I deleted both and added `src/Document.tsx`, which takes the place of the `document` prop of `StartServer`:
+
+```tsx
+import type { ParentProps } from "solid-js";
+import { HydrationScript } from "@solidjs/web";
+
+export default function Document(props: ParentProps) {
+  return (
+    <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <HydrationScript />
+      </head>
+      <body>{props.children}</body>
+    </html>
+  );
+}
+```
+
+`src/app.tsx` stays the root component; start mode accepts the lowercase name.
+
+## Step 4: five missing exports in the root
+
+```text
+Build failed with 5 errors:
+[MISSING_EXPORT] "MetaProvider" is not exported by "node_modules/@solidjs/meta/dist/index.js".
+[MISSING_EXPORT] "A" is not exported by "node_modules/@solidjs/router/dist/index.jsx".
+[MISSING_EXPORT] "Router" is not exported by "node_modules/@solidjs/router/dist/index.jsx".
+[MISSING_EXPORT] "ErrorBoundary" is not exported by "node_modules/solid-js/dist/solid.js".
+[MISSING_EXPORT] "Suspense" is not exported by "node_modules/solid-js/dist/solid.js".
+```
+
+`MetaProvider` is gone because the head registry no longer needs a provider. The router has no `<Router>` or `<A>` components: you create the router instance once, and links are plain anchors. `ErrorBoundary` is `Errored` and `Suspense` is `Loading`. The router moves to its own module, built from the file-route manifest:
+
+```ts
+// src/router.ts
+import { pageRoutes } from "virtual:file-routes";
+import { createRouter } from "@solidjs/router";
+import { fileRoutes } from "@solidjs/router/fs";
+
+export const Router = createRouter({ routes: fileRoutes(pageRoutes) });
+export const { paths } = Router;
+```
+
+```tsx
+// src/app.tsx, before
+<Router root={(props) => (
+  <MetaProvider>
+    <A href="/todos" activeClass="active">Todos</A>
+    <ErrorBoundary fallback={(err) => <p>{err.message}</p>}>
+      <Suspense>{props.children}</Suspense>
+    </ErrorBoundary>
+  </MetaProvider>
+)}>
+  <FileRoutes />
+</Router>
+
+// after
+<Router>
+  {(props) => (
+    <>
+      <a href={paths.todos()}>Todos</a>
+      <Errored fallback={(err) => <p>{(err() as Error).message}</p>}>
+        <Loading>{props.children}</Loading>
+      </Errored>
+    </>
+  )}
+</Router>
+```
+
+`activeClass` has no replacement attribute. The router sets `aria-current="page"` and `data-active` on matching links, so the CSS selector changes from `a.active` to `a[aria-current="page"]`. `err` in the `Errored` fallback is an accessor, and its value is `unknown`.
+
+## Step 5: the compiler rejects classList
+
+```text
+[plugin solid] .../src/routes/todos.tsx?pick=default&pick=$css&lang.tsx
+Error: `classList` on <button> was removed in Solid 2.0. Use `class` with an object or array instead: `class={{ active: isActive() }}` or `class={["base", { active: isActive() }]}`. (55:21)
+```
+
+The best error message of the whole migration: it names the replacement. The fix is the rename it shows.
+
+## Step 6: solid-js/store, without a file name
+
+```text
+"./store" is not exported under the conditions ["solid", "module", "browser", "production", "import"] from package .../node_modules/solid-js
+```
+
+This error does not say which file imports `solid-js/store`, so I searched for it. Store functions now come from `solid-js` itself.
+
+## Step 7: ten removed APIs
+
+With the imports fixed, the build reported the removed APIs, five at a time:
+
+```text
+Build failed with 10 errors:
+[MISSING_EXPORT] "createResource" is not exported by "node_modules/solid-js/dist/solid.js".
+[MISSING_EXPORT] "onMount" is not exported by "node_modules/solid-js/dist/solid.js".
+[MISSING_EXPORT] "Suspense" is not exported by "node_modules/solid-js/dist/solid.js".
+[MISSING_EXPORT] "createAsync" is not exported by "node_modules/@solidjs/router/dist/index.jsx".
+[MISSING_EXPORT] "useSubmission" is not exported by "node_modules/@solidjs/router/dist/index.jsx".
+...
+```
+
+The other five were `batch`, `on`, `onMount` again, `produce` and a second `createAsync`. Both async primitives become a memo that returns a promise; the `Loading` boundary above it shows the fallback until the promise settles:
+
+```tsx
+// before
+const [stats] = createResource(getStats);
+const todos = createAsync(() => getTodos());
+
+// after
+const stats = createMemo(() => getStats());
+const todos = createMemo(() => getTodos());
+```
+
+The streaming still works. Under the new server the home page's first byte arrived in 9.1 ms and the whole response after 412 ms, against 7.1 ms and 410 ms before.
+
+`batch` has no replacement because every write is now batched. `on` disappears into the split effect, where the first function is the dependency list. `produce` is the default store setter, and I changed the path setters to draft writes at the same time, as the migration guide maps them:
+
+```tsx
+// before
+createEffect(on(() => view.filter, (f) => localStorage.setItem("filter", f), { defer: true }));
+batch(() => { setView("filter", saved); setView("selected", []); });
+setView(produce((v) => { v.selected.push(id); }));
+
+// after
+createEffect(() => view.filter, (f) => localStorage.setItem("filter", f), { defer: true });
+setView((v) => { v.filter = saved; v.selected = []; });
+setView((v) => { v.selected.push(id); });
+```
+
+`useSubmission` is gone because submissions are now settled history, not in-flight state. The pending label moved to an optimistic signal that the action sets on submit and that reverts when the action settles. The error message reads from `useSubmissions`:
+
+```tsx
+const submissions = useSubmissions(addTodo);
+const [adding, setAdding] = createOptimistic(false);
+addTodo.onSubmit(() => {
+  submissions.forEach((s) => s.clear());
+  setAdding(true);
+});
+// <button disabled={adding()}>{adding() ? "Adding…" : "Add"}</button>
+// <Show when={submissions.at(-1)?.result?.error}>{(e) => <p>{e()}</p>}</Show>
+```
+
+## Step 8: the server build finds the rest
+
+The client build failed once more, on `@solidjs/start` in the 404 route: `<HttpStatusCode code={404} />` becomes a call, `httpStatus(404)`, from `@solidjs/web`. Then the client build passed, and the server build failed on `redirect` from `@solidjs/router` and on `@solidjs/start/middleware`. `redirect` now comes from `@solidjs/web` too. The middleware is a plain array of `(event, next)` functions:
+
+```ts
+import type { StartMiddleware } from "@solidjs/vite-plugin";
+import { createAPIHandler } from "filesystem-routing/api";
+import routes from "virtual:file-routes";
+
+const timing: StartMiddleware = async (event, next) => {
+  const start = performance.now();
+  const response = await next();
+  response.headers.set("server-timing", `app;dur=${(performance.now() - start).toFixed(1)}`);
+  return response;
+};
+
+export default [timing, createAPIHandler(routes)] satisfies StartMiddleware[];
+```
+
+My first version had only `timing`, and that build passed. Then `curl /api/health` answered `404 Not Found` with the HTML of the 404 page. SolidStart served `GET` exports by itself; in start mode, `createAPIHandler` in the middleware chain does it. The `APIEvent` type in the route file still came from `@solidjs/start/server`, and nothing complained, because a type-only import is erased. It now comes from `filesystem-routing/api`.
+
+<StartModeRequest />
+
+## Step 9: dev fails where the build passed
+
+`vite build` now passed and the production server answered every route. `vite dev` did not:
+
+```text
+[vite] Internal server error: Cannot find module '~/lib/todos' imported from '.../src/routes/todos.tsx'
+```
+
+SolidStart added the `~` alias for `src` in its own Vite plugin. Without SolidStart, the production build still resolved `~/lib/todos`, and the dev SSR runner did not. `resolve: { tsconfigPaths: true }` makes Vite read the `paths` entry in `tsconfig.json`, and then dev and build agree.
+
+## Step 10: a runtime error behind a hydration warning
+
+In the browser, the home page logged one warning:
+
+```text
+Hydration key miss for "1730000310040020": no server-rendered element carries this key (template: <p><!$><!/> of <!$><!/> done).
+```
+
+The page showed the `Errored` fallback with the real error:
+
+```text
+onSettled callback returned an invalid cleanup value. Return a cleanup function or undefined.
+```
+
+`onMount(() => setHydrated(true))` became `onSettled(() => setHydrated(true))`. The arrow returns the setter's result, and `onSettled` treats a returned value as cleanup. Braces fix it. The hydration warning was a result of the error, not a second problem.
+
+## Step 11: two dev warnings
+
+```text
+[@solidjs/router] `action` is deprecated and will be removed in the next major; use `formAction` instead.
+```
+
+`action` still works as an alias, so the build gives no error. `formAction` is the new name; `action` in `solid-js` is now a separate primitive.
+
+After a form submit refreshed the list, the console printed:
+
+```text
+[UNSTABLE_LIST_IDENTITY] list "<For>" recreated 4 of 4 rows on an update where the entering items are equivalent to the ones they replaced (3 of 3 sampled pairs identical field-for-field)
+```
+
+Each revalidation returns fresh objects, and `For` keys by identity by default, so it rebuilt every row. `keyed={(t) => t.id}` fixes it. With a key function, the child receives an accessor, so `todo.title` becomes `todo().title`.
+
+## Step 12: TypeScript
+
+`tsc --noEmit` with TypeScript 7.0.2 printed 87 errors. 84 of them came from one line: `jsxImportSource` must be `@solidjs/web`, not `solid-js`. The other three were the `unknown` error value from step 4 and `params.id` typed `string | undefined` in the detail route. `defineFileRoute` from `@solidjs/router/fs` types the params from the pattern:
+
+```tsx
+export const route = defineFileRoute("/todos/:id", {
+  preload: ({ params }) => getTodo(params.id),
+});
+
+export default function TodoPage(props: RouteProps<typeof route>) {
+  const todo = createMemo(() => getTodo(props.params.id));
+  // ...
+}
+```
+
+## The count
+
+<NumberBand value="29" note="342 lines of app">
+  separate problems between the first npm install and a clean console. 13 of them were removed or moved exports.
+</NumberBand>
+
+<RankBars
+  title="Problems by category"
+  unit="count"
+  rows={[
+    { label: "Removed or moved exports", value: 13, mark: "lilac" },
+    { label: "SolidStart and Nitro imports", value: 5 },
+    { label: "Type errors after the build passed", value: 3 },
+    { label: "Silent, or dev and runtime only", value: 3, mark: "rose", sub: "API 404, ~ alias, onSettled return" },
+    { label: "Dev warnings", value: 2 },
+    { label: "npm peer conflict", value: 1 },
+    { label: "Removed subpath (solid-js/store)", value: 1 },
+    { label: "Compiler rejection (classList)", value: 1 },
+  ]}
+  caption="One row per fix. The 87 TypeScript errors count as 3 problems, because one tsconfig line fixed 84 of them."
+/>
+
+<WhereErrorsSurface />
+
+The migration changed 18 files, with 133 lines added and 110 removed, not counting the lockfile and the generated `file-routes.d.ts`. The app had 17 files and 342 lines before. `src/routes/todos.tsx`, the file with the store, the form and the list, took 74 of those changed lines.
+
+## Build, bundle and start
+
+Each number is a median: three cold builds with the output and the Vite cache deleted, and five server starts timed from `node` spawn to the first `200` from `/api/health`.
+
+<BeforeAfterBars
+  title="Cold vite build"
+  unit="seconds"
+  beforeLabel="SolidStart 2.2.3 + Nitro"
+  afterLabel="Solid 2.0 start mode"
+  data={[{ label: "vite build", before: 2.19, after: 1.47 }]}
+  caption="Median of three. Server start to first response: 55 ms before, 71 ms after."
+/>
+
+SolidStart's build runs three Vite environments: `client`, `ssr`, and a `nitro` environment that bundles the server a second time. Start mode builds `client` and `ssr`, and writes the Node server as an asset.
+
+<BeforeAfterBars
+  bleed
+  title="Client JavaScript"
+  unit="KB"
+  beforeLabel="SolidStart 2.2.3, Solid 1.9.20"
+  afterLabel="start mode, Solid 2.0.3"
+  data={[
+    { label: "All chunks, minified", before: 112.7, after: 200.3 },
+    { label: "All chunks, gzip", before: 40.8, after: 74.1 },
+    { label: "Home page, parsed", before: 105.0, after: 168.2 },
+    { label: "Home page, transferred", before: 106.8, after: 58.8 },
+  ]}
+  caption="The home page rows come from Chrome's resource timing on a first load against each production server."
+/>
+
+The client JavaScript grew by 1.8 times. Most of the growth is one chunk: the runtime chunk with `solid-js` and the web runtime was 27.5 KB minified before. After, the chunk that holds `@solidjs/signals`, `solid-js` and `@solidjs/web` is 111.3 KB, or 41.1 KB with gzip. The browser parses 1.6 times more code on the home page.
+
+Fewer bytes cross the network all the same. The Nitro `node-server` output sent the scripts uncompressed, and `dist/server/node.js` serves the `.br` file that the build writes next to every asset of 1 KiB or more. On the first load of the home page that is 58.8 KB against 106.8 KB. A CDN or a compressing proxy in front of the old server would close most of that gap; the parse cost stays.
+
+## Migration checklist
+
+- Remove `@solidjs/start` and `nitro`. Install `solid-js`, `@solidjs/web`, `@solidjs/router` 2, `@solidjs/meta` 2, `@solidjs/vite-plugin` and `filesystem-routing`.
+- Replace `solidStart()` and `nitro()` with `solid({ start, ssr: true, serverFunctions: true })` and `fileRoutes({ httpMethods: true })`.
+- Delete `src/entry-server.tsx` and `src/entry-client.tsx`. Add `src/Document.tsx` with `<HydrationScript />`.
+- Move the router to `createRouter({ routes: fileRoutes(pageRoutes) })` and render the instance. Replace `<A>` with `<a>` and `activeClass` with `[aria-current="page"]`.
+- Delete `<MetaProvider>`.
+- Rename `Suspense` to `Loading`, `ErrorBoundary` to `Errored` (the error is an accessor), and `onMount` to `onSettled`; do not return a value from it.
+- Replace `createResource` and `createAsync` with `createMemo`.
+- Remove `batch`, `on` and `produce`; write store updates as draft functions.
+- Replace `classList` with `class` objects, and `solid-js/store` with `solid-js`.
+- Rename `action` to `formAction`. Replace `useSubmission` with `useSubmissions` plus `createOptimistic`.
+- Import `redirect` and `httpStatus` from `@solidjs/web`.
+- Rewrite middleware as `StartMiddleware[]` and add `createAPIHandler(routes)`, or API routes return the 404 page.
+- Set `resolve.tsconfigPaths: true` if you import with `~/`.
+- Key lists of server data with `keyed={(item) => item.id}`.
+- Set `jsxImportSource` to `@solidjs/web`.
+- Point the `start` script at `dist/server/node.js`.
+- Run the app in `vite dev` with the console open. Five of the 29 problems showed up only there or in the running server.
+
+## Sources
+
+- [Solid 2.0 migration guide (MIGRATION.md)](https://github.com/solidjs/solid/blob/main/documentation/solid-2.0/MIGRATION.md)
+- [Solid 2.0 RFCs](https://github.com/solidjs/solid/tree/main/documentation/solid-2.0)
+- [solid-js on npm](https://www.npmjs.com/package/solid-js)
+- [solid-js releases](https://github.com/solidjs/solid/releases)
+- [@solidjs/web README](https://github.com/solidjs/solid/tree/main/packages/web)
+- [@solidjs/vite-plugin README: start mode, serverFunctions, migrating from vite-plugin-solid](https://github.com/solidjs/solid-vite-plugin#readme)
+- [@solidjs/router README: file-system routes, data APIs, migration](https://github.com/solidjs/solid-router#readme)
+- [@solidjs/meta README: migrating from 0.x](https://github.com/solidjs/solid-meta#readme)
+- [filesystem-routing](https://github.com/solidjs/filesystem-routing)
+- [Solid templates: solid-v2/fullstack](https://github.com/solidjs/templates/tree/main/solid-v2/fullstack)
+- [Solid templates: PORTING.md](https://github.com/solidjs/templates/blob/main/PORTING.md)
+- [SolidStart CHANGELOG](https://github.com/solidjs/solid-start/blob/main/packages/start/CHANGELOG.md)
+- [@solidjs/start on npm](https://www.npmjs.com/package/@solidjs/start)
+- [Vite shared options: resolve.tsconfigPaths](https://vite.dev/config/shared-options)

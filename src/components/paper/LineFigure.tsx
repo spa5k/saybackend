@@ -1,4 +1,4 @@
-import { Figure, GraphPaper, HandNote, MARKS } from './Figure'
+import { Figure, GraphPaper, HandNote, LINES } from './Figure'
 import type { MarkName } from './Figure'
 import type { ReactNode } from 'react'
 
@@ -144,7 +144,7 @@ export function LineFigure({
                 strokeLinejoin="round"
                 strokeDasharray={item.dashed ? '9 7' : undefined}
                 filter="url(#pp-line)"
-                style={{ stroke: MARKS[item.mark] }}
+                style={{ stroke: LINES[item.mark] }}
               />
               {item.endLabel ? (
                 <text

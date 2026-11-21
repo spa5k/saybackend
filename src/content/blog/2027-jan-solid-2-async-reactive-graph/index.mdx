@@ -1,0 +1,297 @@
+---
+title: "Solid 2.0 for Backend Engineers: Async Inside the Reactive Graph"
+seoTitle: "Solid 2.0 Async: How the Reactive Graph Suspends and Resumes"
+description: "How Solid 2.0 runs promises inside its reactive graph: pending nodes, Loading boundaries, microtask flushes and optimistic actions, measured against Solid 1.9."
+date: "2026-11-23"
+ogImage: "/images/2027-solid-2-async-og.png"
+slug: "solid-2-async-reactive-graph"
+tags:
+  - "solidjs"
+  - "frontend"
+  - "performance"
+---
+
+import { BeforeAfterBars } from "@/components/paper/BeforeAfterBars";
+import { NumberBand } from "@/components/paper/NumberBand";
+import { RankBars } from "@/components/paper/RankBars";
+import {
+  FlushOrder,
+  GraphSuspendResume,
+  OptimisticAction,
+} from "@/components/react/blog/solid2/SolidFigures";
+
+Solid 2.0.0 was announced as stable on 16 November 2026, after a beta line that started on 3 March and a release-candidate line that started on 12 August. The largest change is where async work lives. In 1.x, a fetch was a `createResource`, a separate primitive with its own `loading` and `error` flags. In 2.0, any computation can return a promise, and the reactive graph itself knows that a node is waiting.
+
+This post explains that mechanism for engineers who know promises, queues and transactions but not signal graphs. I read the reactive core in the `solidjs/solid` repository at the `solid-js@2.0.3` tag, and I measured 2.0.3 against 1.9.20 on the same small app. The other versions are `@solidjs/web` 2.0.3, `@solidjs/vite-plugin` 3.0.1, `vite-plugin-solid` 2.11.17, Vite 8.3.8 and Node.js 25.9.0, on an Apple M4.
+
+## The graph in backend terms
+
+Solid has three kinds of node:
+
+- A **signal** is a cell that holds a value. Think of a row.
+- A **memo** is a cached derivation. It records which signals and memos it read on its last run and recomputes only when one of them changes. Think of a materialized view that knows its own dependencies.
+- An **effect** is a leaf that does something outside the graph: it writes to the DOM, logs, or calls an API. Think of a subscriber on a change feed.
+
+Every memo and effect also has an **owner**: the computation that was running when it was created. Owners form a tree. When a parent re-runs or is disposed, Solid disposes its children first and runs their `onCleanup` callbacks. It is the structured-concurrency rule: cancelling a task cancels its subtasks. One change in 2.0: a `createRoot` made inside another owner now belongs to that owner and is disposed with it.
+
+```ts
+import { createSignal, createMemo, createEffect, flush } from "solid-js";
+
+const [price, setPrice] = createSignal(10);
+const [qty, setQty] = createSignal(3);
+const total = createMemo(() => price() * qty());
+
+createEffect(
+  () => total(), // compute: runs in the graph, records dependencies
+  value => console.log("total", value) // apply: the side effect
+);
+```
+
+Effects are split in 2.0. The first function is tracked and returns a value. The second gets that value and does the side effect, and it can return a cleanup function. A 1.x effect with one function fails in development with a clear message (the full text is in the last section).
+
+## Writes are queued, then flushed in height order
+
+A write in 2.0 does not change what reads return. It stages the value, marks the subscribers, and queues one microtask:
+
+```ts
+setPrice(12);
+price(); // 10
+flush();
+price(); // 12
+```
+
+Inside `packages/signals/src/core`, `schedule()` calls `queueMicrotask(flush)` once per tick. Every write in the same synchronous run of your code lands in that one flush. That is why `batch` is gone: batching is the default, and `flush()` is the escape hatch for tests.
+
+The flush itself is a topological sort done with a heap. Each memo has a height: one more than the highest memo it reads. `runHeap` walks the heap from height 0 upwards, so a memo always runs after everything it depends on, and each dirty node runs once. With a diamond (two memos read one signal, and a third memo reads both), the bottom memo runs once with both new inputs and never sees a half-updated pair. After the heap, the flush settles held changes, then runs render effects, then user effects.
+
+<FlushOrder />
+
+## What a pending node is
+
+Now return a promise from a memo:
+
+```ts
+const [id, setId] = createSignal(1);
+const user = createMemo(async () => {
+  const userId = id(); // read inputs before the first await
+  const res = await fetch(`/api/users/${userId}`);
+  return res.json();
+});
+```
+
+`handleAsync` in `async.ts` sees a thenable and stores it on the node as the flight in progress. The node gets a pending status, and the read throws a `NotReadyError` whose `source` is the node. Its dependents are marked pending with the same source. They are not re-run: there is nothing new to compute from yet.
+
+A read of a pending node throws again. The reader does not block a thread and does not get `undefined`. It fails with the equivalent of `EAGAIN`, and the scheduler puts it back to run when its input arrives. The `NotReadyError` constructor even sets `Error.stackTraceLimit` to 0 on V8 in production builds, because this throw happens on every read of a pending source and is control flow, not a failure.
+
+When the promise resolves, the landing callback first checks that this promise is still the node's current flight. If `id` changed in the meantime, the node started a newer flight, and the old answer is dropped. It is the same idea as a compare-and-set on a version number: the late response from a superseded request cannot overwrite a newer one. If the promise is current, the value is written like any other write, the pending entries are cleared from the dependents, and a flush is scheduled. A rejection takes the same path with an error status, wrapped in a `StatusError` that keeps the original as `cause`.
+
+There is one rule to remember. Dependencies are recorded only up to the first `await`. A signal read after it is not tracked. If that late read hits a pending source, the memo could never retry, so in development Solid throws in place of the hang: "Read of an unresolved async source after an `await`."
+
+<GraphSuspendResume />
+
+## Boundaries catch pending and errors
+
+Something has to catch the throw. In 2.0 that is `<Loading>` (renamed from `Suspense`) for pending and `<Errored>` (renamed from `ErrorBoundary`) for errors. The two are separate on purpose: a pending read is never an error, and `<Errored>` never shows its fallback for a wait.
+
+`<Loading>` catches pending only until it has shown content once. After that, a change that needs new async data is **held**: the screen keeps the old content, and when every async value the new frame needs has landed, the whole change appears in one frame. A transaction is the right picture here. The writes are applied to a staged world, readers of the visible world keep seeing the committed snapshot, and the commit is atomic. If you want the fallback back on a specific change, the `on` prop lists the dependencies that re-arm the boundary: `<Loading on={id()}>`.
+
+Two functions read the uncommitted state on purpose. `isPending(() => user())` is true while a new answer is in flight for that expression. `latest(id)` returns the newest written value while the hold is open. I ran the memo above with a 50 ms fake fetch and logged what an effect saw:
+
+```text
+[61ms] effect saw user = Ada
+[61ms] isPending(user) = false  latest(id) = 1
+[91ms] --- setId(2)
+[92ms] isPending(user) = true  latest(id) = 2
+[142ms] effect saw user = Grace
+[142ms] isPending(user) = false  latest(id) = 2
+```
+
+The effect never saw an empty or half-loaded value. Between 92 ms and 142 ms it showed Ada, and the two display-ahead reads told the truth about the change in flight.
+
+Errors follow the same graph. A `try`/`catch` around a reactive read in a memo does not catch an upstream error: the memo that reads an errored source is errored with it, and recovery goes through `<Errored>`. A rejected promise that your own code `await`s is still a normal exception you can catch.
+
+## Optimistic actions and rollback
+
+Mutations are not reads, so 2.0 has a separate primitive. `action()` wraps a generator. Each call runs as one transaction: writes inside it are held until the body has returned and everything they started has landed. `yield` is the point where the action waits for a promise and then re-enters its transaction.
+
+`createOptimistic` and `createOptimisticStore` give you values whose writes show at once and are discarded when the transaction ends. In the source, an optimistic write is a guess (`optimisticWrite` in `guesses.ts`). At the next flush, each guess becomes its node's value in a **lane**, a sub-transaction under the hold. The committed value under it is not touched, so rollback costs nothing: Solid drops the lane, and the committed value shows again. On success, the action's `refresh()` refetches the source, and the real value replaces the guess in the same frame.
+
+```ts
+let saved = 0;
+const [count, setCount] = createOptimistic(() => saved);
+
+const save = action(function* (n: number) {
+  setCount(n); // shows now
+  yield api.save(n); // the transaction stays open
+  refresh(count); // re-read the source of truth
+});
+```
+
+With a fake `api.save` that rejected after 50 ms, the effect on `count` printed this:
+
+```text
+[1ms] effect saw count = 0
+[3ms] effect saw count = 5
+[53ms] effect saw count = 0
+[53ms] action rejected: server said no
+```
+
+If you have written a saga, this is the compensating step without the code for it.
+
+<OptimisticAction />
+
+## The same feature in 1.9 and 2.0
+
+My test app is a list page: it loads 1,000 items through an async function, filters them by a text input, and toggles an item with an optimistic update. In 1.9.20:
+
+```tsx
+const [query, setQuery] = createSignal("");
+const [items, { mutate, refetch }] = createResource(query, fetchItems);
+
+const toggle = async (item: Item) => {
+  const before = items();
+  mutate(list => list?.map(i => (i.id === item.id ? { ...i, done: !i.done } : i)));
+  try {
+    await toggleItem(item.id);
+  } catch {
+    mutate(before);
+  }
+  refetch();
+};
+```
+
+In 2.0.3:
+
+```tsx
+const [query, setQuery] = createSignal("");
+const [items, setItems] = createOptimisticStore(() => fetchItems(query()), []);
+
+const toggle = action(function* (id: number) {
+  setItems(list => {
+    const item = list.find(i => i.id === id);
+    if (item) item.done = !item.done;
+  });
+  yield toggleItem(id);
+  refresh(items);
+});
+```
+
+In the JSX, `<Loading>` replaces `<Suspense>`, `<Errored>` replaces `<ErrorBoundary>`, `class={{ done: item.done }}` replaces `classList`, `isPending(() => items.length)` replaces `items.loading`, and `<For>` reads the store directly as `each={items}`. The whole component is 35 non-blank lines in 1.9 and 33 in 2.0. The toggle handler goes from 11 lines to 8, and the manual snapshot and restore are gone. The store setter takes a draft, so `produce` is gone too.
+
+## What it costs
+
+### Bundle size
+
+I built each app with `vite build` and measured the one JavaScript file with gzip level 9 and brotli quality 11. I also built a one-button counter in each version as the floor, and a 2.0 version of the list with only an async memo and `<Loading>`, without the action, the optimistic store and `<Errored>`.
+
+<RankBars
+  bleed
+  title="Client bundle, gzip"
+  unit="KB"
+  rows={[
+    { label: "1.9 counter", value: 4.5 },
+    { label: "1.9 list app", value: 7.1 },
+    { label: "2.0 counter", value: 11.8, mark: "lilac" },
+    { label: "2.0 list, async memo only", value: 16.0, mark: "lilac" },
+    { label: "2.0 list app", value: 37.4, mark: "rose", note: "5.2× the 1.9 app" },
+  ]}
+  caption="Raw and brotli sizes for the same five builds: 11.4 / 4.1, 17.9 / 6.5, 29.0 / 10.9, 39.4 / 14.7 and 99.3 / 33.8 KB."
+/>
+
+<NumberBand value="5.2×" note="same app, same features">
+  the gzip size of the 2.0.3 list app against 1.9.20: 37.4 KB against 7.1 KB.
+</NumberBand>
+
+The reactive core is most of it. With the dependencies split into chunks, `@solidjs/signals` is 90.2 KB of the 99.3 KB raw bundle, and `@solidjs/web` is 7.5 KB. The action, the optimistic store, `<Errored>` and `isPending` add 59.9 KB raw over the async-memo-only build. Most of the growth comes from the mutation side, not from async reads.
+
+### Server render time
+
+For server rendering I built an SSR entry with each plugin and rendered a list of 1,000 rows: once with `renderToString` and the rows already in memory, and once with `renderToStream`, where the rows come from an async loader under `<Loading>` (`<Suspense>` in 1.9) and the stream is piped into a Node `Writable` until it ends.
+
+<BeforeAfterBars
+  title="Server render of 1,000 rows"
+  unit="microseconds"
+  beforeLabel="Solid 1.9.20"
+  afterLabel="Solid 2.0.3"
+  data={[
+    { label: "renderToString", before: 77.5, after: 144 },
+    { label: "renderToStream", before: 917, after: 765 },
+  ]}
+  caption="Median of five processes, each the median of 1,000 renders after 200 warm-up renders. The stream time runs to the end of the Writable."
+/>
+
+The two results go in opposite directions. The string render is 1.9 times slower in 2.0, at 144 µs against 77.5 µs. The streamed page with async data is 17% faster, at 765 µs against 917 µs. The 2.0 output is also smaller: the hydration keys changed from `data-hk="012"` to `_hk=120`, and the 1,000-row string went from 44,128 to 37,169 bytes. Both are well under a millisecond for 1,000 rows. The string render is the one to watch on large pages with no async data.
+
+### Update time
+
+The micro-benchmark is one signal with 10,000 dependents, in Node with the browser builds of both versions. In one shape the dependents are 10,000 effects; in the other they are 10,000 memos that one effect sums. The time is from the write to the end of the flush (in 1.9, a write outside a batch runs its effects synchronously; in 2.0, I call `flush()`).
+
+<RankBars
+  title="One write with 10,000 dependents"
+  unit="ms"
+  rows={[
+    { label: "1.9, 10,000 effects", value: 0.45 },
+    { label: "2.0, 10,000 effects", value: 1.02, mark: "rose", sub: "2.3× slower" },
+    { label: "1.9, 10,000 memos + 1 effect", value: 1.18 },
+    { label: "2.0, 10,000 memos + 1 effect", value: 1.67, mark: "rose", sub: "1.4× slower" },
+  ]}
+  caption="Median of five processes, each the median of 500 writes after 100 warm-up writes. Production browser builds in Node 25.9.0."
+/>
+
+2.0 is slower on this shape. Every write in 2.0 is staged and then committed at the flush, even when nothing is async. The design notes in `packages/signals/docs/NODE-SHAPE.md` rule out a direct commit per write and call that commit cost the price of the semantics: reads must not change before the flush. In absolute terms, one write that reaches 10,000 effects costs about a millisecond. Real pages rarely have that fan-out from one signal.
+
+## Running 1.x code on 2.0
+
+I copied the 1.9 app into the 2.0 project unchanged and built it. The first failure is the import path:
+
+```text
+"./web" is not exported under the conditions ["solid", "module", "browser", "production", "import"] from package .../node_modules/solid-js
+```
+
+With `@solidjs/web` in place of `solid-js/web`, the compiler stops at the first removed JSX attribute:
+
+```text
+Error: `classList` on <li> was removed in Solid 2.0. Use `class` with an object or array instead: `class={{ active: isActive() }}` or `class={["base", { active: isActive() }]}`. (28:21)
+```
+
+After that, Rolldown reports each removed export:
+
+```text
+[MISSING_EXPORT] "createResource" is not exported by "node_modules/solid-js/dist/solid.js".
+[MISSING_EXPORT] "ErrorBoundary" is not exported by "node_modules/solid-js/dist/solid.js".
+[MISSING_EXPORT] "Suspense" is not exported by "node_modules/solid-js/dist/solid.js".
+```
+
+`batch`, `startTransition`, `on`, `produce`, `createComputed` and `createMutable` are also absent from the 2.0.3 exports, and `solid-js/store` is now `solid-js`. Code that compiles can still fail at run time in development. These are the messages from the development build:
+
+```text
+[MISSING_EFFECT_FN] createEffect requires both a compute function and an effect function. Use `createEffect(() => signal(), value => doWork(value))`. If you want a derived value, use `createMemo`. If you want a one-shot side effect, just call the function directly.
+
+[REACTIVE_WRITE_IN_OWNED_SCOPE] Writing to reactive state inside an owned scope (component, computation) is not allowed. Move the write outside or set the `ownedWrite` option if this is intentional. (in computed)
+
+[STRICT_READ_UNTRACKED] Reactive value read directly in <Title> will not update. Move it into a tracking scope (JSX, a memo, or an effect's compute function).
+```
+
+The first comes from a single-function `createEffect`. The second comes from the 1.x habit of `createMemo(() => setDoubled(count() * 2))`. The third is a warning, not an error, for a component that destructures its props. Each one is followed by a link to its page in the diagnostics reference.
+
+The full move of a SolidStart app, with the router and the server, is the subject of [migrating a SolidStart app to Solid 2.0](/blog/migrate-solidstart-to-solid-2/). Server functions are part of the change: in 2.0 the `"use server"` runtime is in `@solidjs/web/server-functions`, and `@solidjs/vite-plugin` has a `start` option that owns the entries, dev serving and the build. What that means for projects that are on SolidStart today is in [SolidStart is in maintenance: what to use now](/blog/solidstart-maintenance-what-to-use/).
+
+## Sources
+
+- [Solid 2.0 migration guide (MIGRATION.md)](https://github.com/solidjs/solid/blob/solid-js%402.0.3/documentation/solid-2.0/MIGRATION.md)
+- [RFC 05: Async data](https://github.com/solidjs/solid/blob/solid-js%402.0.3/documentation/solid-2.0/05-async-data.md)
+- [RFC 06: Actions and optimistic updates](https://github.com/solidjs/solid/blob/solid-js%402.0.3/documentation/solid-2.0/06-actions-optimistic.md)
+- [RFC 10: Server functions](https://github.com/solidjs/solid/blob/solid-js%402.0.3/documentation/solid-2.0/10-server-functions.md)
+- [RFC 12: SSR and the HTTP exchange](https://github.com/solidjs/solid/blob/solid-js%402.0.3/documentation/solid-2.0/12-ssr-http.md)
+- [Async rules: the fundamentals](https://github.com/solidjs/solid/blob/solid-js%402.0.3/packages/signals/docs/RULES-FUNDAMENTALS.md)
+- [Node shape and hot-path layout (NODE-SHAPE.md)](https://github.com/solidjs/solid/blob/solid-js%402.0.3/packages/signals/docs/NODE-SHAPE.md)
+- [Solid 2.0 cheatsheet](https://github.com/solidjs/solid/blob/solid-js%402.0.3/packages/solid/CHEATSHEET.md)
+- [`async.ts`: handleAsync and pending status](https://github.com/solidjs/solid/blob/solid-js%402.0.3/packages/signals/src/core/async.ts)
+- [`heap.ts`: the height-ordered heap](https://github.com/solidjs/solid/blob/solid-js%402.0.3/packages/signals/src/core/heap.ts)
+- [`scheduler.ts`: schedule and flush](https://github.com/solidjs/solid/blob/solid-js%402.0.3/packages/signals/src/core/scheduler.ts)
+- [`action.ts`: action](https://github.com/solidjs/solid/blob/solid-js%402.0.3/packages/signals/src/core/action.ts)
+- [`guesses.ts`: optimistic writes](https://github.com/solidjs/solid/blob/solid-js%402.0.3/packages/signals/src/core/guesses.ts)
+- [`error.ts`: NotReadyError](https://github.com/solidjs/solid/blob/solid-js%402.0.3/packages/signals/src/core/error.ts)
+- [solid-js on npm](https://www.npmjs.com/package/solid-js)
+- [@solidjs/vite-plugin on npm](https://www.npmjs.com/package/@solidjs/vite-plugin)
+- [Solid documentation](https://docs.solidjs.com)

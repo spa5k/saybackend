@@ -112,7 +112,7 @@ export function BlockRows({
                   y={y(rowIndex) + BLOCK_H / 2 + 4}
                   textAnchor="middle"
                   style={{
-                    fill: '#141413',
+                    fill: 'var(--ink)',
                     fontSize: blockWidth < 72 ? 10 : 11.5,
                   }}
                 >

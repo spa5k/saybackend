@@ -99,7 +99,7 @@ export function QueryPipeline({
               x={stageX(index) + STAGE_W / 2}
               y={STAGE_Y + 21}
               textAnchor="middle"
-              style={{ fill: '#141413' }}
+              style={{ fill: 'var(--ink)' }}
             >
               {stage}
             </text>
@@ -351,7 +351,7 @@ export function ModeGrid() {
                   x={colX[cellIndex] + cellW / 2}
                   y={y + 21}
                   textAnchor="middle"
-                  style={{ fill: '#141413' }}
+                  style={{ fill: 'var(--ink)' }}
                 >
                   {cell[0]}
                 </text>
@@ -400,7 +400,7 @@ function Box({
         y={y + 21}
         textAnchor="middle"
         style={{
-          fill: '#141413',
+          fill: 'var(--ink)',
           fontFamily: mono ? 'var(--font-mono)' : undefined,
           fontSize: mono ? 10.5 : 11.5,
         }}

@@ -11,6 +11,16 @@ export const MARKS = {
 
 export type MarkName = keyof typeof MARKS
 
+/** The same colours for lines. In dark mode they stay bright. */
+export const LINES: Record<MarkName, string> = {
+  lilac: 'var(--l-lilac)',
+  blue: 'var(--l-blue)',
+  sand: 'var(--l-sand)',
+  amber: 'var(--l-amber)',
+  rose: 'var(--l-rose)',
+  sage: 'var(--l-sage)',
+}
+
 export type LegendItem = {
   label: string
   mark: MarkName

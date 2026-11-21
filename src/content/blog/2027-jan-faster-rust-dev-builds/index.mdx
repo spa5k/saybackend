@@ -1,0 +1,309 @@
+---
+title: 'Faster Rust dev builds in 2026: Cranelift, Wild, and what is next'
+seoTitle: 'Faster Rust Dev Builds in 2026: Linkers, Cranelift, Hot-Patching'
+description: 'I timed the edit-build-run loop of a 504-crate Rust project on stable and nightly: linkers, debug info, Cranelift, the parallel front end, hot-patching, and what is not ready yet.'
+date: "2026-12-30"
+ogImage: '/images/2027-faster-rust-dev-builds-og.png'
+slug: 'faster-rust-dev-builds'
+tags:
+  - 'rust'
+  - 'performance'
+  - 'tooling'
+---
+
+import { BeforeAfterBars } from '@/components/paper/BeforeAfterBars'
+import { NumberBand } from '@/components/paper/NumberBand'
+import { RankBars } from '@/components/paper/RankBars'
+import { SegmentBar } from '@/components/paper/SegmentBar'
+import {
+  HotPatchJumpTable,
+  LoopToolMap,
+  RebuildCascade,
+} from '@/components/react/blog/rustlaptop/RustFigures'
+
+This is part 4 of "Rust on a laptop". [Part 1](/blog/rust-target-directory-disk-space/) measured the disk under `target/`, [part 2](/blog/rust-build-cache-worktrees-mbx/) shared one build cache across worktrees, and [part 3](/blog/git-twig-copy-on-write-worktrees/) made the worktrees themselves cheap. This part is about time: the seconds between saving a file and seeing the program run again.
+
+The test project is [Zola](https://github.com/getzola/zola) v0.23.6 at commit `1969d846`, a static site generator. A dev build compiles 504 packages. The workspace has 13 crates of its own and 24,567 lines of Rust. The toolchains are Rust 1.100.0, the current stable release, and nightly 2026-11-20 (1.102.0-nightly). The machine is an Apple M4 with 10 cores on macOS, and the Linux numbers come from Docker Desktop 29.4.1 (linux/arm64, 10 CPUs, 8 GB).
+
+I timed four things:
+
+- **Leaf edit:** one line added to `src/cmd/build.rs` in the `zola` binary crate. Nothing depends on it.
+- **Core edit:** one line added inside a private function in `components/utils/src/slugs.rs`. Ten workspace crates depend on `utils`, directly or through another crate.
+- **Clean build:** `cargo build` into an empty target directory.
+- **Run:** `zola --root docs build`, which renders Zola's own documentation site with the debug binary.
+
+Each number is the median of three runs. Other jobs shared the machine, so the clean builds vary by several seconds; the rebuilds vary by a few percent.
+
+<LoopToolMap />
+
+## Where a rebuild spends its time
+
+Cargo shows the split itself. On stable, `--timings` writes an HTML report that already divides each library into front end and codegen. Nightly adds the link step for binaries:
+
+```bash
+cargo +nightly-2026-11-20 build --timings -Zsection-timings
+```
+
+I ran it after the core edit, on one front-end thread so that the parts add up.
+
+<SegmentBar
+  title="One core-crate rebuild of Zola, 2.56 s on the critical path"
+  unit="ms"
+  segments={[
+    { label: 'Cargo', size: 220, mark: 'sand' },
+    { label: 'Front end', size: 1120, mark: 'lilac' },
+    { label: 'Codegen', size: 380, mark: 'blue' },
+    { label: 'Link', size: 840, mark: 'amber' },
+  ]}
+  caption="From cargo --timings -Zsection-timings on nightly 2026-11-20, macOS, one run. Front end is the sum along the chain utils, config, content, render, markdown, templates, site and the zola binary."
+/>
+
+Most of the time is not code generation. The edit is inside a function body, but every crate that depends on `utils` runs its front end again. Along the critical path that is `config`, then `content`, then `render`, `markdown`, `templates`, `site`, and finally the binary. Each step waits for the one before it, so the 1.1 s of front end is a chain of eight short steps. Codegen for all of them is 380 ms, and the link of the binary is 840 ms.
+
+<RebuildCascade />
+
+That split decides which tool can help. `cargo check` stops after the front end. On stable it took 1.04 s for the core edit, against 2.61 s for `cargo build`. For type errors and borrow checker errors, check is the loop to stay in. The rest of this post is about the build.
+
+## The linker
+
+On macOS the default linker is Apple's ld (ld-27106.1 here). I tried `rust-lld`, the LLD 23 that ships with the toolchain:
+
+```bash
+SR=$(rustc --print sysroot)
+RUSTFLAGS="-Clink-arg=--ld-path=$SR/lib/rustlib/aarch64-apple-darwin/bin/gcc-ld/ld64.lld" cargo build
+```
+
+It was slower: 1.95 s for the leaf edit against 1.51 s, and 3.06 s for the core edit against 2.61 s. Apple's linker is already fast. On a Mac, keep it.
+
+Linux is different. The `aarch64-unknown-linux-gnu` target still links through `cc` with GNU ld (2.44 on Debian 13). Only `x86_64-unknown-linux-gnu` uses LLD by default, [since Rust 1.90](https://blog.rust-lang.org/2025/09/18/Rust-1.90.0/). I built an image from `rust:1.100.0-trixie` with clang 19, mold 3.0.0 and Wild 0.11.0, the current releases, and ran the same edits in the container.
+
+<RankBars
+  title="Leaf-crate rebuild of Zola on linux/arm64, by linker"
+  unit="s"
+  mono
+  rows={[
+    {
+      label: 'GNU ld 2.44 (default)',
+      value: 8.91,
+      mark: 'rose',
+      sub: 'core edit 9.69 s',
+    },
+    { label: 'LLD (rust-lld)', value: 1.12, sub: 'core edit 1.89 s' },
+    { label: 'mold 3.0.0', value: 0.66, sub: 'core edit 1.40 s' },
+    {
+      label: 'Wild 0.11.0',
+      value: 0.62,
+      mark: 'blue',
+      sub: 'core edit 1.30 s',
+    },
+    {
+      label: 'Wild, nightly',
+      value: 0.53,
+      mark: 'blue',
+      sub: 'core edit 1.15 s',
+    },
+  ]}
+  caption="Rust 1.100.0 unless marked nightly (2026-11-20), which also defaults to line-tables-only debug info. Docker Desktop on an Apple M4, medians of three rebuilds."
+/>
+
+<NumberBand value="14×" note="GNU ld 8.91 s, Wild 0.62 s">
+  faster leaf rebuild on Linux from one linker setting.
+</NumberBand>
+
+Only the linker changed between these rows, so at least 8.3 s of the 8.91 s rebuild was GNU ld. Wild and mold are close to each other. The settings go in the project's `.cargo/config.toml`:
+
+```toml
+# Wild
+[target.aarch64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-Clink-arg=--ld-path=wild"]
+
+# or mold
+# rustflags = ["-Clink-arg=-fuse-ld=mold"]
+```
+
+Wild 0.11.0 does not link incrementally yet. Incremental linking is the long-term goal of the project and an item on the Rust project's Fast Builds roadmap, so the link step could shrink further.
+
+## Debug info
+
+`debug = "line-tables-only"` keeps file and line numbers in backtraces and drops variables and types. On stable it cut the leaf edit from 1.51 s to 1.10 s and the core edit from 2.61 s to 2.21 s. Adding `debug = false` for dependencies changed neither (1.09 s and 2.20 s), and the link section in the nightly timings stayed at 840 ms with it. With both settings, the clean build and the run did not change. [Part 1](/blog/rust-target-directory-disk-space/) has what these settings do to the disk and to backtraces.
+
+Nightly Cargo already uses this setting as the dev default. [cargo#17518](https://github.com/rust-lang/cargo/pull/17518) merged on 2026-11-14, and `cargo +nightly-2026-11-20 build -v` passes `-C debuginfo=line-tables-only` where stable passes `-C debuginfo=2`. So in this post I compare nightly numbers only with other nightly numbers.
+
+## Cranelift
+
+The Cranelift backend is a rustup component on nightly:
+
+```bash
+rustup component add rustc-codegen-cranelift-preview --toolchain nightly-2026-11-20
+cargo +nightly-2026-11-20 build -Zcodegen-backend \
+  --config 'profile.dev.codegen-backend="cranelift"'
+```
+
+Zola did not build with it on the first try. Three crates needed LLVM back:
+
+```toml
+[profile.dev.package.oxc_ecmascript]
+codegen-backend = "llvm"
+[profile.dev.package.aws-lc-rs]
+codegen-backend = "llvm"
+[profile.dev.package.rustls]
+codegen-backend = "llvm"
+```
+
+`oxc_ecmascript` has inline assembly that Cranelift rejects on AArch64:
+
+```text
+error: unsupported architectural extension: jsconv
+```
+
+`aws-lc-rs` declares its C symbols with `#[link_name = "\u{1}_aws_lc_0_45_0_..."]`, and the link failed with `Undefined symbols for architecture arm64: "__aws_lc_0_45_0_AES_ecb_encrypt"` on macOS and `wild: error: Undefined symbol aws_lc_0_45_0_EVP_AEAD_CTX_seal_scatter` on Linux. `rustls` inlines code from it, so it needs LLVM too. Every crate also printed `warning: mixing target features may cause an ABI mismatch`.
+
+With those three on LLVM, Cranelift saved about 3 s of a clean build on both systems. The rebuilds got slower, and the binary ran 23% slower:
+
+| nightly 2026-11-20      | Clean  | Leaf edit | Core edit | Run    |
+| ----------------------- | ------ | --------- | --------- | ------ |
+| macOS, LLVM             | 52.1 s | 1.51 s    | 2.62 s    | 0.62 s |
+| macOS, Cranelift        | 49.1 s | 1.72 s    | 2.87 s    | 0.76 s |
+| Linux + Wild, LLVM      | 39.9 s | 0.53 s    | 1.15 s    |        |
+| Linux + Wild, Cranelift | 36.7 s | 0.58 s    | 1.23 s    |        |
+
+The segment bar explains it: codegen is 380 ms of a 2.6 s rebuild. A faster code generator has little to work on in a debug build of this project. The [cg_clif performance goal](https://github.com/rust-lang/goals/issues/639) reached the same kind of result. Its October update dropped a daemon that cached machine code per function, because it gave no gain on 16 cores, and LTO plus PGO on the backend gave about 2%. The next experiment is lazy code generation in JIT mode: compile a function when it is first called. JIT mode is not in the rustup build:
+
+```text
+$ rustc +nightly-2026-11-20 -Zcodegen-backend=cranelift -Cllvm-args=jit-mode -Cprefer-dynamic h.rs
+error: jit support was disabled when compiling rustc_codegen_cranelift
+```
+
+## The parallel front end
+
+Nightly runs the front end on two threads by default since nightly-2026-11-14 ([rust#162848](https://github.com/rust-lang/rust/pull/162848), announced on [the Rust blog](https://blog.rust-lang.org/2026/11/16/enabling-parallel-frontend-on-nightly/) on 2026-11-16). The old `-Zthreads` flag now tells you to use `--jobs-frontend` instead:
+
+```bash
+RUSTFLAGS="-Zunstable-options --jobs-frontend=8" cargo +nightly-2026-11-20 build
+```
+
+| nightly 2026-11-20  | Clean build | Clean check | Leaf edit | Core edit |
+| ------------------- | ----------- | ----------- | --------- | --------- |
+| 1 thread            | 53.2 s      | 43.3 s      | 1.51 s    | 2.62 s    |
+| 2 threads (default) | 52.1 s      | 42.9 s      | 1.51 s    | 2.62 s    |
+| 8 threads           | 45.8 s      | 36.7 s      | 1.50 s    | 2.57 s    |
+
+Against the default of two, eight threads cut a clean `cargo check` by 14% and a clean build by 12%. A clean build already runs ten crates at once, so extra threads inside one crate help only where few crates are ready. The rebuilds did not change at all: the chain of small crates gave the threads nothing to split. Stable rustc still runs the front end on one thread.
+
+## Optimized dependencies
+
+```toml
+[profile.dev.package."*"]
+opt-level = 3
+```
+
+This one trades build time for run time. The docs build ran in 0.26 s instead of 0.65 s, 2.5 times faster. Zola's own crates stayed at opt-level 0, so all of that gain came from dependency code: Tera, pulldown-cmark, giallo for syntax highlighting. The clean build went from 55 s to 132 s. Edits to my own crates do not rebuild dependencies, and the rebuilds were not slower: 1.14 s and 2.17 s, against 1.51 s and 2.61 s. Use it when the program does real work on every run, such as tests over large inputs or a game loop. Skip it when clean builds happen often, for example in each new worktree.
+
+## Hot-patching with subsecond
+
+Subsecond, from the Dioxus project, patches a running process instead of restarting it. The `dx` CLI (0.7.10) rebuilds the binary crate, links the changed functions against the addresses in the running program, and sends a new jump table to it. Calls through `subsecond::call` look up the newest version of the function. Any program can use it, not only Dioxus apps:
+
+```toml
+[dependencies]
+dioxus-devtools = "=0.7.10"
+subsecond = "=0.7.10"
+```
+
+```rust
+fn main() {
+    dioxus_devtools::connect_subsecond();
+    loop {
+        subsecond::call(tick);
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+}
+
+fn tick() {
+    println!("tick v0");
+}
+```
+
+```bash
+dx serve --hot-patch --interactive false
+```
+
+I added the same loop to Zola behind an environment variable, with `tick` in `src/cmd/build.rs`, and timed from the file save to the first line of output from the new code. The median was 0.76 s, against 1.51 s for the stable `cargo build` of the same leaf edit, and the patch also skips the restart. On a one-file program the patch took 0.55 s (median of four), while a plain `cargo build` took 0.16 s. The patch has a fixed cost, so it pays off only on a large binary.
+
+<HotPatchJumpTable />
+
+The limits are real. Subsecond patches only the "tip" crate, the one with `main.rs`: my edit to `utils` would be ignored. Struct layout changes crash the process, and thread-locals in the patched crate reset on each patch. A web server or CLI needs code to re-enter the patched function, as the loop above does. The `cargo-hot` crate (0.1.1) wraps subsecond as a Cargo command and calls itself "Very broken!".
+
+## JIT ideas from outside the Rust project
+
+Two young projects go further, in the direction of the JVM: keep a process alive and compile only what runs.
+
+- [Relax](https://makepad.github.io/relax/), in the makepad GitHub organization (repository created 2026-11-11), runs a Cargo package without rustc, LLVM or a linker. It has its own front end, an interpreter, and O1 and O3 tiers. Hot functions move to O3 in the background, and saved edits patch the running process. Its page calls it an experimental AI-generated re-implementation of Rust, for development only.
+- [blaze](https://github.com/indexable-inc/blaze) (repository created 2026-10-19) is a build daemon. It works on rust-analyzer's MIR, generates code with Cranelift and links with its own linker.
+
+Neither is part of rustc or Cargo, and both re-implement parts of the compiler, so their behavior can differ from rustc's.
+
+## What is not ready yet
+
+- **TPDE.** This fast back end for LLVM IR in debug builds got an unstable flag on 2026-11-13 ([rust#164108](https://github.com/rust-lang/rust/pull/164108)), with the values `try` and `only`. The rustup nightly does not ship the plugin, on macOS or on Linux. TPDE writes ELF only, so macOS is out in any case. A [goal update](https://github.com/rust-lang/goals/issues/802) on 2026-11-18 says that its sponsor funding fell through.
+
+  ```text
+  $ rustc +nightly-2026-11-20 -Zllvm-tpde=only h.rs
+  error: TPDE backend not found in the sysroot: failed to find the `tpde-plugin` shared library in the sysroot candidates:
+  ```
+
+- **Relink Don't Rebuild.** Rustc would hash the public API of a crate and skip the dependents when it did not change, as a C build relinks after an edit to a `.c` file. That is the 1.1 s front-end chain above. The implementation, [rust#156940](https://github.com/rust-lang/rust/pull/156940), is open and waits for funding ([goals#843](https://github.com/rust-lang/goals/issues/843)). The first version will count a moved line number of a public item as an API change, so my one-line insert, which moves the public functions under it, would still rebuild the chain.
+- **Wild incremental linking.** Planned, not in 0.11.0.
+- **The parallel front end on stable.** Nightly only.
+
+## The dev profile I use
+
+In `Cargo.toml`:
+
+```toml
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+```
+
+On Linux, add Wild or mold in `.cargo/config.toml` as shown above. On macOS, keep Apple's linker. Run `cargo check` for most edits, and `dx serve --hot-patch` when the edit is in the binary crate and restarting costs more than the build.
+
+<BeforeAfterBars
+  title="Zola on stable, default dev profile and the profile above"
+  unit="s"
+  beforeLabel="Default"
+  afterLabel="Line tables, no debug info for dependencies"
+  data={[
+    { label: 'Clean build', before: 55.1, after: 55.8 },
+    { label: 'Leaf edit', before: 1.51, after: 1.09 },
+    { label: 'Core edit', before: 2.61, after: 2.2 },
+    { label: 'Run (docs build)', before: 0.65, after: 0.63 },
+  ]}
+  caption="Rust 1.100.0 on an Apple M4, medians of three runs. The clean builds alternated between the two profiles."
+/>
+
+The two lines cut 0.4 s from every rebuild and cost nothing on a clean build. Debug info for dependencies made no difference to the time; I turn it off for the disk space it saves, which part 1 measured.
+
+## Sources
+
+- [Rust 1.100.0 release](https://blog.rust-lang.org/2026/11/12/Rust-1.100.0/)
+- [Rust 1.90.0: LLD is the default linker on x86_64-unknown-linux-gnu](https://blog.rust-lang.org/2025/09/18/Rust-1.90.0/)
+- [Cargo reference: build timings](https://doc.rust-lang.org/cargo/reference/timings.html)
+- [Cargo reference: profiles](https://doc.rust-lang.org/cargo/reference/profiles.html)
+- [cargo#17518: dev profile to line-tables-only](https://github.com/rust-lang/cargo/pull/17518)
+- [Enabling the parallel frontend on nightly](https://blog.rust-lang.org/2026/11/16/enabling-parallel-frontend-on-nightly/)
+- [rust#162848: two front-end threads on nightly](https://github.com/rust-lang/rust/pull/162848)
+- [Rust project goals: Fast Builds roadmap](https://goals.rust-lang.org/2026/roadmap-fast-builds.html)
+- [Goal: improve cg_clif performance](https://goals.rust-lang.org/2026/improve-cg_clif-performance.html) and [its tracking issue](https://github.com/rust-lang/goals/issues/639)
+- [rustc_codegen_cranelift](https://github.com/rust-lang/rustc_codegen_cranelift)
+- [Goal: TPDE](https://goals.rust-lang.org/2026/tpde.html), [its tracking issue](https://github.com/rust-lang/goals/issues/802) and [rust#164108](https://github.com/rust-lang/rust/pull/164108)
+- [Goal: Relink Don't Rebuild](https://goals.rust-lang.org/2026/relink-dont-rebuild.html), [rust#156940](https://github.com/rust-lang/rust/pull/156940) and [goals#843](https://github.com/rust-lang/goals/issues/843)
+- [Wild 0.11.0](https://github.com/wild-linker/wild/releases/tag/0.11.0)
+- [mold 3.0.0](https://github.com/rui314/mold/releases/tag/v3.0.0)
+- [subsecond 0.7.10 documentation](https://docs.rs/subsecond/0.7.10/subsecond/)
+- [Dioxus 0.7.10](https://github.com/DioxusLabs/dioxus/releases/tag/v0.7.10)
+- [Relax](https://makepad.github.io/relax/)
+- [blaze](https://github.com/indexable-inc/blaze)
+- [Zola v0.23.6](https://github.com/getzola/zola/tree/v0.23.6)

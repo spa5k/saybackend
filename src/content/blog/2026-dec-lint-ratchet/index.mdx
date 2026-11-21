@@ -1,0 +1,229 @@
+---
+title: "I moved our coding rules from a skill file into lint. Now each count can only go down."
+seoTitle: "From Agent Skill to Lint Rule: Rules That Coding Agents Cannot Skip"
+description: "An instruction in a skill file is a suggestion. A lint rule is a check. How I turned our agent instructions into lint rules, and how a ratchet stops 26,332 old violations from growing."
+date: "2027-01-13"
+ogImage: "/images/lint-ratchet-og.png"
+slug: "lint-ratchet-ai-written-code"
+tags:
+  - "ai-coding"
+  - "linting"
+  - "oxlint"
+  - "typescript"
+  - "code-quality"
+  - "developer-tools"
+faqs:
+  - question: "What is the difference between a skill and a lint rule?"
+    answer: "A skill is text that a coding agent reads before it works. The agent can follow it or not. A lint rule is a program that reads the code after it is written and fails the build when the code breaks the rule. The result does not depend on what the agent read."
+  - question: "What is a lint ratchet?"
+    answer: "A file that records how many times each file breaks each rule today, plus a check that fails when a number goes up. A number can go down, and the file must then follow it down. It cannot go up."
+  - question: "Can a pull request raise its own allowed count?"
+    answer: "Not in this design. The check compares the allowed counts in the pull request with the allowed counts on the main branch, and it refuses a number that is higher. The update command only lowers or removes entries."
+  - question: "Does a ratchet reduce the number of violations?"
+    answer: "It stops the growth first. In our repository the count grew by 181 in the 28 hours before the ratchet merged. In the 57 hours after the merge it fell by 197, from 26,332 to 26,135, with no cleanup project."
+---
+
+import { NumberBand } from "@/components/paper/NumberBand";
+import { RankBars } from "@/components/paper/RankBars";
+import {
+  HiddenViolation,
+  RatchetOutcomes,
+  RatchetSteps,
+  TotalChange,
+} from "@/components/react/blog/workposts/WorkFigures";
+
+Coding agents write most of the code in our monorepo at work. We gave them our rules in the usual way: skill files and a guide that the agent reads before it starts. An agent could quote a rule from that text and break it in the same task.
+
+So between May and November 2026 I moved every rule that a program can check out of the text and into the linter. It took three steps, and this post explains each one in plain terms.
+
+1. **Turn the instruction into a lint rule.** We now have 24 rules of our own, next to 18 from a public ruleset. The React guidance for agents went from 536 lines of text to 54.
+2. **Record the old violations, and let no count go up.** The code already broke these rules 26,332 times. A ratchet lets those stay and fails the build for one more.
+3. **Close the ways around it.** A pull request cannot raise its own allowed count, and a new "disable this rule" comment fails the build.
+
+The number that I watch is the total. In the 28 hours before the ratchet merged, it grew by 181. In the 57 hours after, it fell by 197.
+
+<RatchetSteps />
+
+The August step has [its own post](/blog/lint-ai-generated-code/) with the rules in detail. The public ruleset is [`dmmulroy/anti-slop`](https://github.com/dmmulroy/anti-slop). The rules without a prefix in this post are first-party rules that we wrote for our repository.
+
+## An instruction is a suggestion
+
+A skill is a text file with instructions for a coding agent. Ours had one for React effects with 312 lines and one for React architecture with 224. They were good text. The agent read them, then read the code around its task, and the code won. When a file already has ten effects that copy one value into another, the eleventh looks normal.
+
+A lint rule does not depend on what the agent read. It is a small program that reads the code after it is written. The same line gets the same error from every author: an agent, another agent, or me.
+
+## Step 1: turn the instruction into a rule
+
+For each instruction I ask one question. Can a program see this in the code, without knowing what the feature is for? When the answer is yes, the instruction becomes a rule. When it is no, it stays in the skill.
+
+| The instruction, in plain words | The rule | What the rule reports |
+| --- | --- | --- |
+| Do not add an effect to keep two values in sync | `no-use-effect` | An effect in a file that has none |
+| Do not build a debounce from a timer in an effect | `no-effect-debounce` | A timer in an effect, when the timer callback sets state |
+| Read the pending state from the mutation | `no-manual-pending-state` | A boolean state that copies the status of a mutation |
+| Keep each query key in one place | `no-inline-query-key` | A query key written as an array at the call site |
+| Call the server through the typed client | `no-client-fetch` | A raw `fetch` in a client module |
+| A feature does not import another feature | `no-cross-feature-import` | An import from one feature folder into another |
+| Do not hide an error | `no-swallowed-error` | A `catch` that never reads the error that it caught |
+| Do not wait for a fixed time | `no-inline-sleep` | A promise that only resolves from a timer |
+
+Some instructions stayed in the skill, because they need intent. Which part of the app owns a piece of state, when a form must reset, and whether a search waits for the user to stop typing are decisions about the product. A linter cannot see them.
+
+With the rules in place, the text could shrink. The two React skills with 536 lines became one skill with 54. It says what to decide, and it points to the lint rules for everything else.
+
+### What a rule looks like
+
+A rule is a function that visits the syntax tree of a file and reports the shapes that it does not accept. This one is shortened for the post. It finds `new Promise((resolve) => setTimeout(resolve, 500))`.
+
+```ts
+import { defineRule } from "@oxlint/plugins";
+
+export const noInlineSleep = defineRule({
+  meta: {
+    type: "problem",
+    messages: {
+      inlineSleep:
+        "A fixed sleep guesses how long something takes. Wait on the real condition instead.",
+    },
+  },
+  createOnce(context) {
+    return {
+      NewExpression(node) {
+        if (node.callee.type !== "Identifier" || node.callee.name !== "Promise") return;
+        const [executor] = node.arguments;
+        if (executor?.type !== "ArrowFunctionExpression") return;
+        const [resolve] = executor.params;
+        const body = executor.body;
+        if (
+          resolve?.type === "Identifier" &&
+          body.type === "CallExpression" &&
+          body.callee.type === "Identifier" &&
+          body.callee.name === "setTimeout" &&
+          body.arguments[0]?.type === "Identifier" &&
+          body.arguments[0].name === resolve.name
+        ) {
+          context.report({ node, messageId: "inlineSleep" });
+        }
+      },
+    };
+  },
+});
+```
+
+Three things that I learned from writing 24 of these:
+
+- **The message is written for the agent.** It says what to do instead, because the agent reads the error and tries again.
+- **A custom rule sees the shape of the code and no types.** So each rule needs a second signal before it reports. `no-effect-debounce` reports a timer in an effect only when the timer callback sets state. A delayed focus or a scroll passes.
+- **The tests that matter are for code that must pass.** When a rule reports correct code, the fix goes into the rule. Step 3 explains why there is no other way out.
+
+## Step 2: old code already breaks the rules
+
+A new rule in an old code base has a problem on its first day. On the day of the merge, our code broke the ratchet rules 26,332 times. One rule alone, which bans comments, had 14,123 of them.
+
+<NumberBand value="26,332">
+  violations of the ratchet rules in our code on the day of the merge.
+</NumberBand>
+
+The two usual answers both fail.
+
+- **Make the rule an error.** The build is red until someone fixes thousands of old lines, so the rule never merges.
+- **Make the rule a warning.** The build is green and the count grows. In the last 28 hours before the merge, the nine newest rules had no gate yet, and they grew by 190 on the main branch.
+
+A ratchet is the third answer. The name comes from the tool that turns in one direction only. I record how many times each file breaks each rule today, in one JSON file. This fragment shows the shape, with a made-up path:
+
+```json
+{
+  "no-type-assertion": {
+    "src/features/billing/invoice.ts": 3
+  }
+}
+```
+
+One script lints the repository and compares the result with that file.
+
+<RatchetOutcomes />
+
+The fourth result keeps the gain. When a count falls and the record still allows the old value, the next person can add a violation back with no failure. So the record must follow each count down.
+
+For someone who opens a pull request, the rule is short. A file that you do not touch costs you nothing. A file that you touch keeps its number, and you cannot add to it.
+
+In August I had used a harder version of this idea for the first rules: a commit hook that refuses a staged file with any warning in it, so that whoever touches a file cleans it. That hook is still in place for those rules, and it works. Seven rules that I can compare all went down between August and November. It also has a price. In one performance sweep, 18 of 36 files lost their edits, because a small fix in an old file had to carry a full cleanup of that file. For the nine new rules, some with thousands of old cases, the ratchet asks for less: do not make it worse.
+
+## Step 3: close the ways around it
+
+A check like this has two easy ways around it.
+
+**Edit the number.** The script compares the allowed counts in the pull request with the allowed counts on the main branch, and it refuses a number that is higher. The update command can only lower an entry or remove it.
+
+**Add a disable comment.** One line such as `oxlint-disable-next-line` above the new violation silences the rule. So the script counts these comments from the source text, for each rule and each file, in every form: next line, same line, block, JSX, and whole file. A new one fails the check. The first count found 284 that name a rule and 45 broad ones that name none. It also found 57 that silenced nothing, and I deleted those.
+
+An old disable comment leaves one more gap. It covers a range of lines, and a new violation inside that range is not reported.
+
+<HiddenViolation />
+
+A second mode of the script blanks each disable comment, lints again, and counts what appears. On the day of the merge that was 533 hidden violations in 163 files. They are in the same record under their own keys, with the same rule: only down.
+
+This is also why a false report must be fixed in the rule. The disable comment is closed as an exit, so the rule has to be right.
+
+## What happened after the merge
+
+<RankBars
+  bleed
+  mono
+  title="Recorded violations on 17 November 2026"
+  rows={[
+    { label: "no-comments", value: 14123, mark: "lilac", sub: "in 1,547 files" },
+    { label: "no-type-assertion", value: 3043, mark: "lilac", sub: "in 601 files" },
+    { label: "no-swallowed-error", value: 885, mark: "lilac", sub: "in 448 files" },
+    { label: "no-cross-feature-import", value: 714, mark: "lilac", sub: "in 283 files" },
+    { label: "no-module-mocking", value: 615, mark: "lilac", sub: "in 142 files" },
+    { label: "Named disable directives", value: 284 },
+    { label: "Broad disable directives", value: 45 },
+  ]}
+  legend={[
+    { label: "rules", mark: "lilac" },
+    { label: "disable directives", mark: "sand" },
+  ]}
+  caption="Selected rows, out of 26,332 recorded violations. no-module-mocking is a rule from the public ruleset."
+/>
+
+I recorded the counts two times before the merge, 28 hours apart, and the record changes on the main branch tell the rest.
+
+<TotalChange />
+
+After the merge, 18 changes on the main branch touched the record, from five engineers and the CI bot. Every one of them lowered it, and the total went from 26,332 to 26,135. Of the 197, 152 are violations removed from files that still exist, and 45 left with files that were deleted.
+
+A count cannot go up, so "it only fell" is partly the design. What the number adds is that people removed old violations when a file was already in their hands, with no cleanup project and no ticket.
+
+The `useEffect` rule shows the same effect on one rule. In August it had an allowlist of 85 files that already had effects, and a file on that list could add one more. Now each file has its own number. On the day of the merge the record had 197 effects in 102 files. Two days later it had 196.
+
+## What it costs
+
+- **On my machine,** a full run takes about 6 seconds, and the commit hook is about 5 seconds slower than before.
+- **In CI,** on a standard two-core runner, the ratchet step took a median of 55 seconds and the hidden mode 75 seconds, over 40 runs on 19 November. The lint job is about two minutes longer than it was.
+- **On the day of the merge,** every open pull request is a risk. One that had passed its checks before the ratchet existed merged after it and broke the lint check on the main branch. The fix went in the same day.
+
+## Oxlint notes
+
+Four behaviors of Oxlint are easy to miss when you write your own rules.
+
+- **A wrong rule name is a parse error, and the run then reports zero findings.** That looks the same as a clean result. Check the exit code before you count.
+- **A plugin turns on its complete `correctness` category**, and not only the rules that you name. The `vitest` plugin added about 1,900 findings this way.
+- **The CLI flags `-D` and `-W` discard the rule options from the config file.** A rule with options must be set in a config file.
+- **Selector rules do not exist.** Oxlint has no `no-restricted-syntax`, so each rule of that kind goes into a custom plugin.
+
+One more, from a bulk fix. An automatic fix changed `mockResolvedValue(undefined)` to `mockResolvedValue()` at 21 sites. All 150 tests passed, and the type check failed, because the test runner does not check types. Run the type check after a bulk fix.
+
+## What I did not measure
+
+- **The first drafts of the agents.** I count what reaches a commit. I do not know how many times an agent wrote a violation, read the error, and fixed it.
+- **A long trend.** The fall of 197 is from 57 hours. It is a start, and it is not a rate.
+- **The rule that bans comments.** `no-comments` is 14,123 of the 26,332, or 53.6%. That rule is our position. A team that keeps its comments would start with about half of this record.
+- **The open pull requests on the day of the merge.** Each one had to take the main branch and pass the ratchet. I did not count how many failed, apart from the one above.
+- **The comparison of August and November.** The November counts include test files, and I did not check for files that moved between packages.
+
+Two items are open. One rule reports correct code: `typescript/prefer-nullish-coalescing` flags `a?.trim() || b`, where an empty string must fall through. And a rule that becomes wider cannot raise its own counts, so a better rule needs a process that does not exist yet.
+
+---
+
+I set up lint rules and ratchets like this for other teams. To discuss your repository, [email me](mailto:hello@kamran.sh?subject=Lint%20ratchet).

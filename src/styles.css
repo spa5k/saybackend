@@ -33,6 +33,12 @@
   --m-amber: #f1cd80;
   --m-rose: #f2a48f;
   --m-sage: #abd3a6;
+  --l-lilac: var(--m-lilac);
+  --l-blue: var(--m-blue);
+  --l-sand: var(--m-sand);
+  --l-amber: var(--m-amber);
+  --l-rose: var(--m-rose);
+  --l-sage: var(--m-sage);
   --grid-minor: 0.07;
   --grid-major: 0.17;
   --font-sans: 'Instrument Sans Variable', ui-sans-serif, system-ui, sans-serif;
@@ -82,12 +88,21 @@
   --paper-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Cpath d='M22 18v8M18 22h8' stroke='%23ebe8de' stroke-opacity='.13' fill='none'/%3E%3C/svg%3E");
   --wash: #2a2822;
   --brick: #e08a7c;
-  --m-lilac: #88a6ea;
-  --m-blue: #78c1b7;
-  --m-sand: #8a867a;
-  --m-amber: #e2bc6c;
-  --m-rose: #e4937e;
-  --m-sage: #9bc496;
+  /* Deep marker tints: a light label on them needs no halo (4.6:1), and
+     each tint still stands off the paper (3.1:1). Lines keep the bright
+     tints, because a thin deep line is lost on dark paper. */
+  --m-lilac: #3e64b1;
+  --m-blue: #307068;
+  --m-sand: #6a6657;
+  --m-amber: #7c622c;
+  --m-rose: #9d503c;
+  --m-sage: #43713d;
+  --l-lilac: #88a6ea;
+  --l-blue: #78c1b7;
+  --l-sand: #8a867a;
+  --l-amber: #e2bc6c;
+  --l-rose: #e4937e;
+  --l-sage: #9bc496;
   --grid-minor: 0.08;
   --grid-major: 0.18;
   --accent-foreground: #14162a;
@@ -480,7 +495,7 @@ mark,
 
 .paper-margin {
   fill: none;
-  stroke: var(--m-rose);
+  stroke: var(--l-rose);
   stroke-opacity: 0.7;
   stroke-width: 1.4;
 }
@@ -555,7 +570,7 @@ mark,
 }
 
 .motif-text {
-  fill: #141413;
+  fill: var(--ink);
   font-family: var(--font-sans);
 }
 
@@ -693,16 +708,16 @@ mark,
 }
 
 .footer-line.mark {
-  stroke: var(--m-lilac);
+  stroke: var(--l-lilac);
   stroke-width: 2.6;
 }
 
 .footer-line.mark.amber {
-  stroke: var(--m-amber);
+  stroke: var(--l-amber);
 }
 
 .footer-line.mark.teal {
-  stroke: var(--m-blue);
+  stroke: var(--l-blue);
 }
 
 .footer-ridge {
@@ -1491,7 +1506,7 @@ mark,
   transform: scale(1.08);
 }
 
-/* Home: the newest post is the hero, then tiles, then the timeline. */
+/* Home: the newest post is the hero, then tiles, then a short list. */
 .page-hero-eyebrow .hand {
   display: inline-block;
   font-size: 24px;
@@ -1549,8 +1564,7 @@ mark,
   transform: translateY(-3px);
 }
 
-.post-tiles .post-list-title,
-.posts-by-year .post-list-title {
+.post-tiles .post-list-title {
   background: linear-gradient(
       color-mix(in srgb, var(--mark) 60%, transparent),
       color-mix(in srgb, var(--mark) 60%, transparent)
@@ -1559,8 +1573,7 @@ mark,
   transition: background-size 300ms ease;
 }
 
-.post-tiles a:hover .post-list-title,
-.posts-by-year a:hover .post-list-title {
+.post-tiles a:hover .post-list-title {
   background-size: 100% 36%;
 }
 
@@ -1576,10 +1589,13 @@ mark,
 .post-timeline {
   margin-top: 64px;
   overflow-x: auto;
+  /* On a narrow screen the ruler opens at its newest end. */
+  direction: rtl;
 }
 
 .post-timeline svg {
   display: block;
+  direction: ltr;
   width: 100%;
   min-width: 620px;
   overflow: visible;
@@ -1596,55 +1612,32 @@ mark,
   transform: rotate(45deg) scale(1.2);
 }
 
+.timeline-month {
+  opacity: 0.5;
+}
+
 .timeline-year {
   fill: var(--ink);
   font-family: var(--font-serif);
   font-size: 17px;
 }
 
+.timeline-count {
+  fill: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+
 .timeline-note {
   font-size: 24px;
 }
 
-.posts-by-year {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 28px 34px;
-  margin-top: 18px;
-}
-
-.posts-by-year h2 {
-  margin: 0 0 8px;
+.home-list-title {
+  margin: 40px 0 10px;
   font-family: var(--font-serif);
   font-size: 30px;
   font-weight: 400;
   letter-spacing: -0.02em;
-}
-
-.posts-by-year ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.posts-by-year li {
-  border-top: 1px solid var(--rule);
-}
-
-.posts-by-year a {
-  display: grid;
-  grid-template-columns: 11px 1fr;
-  align-items: baseline;
-  gap: 10px;
-  padding: 9px 0;
-  font-family: var(--font-serif);
-  font-size: 16.5px;
-  line-height: 1.25;
-}
-
-.posts-by-year .mark-square {
-  width: 11px;
-  height: 11px;
 }
 
 @media (max-width: 860px) {
@@ -1654,13 +1647,16 @@ mark,
 }
 
 @media (max-width: 700px) {
-  .post-tiles,
-  .posts-by-year {
+  .post-tiles {
     grid-template-columns: 1fr;
   }
 
   .post-timeline {
     margin-top: 44px;
+  }
+
+  .home-list-title {
+    margin-top: 28px;
   }
 
   /* Phone: a tile is one row, the drawing on the left. */
@@ -2764,7 +2760,7 @@ html.dark .shiki-code span {
   justify-content: center;
   border-radius: 2px;
   background: color-mix(in srgb, var(--m-sage) 70%, transparent);
-  color: #141413;
+  color: var(--ink);
   font-size: 13px;
   font-weight: 600;
   line-height: 1;
@@ -3071,14 +3067,19 @@ html.dark .shiki-code span {
   }
 }
 
-/* Readability: a figure label that sits on the paper gets a thin halo of
-   paper, so a paper mark never crosses a letter. Labels on a painted mark
+/* Readability: in light mode a figure label that sits on the paper gets a
+   thin halo of paper, so a paper mark never crosses a letter. Labels on a painted mark
    set their own fill and are left alone. */
 .fig text:not([style*='fill'], .flow-label, .motif-text) {
   paint-order: stroke;
   stroke: var(--paper);
   stroke-linejoin: round;
   stroke-width: 5px;
+}
+
+/* Dark marks are deep, so labels need no halo there. */
+.dark .fig text:not(.flow-edge-label) {
+  stroke: none;
 }
 
 .fig text {
