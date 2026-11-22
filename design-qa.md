@@ -56,12 +56,12 @@ No actionable P0, P1, or P2 differences remain. Real-content length and the abse
 ## Primary interactions tested
 
 - Desktop navigation links
-- Search dialog, keyboard-ready input, and populated Pagefind results
+- Search dialog, keyboard-ready input, and populated search results
 - Light/dark theme toggle
 - Mobile menu open/close state
 - Article rendering with migrated MDX, images, and interactive article widgets
 - Legacy redirects and canonical metadata through the route parity check
-- Fresh production Pagefind indexing from the prerendered TanStack output
+- Search index built from published posts only, checked against the sitemap
 
 ## Console check
 

@@ -50,7 +50,7 @@ const sitemapPaths = Array.from(
   ),
   (match) => match[1],
 )
-const pagePaths = [...new Set([...sitemapPaths, '/hiring/', '/pagefind'])]
+const pagePaths = [...new Set([...sitemapPaths, '/hiring/', '/search/'])]
 const markdownPaths = sitemapPaths
   .filter(
     (path) =>
@@ -181,8 +181,7 @@ if (
 const homeResponse = await fetch(baseUrl)
 const home = await homeResponse.text()
 const unexpectedCriticalAssets = [
-  '/pagefind/pagefind-ui.css',
-  '/pagefind/pagefind-ui.js',
+  '/search-index.json',
   'HappyContextBlocks',
   'InteractiveDiagram',
   'PgStrictBlocks',

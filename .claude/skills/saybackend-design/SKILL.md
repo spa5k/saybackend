@@ -90,9 +90,10 @@ CORS header, so serve it from `src/worker.ts`.
 
 Done means all of these pass and you looked at every screenshot.
 
-1. `npx prettier --check src && npx eslint src && npx tsc --noEmit`
-2. `npx vite build`, then `git checkout -- public/pagefind` (the build rewrites
-   it).
+1. `npx oxfmt --check src && npx eslint src && npx tsc --noEmit`
+2. `npx vite build` (outside the sandbox: prerender opens a port), then
+   `node scripts/finalize-static-build.mjs`. It fails when the search index
+   and the published posts in the sitemap differ.
 3. Screenshots of each changed page: desktop 1280, phone 500, dark theme.
 
    ```sh

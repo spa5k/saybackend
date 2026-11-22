@@ -10,12 +10,12 @@
     "dev": "node scripts/sync-outrank.mjs && vite dev --port 3000",
     "start": "vite dev --port 3000",
     "generate-routes": "tsr generate",
-    "build": "node scripts/prepare-static-build.mjs && node scripts/sync-outrank.mjs --required && vite build && pagefind --site dist/client && node scripts/finalize-static-build.mjs",
+    "build": "node scripts/sync-outrank.mjs --required && vite build && node scripts/finalize-static-build.mjs",
     "preview": "vite preview",
     "verify:routes": "node scripts/verify-routes.mjs",
     "lint": "eslint",
-    "format": "prettier --write . && eslint --fix",
-    "check": "prettier --check . && eslint",
+    "format": "oxfmt && eslint --fix",
+    "check": "oxfmt --check && eslint",
     "deploy": "npm run build && wrangler deploy && wrangler deploy --config wrangler.www-redirect.jsonc",
     "cf-typegen": "wrangler types",
     "sync:outrank": "node scripts/sync-outrank.mjs"
@@ -35,13 +35,16 @@
     "@tanstack/react-start": "latest",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "github-slugger": "^2.0.0",
     "katex": "^0.19.1",
     "lucide-react": "^1.73.0",
+    "minisearch": "^7.2.0",
     "outrank-next-js-blog": "^0.1.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "reading-time": "^1.5.0",
     "rehype-katex": "^7.0.1",
+    "rehype-slug": "^6.0.0",
     "remark-frontmatter": "^5.0.0",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
@@ -62,8 +65,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
     "eslint": "^10.15.0",
-    "pagefind": "^1.6.0",
-    "prettier": "^3.10.1",
+    "oxfmt": "0.79.0",
     "typescript": "^6.0.3",
     "vite": "^8.3.8",
     "wrangler": "^4.162.0",
@@ -76,6 +78,7 @@
     ]
   },
   "overrides": {
-    "katex": "$katex"
+    "katex": "$katex",
+    "minimatch": "^11.0.8"
   }
 }

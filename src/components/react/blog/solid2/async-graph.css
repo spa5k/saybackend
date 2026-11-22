@@ -1,0 +1,72 @@
+@import '../widget.css';
+
+/* Controls under the animated Solid figures: step pills and a replay pill. */
+.sa-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+.sa-controls::before {
+  content: none;
+}
+
+@media (pointer: coarse) {
+  .sa-controls button {
+    min-height: 40px;
+  }
+}
+
+.sa-fig rect,
+.sa-fig text {
+  transition:
+    fill 300ms ease,
+    opacity 300ms ease;
+}
+
+/* A dependency edge that carries a change. */
+.sa-edge {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1.4;
+  transition: stroke 200ms ease;
+}
+
+.sa-edge.is-live {
+  stroke: var(--ink);
+  stroke-dasharray: 6 5;
+  animation: sa-dash 600ms linear infinite;
+}
+
+/* A ring round the node that runs now. */
+.sa-ring {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.6;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.sa-ring.is-on {
+  opacity: 1;
+}
+
+@keyframes sa-dash {
+  to {
+    stroke-dashoffset: -11;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sa-edge.is-live {
+    animation: none;
+  }
+
+  .sa-fig rect,
+  .sa-fig text {
+    transition: none;
+  }
+}

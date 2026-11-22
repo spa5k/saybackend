@@ -17,12 +17,12 @@ export default [
   {
     ignores: [
       'dist/**',
-      'public/pagefind/**',
+      '.agents/**',
+      'design/**',
       'worker-configuration.d.ts',
       'src/components/react/**',
       'src/components/ui/**',
       'eslint.config.js',
-      'prettier.config.js',
     ],
   },
 ]

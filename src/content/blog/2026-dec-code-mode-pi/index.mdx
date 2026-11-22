@@ -1,0 +1,303 @@
+---
+title: "How Code Mode Works in pi: QuickJS in a Worker, Calls Through the Real Tool Pipeline"
+seoTitle: "How Code Mode Works in pi: the codemode Tool and Its QuickJS Sandbox"
+description: "pi 1.6.0 runs model-written JavaScript in a QuickJS VM on a worker thread and sends every nested call through its own tool pipeline. Source, limits, exact errors, and token counts from sessions against a mock model."
+date: "2026-11-25"
+draft: true
+ogImage: "/images/2026-code-mode-pi-og.png"
+slug: "code-mode-pi"
+tags:
+  - "ai"
+  - "agents"
+---
+
+import { LineFigure } from "@/components/paper/LineFigure";
+import { NumberBand } from "@/components/paper/NumberBand";
+import { RankBars } from "@/components/paper/RankBars";
+import {
+  PiCodeMode,
+  PiCodeModeReach,
+} from "@/components/react/blog/codemode/CodeModeFigures";
+
+pi has had code mode built in since 0.99.0, released on September 29, 2026. It is one tool, `codemode`, that takes a JavaScript program, runs it in QuickJS, and lets the program call pi's other tools. This post follows that tool through the source of pi 1.6.0, the current release, and measures it two ways: with pi's own executor and mock tools, and with full pi sessions against a mock OpenAI-compatible model. [Part 1](/blog/code-mode-explained/) explains the idea.
+
+pi now lives at `earendil-works/pi` on GitHub and ships as `@earendil-works/pi-coding-agent`. The old `@mariozechner/pi-coding-agent` package stops at 0.73.1.
+
+## Turning it on
+
+Code mode is off by default. The extension that registers the tool says so in its header:
+
+```ts
+// packages/coding-agent/src/extensions/codemode/index.ts
+ * `codemode` is registered inactive. Activate it with `--tools`, the `defaultTools` setting, or
+ * `setActiveTools()`; the MCP extension activates it when MCP tools are only reachable from scripts.
+```
+
+For one run, use `pi --tools +codemode`. For every session, add `"defaultTools": ["+codemode"]` to `~/.pi/agent/settings.json`. When an MCP server with the default `codemode` exposure connects, pi turns the tool on by itself; `"autoEnableCodemode": false` next to `mcpServers` stops that. To remove the tool completely, disable the built-in extension in `pi config`, which writes `-builtin:codemode` to the `extensions` setting.
+
+Two settings shape it. `codemode.mode` is `on` by default: the other tools stay declared, and each description gains a line on how to call it from a script. With `only`, the declarations of the active direct tools leave the request and move into the `codemode` description. `codemode.inlineBudget`, 3,000 estimated tokens by default, caps how many tool declarations that description lists.
+
+## What the model sees
+
+The input schema is one string:
+
+```ts
+// packages/coding-agent/src/extensions/codemode/tool.ts
+export const codemodeSchema = Type.Object({
+	code: Type.String({
+		description: "Raw JavaScript source.",
+	}),
+});
+```
+
+The description opens with "Run JavaScript that calls other tools", says the input is "run as an async function body in a QuickJS sandbox", and states "No Node, file system, network, or timers." On providers that support OpenAI grammar tools, pi also sends a Lark grammar, so the model writes the program as raw text instead of a JSON-escaped string:
+
+```ts
+// packages/coding-agent/src/extensions/codemode/tool.ts
+// Capable models write the script as raw text instead of a JSON-escaped string.
+constrainedSampling: { type: "grammar", variants: { openai_lark: CODEMODE_SOURCE_GRAMMAR } },
+```
+
+I captured the first request pi 1.6.0 sends in each mode and counted the `tools` array with tiktoken's `o200k_base` encoding.
+
+<RankBars
+  title="Tool definitions in pi's first request"
+  unit="o200k_base tokens"
+  rows={[
+    { label: "codemode off", value: 609, sub: "read, bash, edit, write" },
+    { label: "mode on", value: 1099, mark: "lilac", sub: "the same four tools with a Codemode line, plus codemode at 392" },
+    { label: "mode only", value: 1204, mark: "lilac", sub: "codemode alone, with the four declarations inside it" },
+  ]}
+  caption="pi 1.6.0, default tools, no MCP servers. The system prompt was 568, 609 and 457 tokens."
+/>
+
+With only the built-in tools, code mode makes every request larger. Tools plus system prompt go from 1,177 tokens to 1,708 in `on` mode and to 1,661 in `only` mode. The savings come from what stays out of the context later, and from MCP tools, which the next sections cover.
+
+## Where the program runs
+
+The sandbox is a separate package, `@earendil-works/pi-codemode`, with no pi dependencies. Each script gets a new worker thread and a new QuickJS VM compiled to WebAssembly from `quickjs-wasi` 3.6.2. The VM's only imports are a WASI shim (clock, random, and stdout and stderr writes that the worker discards) and one host-call entry point. A prelude holds that entry point in a closure and builds `tools`, `console` and the other globals on top of it. Built-ins are frozen before the script runs.
+
+<PiCodeMode />
+
+A call such as `tools.read(args)` posts a message to the main thread. This is the message type, from the protocol:
+
+```ts
+// packages/codemode/src/runtime/protocol.ts
+| { type: "call"; id: number; target: "tool" | "global"; name: string; args: string | undefined }
+```
+
+On the main thread, the coding agent turns the message into an ordinary nested tool call:
+
+```ts
+// packages/coding-agent/src/extensions/codemode/execute.ts
+const outcome = await ctx.executeTool(tool.name, args, { signal: callSignal });
+```
+
+`ctx.executeTool` runs the call through the same `runToolCall` pipeline as a call from the model: argument validation, the extensions' `tool_call` and `tool_result` hooks, and `tool_execution_*` events that carry a `parentToolCallId`. A tool that declares an `outputSchema` resolves to its `structuredContent`. Every other tool resolves to its text, and a failed call rejects with an `Error` that carries the tool's error text. `bash` resolves to an object with `output`, `exit_code` and `truncated`, and its `output` holds up to 1 MiB, against the 2,000 lines or 50 KB the model gets from a direct call.
+
+Only the script's output goes back to the model. In my runs, a script that read five 16 KB files and filtered them returned this tool result:
+
+```text
+Script completed
+Wall time 0.1 seconds
+Output:
+
+NEEDLE is in f3.txt
+```
+
+The output has a fixed layout, set in `execute.ts`. Every `text()` call and the returned value are text items in order, and when there is more than one, each starts with a `==> text N/M <==` line so the model can tell them apart. `console.log` lines go after everything else in one `<console_output>` block. `image()` adds an image item: a base64 `data:` URL, or an image block such as an MCP tool or `read` returns for a PNG. pi saves each image to a temp file and puts the path before it, because the model can see the image but a script has no other way to write its bytes. Remote image URLs are refused.
+
+The output has two caps. Past `max_output_tokens`, 10,000 estimated tokens unless the options line sets another value, pi keeps the start and the end, writes the full text to a temp file and gives the model the path. Past 16,777,216 characters of text and image data, or 100,000 calls to `text()`, `image()` and `console`, the script fails.
+
+## State across scripts
+
+A script can keep small JSON values for later scripts with `store(key, value)` and read them with `load(key)`. The sandbox persists nothing itself. When a script succeeds, pi appends its writes to the session as a `codemode-store` custom entry, and the next script's store is rebuilt from those entries on the current branch. A resumed session keeps the values, and each branch of the session sees only what was written on its own path. A failed script writes nothing. One value may be up to 262,144 characters of JSON and the whole store up to 1,048,576; a larger write throws a `RangeError` inside the script.
+
+That gives pi a middle ground between Claude Code's REPL, where variables stay in memory until a restart, and OpenCode, where every program starts empty. The values survive a restart, but only what the script chose to save, so a cursor or a list of IDs fits and a 5 MB result does not.
+
+## Models inside a script
+
+The `models` global reaches pi's model catalog with the session's credentials. A script can list models, run a classifier that answers typed questions about JSON state (and, for some models, images), and generate images. Chat models are listed but cannot be run, so a script cannot start its own LLM conversation. At most four `classify()` or `generateImages()` calls run at once per script, and a `Promise.all` over 100 items queues the rest. Their token usage is added to the `codemode` tool result and counts toward the session cost. For a task such as "label these 300 issues", the labels come from a classifier inside the script and only the counts go back to the model.
+
+## Which tools a script can call
+
+The session decides that in one line:
+
+```ts
+// packages/coding-agent/src/core/agent-session.ts
+return exposure === "codemode" || exposure === "deferred" || (exposure === "direct" && active.has(tool.name));
+```
+
+So a script reaches the active built-in tools, active tools that extensions register, and every MCP tool, because MCP tools default to `codemode` exposure. It does not reach inactive tools such as `grep`, `find` and `ls`, which are off by default, and it cannot start another script, because `codemode` itself has `exposure: "model-only"`.
+
+<PiCodeModeReach />
+
+I tested both paths. A small extension registered a direct tool, `ext_echo`. Inside a script, `ALL_TOOLS` listed `read`, `bash`, `edit`, `write` and `ext_echo`, and the call returned `echo: from extension`. A stdio MCP server with 40 tools connected as `mcp__tracker`. `searchTools("issue tracker records")` found its tools, `tools.mcp__tracker__tracker_op_7(...)` returned the full `CallToolResult`, and `ALL_TOOLS` had 44 entries.
+
+MCP tools with `codemode` exposure are not declared to the model and not listed in the `codemode` description, so the request does not grow with the server. The only trace is one line in the system prompt, `- mcp__tracker (codemode): Issue tracker`. I ran the same fake server with 10 to 80 tools under both exposures.
+
+<LineFigure
+  title="Tools plus system prompt in pi's first request (thousands of o200k_base tokens)"
+  description="With direct exposure the request grows from 1,179 tokens without MCP to 10,699 tokens with 80 MCP tools. With codemode exposure it stays at 1,756 tokens from 10 to 80 tools."
+  series={[
+    {
+      name: "direct exposure",
+      mark: "rose",
+      endLabel: "10.7k",
+      points: [[0, 1.179], [10, 2.369], [20, 3.559], [40, 5.939], [80, 10.699]],
+    },
+    {
+      name: "codemode exposure",
+      mark: "lilac",
+      endLabel: "1.76k",
+      points: [[0, 1.71], [10, 1.756], [20, 1.756], [40, 1.756], [80, 1.756]],
+    },
+  ]}
+  xTicks={[0, 10, 20, 40, 80]}
+  yTicks={[0, 4, 8, 12]}
+  yFormat={(value) => `${value}k`}
+  xLabel="Tools on the MCP server"
+  notes={[{ x: 10, y: 2.369, text: "even at\nabout 5 tools", dx: 20, dy: -60 }]}
+  caption="A synthetic server: each tool has a one-sentence description and three parameters, 119 tokens per tool when declared."
+/>
+
+## Permissions
+
+pi does not ask for approval before tool calls. Approval is an extension's job, done in the `tool_call` hook, and nested calls fire that hook like any other call. My test extension blocked every `bash` call. A script that tried `tools.bash({ command: "echo hi" })` caught an `Error` whose message was the hook's reason, `bash is blocked by policy-ext`.
+
+That hook is the real boundary. QuickJS keeps the script away from the file system and the network, but `tools.bash` is one call away whenever `bash` is active. The calls are also real: when a script fails, the calls it already made are not undone, and the error text lists them.
+
+## Limits and failures
+
+I ran pi's own `executeCodemode` from a script, with a fake session and mock tools, and recorded what the model would get back. Each result starts with `Script failed`, the wall time and the output so far, then `Script error:` and the text below.
+
+| Program | Error text |
+| --- | --- |
+| `await fetch(url)` | `ReferenceError: fetch is not defined` |
+| `require("fs")` | `ReferenceError: require is not defined` |
+| `await import("node:fs")` | `ReferenceError: could not load module 'node:fs'` |
+| `import fs from "fs"` | `SyntaxError: Unexpected identifier 'fs'` |
+| `await new Promise(() => {})` | `Error: The script is waiting on a promise that can never settle: no tool call is pending, and timers do not exist here.` |
+| `a.push("x".repeat(1024 * 1024))` in a loop | `InternalError: out of memory`, after 0.6 s |
+| unbounded recursion | `RangeError: Maximum call stack size exceeded` |
+| `while (true) {}` with `"timeout_ms": 2000` | `Script timed out: Execution timed out after 2000 ms` |
+
+`typeof` of `fetch`, `process`, `require`, `setTimeout` and `WebAssembly` is `undefined`. `eval("1 + 1")` returns 2, because it only produces more code inside the same VM.
+
+The infinite loop needs the `// @options:` line, because pi sets no deadline by default:
+
+```ts
+// packages/coding-agent/src/extensions/codemode/execute.ts
+const deadline = sourceOptions.timeoutMs ?? Number.POSITIVE_INFINITY;
+```
+
+Without `timeout_ms`, `while (true) {}` ran until I fired the abort signal after 10 seconds. The other limits are fixed in the same file: a 256 MiB heap, at most two live workers per pi process (`PI_CODEMODE_MAX_WORKERS` changes it), a 60-second wait for a free worker, and an output budget of 10,000 estimated tokens, past which pi keeps the start and end and writes the full text to a temp file.
+
+A thrown error keeps the output so far and lists the calls that already ran:
+
+```text
+Script error:
+Error: boom
+    at <anonymous> (codemode.js:2:11)
+
+Tool calls made before the failure (they are not undone): echo (ok)
+```
+
+Parallel calls fail in a way that is easy to miss. I gave the sandbox a mock `get` tool that fails for item 3 after 10 ms and answers the others after 100 ms, and ran `Promise.all` over items 1 to 4. When item 3 rejected, the script threw, the script ended, and pi aborted the three calls still running: the host saw `cancelled 1`, `cancelled 2`, `cancelled 4`. The summary the model gets names every call with its status:
+
+```text
+Tool calls made before the failure (they are not undone): get (cancelled), get (cancelled), get (error), get (cancelled)
+```
+
+"Cancelled" means pi fired the call's abort signal, not that the call had no effect. A `bash` command or an MCP write may have finished on the far side before the signal arrived. With `Promise.allSettled` all four calls ran to the end and the script got three values and one rejection. A call that the script starts and never awaits is cancelled when the script returns.
+
+The worker cap gives a failure of its own. Two workers are shared by every session in the process, including in-process subagents, and a cancelled worker holds its slot until it exits. A third script waits in arrival order, and after 60 seconds it fails without starting:
+
+```text
+No codemode worker became free within 60 seconds. All 2 workers, shared by every session in this process, are held by other scripts. Retry after they finish.
+```
+
+A script with `timeout_ms` shorter than 60 seconds fails at its own deadline instead, and the wait counts toward that deadline.
+
+## Speed
+
+With mock tools, an empty script took 20.1 ms, which is the cost of a new worker and VM. A script with 1,000 mock calls took 42.7 ms, so one crossing of the bridge costs about 0.02 ms. Through a real pi session, with pi's `read` tool on a small file and the time taken inside the VM, a nested call cost 0.4 to 0.45 ms.
+
+<RankBars
+  title="Nested read calls inside one script, through pi's tool pipeline"
+  unit="ms"
+  rows={[
+    { label: "10 calls, in sequence", value: 3 },
+    { label: "100 calls, in sequence", value: 40 },
+    { label: "100 calls, Promise.all", value: 30, mark: "lilac" },
+    { label: "1,000 calls, in sequence", value: 449, sub: "runs ranged from 233 to 711 ms" },
+  ]}
+  caption="Median of 9 runs, Apple M4, Node 25.9.0. Add 20 ms per script for the worker and VM."
+/>
+
+The bridge is not where the time goes. Almost all of each call is pi's pipeline and the `read` tool itself.
+
+Work inside the script is a different matter, because QuickJS is an interpreter with no JIT. I ran five small programs in `@earendil-works/pi-codemode` 1.6.0 and took off the 33 ms that an empty script cost in that run. Summing a loop to one million took 22 ms, against 3 ms in plain Node. Sorting 100,000 numbers took 137 ms against 37 ms, a JSON round trip of 1 MB took 64 ms against 7 ms, and filtering 10,000 objects took 20 ms against 0.15 ms. Those are medians of 7 runs. QuickJS is roughly 4 to 10 times slower than V8 on loops and sorts, and much more on short array work that V8 optimizes away, which is fine for the filtering most scripts do.
+
+## The same sandbox outside pi
+
+`@earendil-works/pi-codemode` has no pi dependencies and ships three sandboxes with one script environment and one result format. `CodemodeSandbox` is the one the coding agent uses, with a worker thread per script on Node or Bun. `RemoteCodemodeSandbox`, from the `portable` entry, runs scripts in a Durable Object in a separately deployed Cloudflare Worker. `InlineCodemodeSandbox` runs the VM on the calling thread, for runtimes without workers, at the cost of blocking the caller.
+
+The worker design has one known gap. On Bun, a built-in such as a long `String.prototype.indexOf` may not poll QuickJS's interrupt handler, so a cancelled worker can keep computing until the built-in returns, and it holds a worker slot while it does. On Node, the `while (true) {}` test above stopped at its 2,000 ms deadline.
+
+## One session, end to end
+
+pi runs against any OpenAI-compatible endpoint, so I wrote a small server that returns scripted tool calls and logs every request body. The task: five 200-line log files, and the question of which one contains `NEEDLE`. The server played the same model three ways: one `read` per turn, five `read` calls in one turn, and one `codemode` script that read all five and returned only the match.
+
+<RankBars
+  bleed
+  title="Input tokens over the whole session"
+  unit="o200k_base tokens"
+  rows={[
+    { label: "one read per turn", value: 104418, mark: "rose", sub: "6 requests, 286,515 bytes" },
+    { label: "five reads in one turn", value: 34754, sub: "2 requests, 95,301 bytes" },
+    { label: "codemode, mode on", value: 3751, mark: "lilac", sub: "2 requests, 15,929 bytes" },
+    { label: "codemode, mode only", value: 3643, mark: "lilac", sub: "2 requests, 14,657 bytes" },
+  ]}
+  caption="Messages plus tools in every request, summed. Each file is about 6,500 tokens. No prompt caching."
+/>
+
+<NumberBand value="28×" note="104,418 against 3,751">
+  fewer input tokens when one codemode script searched the five files, against one read per turn.
+</NumberBand>
+
+The task suits code mode: the model never needs the file contents, only the answer. With prompt caching, the repeated prefixes of the one-read-per-turn session would cost a fraction of the base price, so the gap in money is smaller than the gap in tokens.
+
+## Community extensions
+
+Five more code mode tools for pi are on npm as extensions. I read each package's source.
+
+| Package | Tool | Language and runtime | Reachable tools | pi hooks on nested calls | State across calls |
+| --- | --- | --- | --- | --- | --- |
+| `pi-opencode-mode` 0.2.1 | `codemode_o` | JavaScript subset, `@opencode/codemode` 2.3.0 interpreter in the pi process | every callable pi tool except the two code tools | yes, through `ctx.executeTool` | none |
+| `@georgebashi/pi-codemode` 0.1.0 | `execute_tools` | TypeScript, type-checked, then `node:vm` in the pi process | its own `read`, `write`, `edit`, a zx `$` shell, MCP through a bundled client | no | none |
+| `@luan.sh/pi-code-mode` 0.3.11 | `exec`, `wait` | JavaScript in a V8 isolate in a Rust host, built with `cargo install` on first use | tools with an adapter registered through its SDK | no | `store` and `load` |
+| `pi-code-tool` 0.6.2 | `code` | Python on `@pydantic/monty` 0.0.18 | its own `read`, `grep`, `find`, `ls`, `bash`, `edit`, `write`, plus `http_get` | no, it has its own approval prompt for `bash`, `edit`, `write` | variables persist |
+| `@tryinget/pi-code-mode` 0.1.0 | `eval` | Python or JavaScript in a child process | its own `read_text`, `list_directory`, `run_process` | no, it asks before each `eval` | JSON `state` |
+
+Only `pi-opencode-mode` goes through `ctx.executeTool`, so only it sees extension tools, MCP tools and permission hooks the way the built-in tool does. The other four call their own tool instances or capabilities directly, so pi's hooks never fire for nested calls. An extension tool is reachable from `@luan.sh/pi-code-mode` only when someone writes an adapter for it, and from the other three not at all. `@georgebashi/pi-codemode` still depends on the old `@mariozechner` packages. The author of `@luan.sh/pi-code-mode` removed its runtime from his repository on September 30, 2026, in a commit titled "replace custom runtimes with Pi 0.99 built-ins".
+
+Their defaults differ from the built-in tool where it matters. `pi-opencode-mode` stops at 30 seconds and 64 tool calls, `pi-code-tool` at 5 seconds and 64 MiB, and `@tryinget/pi-code-mode` at 30 seconds, with a 120-second cap. The built-in `codemode` has no deadline unless the script sets one.
+
+## Sources
+
+- [pi v1.6.0 source](https://github.com/earendil-works/pi/tree/v1.6.0)
+- [codemode/index.ts](https://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/src/extensions/codemode/index.ts), [tool.ts](https://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/src/extensions/codemode/tool.ts) and [execute.ts](https://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/src/extensions/codemode/execute.ts)
+- [pi-codemode README](https://github.com/earendil-works/pi/blob/v1.6.0/packages/codemode/README.md) and [runtime/protocol.ts](https://github.com/earendil-works/pi/blob/v1.6.0/packages/codemode/src/runtime/protocol.ts)
+- [agent-session.ts](https://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/src/core/agent-session.ts) and [nested-tool-calls.ts](https://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/src/core/nested-tool-calls.ts)
+- [Codemode reference](https://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/docs/codemode.md), [MCP servers](https://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/docs/mcp.md), [Run pi safely](https://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/docs/security.md)
+- [pi coding agent changelog, 0.99.0 and 1.6.0](https://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/CHANGELOG.md)
+- [@earendil-works/pi-coding-agent on npm](https://www.npmjs.com/package/@earendil-works/pi-coding-agent/v/1.6.0)
+- [@earendil-works/pi-codemode 1.6.0 on npm](https://www.npmjs.com/package/@earendil-works/pi-codemode/v/1.6.0)
+- [quickjs-wasi 3.6.2](https://www.npmjs.com/package/quickjs-wasi/v/3.6.2)
+- [pi-opencode-mode 0.2.1](https://www.npmjs.com/package/pi-opencode-mode/v/0.2.1) and [@opencode/codemode 2.3.0](https://www.npmjs.com/package/@opencode/codemode/v/2.3.0)
+- [@georgebashi/pi-codemode 0.1.0](https://www.npmjs.com/package/@georgebashi/pi-codemode/v/0.1.0)
+- [@luan.sh/pi-code-mode 0.3.11](https://www.npmjs.com/package/@luan.sh/pi-code-mode/v/0.3.11) and [the commit that removed its runtime](https://github.com/luan/agents/commit/46145bc50e4aa2292fb1a269b458d24d7124c627)
+- [pi-code-tool 0.6.2](https://www.npmjs.com/package/pi-code-tool/v/0.6.2)
+- [@tryinget/pi-code-mode 0.1.0](https://www.npmjs.com/package/@tryinget/pi-code-mode/v/0.1.0)
+- [js-tiktoken](https://www.npmjs.com/package/js-tiktoken), `o200k_base` encoding

@@ -1,0 +1,397 @@
+---
+title: "Self-Host TanStack Start 1.0 in Docker: Image Size, Memory and Requests per Second"
+seoTitle: "Self-Host TanStack Start 1.0 in Docker, Measured"
+description: "TanStack Start 1.0 builds to a 2.4 MB Nitro server with no node_modules. Image sizes, start time, memory, requests per second and the Docker traps, measured."
+date: "2026-12-21"
+draft: true
+ogImage: "/images/2027-self-host-tanstack-start-og.png"
+slug: "self-host-tanstack-start-docker"
+tags:
+  - "tanstack-start"
+  - "docker"
+  - "nodejs"
+---
+
+import { BeforeAfterBars } from "@/components/paper/BeforeAfterBars";
+import { NumberBand } from "@/components/paper/NumberBand";
+import { RankBars } from "@/components/paper/RankBars";
+import {
+  PrerenderBuildOrder,
+  StartImageContents,
+  StartRequestPath,
+} from "@/components/react/blog/tanstack/TanStackFigures";
+
+TanStack Start 1.0 became stable on 13 October 2026, with `@tanstack/react-start` 1.169. To run it on a Node.js server, you build it with Vite 8 and the Nitro plugin. The build writes a `.output` folder that holds the whole server, with every dependency bundled into it. The Docker image needs that folder and a Node.js runtime, nothing more.
+
+This post is the twin of my [Next.js 16 self-hosting post](/blog/self-host-nextjs-16-standalone-adapter/). I use the same machine, the same load generator and the same settings, so you can put the numbers side by side. The versions are `@tanstack/react-start` 1.169.7, `@tanstack/react-router` 1.170.46, Vite 8.3.8, Nitro 3.0.261103-rc, React 19.3.1 and Node.js 26.13.1, the current LTS. All images are `linux/arm64`, on an Apple M4 with Docker Desktop.
+
+The test app has two prerendered pages (one with an 800 × 500 PNG), an SSR page whose loader calls a server function, and two server routes.
+
+## The short answer
+
+| Option | Config | What you deploy | Fits when |
+| --- | --- | --- | --- |
+| Nitro, `node-server` preset | `nitro()` in `vite.config.ts` | `.output` | Docker, Kubernetes, any Node.js host |
+| Nitro, `bun` preset | `nitro({ preset: 'bun' })` | `.output`, run with `bun` | You already run Bun |
+| Other Nitro presets | `nitro({ preset })` | What the preset emits | Vercel, Netlify and other platforms |
+| Rsbuild | `rsbuild build` | `dist/client` and `dist/server` behind your own server | You build with Rsbuild |
+
+For Node.js and Docker, Start uses Nitro. `node-server` is the default preset, so the config is one plugin:
+
+```ts
+import { defineConfig } from 'vite'
+import { tanstackStart } from '@tanstack/react-start/plugin/vite'
+import { nitro } from 'nitro/vite'
+import viteReact from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [tanstackStart(), nitro(), viteReact()],
+})
+```
+
+The start command is `node .output/server/index.mjs`. Nitro 3 is still a release candidate on npm, and its Vite plugin is under active development.
+
+## What the build writes
+
+`vite build` runs three environments: the client, the SSR bundle, and then a Nitro build that bundles the SSR code, the router, React, h3 and srvx into `.output/server`. Static files go to `.output/public`.
+
+<NumberBand value="51×" note="28 files, not 7,006">
+  smaller: `.output` is 2.4 MB, and the `node_modules` folder that built it is 120 MB.
+</NumberBand>
+
+`.output/server` has 19 files and no `node_modules` folder. `.output/public` has the hashed JavaScript and CSS, `photo.png` and the two prerendered HTML files. Next.js standalone output traces a trimmed `node_modules` into its folder; Start bundles it away, so the runtime stage copies one folder and installs nothing.
+
+<StartImageContents />
+
+## Image size
+
+For the size test I built the app five ways. "Naive" is one stage: `npm ci`, `npm run build` and `CMD` in the same image. The others are multi-stage builds that copy only `.output` onto a clean runtime image.
+
+<RankBars
+  bleed
+  title="Image size for the same app"
+  unit="MB, unpacked"
+  rows={[
+    { label: "naive, one stage, slim", value: 444.4 },
+    { label: ".output on node slim", value: 291.6, mark: "lilac" },
+    { label: ".output on bun slim", value: 224.2 },
+    { label: ".output on distroless", value: 195.9, mark: "lilac" },
+    { label: ".output on node alpine", value: 192.0, mark: "lilac", note: "2.3× smaller" },
+    { label: "node:26.13.1-slim alone", value: 289.1 },
+  ]}
+  caption="Sum of the unpacked layers. The compressed sizes are 123, 87, 86, 61 and 69 MB, and 86 MB for the base image."
+/>
+
+The `.output` layer adds 2.5 MB to the base image; the Next.js standalone folder added 63 MB. From here on, the base image is the image. Distroless is the smallest download at 61 MB compressed, and Alpine is the smallest on disk. The output is plain JavaScript with no native modules, so a glibc build stage feeds a musl or distroless runtime without problems. The Bun image uses the `bun` preset and `oven/bun:1.4.5-slim`.
+
+## Start time and memory
+
+I measured from process spawn to the first 200 on `/` inside the container, and memory with `docker stats` after one request, after 2,000 requests, and after the load runs below.
+
+| Runtime image | Spawn to first 200 | After one request | After 2,000 requests | After load |
+| --- | --- | --- | --- | --- |
+| node slim | 32 ms | 20.3 MiB | 122 MiB | 200 MiB |
+| node alpine | 42 ms | 23.5 MiB | 88 MiB | 167 MiB |
+| distroless | 36 ms | 22.1 MiB | 126 MiB | 204 MiB |
+| bun slim | 14 ms | 10.5 MiB | 49 MiB | 48 MiB |
+
+Each value is the median of five runs. The naive image starts and behaves like node slim, since it runs the same `.output`. The Bun row comes from the same `docker stats` call, but it is a different runtime, not a setting of the same one.
+
+## Memory limits
+
+The low idle numbers do not mean the server fits in a tiny container under load. I ran the node slim image with a hard limit and no swap, and sent 50 connections to the SSR page for 20 seconds:
+
+| Container limit | Result | Memory at the end |
+| --- | --- | --- |
+| 96 MB | OOM-killed, exit code 137 | |
+| 128 MB | OOM-killed, exit code 137 | |
+| 192 MB | 111,000 requests, no errors | 120.1 MiB |
+| 256 MB | 109,000 requests, no errors | 104.1 MiB |
+| none | 189,000 requests, no errors | 219.6 MiB |
+
+Capping the V8 heap did not save the small containers. With `NODE_OPTIONS=--max-old-space-size=48` at 96 MB, `--max-old-space-size=64` at 128 MB, and `--max-semi-space-size=4` at 128 MB, the kernel still killed the process, so the growth under that load was outside the limits those flags set. Below 512 MB, Node.js 26 also sets its heap limit to 262 MB whatever the container limit is, so a heap leak in a small container ends the same way. The [Next.js post](/blog/self-host-nextjs-16-standalone-adapter/) has the full table. For this app, 192 MB per replica was the smallest limit that held under that load, and an OOM kill shows up only as exit code 137 and a restart count, not as a line in the application log.
+
+## Requests per second
+
+The load method is the one from the Next.js post: autocannon 8.0.0 in a container on the same Docker network, 50 connections for 10 seconds per route, five runs.
+
+<RankBars
+  bleed
+  title="Requests per second, node slim image"
+  unit="requests per second"
+  rows={[
+    { label: "prerendered by Nitro", value: 47424, mark: "lilac", note: "served from the file" },
+    { label: "server route, JSON", value: 41011 },
+    { label: "prerendered by Start", value: 10750, sub: "rendered again on every request" },
+    { label: "SSR page, loader + server fn", value: 10157 },
+  ]}
+  caption="autocannon 8.0.0, 50 connections, 10 s, median of five runs, no errors. On the bun image, the prerendered page reached 76,751 and the SSR page 10,572."
+/>
+
+The SSR page renders React and runs a server function in the same process, so it is the realistic number for dynamic pages. The third row is the interesting one.
+
+## Start's prerender option and the Node server
+
+The documented way to prerender is the `prerender` option of `tanstackStart()`. It writes `index.html` files into `.output/public`, but with the `node-server` preset the server never reads them. I appended a marker to the prerendered file and requested the page: the marker was not in the response, there was no `ETag`, and a request for `/index.html` returned 404. Every request ran the full SSR path, which is why that row sits next to the SSR page at 10,750.
+
+The cause is build order. Nitro copies the public files, runs its own prerender, and then builds the server bundle with a manifest of the static files it found. Start's prerender runs after that bundle is written, so its files are on disk but not in the manifest.
+
+<PrerenderBuildOrder />
+
+Nitro's own option puts the pages in the manifest:
+
+```ts
+nitro({
+  prerender: { routes: ['/', '/static'], crawlLinks: false },
+})
+```
+
+With it, `/static` came back with an `ETag` and `Last-Modified`, served from the file at 47,424 requests per second.
+
+Start's option also failed in a different way inside Docker. In `node:26.13.1-slim`, the build printed this and still exited with code 0:
+
+```text
+[prerender] Crawling: /static
+[unhandledRejection] [TypeError: fetch failed] {
+  [cause]: Error: connect ECONNREFUSED 127.0.0.1:3000
+[prerender] Prerendered 0 pages:
+```
+
+Start prerenders by fetching from Vite's preview server. The Nitro plugin replaces the requested port 0 with 3000, and the server listened on `::1` only, so the fetch to `127.0.0.1` had nothing to connect to. Setting `preview: { host: '127.0.0.1' }` in the Vite config fixed it. Check the log line `Prerendered N pages` in CI, because the exit code will not tell you.
+
+## HOST, PORT and localhost
+
+The server reads `NITRO_PORT` or `PORT` (default 3000) and `NITRO_HOST` or `HOST`. With neither host variable set, it listens on all interfaces and logs `Listening on: http://localhost:3000/ (all interfaces)`. Docker sets `HOSTNAME` to the container ID, but Nitro does not read `HOSTNAME`, so the Next.js trap from the other post does not exist here.
+
+You can still create it. With `HOST=localhost`, the server logged `Listening on: http://[::1]:3000/`. From the host, the published port failed with `curl: (56) Recv failure: Connection reset by peer`, and inside the container a fetch to `127.0.0.1:3000` got `ECONNREFUSED`. `HOST=127.0.0.1` gave the same `curl: (56)` from the host while the health check inside the container passed, which is the worst combination. A `PORT` that differs from the published port fails with the same reset. Leave `HOST` unset.
+
+<StartRequestPath />
+
+## Static files and cache headers
+
+If the runtime stage copies `.output/server` but not `.output/public`, the server starts and the SSR page returns 200, with its JavaScript and CSS returning 404. The prerendered pages fail outright, because they are in the manifest and the files are missing:
+
+```json
+{
+  "error": true,
+  "status": 404,
+  "message": "HTTPError 404"
+}
+```
+
+Copy the whole `.output` folder and this cannot happen.
+
+Hashed files under `/assets/` get `cache-control: public, max-age=31536000, immutable`, with an `ETag` and `Last-Modified`. A missing file under `/assets/` returns 404 with `cache-control: no-store`, so a CDN will not cache the miss. Files from `public/` and the prerendered HTML get an `ETag` but no `Cache-Control`; set one in a route rule or at the proxy if you want them cached.
+
+The server does not compress anything by default. The main JavaScript chunk went out as 345,825 bytes. With `compressPublicAssets: true` in the Nitro options, the build writes `.gz` and `.br` files next to each static file, and the server picked brotli (95,932 bytes) or gzip (110,739 bytes) from `Accept-Encoding`, with `Vary: Accept-Encoding`. SSR responses stay uncompressed, so a proxy in front still helps.
+
+## Behind a reverse proxy
+
+Most deployments put nginx, Caddy or a cloud load balancer in front of the server, and three things changed when I did that with nginx 1.29.
+
+The first is the host the app sees. With a bare `proxy_pass http://app:3000`, nginx sends `Host: app:3000`, and that is what `request.url` contains inside the app. The CSRF check compares `Origin` against the origin of `request.url` when there is no `Sec-Fetch-Site` header. Current browsers send `Sec-Fetch-Site: same-origin` on their own requests, and that header is checked first, so the browser path worked. A server function request with only `Origin: http://127.0.0.1:3103`, as a script or an older client sends it, got `403 Forbidden` through the proxy and 200 directly. `proxy_set_header Host $http_host` fixed it.
+
+The second is TLS. srvx builds `request.url` from the socket and the `Host` header and ignores `X-Forwarded-Proto`, so behind a proxy that terminates TLS the app sees `http://` while the browser sends `Origin: https://...`. That request got `403` as well. If your proxy terminates TLS, give the CSRF middleware the public origin:
+
+```ts
+const csrf = createCsrfMiddleware({
+  filter: (ctx) => ctx.handlerType === 'serverFn',
+  origin: 'https://shop.example',
+})
+```
+
+The helpers in `@tanstack/react-start/server` treat the forwarded headers differently from `request.url`. I sent one request directly to the container with three forwarded headers set by hand:
+
+| Helper | Result |
+| --- | --- |
+| `getRequest().url` | `http://127.0.0.1:3201/whoami` |
+| `getRequestUrl()` | `https://127.0.0.1:3201/whoami` |
+| `getRequestUrl({ xForwardedHost: true })` | `https://shop.example/whoami` |
+| `getRequestIP()` | the proxy's address |
+| `getRequestIP({ xForwardedFor: true })` | `203.0.113.9` |
+
+`getRequestUrl()` trusts `X-Forwarded-Proto` by default, and the client can send that header if it reaches the server without a proxy that overwrites it. Use the forwarded variants only when a proxy you control sets those headers, and do not publish the app port next to the proxy.
+
+The third is streaming. A loader that returns an unawaited promise, rendered with `<Await>` inside `<Suspense>`, streams the fallback first and the data later, but only for browsers. The router's stream renderer, `renderRouterToStream`, checks the `User-Agent` with `isbot` and waits for all data when it matches: with a Chrome `User-Agent` the fallback arrived after 19 ms and the page finished after 2.0 s, and with `curl/8.7.1` or `Googlebot/2.1` the whole page arrived at once after 2.0 s. So test streaming with a browser `User-Agent`, or curl will tell you it is broken when it is not. Through nginx with default settings the fallback still arrived after 20 ms. With `gzip on`, nginx held the response until the end, as it did for Next.js, and `proxy_buffering off` brought it back to 19 ms.
+
+Since srvx does not compress SSR responses, nginx gzip is worth having for HTML. The SSR page went from 2,050 bytes to 1,084. This is the location block I tested:
+
+```nginx
+location / {
+  proxy_pass http://app:3000;
+  proxy_http_version 1.1;
+  proxy_set_header Host $http_host;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_buffering off;
+  gzip on;
+  client_max_body_size 1m;
+}
+```
+
+`client_max_body_size` matters more here than for Next.js, because Start has no body limit of its own on server function requests; the [server functions post](/blog/tanstack-start-server-functions-wire/) shows a 100 MB body being decoded in full.
+
+## Non-root, read-only and the health check
+
+The official Node.js images have a `node` user with UID 1000, and `USER node` worked with no other change. The distroless `nonroot` tag runs as UID 65532. The server writes nothing at runtime, so the recommended image below also ran with `--read-only`.
+
+Distroless has no shell and no `curl`, so the health check uses Node.js itself, in exec form, and it reported `healthy`. Point it at a server route, not a server function: server functions reject a request that has no `Origin`, `Referer` or `Sec-Fetch-Site` header.
+
+## Shutdown
+
+srvx installs handlers for `SIGTERM` and `SIGINT`. It stops accepting connections, waits for in-flight requests, and exits with code 0. An idle server stopped in 1.1 s.
+
+I sent `SIGTERM` 1 s into a 5 s request. The request returned 200 after 5.0 s, and `docker stop` returned 4.2 s after the signal. A new connection 0.5 s after the signal got `curl: (56) Recv failure: Connection reset by peer`, so take the instance out of the load balancer before you stop it. The wait is 5 s by default and set by `SERVER_SHUTDOWN_TIMEOUT` in seconds. With `SERVER_SHUTDOWN_TIMEOUT=2`, the server logged `Graceful shutdown timed out.` and `Forcibly closing connections...`, and the client got `curl: (52) Empty reply from server`. With 30, the request completed.
+
+Because new connections are reset as soon as the signal arrives, a Kubernetes deployment needs a pause between the endpoint removal and the signal. The distroless image has no shell and no `sleep` binary, but the `sleep` action of a `preStop` hook runs in the kubelet:
+
+```yaml
+containers:
+  - name: web
+    image: start-app
+    env:
+      - name: SERVER_SHUTDOWN_TIMEOUT
+        value: "25"
+    readinessProbe:
+      httpGet: { path: /api/health, port: 3000 }
+      periodSeconds: 5
+    lifecycle:
+      preStop:
+        sleep: { seconds: 5 }
+    resources:
+      limits: { memory: 192Mi }
+terminationGracePeriodSeconds: 35
+```
+
+The grace period covers the 5 s pause and the 25 s srvx drain, with a few seconds to spare before `SIGKILL`.
+
+srvx skips its signal handlers when `CI` or `TEST` is set. With `CI=1` in the container, `docker stop -t 10` waited the full 10 s and killed the process, exit code 137. Do not pass CI variables through to the runtime container.
+
+## Two replicas
+
+I ran two containers from one image, and a third from a separate `--no-cache` build of the same source. All three produced the same asset file names and the same server function ID, a SHA-256 hash in the client bundle. A server function request built for one replica returned 200 on each of the others, and an asset from the rebuild loaded from the first image. Nothing in the server holds per-instance state, so a load balancer without sticky sessions works.
+
+Two details differ between builds. The prerendered HTML embeds the render time in the dehydrated router state, so separate builds give the same page a different `ETag`; build once and run that image everywhere. And server functions reject requests without `Sec-Fetch-Site`, `Origin` or `Referer` with `403 Forbidden`, as they do for a cross-site `Origin`. If your proxy strips those headers, configure `createCsrfMiddleware()` in `src/start.ts`.
+
+The lockfile pins 1.169.7, which is past the fix for CVE-2026-102989, the reflected XSS in server-function responses fixed in `@tanstack/react-start` 1.168.60. Check your lockfile for a version at or above that.
+
+## The Dockerfile I use
+
+```dockerfile
+# syntax=docker/dockerfile:1
+FROM node:26.13.1-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm \
+  npm ci --no-audit --no-fund
+COPY . .
+RUN npm run build
+
+FROM gcr.io/distroless/nodejs26-debian13:nonroot
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3000
+COPY --from=build --chown=nonroot:nonroot /app/.output ./.output
+EXPOSE 3000
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+  CMD ["/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+CMD [".output/server/index.mjs"]
+```
+
+It goes with this `vite.config.ts`, and a server route at `/api/health` that returns `ok` with `cache-control: no-store`:
+
+```ts
+import { defineConfig } from 'vite'
+import { tanstackStart } from '@tanstack/react-start/plugin/vite'
+import { nitro } from 'nitro/vite'
+import viteReact from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [
+    tanstackStart(),
+    nitro({
+      prerender: { routes: ['/', '/static'], crawlLinks: false },
+      compressPublicAssets: true,
+    }),
+    viteReact(),
+  ],
+})
+```
+
+The `.dockerignore`:
+
+```text
+node_modules
+.output
+.nitro
+.tanstack
+.git
+.env*
+*.log
+```
+
+And the compose service:
+
+```yaml
+services:
+  web:
+    build: .
+    image: start-app
+    ports:
+      - "3000:3000"
+    read_only: true
+    stop_grace_period: 30s
+    restart: unless-stopped
+```
+
+This image is 196.3 MB unpacked and 61.7 MB compressed. If you raise `stop_grace_period`, raise `SERVER_SHUTDOWN_TIMEOUT` with it, or srvx cuts requests off after 5 s anyway. The distroless tag tracks the latest Node.js 26 release; pin it by digest if you need the exact version to stay fixed.
+
+## TanStack Start 1.0 against Next.js 16 standalone
+
+Both posts ran on the same machine, with the same base image, the same load generator and the same settings.
+
+| | Next.js 16 standalone | TanStack Start 1.0 |
+| --- | --- | --- |
+| Image, node slim, unpacked | 352.2 MB | 291.6 MB |
+| Image, node alpine, unpacked | 252.5 MB | 192.0 MB |
+| Layer added to the base image | 63 MB | 2.5 MB |
+| Process start to first 200 | 229 ms | 32 ms |
+| Memory after one request | 52.1 MiB | 20.3 MiB |
+| Memory after 2,000 requests | 271 MiB | 122 MiB |
+| Static page, requests per second | 9,379 | 47,424 |
+| Dynamic page, requests per second | 785 | 10,157 |
+| Idle `docker stop`, exit code | 0.2 s, 143 | 1.1 s, 0 |
+
+<BeforeAfterBars
+  bleed
+  title="Requests per second, same machine and method"
+  unit="requests per second"
+  beforeLabel="Next.js 16.4.6 standalone"
+  afterLabel="TanStack Start 1.169.7"
+  data={[
+    { label: "Static page", before: 9379, after: 47424 },
+    { label: "Dynamic page", before: 785, after: 10157 },
+  ]}
+  caption="autocannon 8.0.0, 50 connections, 10 s, median of five runs, node:26.13.1-slim. The two dynamic pages are not the same code: Next.js streams a Suspense boundary, Start runs a loader and a server function."
+/>
+
+The static pages are close in content: a heading, a line of text and one image. The dynamic pages both read a query parameter and the `User-Agent` header, but each framework renders them its own way, so treat that row as what a minimal dynamic page costs in each, not as a controlled test of the renderers.
+
+## Sources
+
+- [TanStack Start 1.0 is Stable](https://tanstack.com/blog/tanstack-start-1-0)
+- [TanStack Start: Hosting](https://tanstack.com/start/latest/docs/framework/react/guide/hosting)
+- [TanStack Start: Migrate from the Release Candidate](https://tanstack.com/start/latest/docs/framework/react/migrate-from-release-candidate)
+- [TanStack Start: Static Prerendering](https://tanstack.com/start/latest/docs/framework/react/guide/static-prerendering)
+- [TanStack Start: Server Functions](https://tanstack.com/start/latest/docs/framework/react/guide/server-functions)
+- [TanStack Start: Production Checklist](https://tanstack.com/start/latest/docs/framework/react/guide/production-checklist)
+- [GHSA-qx66-fv34-fjm8: reflected XSS in server-function responses](https://github.com/TanStack/router/security/advisories/GHSA-qx66-fv34-fjm8)
+- [Nitro: deploy to Node.js](https://nitro.build/deploy/runtimes/node)
+- [Nitro: configuration](https://nitro.build/config)
+- [srvx](https://srvx.h3.dev/)
+- [Distroless Node.js images](https://github.com/GoogleContainerTools/distroless/blob/main/nodejs/README.md)
+- [Node.js releases](https://nodejs.org/en/about/previous-releases)
+- [nginx: ngx_http_proxy_module](https://nginx.org/en/docs/http/ngx_http_proxy_module.html)
+- [Kubernetes: container lifecycle hooks](https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/)
+- [createCsrfMiddleware.ts](https://github.com/TanStack/router/blob/main/packages/start-client-core/src/createCsrfMiddleware.ts)
+- [isbot](https://github.com/omrilotan/isbot)

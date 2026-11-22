@@ -19,6 +19,9 @@ import remarkGfm from 'remark-gfm'
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
+import rehypeSlug from 'rehype-slug'
+
+import rehypeCollapseSources from './src/lib/rehypeCollapseSources'
 import svgr from 'vite-plugin-svgr'
 
 const frontmatterModulePrefix = '\0saybackend-frontmatter:'
@@ -147,6 +150,13 @@ function frontmatterOnly(): Plugin {
 }
 
 const config = defineConfig({
+  // The day of this build. A post with a later date stays hidden until a
+  // build on or after that date. The daily rebuild publishes it.
+  define: {
+    __BUILD_DATE__: JSON.stringify(
+      process.env.BUILD_DATE ?? new Date().toISOString().slice(0, 10),
+    ),
+  },
   resolve: {
     tsconfigPaths: true,
     alias: [
@@ -177,7 +187,9 @@ const config = defineConfig({
         [remarkMdxFrontmatter, { name: 'frontmatter' }],
       ],
       rehypePlugins: [
+        rehypeSlug,
         rehypeKatex,
+        rehypeCollapseSources,
         [
           rehypeShiki,
           {
@@ -198,6 +210,7 @@ const config = defineConfig({
         { path: '/guides' },
         { path: '/rss.xml' },
         { path: '/llms.txt' },
+        { path: '/search-index.json' },
         { path: '/sitemap-index.xml' },
         { path: '/sitemap-0.xml' },
       ],

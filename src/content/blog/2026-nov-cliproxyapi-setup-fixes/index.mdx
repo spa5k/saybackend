@@ -1,0 +1,455 @@
+---
+title: "CLIProxyAPI Setup and Fixes: Homebrew Install, Claude Code and Codex Config, Timeouts"
+seoTitle: "CLIProxyAPI: brew install, Claude Code, Codex, timeouts"
+description: "CLIProxyAPI v8 reference: Homebrew install, config path, provider login, Claude Code and Codex settings, and fixes for timeouts and model errors."
+date: "2026-12-29"
+draft: true
+ogImage: "/images/2026-cliproxyapi-setup-fixes-og.png"
+slug: "cliproxyapi-setup-fixes-homebrew-codex-claude-code"
+tags:
+  - "ai"
+  - "claude-code"
+  - "codex"
+  - "cliproxyapi"
+  - "developer-tools"
+  - "proxy"
+  - "openai"
+  - "anthropic"
+  - "local-development"
+---
+
+import { NumberBand } from "@/components/paper/NumberBand";
+import { RankBars } from "@/components/paper/RankBars";
+import { CredentialPick } from "@/components/react/blog/nov2026/CredentialPick";
+import {
+  ConfigMoves,
+  FirstByte,
+  ModelRoute,
+  ProxyPath,
+} from "@/components/react/blog/nov2026/NovFigures";
+
+CLIProxyAPI is now on major version 8, and the config file has a new layout that the commands in my older posts predate. This post is for v8.0.80, the version that Homebrew installs. The timings and the error texts come from that version, run in Docker Desktop on an Apple M4 against a small mock upstream written in Go, so no real account or vendor key was involved.
+
+I have two older posts on specific setups: [Factory Droid with Claude Max and Codex subscriptions](/blog/cliproxyapi-factory-droid-byok/) and [a Codex subscription inside Claude Code and Conductor](/blog/codex-subscription-claude-code-conductor/). This one is the general reference, and it starts with the part most likely to cost you an account.
+
+## Read the terms of service first
+
+CLIProxyAPI takes a subscription login and exposes it as a local API. Both vendors restrict that.
+
+**Anthropic.** The [Claude Code legal page](https://code.claude.com/docs/en/legal-and-compliance) says OAuth authentication "is intended exclusively for purchasers of Claude Free, Pro, Max, Ultra, Team, and Enterprise subscription plans and is designed to support ordinary use of Claude Code and other native Anthropic applications." It tells developers to use API keys instead, and adds: "Anthropic reserves the right to take measures to enforce these restrictions and may do so without prior notice." The [Consumer Terms](https://www.anthropic.com/legal/consumer-terms) separately prohibit automated access to the services except through an Anthropic API key, prohibit sharing account credentials, and allow suspension or termination without notice, with no refund when the cause is a violation.
+
+**OpenAI.** The [Terms of Use](https://openai.com/policies/terms-of-use/) say you may not share your account credentials or make your account available to anyone else, list automatic or programmatic extraction of data or output among the things you cannot do, along with circumventing any rate limits or restrictions, and reserve the right to suspend or terminate access for a breach. That is the version effective January 1, 2026.
+
+One detail from the proxy's own config is relevant here. The Codex section under `upstream` has a `disable-codex-cloaking` key, and its comment says the default behaviour is to force the official Codex User-Agent and Originator headers. I saw it happen: a plain `curl` request reached my mock with a `codex-tui/0.154.0` User-Agent. The proxy presents itself as the vendor's client. That does not change what the terms say.
+
+If you sign a subscription account in to CLIProxyAPI, you carry that risk: the account, the subscription fee, and whatever history is attached to it. An API key billed per token is the supported route for anything you cannot afford to lose.
+
+## Install
+
+On macOS, from the upstream quick start:
+
+```bash
+brew install cliproxyapi
+brew services start cliproxyapi
+```
+
+The other documented methods:
+
+| Platform | Method |
+| --- | --- |
+| Linux | Installer script from `router-for-me/cliproxyapi-installer` |
+| Arch | `yay -S cli-proxy-api-bin`, then `systemctl --user start cli-proxy-api` |
+| Docker | Image `eceasy/cli-proxy-api:latest`, port `8317` |
+| Windows | Binary from the GitHub releases page |
+| Source | `go build -o cli-proxy-api ./cmd/server` |
+
+The exact Linux command lines are in the [quick start](https://help.router-for.me/introduction/quick-start.html). For Docker, use the Compose file further down instead of the upstream one.
+
+### Where the config file lives
+
+With `brew services`, the config is `$(brew --prefix)/etc/cliproxyapi.conf`. That is `/opt/homebrew/etc/` on Apple Silicon and `/usr/local/etc/` on Intel. The formula copies `config.example.yaml` to that path on install. Outside Homebrew the server reads `config.yaml` from its working directory, or whatever you pass with `--config`.
+
+The binary name also differs. Homebrew installs `cliproxyapi`; the release archives and the docs use `cli-proxy-api`.
+
+### The v8 config layout
+
+The example config now opens with `config-version: 8` and groups keys into sections. Legacy files still load, and the v8 value wins when both spellings are present. The moves that affect the commands in my older posts:
+
+| Old key | v8 key |
+| --- | --- |
+| `port` | `server.port` |
+| `api-keys` (client keys) | `access.api-keys` |
+| `auth-dir` | `oauth.auth-dir` |
+| `request-retry` | `routing.retry.request-retry` |
+| `debug` | `observability.logs.debug` |
+
+<ConfigMoves />
+
+A top-level `api-keys` written as a mapping now means upstream provider keys, so do not put client keys there. In my test, a top-level list was still accepted as client keys, but only when `access.api-keys` was absent. The proxy also rewrites the file when it loads a legacy key: it moves the value to the v8 place and deletes the old line.
+
+The defaults are unchanged: port `8317`, auth directory `~/.cli-proxy-api`, and three placeholder client keys starting at `your-api-key-1`. You must replace them. With the example file unchanged, which is what Homebrew installs, each API request returned HTTP 403 with this body:
+
+```json
+{"error":"unsafe_example_api_key","message":"Proxy API endpoints are disabled because api-keys contains template values. Open /management.html?safe-mode=configure, update api-keys in Management, then retry."}
+```
+
+### Start, stop, restart
+
+```bash
+brew services start cliproxyapi
+brew services stop cliproxyapi
+brew services restart cliproxyapi
+brew services info cliproxyapi
+```
+
+One more default to know before you write a minimal config of your own: `server.port` is only 8317 because the example file says so. A file without a `server` block started cleanly and logged `API server started successfully on: :0`, which means a random port.
+
+### Docker Compose
+
+The upstream `docker-compose.yml` mounts `./config.yaml` as a single file, publishes six ports on all interfaces, and pulls `latest` on every start. I use this instead:
+
+```yaml
+services:
+  cliproxyapi:
+    image: eceasy/cli-proxy-api:v8.0.80
+    command: ["./CLIProxyAPI", "--config", "/CLIProxyAPI/config/config.yaml"]
+    environment:
+      TZ: UTC
+      MANAGEMENT_PASSWORD: ${MANAGEMENT_PASSWORD:?set it in .env}
+    ports:
+      - "127.0.0.1:8317:8317"
+    volumes:
+      - ./config:/CLIProxyAPI/config
+      - ./auths:/root/.cli-proxy-api
+    restart: unless-stopped
+```
+
+The config is a directory mount because the proxy reloads on file change, and an editor or `sed -i` that saves by renaming a new file over the old one leaves a single-file bind mount on the old inode. The reload never fires, and reads in the container fail with `Stale file handle`. A directory mount picked up the same rename.
+
+`TZ: UTC` overrides the `TZ=Asia/Shanghai` that the image's Dockerfile sets for every log timestamp.
+
+`MANAGEMENT_PASSWORD` enables the management API without a secret in the file, and it also allows remote management whatever `allow-remote` says (`allowRemoteOverride` in `internal/api/handlers/management/handler.go`). A request from the host through the published port was accepted with the password alone, so bind the port to `127.0.0.1`.
+
+The login callback ports are left out: I log in with the Homebrew binary and the container reads the token files from `./auths`. If that Homebrew service is running, it holds `127.0.0.1:8317` while Docker publishes `*:8317`, and requests to `127.0.0.1` reach Homebrew, which rejects the container's client key with `{"error":"Invalid API key"}`.
+
+## Sign in to a provider
+
+Each provider has a login flag. With the Homebrew binary:
+
+```bash
+cliproxyapi --claude-login
+cliproxyapi --codex-login
+```
+
+Add `--no-browser` to print the login URL instead of opening a browser, which is what you need over SSH. The Claude flow listens for its callback on local port `54545` and the Codex flow on `1455`. Tokens are written as JSON files in the auth directory. Flags for Antigravity, xAI and the rest are on the provider pages of the docs.
+
+My May post used `cliproxyapi login claude`. Do not use that form on v8. On v8.0.80 it printed no error and no login URL. It started the normal server on port `8317`, which looks like a hang if you expect a browser to open.
+
+## Point Claude Code at the proxy
+
+This goes in `~/.claude/settings.json`. These are the lines that do the routing:
+
+```json
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "<your_api_key>",
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:8317",
+    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1",
+    "API_TIMEOUT_MS": "600000"
+  }
+}
+```
+
+`ANTHROPIC_AUTH_TOKEN` is one of the proxy's client keys from `access.api-keys`, not an Anthropic key. The base URL has no `/v1` suffix. To send Claude Code's requests to a Codex login instead, see the [Conductor post](/blog/codex-subscription-claude-code-conductor/) and the upstream `examples/claude-code-codex` README.
+
+<ProxyPath />
+
+### What the extra hop costs
+
+<NumberBand value="0.3–0.7 ms" note="a model call takes seconds">
+  added to each request at the median: about 0.07 ms direct to my mock upstream, 0.36 to 0.71 ms through the proxy.
+</NumberBand>
+
+That is 5,000 requests, one at a time, from a Go client on the same Docker network, on six fresh containers. The spread between runs was larger than any difference between configs. A request to `/v1/messages` that the proxy translated for an OpenAI-format upstream cost no more than an untranslated one.
+
+Under concurrency, what matters is connection reuse to the upstream, covered under connection-pool below.
+
+The process is small. The binary is 71 MB, the container answered `/v1/models` less than half a second after `docker run`, and it used 27 to 32 MiB of memory idle and 34 to 37 MiB after 10,000 requests.
+
+## Point Codex at the proxy
+
+In `~/.codex/config.toml`:
+
+```toml
+model = "gpt-5.6-sol"
+model_provider = "cliproxyapi"
+
+[model_providers.cliproxyapi]
+base_url = "http://127.0.0.1:8317/v1"
+http_headers = { "X-Api-Key" = "sk-dummy" }  # Replace with the API Key you created for Codex in CLIProxyAPI
+name = "OpenAI"
+wire_api = "responses"
+requires_openai_auth = true
+supports_websockets = true # Choose whether to enable websockets as needed
+supports_standalone_web_search = true
+```
+
+Here the base URL does carry `/v1`. Use a model name that your proxy returns from `/v1/models`, which depends on the account you signed in with.
+
+## How a request reaches an upstream
+
+The v8.0.80 source explains most of the errors below. The access layer runs first and rejects a bad client key with HTTP 401 and `{"error":"Missing API key"}` or `{"error":"Invalid API key"}`, from `sdk/access/errors.go`. Then `getRequestDetailsWithOptions` in `sdk/api/handlers/handlers_routing.go` looks the model name up in the merged model registry and returns the 400 `unknown provider for model` when nothing matches, however healthy the credentials are. Last, `Manager.Execute` in `sdk/cliproxy/auth/conductor_execution.go` asks a selector for one credential, runs the request, and on a failure marks that credential and asks again.
+
+The selector, in `sdk/cliproxy/auth/selector.go`, drops credentials in cooldown, keeps only the highest `priority` among the rest, and sorts them by credential ID. For a config key the ID is a SHA-256 of the provider name, the key, the base URL and the proxy URL (`internal/watcher/synthesizer/helpers.go`), so the order is stable and unrelated to the file. `round-robin` takes the next ID after the last one it used for that provider and model. `fill-first` takes the first ID every time.
+
+<CredentialPick />
+
+So `fill-first` does not mean the first key in the file. With three keys in one group, all 300 requests went to `upstream-b`, whose hash sorted first, and `round-robin` sent exactly 100 to each. To choose a primary, use `priority`. In `openai-compatibility` it exists on the group only: a `priority: 10` on one key entry was ignored without a warning. Put the primary in its own group:
+
+```yaml
+routing:
+  strategy: "fill-first"
+api-keys:
+  openai-compatibility:
+    - name: "primary"
+      priority: 10
+      base-url: "https://llm.example.com/v1"
+      keys:
+        - api-key: "<primary key>"
+      models:
+        - name: "upstream-model"
+          alias: "my-model"
+    - name: "backup"
+      base-url: "https://llm.example.com/v1"
+      keys:
+        - api-key: "<backup key>"
+      models:
+        - name: "upstream-model"
+          alias: "my-model"
+```
+
+With that layout, 30 of 30 requests went to the primary, and the backup takes over only while the primary is in cooldown. `weighted-round-robin` reads a `weight` on each key; weights of 3, 1 and 1 split 500 requests into exactly 300, 100 and 100.
+
+## API-key upstreams
+
+The root `api-keys` block holds per-token upstreams, grouped by protocol (`openai-compatibility`, `claude`, `codex`, `gemini` and others), each group with one `base-url` and a list of keys. It is also the supported way to put a vendor API key behind the same endpoint as a subscription login.
+
+### What the proxy appends to base-url
+
+For `openai-compatibility` the proxy appends `/chat/completions` and nothing else:
+
+| `base-url` | Path the upstream received |
+| --- | --- |
+| `http://mock:9000/v1` | `/v1/chat/completions` |
+| `http://mock:9000/v1/` | `/v1/chat/completions` |
+| `http://mock:9000` | `/chat/completions` |
+| `http://mock:9000/v1/chat/completions` | `/v1/chat/completions/chat/completions` |
+
+So that `base-url` includes `/v1`. The `claude` group is the other way round: `http://mock:9000` produced `/v1/messages`. In both, the upstream key arrived as `Authorization: Bearer`. A wrong `base-url` also costs 12 hours of cooldown, covered under `auth_unavailable` below.
+
+### Turn on connection-pool for API-key groups
+
+Without a pool, an API-key group failed under sustained load. With 32 requests in flight, three runs of 20,000 requests went from 8,400 to 3,800 to 569 requests per second, and the third returned 574 errors, which the client saw as 500s. The proxy log:
+
+```text
+dial tcp 172.19.0.2:9000: connect: cannot assign requested address
+```
+
+Each request opened a new upstream connection, and the container ended with 28,230 sockets in `TIME_WAIT`: ephemeral port exhaustion.
+
+<RankBars
+  title="Throughput, third run of 20,000 requests, 32 in flight"
+  unit="requests per second"
+  mono
+  rows={[
+    { label: "no connection-pool", value: 569, mark: "rose", sub: "574 errors, 28,230 sockets in TIME_WAIT" },
+    { label: "connection-pool", value: 10516, mark: "lilac", sub: "0 errors, 0 sockets in TIME_WAIT" },
+  ]}
+  caption="Same container image, same mock upstream, fresh container for each config. The run before it reached 3,791 without the pool and 12,074 with it."
+/>
+
+The fix is a `connection-pool` block on the group, and writing the block is the opt-in:
+
+```yaml
+api-keys:
+  openai-compatibility:
+    - name: "mock"
+      base-url: "http://mock:9000/v1"
+      connection-pool:
+        max-idle-conns-per-host: 32
+      keys:
+        - api-key: "<key>"
+```
+
+The defaults are a 300 s idle timeout and 2 idle connections per host, per key. OAuth credentials are not pooled by this setting. One developer will not reach the limit, since a model call takes seconds; a proxy shared by a team or a batch job will.
+
+### proxy-url, HTTPS and remote management
+
+`requests.proxy-url` sends upstream requests through an HTTP, HTTPS or SOCKS5 proxy, and a key can set `proxy-url: "direct"` to bypass it. A proxy that does not resolve gives the client a 500 with the cause in the message, here `socks connect tcp nosuchproxy:1080->mock:9000: dial tcp: lookup nosuchproxy ... no such host`, and a refused one gives `proxyconnect tcp: ... connection refused`.
+
+With `server.tls` enabled, a plain `http://` request to the port got no HTTP response, and curl reported `Empty reply from server`.
+
+The management API returns 404 until a secret is set, and a plaintext `secret-key` is replaced in the file by its bcrypt hash at start. Remote requests get 403 `remote management disabled` until `allow-remote: true`, then 401 `missing management key` or `invalid management key`. Five failures from one IP ban it for 30 minutes, even for the correct key:
+
+```json
+{"error":"IP banned due to too many failed attempts. Try again in 29m59s"}
+```
+
+Behind a reverse proxy, every client can share one address, so one script with an old key locks everyone out; list that proxy in `server.trusted-proxies`.
+
+## Config reload
+
+`internal/watcher/config_reload.go` reloads the config 150 ms after the last write event, if its SHA-256 changed, and logs each changed key, for example `routing.strategy: round-robin -> fill-first`. Client keys, strategies and upstream groups apply without a restart; `server.trusted-proxies` needs one.
+
+An invalid file keeps the old config running, with `failed to reload config: failed to parse config file: yaml: line 4: did not find expected node content` in the log. A restart in that state fails with the same message and exit code 1.
+
+A reload does not clear the cooldown of a credential whose entry is unchanged. After a comment-only edit the cooled-down keys stayed blocked. A changed key gets a new ID and starts fresh, and a restart frees them all. Cooldowns live in memory unless `routing.cooldown.save-cooldown-status` is on.
+
+## Troubleshooting
+
+### Codex model hangs or times out (gpt-5.4, gpt-5.5)
+
+The matching upstream report is [issue #3530](https://github.com/router-for-me/CLIProxyAPI/issues/3530): requests on Codex auth with `gpt-5.x` models stop after the upstream request is sent, with no error and no timeout. No cause was ever documented. The maintainer closed it with the comment that OpenAI appeared to have fixed the problem, and no CLIProxyAPI release is named as a fix. Commenters reported that cancelling and resending usually worked.
+
+There is no fix to install, so this is a list of things to check, in this order:
+
+1. Whether anything sits between the client and the proxy. In [issue #4280](https://github.com/router-for-me/CLIProxyAPI/issues/4280) the 300-second timeout came from the reporter's own Nginx `proxy_read_timeout`. The maintainer explained that streaming handlers wait for the first upstream chunk before sending response headers, so the keepalive does not cover that wait, and closed the issue as not planned. That is the default behaviour, and item 3 changes it.
+2. The client's own timeout. `API_TIMEOUT_MS` in Claude Code is the one in the settings above.
+3. The commented `streaming` block under `requests` in the example config. It has `keepalive-seconds`, `bootstrap-retries` and `send-keepalive-before-ft`, which sends heartbeats before the first token.
+4. `requests.tls-handshake-timeout-seconds`, 0 by default. It bounds only the TLS handshake, the case where the upstream accepts the connection and never answers, so that `request-retry` can move the request to another credential.
+
+I measured the third item on v8.0.80, with a mock upstream that waited 45 s before its first chunk.
+
+<FirstByte />
+
+With the default config, the client got nothing for 45 s: no status line and no header. `keepalive-seconds: 15` alone changed nothing. With all three keys set, the `200` and the headers arrived at 15.0 s, followed by a 14-byte comment line, `: keep-alive`, at 15, 30 and 45 s.
+
+```yaml
+requests:
+  streaming:
+    keepalive-seconds: 15
+    send-keepalive-before-ft: true
+    bootstrap-retries: 1
+```
+
+So a proxy or a client with a 30-second idle limit drops the default setup during a long first wait, and keeps this one. For requests that do not stream there is a separate key, `requests.nonstream-keepalive-interval`. With a value of 5, the headers arrived at 5.0 s and one newline byte followed each 5 s until the JSON body.
+
+### "stream closed before response.completed" (HTTP 408)
+
+The 408 is only half of it. I made my mock close a Codex-route stream before its final event. A client that did not ask for a stream got HTTP 408 with this body:
+
+```json
+{"error":{"message":"stream error: stream disconnected before completion: stream closed before response.completed","type":"server_error","code":"request_timeout"}}
+```
+
+A client that did ask for a stream got HTTP 200, the partial events, and then the same message as an `event: error` inside the stream. So a client that checks only the status code sees a success.
+
+[Issue #3055](https://github.com/router-for-me/CLIProxyAPI/issues/3055) covers this on large requests routed to Codex models. It was closed by a commit in July 2026, but later comments report the same error on v7.2.95 and v7.3.3. One commenter's workaround was to start a new session once the context grows long. [PR #5989](https://github.com/router-for-me/CLIProxyAPI/pull/5989), still open, adds the last event and idle time to the error text.
+
+### "unknown provider for model" or `model_not_found`
+
+The proxy routes by model name, and this error means the name is not in its merged model list. The two texts are one error, and its status is 400:
+
+```json
+{"error":{"message":"unknown provider for model gpt-5.6-sol","type":"invalid_request_error","code":"model_not_found","param":"model"}}
+```
+
+I got the same response when no provider and no login existed at all. List what you have:
+
+```bash
+curl -sS \
+  -H "Authorization: Bearer YOUR_LOCAL_PROXY_KEY" \
+  http://localhost:8317/v1/models | jq -r '.data[]?.id'
+```
+
+<ModelRoute />
+
+If a client insists on a name the proxy does not serve, map it. In v8 the block is `model-alias` under `oauth`:
+
+```yaml
+oauth:
+  model-alias:
+    codex:
+      - name: "gpt-5"
+        alias: "g5"
+```
+
+Without `fork`, the alias replaces the upstream name, and a request for the upstream name then fails with the error above. Add `fork: true` to an entry to keep the upstream name listed next to the alias.
+
+My June post used the older top-level `oauth-model-alias` spelling. It still loads in v8: the source maps it to `oauth.model-alias`, and on v8.0.79 the alias appeared in `/v1/models`. When both blocks are present, the v8 block wins.
+
+### "503 auth_unavailable: no auth available"
+
+Every credential for that model is in cooldown. A missing login does not give this error; in my test it gave the 400 from the section above. What starts a cooldown is an error from the upstream, and its length depends on the status:
+
+| Upstream answers | Next request gets | Cooldown |
+| --- | --- | --- |
+| 401 or 403 | 503 `auth_unavailable`, `Retry-After: 1800` | 30 minutes |
+| 404 | 503 `auth_unavailable`, `Retry-After: 43200` | 12 hours |
+| 500 | 503 `auth_unavailable`, `Retry-After: 60` | 60 seconds |
+| 429 | 429 `model_cooldown` | 1 s, then double each time, up to 64 s in my run |
+
+The first request gets the upstream's own status, and the 503 names it: `last upstream error: mock status 404`. The durations are in `applyAuthFailureState` in `sdk/cliproxy/auth/conductor_cooldown.go`.
+
+The 404 row bites during setup. A `base-url` without `/v1` makes a real upstream answer 404, the first request tries every key in the group, and all of them cool down for 12 hours; after the mock went back to 200, requests still got the 503. Fixing `base-url` clears it, because the URL is part of each credential's ID, and so does a restart.
+
+I tested this with one API-key provider and a mock upstream, not with an OAuth login. With `disable-cooling: true`, every request went to the upstream again and the first one after it recovered returned 200. In [issue #2687](https://github.com/router-for-me/CLIProxyAPI/issues/2687) the maintainer's fix was `disable-cooling: true`, which in v8 is `routing.cooldown.disable-cooling`.
+
+### Login expired
+
+Run the login flag again. Since v8.0.76 an expired Claude refresh token is terminal, so the proxy does not recover that credential by itself.
+
+### "bind: address already in use"
+
+Something else holds the port, and a second copy of the proxy is the first thing to rule out. [Issue #4063](https://github.com/router-for-me/CLIProxyAPI/issues/4063) shows the message for `8317`. On v8.0.80 the second copy first prints that the server started, and then exits with this error:
+
+```text
+proxy service error: failed to start HTTP server: listen tcp :8317: bind: address already in use
+```
+
+```bash
+lsof -nP -iTCP:8317 -sTCP:LISTEN
+```
+
+Stop the other process or change `server.port`. The login callback ports `54545` and `1455` are separate listeners.
+
+### 404 with an empty body
+
+The client path is wrong. `/v1/v1/chat/completions`, `/v1/v1/messages`, `/chat/completions` and `/responses` all got HTTP 404 with no body. A doubled `/v1` means the client base URL has one too many; a missing one, one too few. Claude Code wants the host only, Codex wants `/v1`.
+
+### "upstream stream response is missing message_start"
+
+A `claude` API-key group points at an upstream that does not stream the Anthropic format. A `/v1/chat/completions` request routed to a `claude` group goes upstream as a streaming Messages request, and my mock answered with plain JSON, so the client got a 500 with `claude executor: upstream stream response is missing message_start`. The same mock answered a direct `/v1/messages` request without error, so test the upstream with `"stream": true`.
+
+## Sources
+
+- [CLIProxyAPI repository and README](https://github.com/router-for-me/CLIProxyAPI)
+- [CLIProxyAPI releases](https://github.com/router-for-me/CLIProxyAPI/releases)
+- [config.example.yaml at v8.0.80](https://github.com/router-for-me/CLIProxyAPI/blob/v8.0.80/config.example.yaml)
+- [docker-compose.yml at v8.0.80](https://github.com/router-for-me/CLIProxyAPI/blob/v8.0.80/docker-compose.yml)
+- [Dockerfile at v8.0.80](https://github.com/router-for-me/CLIProxyAPI/blob/v8.0.80/Dockerfile)
+- [sdk/access/errors.go: client key errors](https://github.com/router-for-me/CLIProxyAPI/blob/v8.0.80/sdk/access/errors.go)
+- [sdk/api/handlers/handlers_routing.go: model to provider resolution](https://github.com/router-for-me/CLIProxyAPI/blob/v8.0.80/sdk/api/handlers/handlers_routing.go)
+- [sdk/cliproxy/auth/selector.go: round-robin, fill-first and weighted selection](https://github.com/router-for-me/CLIProxyAPI/blob/v8.0.80/sdk/cliproxy/auth/selector.go)
+- [sdk/cliproxy/auth/conductor_execution.go: Manager.Execute](https://github.com/router-for-me/CLIProxyAPI/blob/v8.0.80/sdk/cliproxy/auth/conductor_execution.go)
+- [sdk/cliproxy/auth/conductor_cooldown.go: cooldown durations](https://github.com/router-for-me/CLIProxyAPI/blob/v8.0.80/sdk/cliproxy/auth/conductor_cooldown.go)
+- [internal/watcher/synthesizer/helpers.go: stable credential IDs](https://github.com/router-for-me/CLIProxyAPI/blob/v8.0.80/internal/watcher/synthesizer/helpers.go)
+- [internal/watcher/config_reload.go: config reload](https://github.com/router-for-me/CLIProxyAPI/blob/v8.0.80/internal/watcher/config_reload.go)
+- [internal/api/handlers/management/handler.go: management auth and IP ban](https://github.com/router-for-me/CLIProxyAPI/blob/v8.0.80/internal/api/handlers/management/handler.go)
+- [examples/claude-code-codex README](https://github.com/router-for-me/CLIProxyAPI/blob/main/examples/claude-code-codex/README.md)
+- [Docs: Quick Start](https://help.router-for.me/introduction/quick-start.html)
+- [Docs: Basic configuration](https://help.router-for.me/configuration/basic.html)
+- [Docs: Claude Code provider login](https://help.router-for.me/configuration/provider/claude-code.html)
+- [Docs: Codex provider login](https://help.router-for.me/configuration/provider/codex.html)
+- [Docs: Claude Code client configuration](https://help.router-for.me/agent-client/claude-code.html)
+- [Docs: Codex client configuration](https://help.router-for.me/agent-client/codex.html)
+- [Homebrew formula: cliproxyapi](https://github.com/Homebrew/homebrew-core/blob/HEAD/Formula/c/cliproxyapi.rb)
+- [Issue #3530: frequent hangs with GPT models under Codex auth](https://github.com/router-for-me/CLIProxyAPI/issues/3530)
+- [Issue #4280: no first chunk before downstream timeout](https://github.com/router-for-me/CLIProxyAPI/issues/4280)
+- [Issue #3055: 408 when stream closes before response.completed](https://github.com/router-for-me/CLIProxyAPI/issues/3055)
+- [PR #5989: diagnostics in incomplete stream errors](https://github.com/router-for-me/CLIProxyAPI/pull/5989)
+- [Issue #2687: auth_unavailable](https://github.com/router-for-me/CLIProxyAPI/issues/2687)
+- [Issue #4063: address already in use on 8317](https://github.com/router-for-me/CLIProxyAPI/issues/4063)
+- [Claude Code: Legal and compliance](https://code.claude.com/docs/en/legal-and-compliance)
+- [Anthropic Consumer Terms of Service](https://www.anthropic.com/legal/consumer-terms)
+- [OpenAI Terms of Use](https://openai.com/policies/terms-of-use/)

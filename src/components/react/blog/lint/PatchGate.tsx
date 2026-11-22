@@ -36,7 +36,7 @@ function Block({
         filter="url(#pp-marker)"
         style={{ fill: MARKS[mark] }}
       />
-      <text x={x + w / 2} y={y + 23} textAnchor="middle" style={{ fill: '#141413' }}>
+      <text x={x + w / 2} y={y + 23} textAnchor="middle" style={{ fill: 'var(--ink)' }}>
         {label}
       </text>
     </g>

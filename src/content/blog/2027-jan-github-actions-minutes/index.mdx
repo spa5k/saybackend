@@ -1,0 +1,304 @@
+---
+title: "How to make your CI faster and cheaper"
+seoTitle: "How to Make GitHub Actions Faster and Cheaper"
+description: "What worked on our GitHub Actions in six months, on the same runners: skip what a change cannot affect, ask before you set up, count jobs and not seconds, and run expensive work on request."
+date: "2026-12-15"
+draft: true
+ogImage: "/images/github-actions-minutes-og.png"
+slug: "faster-cheaper-ci"
+tags:
+  - "github-actions"
+  - "ci"
+  - "performance"
+  - "testing"
+  - "developer-tools"
+faqs:
+  - question: "How do I make CI faster without larger runners?"
+    answer: "Skip the suites that a change cannot affect, decide whether a job has work before it installs anything, install only the packages that the job needs, and balance test shards by measured cost. On our repository the median test run on a pull request became about 2x faster twice, on the same runners."
+  - question: "How does GitHub Actions round job minutes?"
+    answer: "GitHub rounds the minutes and partial minutes that each job uses up to the nearest whole minute. A job that runs for 9 seconds is billed as one minute, and a job that runs for 74 seconds is billed as two."
+  - question: "What costs more: one long job or many short jobs?"
+    answer: "For the same total work, many short jobs cost more, because each one is rounded up on its own. Five jobs of 10 seconds are 5 billed minutes. The same five steps in one job are 1 billed minute."
+  - question: "Is it safe to run only the affected tests on a pull request?"
+    answer: "It is a trade. Our pull requests run the test files that import a changed file, and a list of change types still runs the full suites. Every push to the main branch runs everything, so a test that the selection missed fails after the merge and not before it."
+---
+
+import { RankBars } from "@/components/paper/RankBars";
+import { ShareBars } from "@/components/paper/ShareBars";
+import {
+  BackMergeFlow,
+  MinuteRounding,
+} from "@/components/react/blog/workposts/WorkFigures";
+
+CI gets slow and expensive one reasonable change at a time. Between June and November 2026 I went through the GitHub Actions setup of our monorepo at work several times, always on the same hosted runners. This post is the list of what worked, in the order that I would apply it to another repository.
+
+| What changed | Result | Kind of number |
+| --- | --- | --- |
+| Test run on a pull request, median | 2.2x faster in June, then 2.1x faster again in October | Measured, all runs of one work week |
+| A change that touches no test input | 197.5 s to 11 s | Measured, two runs each |
+| Release job with nothing to release | Almost 5x faster | Paired benchmark |
+| Billed minutes | About 27% fewer | Projection |
+| Workflow runs in a week | 27% fewer, with 24% more test runs | Measured, count of runs |
+| AI review runs for each pull request | Almost 7x fewer | Measured, count of runs |
+
+Two numbers matter, and they are not the same number. **Time** is what a person waits for. **Minutes** are what GitHub bills. The first five sections are about time, and the next three are about minutes.
+
+## 1. Measure the wait, and measure each change
+
+I keep one number for the wait: the median duration of the test workflow on a pull request, over all runs of one work week.
+
+<RankBars
+  bleed
+  title="Median test run on a pull request"
+  unit="seconds"
+  legend={[
+    { label: "Before a cut", mark: "sand" },
+    { label: "After a cut", mark: "lilac" },
+  ]}
+  rows={[
+    { label: "8 to 12 June", value: 569, sub: "9 min 29 s" },
+    {
+      label: "6 to 10 July",
+      value: 258,
+      mark: "lilac",
+      sub: "4 min 18 s, after path-scoped gating",
+    },
+    { label: "5 to 9 October", value: 458, sub: "7 min 38 s" },
+    {
+      label: "19 to 23 October",
+      value: 220,
+      mark: "lilac",
+      sub: "3 min 40 s, after the October work",
+    },
+  ]}
+  caption="Successful first attempts of the test workflow on pull requests, Monday to Friday. Between 222 and 512 runs in each week."
+/>
+
+The chart has two cuts and one climb between them. By early October the median was back at 7 min 38 s. A wait that you fixed once comes back, so the median belongs on a chart that someone looks at each month.
+
+For a single change, a weekly median is too coarse. I used a benchmark workflow that runs the commit before and the commit after as a pair, with a cold package store, on the same runner class. It gave four results that I would have guessed wrong:
+
+- **The package store cache did not pay.** Restore plus install took 58 seconds. A fresh install took 57. Saving the cache cost another 55 seconds. I removed the cache.
+- **A partial clone with full history was slower** than the normal fetch for the release jobs. They kept their fetch.
+- **Four unit test shards used 7.6% more runner time than two.** I kept two.
+- **Three workers for the proxy tests caused port timeouts.** Two workers were stable.
+
+## 2. Do not run what the change cannot affect
+
+This gave the largest cut in the wait, both times.
+
+**By package.** In June the test workflow got path-scoped gating. A pull request that does not touch a package skips the checks of that package, and the browser tests start only for a change that faces the app. The median went from 9 min 29 s to 4 min 18 s.
+
+**By kind of change.** In October the classifier got finer. An edit of only unit tests skips the database shards, and an edit of only integration tests skips the unit shards. A change to a guide file starts no suite: its wait went from 197.5 seconds to 11, because only the classifier needs a runner.
+
+**By import.** Since November, a pull request runs only the test files that import a changed file:
+
+```bash
+vitest --changed=HEAD^1
+```
+
+Three rules keep this honest. The classifier reads the complete diff of the pull request, and an uncertain path selects its consumers. Vitest cannot trace every kind of change, so dependencies, workspace packages, the test config, the database setup, and files that are not code (migrations, fixtures) still run the full suites. And a blanket rule such as "skip Markdown" is wrong when some Markdown files are instructions that ship to an agent.
+
+The required checks stay in place. A suite that was not selected reports "Not affected", and the gate that the branch rules name still runs.
+
+## 3. Ask if there is work before you set up
+
+A release job installed the workspace and built every package, and then asked whether there was anything to release. Now it asks first, with a small locked install of the release tool. When every version is already published, it does zero workspace installs and zero builds.
+
+<ShareBars
+  title="Three separate benchmarks"
+  rows={[
+    { label: "Release setup", before: 91.9, after: 18.7, unit: "s", note: "79.7% less" },
+    { label: "Version metadata", before: 115.3, after: 18.6, unit: "s", note: "83.9% less" },
+    { label: "Core checks", before: 1151.7, after: 960.3, unit: "s", note: "16.6% less" },
+  ]}
+  caption="Measured in October 2026. Each pair is a separate benchmark with its own scale. Release setup: the version is already published. Version metadata: read-only preparation. Core checks: summed runner time."
+/>
+
+The release setup became almost 5x faster, and the read-only preparation of version metadata about 6x faster. These are three separate paired benchmarks, each with its own commits and its own scope, so the percentages do not add up.
+
+The same idea works one level higher. A job that cannot be eligible is rejected by a condition on the job, before a runner starts for it.
+
+## 4. Give each job only what it needs
+
+- **Install the closure, not the workspace.** Each job installs the packages that its own package depends on, plus the root tooling, from the frozen lockfile.
+- **Fetch less.** Jobs that only read files use a shallow or sparse checkout. Jobs that need history keep it.
+- **Use the faster tool where one exists.** The compiler checks moved to tsgo, and the lint moved from ESLint to Oxlint earlier in the year. In the benchmark, the type check job was 22.2% faster and the typed lint job 17.7% faster.
+
+The third pair in the figure above is this work: the core checks used 16.6% less runner time in total.
+
+## 5. Balance test shards by measured cost
+
+File count is a poor signal for a shard. The assertions of 277 unit test files took about 22 seconds in total. Imports, setup, and worker start took much of the rest. So the shards are balanced by the measured cost of each file: import, setup, hooks, and execution.
+
+The layout that won is two unit shards with two workers each, and four integration shards. Each integration shard has its own disposable Postgres with all migrations. With every suite selected, the wait for the test workflow went from 4 min 41 s to 3 min 14.5 s, which is 30.8% less, and the summed runner time stayed flat (1,562 seconds before, 1,555 after). The proxy suite went from 181 seconds to 115 with two isolated workers.
+
+This is the case where time and minutes part. People wait almost a third less, and the bill is the same.
+
+## 6. Count jobs, not seconds
+
+GitHub bills each job on a hosted runner for at least one full minute: it ["rounds the minutes and partial minutes each job uses up to the nearest whole minute."](https://docs.github.com/en/billing/reference/actions-runner-pricing)
+
+<MinuteRounding />
+
+Five jobs of 10 seconds are 5 billed minutes. The same five commands as steps of one job are 1 billed minute. A job of 25 minutes that runs twice a day is not where the minutes go. A job of 9 seconds that runs after every push is.
+
+So the number to watch is jobs multiplied by frequency. Two jobs of 14 and 9 seconds became steps of the gate job that already ran, and a small guard job moved into the job that it guarded.
+
+## 7. Match each trigger to how often its result can change
+
+Most of the minutes that I removed had one shape: a short job with a trigger that fired more often than its result could change.
+
+| Job | Trigger before | Trigger now |
+| --- | --- | --- |
+| Dependency audit | Each pull request | A change of dependencies, and one time each day |
+| Preview login comment | Each push | A pull request opens or reopens |
+| Two cleanup sweeps | Each hour | Each 6 hours. A closed pull request is still cleaned up at once. |
+| Merge policy | Each pull request event, the end of every CI run, and each 10 minutes | A change of the production branch |
+
+The last row was the largest. A merge policy workflow routed pull requests and merged the back-merges from the production branch, about 8 of them each month. Its scheduled sweep read the status of every open pull request: 74 seconds for 81 of them, so 2 billed minutes, 144 times a day. It had been in the repository for eight days.
+
+<BackMergeFlow />
+
+The new flow is one workflow on a push to the production branch. It merges production into the main branch with a merge commit and pushes it as the CI bot. Only a conflict opens a pull request, for a person to resolve. A back-merge without a conflict now lands without a pull request or an approval, and I accept that: its code was reviewed on the way into production.
+
+### The run counts, a week before and a week after
+
+The trigger changes went live on 6 November. I counted every workflow run in the week from 30 October and in the week from 13 November:
+
+| Workflow | Runs, week from 30 October | Runs, week from 13 November |
+| --- | ---: | ---: |
+| Merge policy | 3,864 | 0 |
+| Preview login comment | 679 | 155 |
+| Scheduled runs of the preview cleanup sweep | 148 | 28 |
+| Test workflow on pull requests, for scale | 605 | 750 |
+
+The work grew in between: the test workflow ran on pull requests 24% more often. The login comment still ran 4.4x less often, and the scheduled sweep 5.3x less often. The merge policy alone had 3,864 runs in a week: 1,959 after a CI run, 953 on a pull request event, and 952 from its schedule. Across all workflows, the repository went from 10,461 runs to 7,598, which is 27% fewer, in a week with more pull requests.
+
+A run is not a billed minute, so I sampled 60 runs of the merge policy, 20 for each trigger, and rounded each job up the way GitHub bills it. A run after a CI run billed 0.95 minutes on average, a run on a pull request event 0.55, because many of its jobs were skipped, and a scheduled run 2.15. Applied to the week's counts, that is about 4,400 billed minutes in one week, or about 19,000 for a month at that rate. This is an estimate from a sample, and it is close to the projection of about 18,000.
+
+## 8. Run expensive work on request
+
+Some work is worth its cost only when someone wants the result. For that work, a label on the pull request is the trigger.
+
+- **Preview deployments.** The host built a web preview and an admin preview for each feature commit. A preview now builds when someone adds a label.
+- **Browser journeys with a model.** They run on a label for a feature pull request, and still run each day and for each release candidate.
+- **AI code review.** It runs on a label and no longer on a push. A pull request now gets [almost 7x fewer review runs](/blog/pr-review-agents-what-stuck/).
+
+The label works the same way in each workflow. A person with write access adds it. The workflow removes it at once and works on the current commit, from trusted code on the base branch. A second run needs the label again.
+
+## What the minutes add up to
+
+November was on track for about 110,000 minutes. I project that the changes of sections 2, 6, and 7 remove about 30,000 of them each month, which is about 27%.
+
+<RankBars
+  title="Projected saving for each change"
+  unit="minutes each month"
+  rows={[
+    { label: "Merge policy removed", value: 18000, mark: "lilac" },
+    {
+      label: "Affected tests only",
+      value: 5000,
+      mark: "lilac",
+      sub: "about 5,000 to 10,000, an estimate",
+    },
+    { label: "CI gate", value: 2600, mark: "lilac" },
+    { label: "Dependency audit", value: 2000, mark: "lilac" },
+    { label: "Preview login comment", value: 2000, mark: "lilac" },
+    { label: "Preview cleanup sweep", value: 600, mark: "lilac" },
+    { label: "API preview cleanup sweep", value: 600, mark: "lilac" },
+    { label: "Terraform guard job", value: 250, mark: "lilac" },
+  ]}
+  caption="Every bar is a projection, and every value is approximate. The bar for affected tests shows the low end of its estimate."
+/>
+
+The rows do not sum to the headline. Without the test row they sum to 26,050, and with it to between 31,050 and 36,050. I use about 30,000 as the total.
+
+## Set it up in another repository
+
+Three patterns cover most of the list above. They fit in one workflow file, so this skeleton shows them together. It is written for the post, the SHAs are placeholders, and the full-run list is an example that you replace with the inputs that your test runner cannot trace.
+
+```yaml
+on:
+  pull_request:
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    outputs:
+      full: ${{ steps.paths.outputs.full }}
+    steps:
+      - uses: actions/checkout@<sha> # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: paths
+        run: |
+          changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          if grep -qE '(^|/)(package\.json|pnpm-lock\.yaml|vitest\.config\.ts)$|^(migrations|fixtures)/' <<< "$changed"; then
+            echo "full=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "full=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  test:
+    needs: classify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@<sha> # v7.0.1
+        with:
+          fetch-depth: 2
+      - run: pnpm install --frozen-lockfile
+      - if: needs.classify.outputs.full == 'true'
+        run: pnpm vitest run
+      - if: needs.classify.outputs.full != 'true'
+        run: pnpm vitest run --changed=HEAD^1
+      # Small checks are steps here, not jobs of their own.
+      - run: node --test scripts/
+```
+
+**Classify first, on the full diff.** The classifier reads every file of the pull request, and an input that the runner cannot trace selects the full suite. It costs one billed minute for each push, so it pays only when it saves more than that. On our repository a change to a guide file went from 197.5 seconds to 11, and the 11 seconds are this job.
+
+**Select by import, and keep the full run on the main branch.** `--changed=HEAD^1` works on the merge commit that GitHub checks out for a pull request, because its first parent is the base branch. That is why the test job fetches two commits. The push to the main branch runs everything, without the classifier.
+
+**Fold small checks into a job that already runs.** A check of a few seconds as its own job is a billed minute on every push. As a step of the test job, it costs the seconds that it takes.
+
+For the triggers, the change is one line each. A sweep that cleans up after closed pull requests runs on the close event and on a slow schedule as a backstop, such as `cron: "17 */6 * * *"`, and not each hour. Work that only a person wants, such as a preview or an AI review, runs on `pull_request` with `types: [labeled]`, and its first step removes the label.
+
+## Keep the cuts safe
+
+Each cut above removes a run, so each one needs a net under it.
+
+- **The main branch runs everything.** A test that the selection skipped fails after the merge, and not three weeks later.
+- **Deleted tests are not a speed result.** In October I also deleted 43 mocked unit suites with 871 cases. That was a decision about test policy, and no number in this post includes it. The 3,365 unit cases and 581 real-database cases that stayed were checked one by one against the run before.
+- **Pin every action by commit SHA**, with the release named in a comment, and use a release only when it is at least 7 days old:
+
+```yaml
+steps:
+  # The SHA is illustrative. Pin the commit of the release tag.
+  - uses: actions/checkout@0123456789abcdef0123456789abcdef01234567 # v7.0.1
+```
+
+A pin is only as good as the check that it matches its comment. In the same November pass every action moved to its latest release with one version for each action, and a check resolved each of the 24 pins to the commit of its release tag. One command does it for one pin:
+
+```bash
+gh api repos/actions/checkout/git/ref/tags/v7.0.1 --jq '.object.type + " " + .object.sha'
+# commit 3d3c42e5aac5ba805825da76410c181273ba90b1
+```
+
+When the type is `tag` and not `commit`, the tag is annotated, and you read that tag object to get the commit. The 7-day rule decided two actions in that pass: every newer release of each was younger than 7 days, so both stayed where they were. The same rule covers packages. pnpm has `minimumReleaseAge: 10080` (minutes) in the workspace file, and Dependabot needs its own `cooldown` with `default-days: 7`, because it does not read the pnpm setting.
+
+The major updates had notes worth a look before you take them. In `actions/setup-node` v7, a placeholder `NODE_AUTH_TOKEN` is no longer set, which matters only for calls with `registry-url`. In `actions/download-artifact` v8, a hash mismatch fails the download by default.
+
+## Fix the workflows that fail on every run
+
+A workflow that is red on every run costs its minutes and teaches people to ignore red. The same pass found a few, and one of them is worth a story. The Terraform plan on the main branch never came back clean. A shared module left out empty lists that the cloud provider stores anyway, so every plan saw a difference and made a new revision of the task definition. The fix declares the empty lists in the module.
+
+The lesson that I took: before you count minutes, sort the workflows by failure rate. A job that always fails is either a broken job or a check that nobody reads, and both are cheaper to fix than to run.
+
+## What I did not measure
+
+- **Billed minutes after the changes.** The 27% is a projection from early November. I do not have the billing data for the weeks after. The run counts above are measured, and the minutes of the merge policy are an estimate from a sample of 60 runs.
+- **The cause of each weekly median.** A median covers every change that merged in those weeks, and it includes the runs where most suites were skipped. It shows what a pull request waited, and it does not show that the full suite became 2x faster. The full suite is the 30.8% in section 5.
+- **What brought the wait back** between July and October.
+- **How often the test selection skips a test that would fail.** I know the case that it can miss: a test that reads a file from disk, where that file is not on the full-run list.
+- **The basis of two projections.** The test row and the guard job row rest on 20 hours of usage on the main branch.

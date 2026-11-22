@@ -1,0 +1,68 @@
+{
+  "version": 2,
+  "skills": {
+    "build-design-system": {
+      "source": "design.how",
+      "sourceUrl": "https://design.how",
+      "sourceType": "well-known",
+      "computedHash": "a1556da26d35b24d39c41f52785365558ba803fae624b49065b46c2852db0bd6",
+      "wellKnownDigest": "sha256:8915004ca4fe7c0c4120df7b729fff5778f74f8357eafb2ef7504e2817732a1a"
+    },
+    "component-docs": {
+      "source": "design.how",
+      "sourceUrl": "https://design.how",
+      "sourceType": "well-known",
+      "computedHash": "5f13551f5a6f5ebbab66d532cccc22c2cc54360eaf4453f23a5b579f4d732549",
+      "wellKnownDigest": "sha256:30d2c6f2f6f4d639e70f7e7a617f61e06bb61ccb4455a999cfb4a426ec93b309"
+    },
+    "design-system-boss": {
+      "source": "design.how",
+      "sourceUrl": "https://design.how",
+      "sourceType": "well-known",
+      "computedHash": "7e725e9fc5be53a4ab612cf222020ff6aee8ae084911984d7fc4a5bdea90b7b3",
+      "wellKnownDigest": "sha256:7c6d362c2d4000f4db89d808278e4657dd5351a2dbb166af22172b0596a66f79"
+    },
+    "make-font": {
+      "source": "design.how",
+      "sourceUrl": "https://design.how",
+      "sourceType": "well-known",
+      "computedHash": "e34a7c3344c6e1929cb916a48e0688e6b83f458442b67bc9815b779ff28c23b4",
+      "wellKnownDigest": "sha256:30cde0cb24ec96e812c02727727ba65a56dc32e4ca9e84cf81baa398537b941a"
+    },
+    "make-logo": {
+      "source": "design.how",
+      "sourceUrl": "https://design.how",
+      "sourceType": "well-known",
+      "computedHash": "b005fa388e40d5621633533a210c379e19f98b9c09d6f31bf0895dc3178a6d2a",
+      "wellKnownDigest": "sha256:7aad88ee050dccecb9580cfdc0c4dbf926d2f38f14ac19a074cf4284ff150a3f"
+    },
+    "make-motion": {
+      "source": "design.how",
+      "sourceUrl": "https://design.how",
+      "sourceType": "well-known",
+      "computedHash": "1153be7b29a6faab6a431a13e800bacf4d1d4a611f61765ed53e121307a8f246",
+      "wellKnownDigest": "sha256:16f7f6f9f627a4cc4fb574303616ad7bdc2714cf7df7c3d4daa366ba31636cc6"
+    },
+    "migrate-design-system": {
+      "source": "design.how",
+      "sourceUrl": "https://design.how",
+      "sourceType": "well-known",
+      "computedHash": "815ea708f8b62ea41d018eef4900553b08c5e0d6f79bd4bd84641d411df132e8",
+      "wellKnownDigest": "sha256:2185dec3b203ef88b226d3f81c9bb79a4780506cbd76a2bcccdf75837906c61c"
+    },
+    "token-mapping": {
+      "source": "design.how",
+      "sourceUrl": "https://design.how",
+      "sourceType": "well-known",
+      "computedHash": "2c999510b20fe188dd9e18f00907d5b392ff6584a11abdbfdf8a2557db63da53",
+      "wellKnownDigest": "sha256:9ccc2a7f31def44bfa4f84dd763b9671520dc6ab482ae47a368bd540a2eca8df"
+    },
+    "ui-review": {
+      "source": "design.how",
+      "sourceUrl": "https://design.how",
+      "sourceType": "well-known",
+      "computedHash": "3e1f2dbb302131c1df3d3c79a7e05060323a460d9e8eae456bc2b2804331b3c3",
+      "wellKnownDigest": "sha256:9b33e6d03a9433bd24c906461fd614bbc67f9c2a6ba6fa809e6d773bcd908eac"
+    }
+  }
+}

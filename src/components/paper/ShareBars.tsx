@@ -7,6 +7,8 @@ type Row = {
   after: number
   /** The unit after each number, such as "ns" or "B". */
   unit?: string
+  /** Replaces the computed "% less" label, for an exact value. */
+  note?: string
 }
 
 type Props = {
@@ -108,9 +110,11 @@ export function ShareBars({
                 y={y + 24}
                 textAnchor="end"
               >
-                {share < 1
-                  ? `${Math.round((1 - share) * 100)}% less`
-                  : `${Math.round((share - 1) * 100)}% more`}
+                {row.note
+                  ? row.note
+                  : share < 1
+                    ? `${Math.round((1 - share) * 100)}% less`
+                    : `${Math.round((share - 1) * 100)}% more`}
               </text>
             </g>
           )

@@ -17,8 +17,18 @@ export const postMarks: Array<{
   {
     name: 'Web',
     mark: 'sage',
-    match: ['nextjs', 'next.js', 'react', 'zustand', 'electron'],
+    match: [
+      'nextjs',
+      'next.js',
+      'react',
+      'zustand',
+      'electron',
+      'solidjs',
+      'solidstart',
+      'tanstack-start',
+    ],
   },
+  { name: 'Rust', mark: 'rose', match: ['rust'] },
 ]
 
 export const otherMark = { name: 'Other', mark: 'sand' as MarkName }

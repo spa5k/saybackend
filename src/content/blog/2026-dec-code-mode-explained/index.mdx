@@ -1,0 +1,288 @@
+---
+title: "Code Mode, Explained: Why Agents Write Code Instead of Calling Tools"
+seoTitle: "Code Mode Explained: Why AI Agents Write Code Instead of Tool Calls"
+description: "What code mode changes in an agent's tool loop, how Cloudflare and Anthropic built it, what the sandbox must block, and token counts measured on the GitHub MCP server's 46 tools."
+date: "2026-11-23"
+draft: true
+ogImage: "/images/2026-code-mode-explained-og.png"
+slug: "code-mode-explained"
+tags:
+  - "ai"
+  - "agents"
+---
+
+import { BeforeAfterBars } from "@/components/paper/BeforeAfterBars";
+import { LineFigure } from "@/components/paper/LineFigure";
+import { NumberBand } from "@/components/paper/NumberBand";
+import { RankBars } from "@/components/paper/RankBars";
+import {
+  CodeModeLoop,
+  PtcPause,
+  SandboxBoundary,
+} from "@/components/react/blog/codemode/CodeModeFigures";
+
+An agent with tools runs a loop. The model picks a tool, the harness runs it, the result goes back into the context, and the model picks the next tool. Code mode replaces most of that loop with one step: the model writes a program against a typed API, a sandbox runs it, and only the program's return value goes back to the model.
+
+This post explains the mechanism and the two designs it came from. It also covers what the sandbox has to block and where code mode is the worse choice. I measured the costs on a real tool list and ran the real Cloudflare executor locally.
+
+## What the tool-call loop costs
+
+The classic loop has three costs.
+
+- **Definitions.** Every tool's name, description and JSON Schema is in the context on every turn, used or not.
+- **Results.** Every tool result passes through the model, even when the model only needs one field of it.
+- **Round trips.** Each call is one model turn. Ten dependent calls are ten turns, and each turn reads the whole context again.
+
+For a realistic fixture I took the tool list of GitHub's official MCP server, v2.2.0, by calling `tools/list` on its Docker image. The default toolsets have 46 tools. All token counts in this post use the o200k_base tokenizer; Claude's tokenizer gives different absolute counts, so read the ratios.
+
+Serialized as JSON with name, description and input schema, the 46 definitions are 11,132 tokens, 242 per tool. The largest, `issue_write`, is 803 tokens.
+
+For results, I fetched the 20 most recent issues of `cloudflare/agents` from the public REST API. I shaped each one the way the server's `issue_read` tool does, with a port of its `convertToMinimalIssue` function. Each issue came to between 384 and 2,572 tokens, 889 on average.
+
+## What code mode changes
+
+The model gets one tool, `code`, whose description contains the tools as a TypeScript API. Here is `issue_read` as `@cloudflare/codemode` 0.5.6 renders it, shortened:
+
+```ts
+type IssueReadInput = {
+    /** The number of the issue */
+    issue_number: number;
+    /** The read operation to perform on a single issue. ... */
+    method: "get" | "get_comments" | "get_sub_issues" | "get_parent" | "get_labels";
+    owner: string;
+    repo: string;
+}
+type IssueReadOutput = unknown
+
+declare const codemode: {
+	issue_read: (input: IssueReadInput) => Promise<IssueReadOutput>;
+	// ... 45 more
+}
+```
+
+The model answers with JavaScript, not with a tool call. This is the program for "list the open issues with no assignee among these 20":
+
+```js
+async () => {
+  const numbers = [2924, 2920, 2917, 2916, 2915, 2911, 2910, 2909, 2906, 2905,
+                   2904, 2902, 2901, 2900, 2897, 2893, 2892, 2891, 2888, 2883];
+  const unassigned = [];
+  for (const issue_number of numbers) {
+    const issue = await codemode.issue_read({
+      method: "get", owner: "cloudflare", repo: "agents", issue_number
+    });
+    if (issue.state === "open" && issue.assignees.length === 0) {
+      unassigned.push({ number: issue.number, title: issue.title, comments: issue.comments ?? 0 });
+    }
+  }
+  return unassigned;
+}
+```
+
+<CodeModeLoop />
+
+I ran this program through the real `DynamicWorkerExecutor`, under `wrangler dev` 4.166.0, with `issue_read` answering from the 20 real issues. The sandbox made 20 host calls in 6 ms and returned two issues.
+
+<NumberBand value="90" note="of 17,783">
+  tokens came back to the model from the program. The 20 tool results it read were 17,783 tokens, and none of them entered the context.
+</NumberBand>
+
+## Where the name comes from
+
+Cloudflare named it. Kenton Varda and Sunil Pai published "Code Mode: the better way to use MCP" on September 26, 2025. Their argument: "LLMs have seen a lot of code. They have not seen a lot of 'tool calls'."
+
+The first design is client-side. The agent connects to an MCP server, converts its tool schemas into a TypeScript API with doc comments, and gives the model one tool that runs code. The code runs in a new V8 isolate from the Worker Loader API. MCP servers reach the isolate as bindings, so the isolate needs no network, and the host adds credentials, so the generated code never sees a key.
+
+The full API sits in the context, and the TypeScript rendering is larger than the JSON it came from.
+
+<RankBars
+  title="Tool definitions for the GitHub MCP server's 46 default tools"
+  unit="tokens"
+  rows={[
+    { label: "TypeScript API in one code tool", value: 18362, mark: "rose", sub: "codeMcpServer, @cloudflare/codemode 0.5.6" },
+    { label: "46 JSON tool definitions", value: 11132, sub: "name, description, input schema" },
+    { label: "search + execute", value: 1264, mark: "lilac", sub: "openApiMcpServer, does not grow with the API" },
+  ]}
+  caption="o200k_base tokenizer. With all 91 tools of the server: 38,258 against 23,186 tokens."
+/>
+
+The generator writes each parameter description twice: once as a comment on the input type and once as an `@param` line on the function. The `@param` lines are 5,985 of the 16,770 tokens of description text. The server declares no output schemas, so every return type is `unknown`.
+
+### One run through `@cloudflare/codemode`
+
+`createCodeTool` returns an ordinary AI SDK tool whose input is `{ code: string }`. When the model calls it, the library passes the code through `normalizeCode` in `src/normalize.ts` before anything runs. That function strips a Markdown code fence, because models often wrap code in one, and parses the rest with Acorn. An arrow function passes through. `export default` is unwrapped. A single named function is wrapped and called. A list of statements is wrapped in an async arrow function, and when the last statement is an expression, it becomes the `return`. So `codemode.get_me({})` alone returns its result, and a model that ignores the "write an async arrow function" instruction still gets its program run.
+
+The executor then generates one module per run. Inside it, `console.log`, `warn` and `error` push to an array, each namespace is a `Proxy` over the host's `ToolDispatcher`, and the normalized function is raced against the timeout. On the host side, each tool's input goes through the AI SDK's schema validation before its `execute` runs. A tool that throws comes back to the sandbox as JSON with an `error` field, and the proxy turns it into a thrown `Error` with the same message, so the program can catch it. A call still pending when the program finishes is answered with "The code execution finished before this tool call settled. Await every tool call before returning."
+
+A failed run does not lose its logs. `runCode` throws `Code execution failed: <message>`, followed by the console lines under "Console output:", and the AI SDK hands that text to the model as the tool error. A program that logs each step gives the model the partial results it would otherwise lose, which matters given the debugging case further down.
+
+The executor is an interface, and the package ships two. `DynamicWorkerExecutor` loads a Worker through the Worker Loader with `globalOutbound: null` and a default timeout of 60 seconds. `IframeSandboxExecutor` runs the code in the browser, in a hidden iframe with `sandbox="allow-scripts"` and a Content Security Policy of `default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval';`, with a default timeout of 30 seconds and tool calls over `postMessage`. Anything that implements `execute(code, providers)` can take their place.
+
+The second design moves the work to the server. On February 20, 2026, Matt Carey described Cloudflare's MCP server for its API, which has over 2,500 endpoints, with two tools. `search()` runs model-written JavaScript against the OpenAPI spec, so the model filters the spec instead of reading it. `execute()` runs model-written JavaScript that calls the API through `cloudflare.request()`. Both run in a Dynamic Worker. The same pattern is `openApiMcpServer` in the SDK, and its two definitions are 1,264 tokens whatever the size of the spec.
+
+## Anthropic's version
+
+On November 4, 2025, Adam Jones and Conor Kelly at Anthropic described the same idea as "code execution with MCP". Each MCP tool becomes a TypeScript file, such as `./servers/google-drive/getDocument.ts`. The agent lists the directory and reads only the files it needs, so definitions load on demand.
+
+The Claude API has a managed form of this, programmatic tool calling. It is built on the code execution tool, version `code_execution_20260120` or later, and the language is Python. A tool opts in with `allowed_callers`:
+
+```json
+{
+  "tools": [
+    { "type": "code_execution_20260521", "name": "code_execution" },
+    {
+      "name": "issue_read",
+      "description": "Get information about a specific issue in a GitHub repository.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "issue_number": { "type": "number" } },
+        "required": ["issue_number"]
+      },
+      "allowed_callers": ["code_execution_20260521"]
+    }
+  ]
+}
+```
+
+Anthropic does not run the tool. When the Python code calls it, the code pauses and the API returns a `tool_use` block whose `caller` names the code execution run. Your application runs the tool, sends a `tool_result`, and the code continues. These results do not enter Claude's context and do not count toward token usage; only the final output of the code does.
+
+<PtcPause />
+
+The limits matter for design. Tools from the MCP connector cannot be called this way, and neither can tools with `strict: true`. Each Python cell has a 90-second wall-clock limit, and a pending call times out after about 4 minutes. The container has no internet access, 5 GiB of memory and one CPU.
+
+The paused response carries three things the client needs. A `server_tool_use` block holds the Python. A `tool_use` block holds the call, with a `caller` that names the run:
+
+```json
+{
+  "type": "tool_use",
+  "id": "toolu_def456",
+  "name": "query_database",
+  "input": { "sql": "<sql>" },
+  "caller": { "type": "code_execution_20260120", "tool_id": "srvtoolu_abc123" }
+}
+```
+
+And a `container` object gives the ID of the container the code is paused in. The continuation has strict rules. The user message may contain only `tool_result` blocks, with no text after them. It must pass the container ID, or the API rejects it. It must send the same `tools` array, because the paused code needs the code execution tool to resume. And each result must be a string or text blocks, so a tool that returns an image cannot be called from code. Responses tag the caller as `code_execution_20260120` even when the request declared `code_execution_20260521`. A direct call has `"caller": { "type": "direct" }`, which is how one client loop can tell the two apart.
+
+Failures come back as Python errors. A tool result that says `Error: ...` is a string the code can inspect. A result that does not arrive in about 4 minutes raises inside the code and reaches Claude in `stderr`, with `return_code` 0:
+
+```text
+TimeoutError: Calling tool ['query_database'] timed out (no response after 270s).
+```
+
+A schema with a recursive `$ref` fails the request with `400 invalid_request_error` and `Circular $ref detected` once the tool lists a code execution caller, though the same schema works for direct calls. Anthropic's own numbers mark where the feature helps. On a 75-tool project-management benchmark it cut billed input tokens by about 38 percent with no change in accuracy. On τ²-bench, where each turn makes one or two sequential calls, it left scores unchanged and cost about 8 percent more.
+
+## The arithmetic for N calls
+
+The next numbers are arithmetic on the sizes measured above, not model runs. The task reads N issues, one per turn in the direct loop. Each turn reads the definitions, the prompt, and every earlier call and result. Code mode is two turns: one to write the program, one to read its return value. Search and execute adds one turn that reads the `issue_read` schema.
+
+<LineFigure
+  title="Input tokens the model reads for N issue_read calls (thousands)"
+  description="Direct calls grow from 23,210 tokens at one call to 415,700 at twenty. Code mode with the full TypeScript API stays near 37,000. Search and execute stays near 5,000."
+  series={[
+    {
+      name: "Direct tool calls",
+      mark: "rose",
+      endLabel: "415.7k",
+      points: [[1, 23.2], [2, 36.1], [3, 50.4], [4, 65.3], [5, 81.6], [6, 98.7], [7, 116.7], [8, 135.3], [9, 154.5], [10, 174.2], [11, 194.5], [12, 215.6], [13, 237.2], [14, 259.4], [15, 283.4], [16, 307.8], [17, 332.7], [18, 359.0], [19, 386.1], [20, 415.7]],
+    },
+    {
+      name: "Code mode, full API",
+      mark: "amber",
+      endLabel: "37.2k",
+      points: [[1, 36.9], [5, 37.0], [10, 37.0], [15, 37.1], [20, 37.2]],
+    },
+    {
+      name: "Search + execute",
+      mark: "lilac",
+      endLabel: "5.1k",
+      points: [[1, 4.7], [5, 4.8], [10, 4.9], [15, 4.9], [20, 5.1]],
+    },
+  ]}
+  xTicks={[1, 5, 10, 15, 20]}
+  yTicks={[0, 100, 200, 300, 400]}
+  yFormat={(value) => `${value}k`}
+  xLabel="Calls in the task"
+  notes={[{ x: 3, y: 50.4, text: "direct is cheaper\nup to 2 calls", dx: 30, dy: -70 }]}
+  caption="No prompt caching. Direct calls at N = 1: 23,210 tokens against 36,890 for code mode."
+/>
+
+The direct loop grows with the square of N, because every turn reads all earlier results again. Code mode is flat, because results never come back. With the full API in the description, code mode costs more than direct calls for one or two calls.
+
+Prompt caching changes the picture. Each re-read prefix becomes a cache read, which costs a tenth of the base input price or less on the Claude API. I priced the same runs with one cache write per token at 1.25x and each re-read at 0.1x.
+
+<BeforeAfterBars
+  title="Input cost of the 20-call task, in base-price tokens"
+  data={[
+    { label: "Direct calls", before: 415700, after: 75561 },
+    { label: "Code mode", before: 37207, after: 25275 },
+    { label: "Search + execute", before: 5069, after: 2797 },
+  ]}
+  beforeLabel="No cache"
+  afterLabel="With cache"
+  caption="Cache write 1.25x, cache read 0.1x. Some current Claude models price cache reads lower."
+/>
+
+At 20 calls, the gap between direct calls and code mode drops from 11.2x to 3.0x with caching. Code mode becomes the cheaper option at 3 calls without the cache and at 5 calls with it. The round trips do not change: 21 model turns against 2. I wrote more about the cache in [prompt caching in coding agents](/blog/prompt-caching-agent-harnesses/).
+
+## What the sandbox must give and must deny
+
+The sandbox must give the program its tool functions, a way to return a value, and a time limit. Everything else it must deny: the network, the filesystem, the environment and the host process. The tools are the only door, and credentials stay on the host side of it.
+
+`@cloudflare/codemode` builds a module for each run. Each namespace, such as `codemode`, is a `Proxy` whose methods send the call to a `ToolDispatcher` on the host over Workers RPC. The Worker is loaded with `globalOutbound: null`, so it has no network. I ran probe programs through the executor. Each line is the program, then what came back:
+
+- `await fetch("https://example.com")`: `This worker is not permitted to access the internet via global functions like fetch(). It must use capabilities (such as bindings in 'env') to talk to the outside world.`
+- `connect("example.com:80")` from `cloudflare:sockets`: the same error.
+- `await import("node:fs")`: `No such module "node:fs".`
+- `Object.keys(process.env)`: `[]`.
+- `throw new Error("rate limit reached, stopping")`: the message as the error string, `rate limit reached, stopping`.
+- `await new Promise(() => {})` with a 3-second timeout: `Execution timed out` after 3,004 ms.
+- `while (true) {}` with a 3-second timeout: no response after 120 seconds.
+
+<SandboxBoundary />
+
+The loop is the instructive one. The executor's timeout is a `setTimeout` raced against the program, and a synchronous loop never gives the timer a chance to fire. Locally, `workerd` stayed at 91% CPU and a new `1 + 1` request also got no answer within 20 seconds. On Cloudflare's network the platform's CPU limits stop such a Worker, and Dynamic Workers accept lower custom limits. The lesson holds for any executor: the time limit must come from the runtime, not from code inside the sandbox.
+
+## Where code mode is worse
+
+**Permissions per call.** In the direct loop, the harness sees every call before it runs and can ask the user. Inside a program, calls happen in the sandbox. The Claude API keeps the check, because the code pauses at every tool call and your application decides. `allowed_callers` is not a security boundary, though: Claude can still call any defined tool directly, and the client must handle that call. Cloudflare's `createCodeTool` removes tools marked `needsApproval` from the sandbox. Its newer connector runtime pauses the run on a tool marked `requiresApproval` and continues by replaying the log after approval.
+
+**Debugging.** A failed program returns one error string. I gave the executor a program that checks `issue.labels.includes("bug")`. It stopped after four calls with `Cannot read properties of undefined (reading 'includes')`, because the server leaves out `labels` when an issue has none, and the type said `unknown`. The three good results were lost with it. With write tools, the writes before the error stay done.
+
+**Small tasks.** For one call, the full-API code tool is 7,230 tokens larger than the JSON definitions, and the model writes a program instead of a call. Code mode also cannot remove a round trip when the next call depends on the model's judgement of the previous result.
+
+**Wrong code.** The model writes code against types it reads, not types it can check. The description shows TypeScript but asks for plain JavaScript, and nothing type-checks the program before it runs. Without output types, the model guesses the shape of every result.
+
+**Prompt cache.** The whole API lives in one tool description. Any change to one tool's schema changes that description, and a change to tool definitions invalidates the entire cache. Search and execute avoids this, because schemas arrive as results inside the messages.
+
+## What tool authors can change
+
+Most of the failures above come from the tools, not from the sandbox, and an MCP server author can fix them.
+
+**Declare output schemas.** Every return type in the GitHub API above is `unknown`, so the model guesses field names and the `labels.includes` crash follows. MCP has had `outputSchema` and `structuredContent` since the June 2025 revision of the spec. With one, the generated type names the fields, and a field the schema does not require is marked optional where the model can see it. OpenCode goes as far as parsing JSON text results when no schema is declared, because programs assume objects.
+
+**Return errors as errors.** A result with `isError: true` becomes a thrown exception in Cloudflare's executor and in OpenCode, which the program can catch. pi hands the program the whole `CallToolResult`, `isError` included, so the program has to check it. An error written as ordinary text with no flag comes back as a successful string everywhere, and the program reads it as data.
+
+**Name tools with the words people search for.** The agents that do not list every tool find them by keyword. A tool called `get_me` is hard to find for "who am I" or "current user", as the OpenCode post in this series shows with real queries. The description is the cheap fix: it is searched, and it costs nothing in a design where descriptions stay out of the prompt.
+
+**Make writes idempotent.** When a program runs `Promise.all` over several calls and one fails, pi and OpenCode abort the calls still running. I tested both with a mock tool: the three sibling calls of a failed call were cancelled mid-flight. A cancelled write may already have reached the server, and the model's next program may send it again. A write that takes a client-supplied key, or that checks the current state first, survives that retry.
+
+## Next in this series
+
+The next three posts cover how pi, Claude Code and OpenCode handle code mode. The fifth compares them.
+
+## Sources
+
+- [Code Mode: the better way to use MCP (Cloudflare, September 2025)](https://blog.cloudflare.com/code-mode/)
+- [Code Mode: give agents an entire API in 1,000 tokens (Cloudflare, February 2026)](https://blog.cloudflare.com/code-mode-mcp/)
+- [Codemode API reference](https://developers.cloudflare.com/agents/api-reference/codemode/)
+- [`@cloudflare/codemode` source, cloudflare/agents](https://github.com/cloudflare/agents/tree/main/packages/codemode)
+- [Dynamic Workers API reference](https://developers.cloudflare.com/dynamic-workers/api-reference/)
+- [Code execution with MCP (Anthropic, November 2025)](https://www.anthropic.com/engineering/code-execution-with-mcp)
+- [Introducing advanced tool use (Anthropic, November 2025)](https://www.anthropic.com/engineering/advanced-tool-use)
+- [Programmatic tool calling](https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling)
+- [Code execution tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/code-execution-tool)
+- [Prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)
+- [GitHub MCP server](https://github.com/github/github-mcp-server)
+- [MCP specification 2025-06-18: structured tool output](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#structured-content)
+- [`normalize.ts`](https://github.com/cloudflare/agents/blob/main/packages/codemode/src/normalize.ts), [`executor.ts`](https://github.com/cloudflare/agents/blob/main/packages/codemode/src/executor.ts) and [`iframe-executor.ts`](https://github.com/cloudflare/agents/blob/main/packages/codemode/src/iframe-executor.ts) in `@cloudflare/codemode`

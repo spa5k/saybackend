@@ -1,0 +1,355 @@
+---
+title: 'How Code Mode Works in OpenCode: One execute Tool and a JavaScript VM'
+seoTitle: 'OpenCode Code Mode: How the execute Tool and Its VM Work'
+description: "OpenCode 2.3.2 puts every MCP tool behind one execute tool and runs the model's JavaScript in its own bytecode VM. Request sizes, sandbox probes and the config switch, measured on GitHub's MCP tool list."
+date: "2026-12-01"
+draft: true
+ogImage: '/images/2026-code-mode-opencode-og.png'
+slug: 'code-mode-opencode'
+tags:
+  - 'ai'
+  - 'agents'
+---
+
+import { BeforeAfterBars } from '@/components/paper/BeforeAfterBars'
+import { NumberBand } from '@/components/paper/NumberBand'
+import { RankBars } from '@/components/paper/RankBars'
+import {
+  OpenCodeCallPath,
+  OpenCodeCatalog,
+} from '@/components/react/blog/codemode/CodeModeFigures'
+
+OpenCode V2 turns on Code Mode for every MCP server by default. The model does not get the server's tools. It gets one tool, `execute`, and a catalog of TypeScript signatures in the system prompt, and the JavaScript it writes runs in an interpreter that OpenCode wrote for this purpose. This post covers OpenCode 2.3.2, released on November 18, 2026, which ships on npm as `@opencode/cli`. The `opencode-ai` package is still the V1 line.
+
+I ran 2.3.2 in Docker against a mock OpenAI-compatible endpoint that logs each request and returns scripted replies. For the MCP side I used the tool list of GitHub's MCP server v2.2.0, the same 46 tools as in [the first post of this series](/blog/code-mode-explained/), served by a local stdio server. Because the model is a mock, the numbers below are request sizes and program results, not model behaviour. Token counts use tiktoken's o200k_base.
+
+## What the model gets
+
+With Code Mode on, an MCP tool is never a direct tool. `packages/core/src/tool/mcp.ts` registers each one under its server's namespace and into Code Mode unless the server opts out:
+
+```ts
+options: { namespace: namespace(tool.server), codemode: tool.codemode !== false },
+```
+
+The request carries the 12 built-in tools (`read`, `edit`, `shell` and the rest) and `execute`. Its description, from `packages/core/src/codemode/tool.ts`, sets the rules:
+
+```ts
+"`fetch` is available for HTTP requests. Imports, direct filesystem access, and timers are unavailable: there is no `setTimeout` or sleep. All other external access goes through `tools`.",
+"Await every call whose completion matters; pending calls are interrupted when execution ends. Run independent calls concurrently with `Promise.allSettled`.",
+```
+
+On a chat completions provider the input schema is `{ code: string }`. On the OpenAI Responses API, `execute` is sent as a freeform custom tool, so the model writes the code with no JSON around it.
+
+The tools themselves go into a "Code Mode" section of the system prompt, as TypeScript signatures with the schema descriptions as doc comments. The section has a fixed budget, set in `packages/core/src/codemode/catalog.ts`:
+
+```ts
+const DESCRIPTION_LIMIT = 500
+const CHARACTERS_PER_TOKEN = 4
+const INLINE_BUDGET = 2_000
+```
+
+Every namespace gets a line with its tool count. Then full listings are added one per namespace per round, in path order, until about 2,000 tokens are used. With GitHub's 46 tools, the model saw this (shortened):
+
+```text
+- github (46 tools, 3 shown)
+  - tools.github.add_comment_to_pending_review({ ... }): Promise<unknown> // Add review comment to ...
+  - tools.github.add_issue_comment({ ... }): Promise<unknown> // ...
+  - tools.github.add_reply_to_pull_request_comment({ ... }): Promise<unknown> // ...
+```
+
+The three shown are the first three in alphabetical order, not the most useful three. For every other tool, the model calls `search(...)` inside `execute`. `search("issue")` returned 10 signatures with `remaining: 2`, which came to 3,512 tokens. `Promise<unknown>` is there because the GitHub server declares no output schemas.
+
+<OpenCodeCatalog />
+
+The whole first request, system prompt and tools together, stays the same size when the server grows. With the server's 91 tools from all toolsets, the catalog showed 2 of them and the request grew by 21 tokens.
+
+<BeforeAfterBars
+  title="First request to the model, GitHub MCP server v2.2.0"
+  unit="tokens"
+  beforeLabel="codemode: false"
+  afterLabel="Code Mode (default)"
+  data={[
+    { label: '46 tools', before: 17154, after: 6331 },
+    { label: '91 tools', before: 29678, after: 6352 },
+  ]}
+  caption="o200k_base, messages plus the tools array as OpenCode 2.3.2 sent them. The GitHub tool definitions alone were 11,594 and 24,118 tokens."
+/>
+
+Off, the request carried 59 and 104 tools. On, it carried 13 both times.
+
+## How search ranks tools
+
+`search` is a synchronous built-in, so a program can call it without `await`. It ranks with field-weighted BM25 from `packages/codemode/src/codemode/tool-runtime.ts`: a word in the tool name counts 3, in the namespace 2, in the description 1, in the namespace description 0.4 and in a parameter 0.3. Plural endings are stemmed, camelCase and snake_case names are split into words, a query word of four or more letters also matches longer words it starts with at 0.3, and short names get a small boost. A page has 10 results by default, and every `search` call counts toward `maxToolCalls` when a host sets one.
+
+To see how that works on a real tool list, I loaded the 45 tool snapshots of GitHub's default toolsets from the server's v2.2.0 repository into `@opencode/codemode` 2.3.2 and ran queries a model would write. The live server lists one more tool than the snapshots.
+
+| Query | First results | Where the right tool landed |
+| --- | --- | --- |
+| `merge` | `merge_pull_request` | 1st of 1, 174 tokens |
+| `file contents` | `get_file_contents`, `create_or_update_file`, `push_files` | 1st |
+| `read a file` | `issue_read`, `delete_file`, `push_files` | `get_file_contents` 5th |
+| `list my repositories` | `list_branches`, `list_releases`, `list_tags` | `search_repositories` 11th, off the first page |
+| `who am I` | nothing | `get_me` not found |
+| `current user` | `get_teams`, `get_team_members`, `search_users` | `get_me` 4th |
+
+Keyword search finds a tool when the query uses the tool's own words. "Read" matched the name `issue_read` more strongly than the description of `get_file_contents`, and "repositories" scored higher in names such as `delete_repository` than "list" helped `search_repositories`. A result also carries the full signature, so a broad query is expensive: `search("issue")` came to 3,512 tokens in the session above, and `search("comment on an issue")` came to 4,417 on the snapshots. The prompt tells the model to search before it calls an unlisted tool and never to guess names, which is the right rule, but the model still has to guess the words.
+
+The catalog can also change during a session, for example when an MCP server connects late or its tool list changes. `packages/core/src/codemode/instructions.ts` does not rewrite the first system prompt. It adds a message that names what changed: new namespaces, new tools, changed signatures, and tools that "are no longer available and must not be called". New signatures in that message share a budget of 1,000 estimated tokens while the catalog is partial, and the rest are counted with "N more; search for them". OpenCode sends the full catalog again only when that is shorter than the change list. The earlier prefix stays the same, so the prompt cache survives a server that connects late.
+
+## What runs the code
+
+The runtime is `@opencode/codemode`, a package in the same repository. It does not wrap V8, an isolate or a container. It parses the program with Acorn, compiles it to bytecode and runs it on a VM written in TypeScript, inside the OpenCode process. The package README states the design:
+
+> Rather than trying to sandbox arbitrary JavaScript, CodeMode only runs the language features we implement. Programs cannot directly access the network, filesystem, processes, or application APIs.
+
+The VM became the only engine in 2.3.0. The language is JavaScript with top-level `await` and `return`. A program without `return` gives the value of its last expression, like a REPL. TypeScript syntax is rejected, not stripped, and `interpreter-support.md` lists the gaps: no classes, no getters or setters in object literals, no BigInt. A program sees `tools`, `search`, `fetch`, `console`, `Buffer` and the standard built-ins.
+
+Tool arguments and results cross the boundary as copies. When an MCP server returns JSON as text and declares no output schema, OpenCode parses it, so `issue.state` works without `JSON.parse`.
+
+## Ten calls in one program
+
+I scripted the mock model to send this program, against ten real issues of `cloudflare/agents` that the local server returned in the shape of `issue_read`:
+
+```js
+const numbers = [2924, 2920, 2917, 2916, 2915, 2911, 2910, 2909, 2906, 2905]
+const issues = await Promise.all(
+  numbers.map((n) =>
+    tools.github.issue_read({
+      method: 'get',
+      owner: 'cloudflare',
+      repo: 'agents',
+      issue_number: n,
+    }),
+  ),
+)
+const open = issues.filter((issue) => issue.state === 'open')
+return {
+  fetched: issues.length,
+  open: open.map((issue) => `#${issue.number} ${issue.title}`),
+}
+```
+
+It ran. The server received ten calls, which all started within 6 ms of each other. From the reply that held the program to the next request with its result, the step took 60 to 94 ms over three runs. For the comparison I set `codemode: false` and scripted ten parallel `github_issue_read` calls in one reply, the best case for direct calls.
+
+<RankBars
+  title="Tokens added to the context to read ten issues"
+  unit="tokens"
+  mono
+  rows={[
+    {
+      label: '10 direct issue_read results',
+      value: 8643,
+      mark: 'rose',
+      sub: 'every issue body goes to the model',
+    },
+    {
+      label: 'search("issue")',
+      value: 3512,
+      sub: 'a separate execute step to find issue_read',
+    },
+    {
+      label: 'execute result',
+      value: 68,
+      mark: 'lilac',
+      sub: 'only what the program returns',
+    },
+  ]}
+  caption="Three runs gave the same counts. The program text itself added about 220 tokens."
+/>
+
+Both sides needed one model turn here, because the mock sent the direct calls in parallel. The difference is in the results: the direct calls returned 127 times more text, and every later turn reads it again.
+
+The result is formatted as compact JSON. Logs follow it under a `Logs:` header. A large result goes through the same cut as any tool output in `packages/core/src/tool-output.ts`, 2,000 lines or 50 KiB. A program that returned 5,000 lines came back as the first 2,000 and this marker:
+
+```text
+[showing lines 1-2000 of 5000; full output saved to /root/.local/share/opencode/tool-output/tool_1faf56f66001US4VcUBHC5nGoY]
+```
+
+The model reads only that text. `packages/core/src/codemode/tool.ts` also builds a list of the program's calls, each with its tool name, input and a status of `running`, `completed` or `error`, but that list goes to the terminal as progress, not to the model. Progress updates are sent at most once per 100 ms, with a trailing update for the last rows. Each nested call gets its own call ID, so plugin hooks and traces can tell the program's calls apart, and until the program ends its permission prompts show on the `execute` row. When a nested tool returns a file part, such as an image from an MCP server, the program gets the tool's value and the file goes into the `execute` result as a `data:` URI after the text.
+
+## What comes back when a program fails
+
+A failed program returns the error message and the diagnostic's hints, plus any `console` output under `Logs:`. Nothing else from the run reaches the model. I ran failure cases through `@opencode/codemode` 2.3.2 directly, with a mock `get` tool that fails for item 3 and takes 100 ms for the others.
+
+- **An uncaught tool failure.** `const a = await get(1); const b = await get(3); return [a, b]` returned `item 3 is locked`. The first result was lost with it.
+- **`Promise.all` with one failure.** Item 3 failed at 10 ms, and the VM interrupted the three calls still running. The host saw `cancelled 1`, `cancelled 2`, `cancelled 4`. With a write tool, a cancelled call may or may not have reached the server.
+- **`Promise.allSettled`.** All four calls ran to the end, and the program returned `[10, 20, "item 3 is locked", 40]`. This is why the `execute` description asks for `allSettled`.
+- **An un-awaited call that fails.** The program returned `"ok"` with a warning: `[ToolFailure] Unhandled rejection from an un-awaited promise: item 3 is locked`.
+- **An un-awaited call still running at the end.** The program returned at once, and the host saw the call interrupted.
+- **TypeScript.** `const x: number = 1` gave `SyntaxError: Unexpected token. Code must be plain JavaScript written as a program body. (line 1, col 8)`.
+- **A class.** `UnsupportedSyntax`, with a hint that lists what the language supports and ends "Use plain functions and data objects instead."
+- **A wrong argument type.** `Invalid input for tool 'shop.get': SchemaError(Expected number at ["id"])`, with the hint "The signature may have changed. Use search to get the current signature." No call reached the host.
+
+Inside OpenCode, an MCP result with `isError: true` becomes a thrown `Error` whose message is the result's text. A user who rejects a permission prompt with feedback turns that feedback into the error message, so the program, and then the model, reads what the user typed. A program can catch any of these with `try` and go on.
+
+The practical rule follows from the first case. A program that does several dependent steps should `console.log` what it has after each one, because logs survive a failure and return values do not.
+
+## What the program cannot do
+
+I sent probe programs through `execute`. Each line is the program, then what came back:
+
+- `import fs from "fs"`: `Error: Cannot import "fs": it isn't available here, where packages and files can't be loaded. Use the provided globals. (line 1, col 8)`. `require("fs")` and `await import("node:child_process")` gave the same error.
+- `process.env.HOME`: `ReferenceError: Unknown identifier 'process'. (line 1, col 8)`. The same for `globalThis` and `eval`.
+- `setTimeout(resolve, 100)`: `ReferenceError: Unknown identifier 'setTimeout'. (line 1, col 32)`.
+- `new Function("return 1")()`: `TypeError: The Function constructor is not supported; write the function inline. (line 1, col 8)`.
+- `await new Promise(() => {})`: `Error: The program is waiting on a promise that can never settle: nothing else is running, so nothing can resolve it. There are no timers or sleep, so don't wait or poll inside a program. (line 1, col 1)`, at once.
+- `await fetch("file:///etc/passwd")`: `Error: fetch cannot be used for filesystem access.`
+- `await fetch("http://127.0.0.1:8787/...")`: status 200 and the JSON body. `fetch` is a real network call.
+- `throw new Error("boom from the program")`: `Error: boom from the program`.
+- `tools.github.issue_read({ owner: "cloudflare" })`, with three required fields missing: the error names each missing key, prints the arguments, and ends with `Update the arguments and call the tool again.`
+- `tools.github.isue_read(...)`: `Unknown tool 'github.isue_read'. Did you mean tools.github.issue_read?`
+- `"x".repeat(2 ** 25)`: `RangeError: Invalid string length (line 1, col 8)`. One string is capped at 16,777,216 characters.
+
+The VM sees no filesystem, process or module, because it implements none of them. The limits are on single values: string length, 10 million array elements, 10,000 pending promises. There is no memory cap.
+
+There is also no time limit. `@opencode/codemode` has `timeoutMs` and `maxToolCalls`, both without defaults, and OpenCode's `execute` sets neither.
+
+<NumberBand value="300 s" note="and still running">
+  a `while (true)` program ran at full CPU on one core, until my outer `timeout`
+  killed OpenCode.
+</NumberBand>
+
+The VM yields to the Effect scheduler between slices, so cancelling the turn interrupts the program and every call in progress. Without a cancel from the user, nothing stops it.
+
+## What stops a program
+
+A slice is 1 ms of interpreter time (`SLICE_MS` in `packages/codemode/src/language/vm.ts`). After each slice the driver calls `Effect.yieldNow`, so a busy program shares the event loop with the rest of OpenCode instead of holding it. I ran `while (true) { i++ }` in the library next to a 10 ms `setInterval`. In 3 seconds the interval fired 295 times, and the worst extra delay was 1.9 ms. That is what keeps the terminal alive while a program loops, and it is why a cancel works.
+
+Interrupting the program's fiber, which is what a cancel does, stopped the busy loop in 0.11 ms at the median of nine runs. With three tool calls that never return, it stopped in 0.17 ms and interrupted all three. The interrupt also reaches the tool: the MCP client passes the abort signal on to the server's request.
+
+A hung tool call is the other way a program can wait. An MCP call has its own limit, `timeout.execution` in the server's config, and the default in `packages/core/src/mcp/client.ts` is 12 hours. A server that accepts a call and never answers holds the program for that long unless the user cancels. Set it per server:
+
+```jsonc
+{
+  "mcp": {
+    "servers": {
+      "github": {
+        "type": "local",
+        "command": ["github-mcp-server", "stdio"],
+        "timeout": { "execution": 120000 },
+      },
+    },
+  },
+}
+```
+
+The library has the limits that `execute` leaves unset. With `timeoutMs: 2000`, the same `while (true) {}` stopped after 2,003 ms with `[TimeoutExceeded] Execution timed out after 2000ms.`, and with `maxToolCalls: 5` the sixth call failed with `Execution exceeded its tool-call limit of 5.` OpenCode uses them in one place. A code action in an automation, which runs Code Mode on a trigger with no model, gets 30 seconds, 20 tool calls and 32 KiB of output, and each tool it calls is approved once when the automation is created. The interactive `execute` tool gets none of the three, so in a session the user's cancel is the only stop.
+
+## How fast the VM is
+
+An interpreter written in TypeScript pays for every step. For tool glue that does not matter: the ten-call program above spent its time in the calls. It matters when a program does real work on the data it fetched. I ran the same five programs in `@opencode/codemode` 2.3.2, in pi's QuickJS sandbox and in plain Node, which runs V8 with its JIT.
+
+<RankBars
+  title="Sort 100,000 numbers inside the sandbox"
+  unit="ms"
+  rows={[
+    { label: 'OpenCode bytecode VM', value: 1297, mark: 'rose', sub: '@opencode/codemode 2.3.2' },
+    { label: 'QuickJS (WebAssembly)', value: 137, sub: 'pi-codemode 1.6.0, after 33 ms of worker start' },
+    { label: 'V8 in Node', value: 37, mark: 'lilac', sub: 'Node 25.9.0, no sandbox' },
+  ]}
+  caption="Median of 7 runs, Apple M4. The QuickJS time has the empty-script cost taken off."
+/>
+
+The other programs show the same order. A loop that sums to one million took 156 ms in the VM, 22 ms in QuickJS and 3 ms in Node. A JSON round trip of 1 MB took 80, 64 and 7 ms. Filtering 10,000 objects took 33, 20 and 0.15 ms. Recursive `fib(22)` was the one tie, 10 ms in the VM and 11 ms in QuickJS. A program that sorts or scans a few thousand records is still fast enough. One that crunches a large export is better done by a shell command, or by returning the data to a tool that can process it.
+
+## Permissions apply to each call
+
+A call from a program goes through the same executor as a direct call. The MCP tool's own `execute` asserts the permission action `<server>_<tool>`, and `fetch` asserts `webfetch` with the URL. From `packages/core/src/codemode/fetch.ts`:
+
+```ts
+// The same rules as the webfetch tool, so a URL denied there is denied here.
+yield* permission
+  .assert({
+    action: "webfetch",
+    resources: [url],
+```
+
+`fetch` also refuses a URL with credentials in it (`TypeError: fetch cannot be used with credentials in the URL.`), has a 30-second timeout, and checks each redirect against the deny rules. I added two deny rules and ran three programs:
+
+```jsonc
+{
+  "permissions": [
+    {
+      "action": "webfetch",
+      "resource": "http://127.0.0.1:8787/*",
+      "effect": "deny",
+    },
+    { "action": "github_delete_*", "resource": "*", "effect": "deny" },
+  ],
+}
+```
+
+The fetch to the denied URL failed with `Error: Permission denied: webfetch`. A tool whose rules deny every resource is left out of the catalog, so `tools.github.delete_file(...)` failed as an unknown tool, with `Did you mean tools.github.push_files?`. A read on the same server ran. An `ask` rule prompts while the program waits, and the prompt shows on the `execute` call's row.
+
+Under the default policy, which allows every action except reading `.env` files, nothing prompts. A program can call any MCP tool and fetch any URL.
+
+`fetch` follows redirects itself, up to 20, so that each new URL meets the deny rules again. It refuses a redirect to a scheme other than `http` or `https`, and it drops the `authorization`, `cookie` and `proxy-authorization` headers when a redirect leaves the origin. It does not check the host. Loopback, private and link-local addresses, cloud metadata endpoints included, are reachable unless a rule denies them, and the response is a stream the program can read in full. On a machine with credentials in reach, an `ask` rule on `webfetch` is the setting to add first.
+
+<OpenCodeCallPath />
+
+## Built-in tools stay outside
+
+By default only MCP tools and OpenCode's own `opencode` namespace live inside Code Mode. That namespace has 8 tools, such as `worktree_create`, `session_move` and `read_mcp_resource`. `read`, `edit` and `shell` stay direct tool calls, and the catalog prompt says so: "Every other tool you have is a normal tool call: call it directly, never inside `execute`."
+
+The opt-in flag `full_codemode` moves `read`, `edit`, `write`, `patch`, `shell` and `websearch` into the catalog, and removes `glob`, `grep` and `webfetch`. With `OPENCODE_FLAGS=full_codemode` the request carried 5 tools instead of 13. The flag's own description calls it "the full Code Mode work in progress". With it, a program that runs for more than 10 seconds becomes a background job and its result arrives later in the session. The tool result at the 10-second mark is `Script cm_... is still running; its result will arrive in this session.`, and the result comes back as a message of the form `<codemode id="cm_..." state="completed">`, cut to the same 2,000 lines or 50 KiB. A job that was still running when the server stopped reports `state="cancelled"` and "Interrupted by server restart."
+
+The library could do more here. `@opencode/codemode` can suspend a run to a JSON snapshot and resume it later, in the same process or another one built from the same version. Tools marked `Tool.idempotent` run again on resume with the same idempotency key, and tools marked `Tool.durable` keep running across the suspend. OpenCode's `execute` does not use this yet: a background job is a running fiber, not a saved state.
+
+## The config
+
+Code Mode is on unless you turn it off. Per server, set `codemode` to `false` to put that server's tools on the provider's native tool list. For GitHub's server:
+
+```jsonc title="opencode.jsonc"
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "servers": {
+      "github": {
+        "type": "local",
+        "command": ["github-mcp-server", "stdio"],
+        "environment": { "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_TOKEN}" },
+        "codemode": false,
+      },
+    },
+  },
+}
+```
+
+V2 puts servers under `mcp.servers`, not directly under `mcp`. To turn Code Mode off for every server, deny `execute`. `packages/core/src/tool.ts` then lists all Code Mode tools as direct tools:
+
+{/* oxfmt-ignore */}
+```ts
+const codeModeEnabled = !whollyDisabled("execute", rules)
+// Without Code Mode its tools would be unreachable, so expose them as direct tools instead.
+```
+
+```jsonc
+{
+  "permissions": [{ "action": "execute", "resource": "*", "effect": "deny" }],
+}
+```
+
+A deny rule can also be scoped to one agent under `agents.<id>.permissions`.
+
+Two defaults handle servers that run their own code mode. For a remote server, OpenCode adds `?codemode=false` to the URL, which asks servers such as Cloudflare's for their raw tools. It skips this for loopback hosts and for Google and Zoho endpoints, which reject unknown query parameters. For `executor mcp` and executor.sh URLs, `packages/core/src/plugin/mcp-codemode-defaults.ts` sets `codemode: false`, so one code mode does not run inside another.
+
+The next post compares this design with pi and Claude Code.
+
+## Sources
+
+- [OpenCode v2.3.2 release](https://github.com/anomalyco/opencode/releases/tag/v2.3.2) and [CHANGELOG.md](https://github.com/anomalyco/opencode/blob/v2.3.2/CHANGELOG.md)
+- [`@opencode/codemode` README](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/codemode/README.md) and [interpreter support checklist](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/codemode/interpreter-support.md)
+- [`packages/codemode/src/language/runtime/limits.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/codemode/src/language/runtime/limits.ts)
+- [`packages/core/src/codemode/tool.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/core/src/codemode/tool.ts), [`catalog.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/core/src/codemode/catalog.ts), [`instructions.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/core/src/codemode/instructions.ts) and [`fetch.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/core/src/codemode/fetch.ts)
+- [`packages/core/src/tool.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/core/src/tool.ts) and [`packages/core/src/tool/mcp.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/core/src/tool/mcp.ts)
+- [`packages/codemode/src/codemode/tool-runtime.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/codemode/src/codemode/tool-runtime.ts) and [`packages/codemode/src/language/vm.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/codemode/src/language/vm.ts)
+- [`packages/core/src/codemode/job.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/core/src/codemode/job.ts) and [`packages/core/src/automation/code.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/core/src/automation/code.ts)
+- [`@opencode/codemode` 2.3.2 on npm](https://www.npmjs.com/package/@opencode/codemode/v/2.3.2) and [`@earendil-works/pi-codemode` 1.6.0](https://www.npmjs.com/package/@earendil-works/pi-codemode/v/1.6.0)
+- [GitHub MCP server tool snapshots, v2.2.0](https://github.com/github/github-mcp-server/tree/v2.2.0/pkg/github/__toolsnaps__)
+- [`packages/core/src/tool-output.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/core/src/tool-output.ts)
+- [`packages/core/src/plugin/mcp-codemode-defaults.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/core/src/plugin/mcp-codemode-defaults.ts) and [`packages/core/src/mcp/client.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/core/src/mcp/client.ts)
+- [`packages/schema/src/mcp.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/schema/src/mcp.ts) and [`packages/schema/src/config/flag.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/schema/src/config/flag.ts)
+- [OpenCode docs: MCP servers](https://opencode.ai/docs/mcp-servers/) and [Permissions](https://opencode.ai/docs/permissions/)
+- [`@opencode/cli` on npm](https://www.npmjs.com/package/@opencode/cli)
+- [GitHub MCP server v2.2.0](https://github.com/github/github-mcp-server/tree/v2.2.0)
+- [tiktoken](https://github.com/openai/tiktoken)

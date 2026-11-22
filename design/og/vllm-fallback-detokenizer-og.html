@@ -1,0 +1,534 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>vllm-fallback-detokenizer-og</title>
+<link rel="stylesheet" href="card.css" />
+<svg width="0" height="0" style="position: absolute">
+  <defs>
+    <filter
+      id="marker"
+      x="-6%"
+      y="-6%"
+      width="112%"
+      height="112%"
+      color-interpolation-filters="sRGB"
+    >
+      <feTurbulence
+        type="fractalNoise"
+        baseFrequency=".8"
+        numOctaves="2"
+        seed="3"
+        result="g"
+      />
+      <feColorMatrix in="g" type="luminanceToAlpha" result="a" />
+      <feComposite
+        in="SourceGraphic"
+        in2="a"
+        operator="arithmetic"
+        k1="0"
+        k2="1"
+        k3="-.15"
+        k4="0"
+        result="i"
+      />
+      <feTurbulence
+        type="fractalNoise"
+        baseFrequency=".1"
+        numOctaves="2"
+        seed="8"
+        result="w"
+      />
+      <feDisplacementMap
+        in="i"
+        in2="w"
+        scale="2.8"
+        xChannelSelector="R"
+        yChannelSelector="G"
+      />
+    </filter>
+    <pattern id="plus" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path
+        d="M22 18v8M18 22h8"
+        stroke="#141413"
+        stroke-opacity=".13"
+        fill="none"
+      />
+    </pattern>
+    <pattern id="plus2" width="26" height="26" patternUnits="userSpaceOnUse">
+      <path
+        d="M13 9v8M9 13h8"
+        stroke="#141413"
+        stroke-opacity=".22"
+        fill="none"
+      />
+    </pattern>
+    <marker
+      id="pa"
+      viewBox="0 0 10 10"
+      refX="8"
+      refY="5"
+      markerWidth="7"
+      markerHeight="7"
+      orient="auto"
+    >
+      <path
+        d="M1 1L9 5L1 9"
+        fill="none"
+        stroke="#141413"
+        stroke-width="1.6"
+        stroke-linecap="round"
+      />
+    </marker>
+  </defs>
+</svg>
+<svg class="paper" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="url(#plus)" />
+</svg>
+<div class="brand">
+  <svg viewBox="2 2 44 44">
+    <path
+      fill="#141413"
+      d="M6 6 43 3 42.78 11.66 18.24 13.38 18.66 19.36 42.62 17.69 42 42 5 45 5.22 36.34 29.76 34.62 29.34 28.64 5.38 30.31Z"
+    /></svg
+  >SayBackend
+</div>
+<h1>
+  <span
+    ><b>vLLM fallback detokenizer:</b
+    ><span class="circled"
+      >69%<svg viewBox="0 0 200 100" preserveAspectRatio="none">
+        <path
+          d="M12 56C6 26 44 7 104 8C162 9 196 26 193 54C190 82 148 95 94 93C42 91 9 78 9 50C9 32 24 17 52 11"
+        /></svg
+    ></span>
+    less CPU</span
+  >
+</h1>
+<svg class="art" viewBox="0 0 480 400">
+  <text x="14" y="74" class="dim">before: copy all</text>
+  <text x="250" y="74" class="dim">after: copy the window</text>
+  <rect class="m" x="14" y="90" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="250" y="90" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="14" y="111" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="250" y="111" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="35" y="111" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="271" y="111" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="14" y="132" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="250.7"
+    y="132.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="35" y="132" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="271" y="132" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="56" y="132" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="292" y="132" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="14" y="153" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="250.7"
+    y="153.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="35" y="153" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="271.7"
+    y="153.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="56" y="153" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="292" y="153" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="77" y="153" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="313" y="153" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="14" y="174" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="250.7"
+    y="174.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="35" y="174" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="271.7"
+    y="174.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="56" y="174" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="292.7"
+    y="174.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="77" y="174" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="313" y="174" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="98" y="174" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="334" y="174" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="14" y="195" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="250.7"
+    y="195.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="35" y="195" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="271.7"
+    y="195.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="56" y="195" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="292.7"
+    y="195.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="77" y="195" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="313.7"
+    y="195.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="98" y="195" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="334" y="195" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="119" y="195" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="355" y="195" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="14" y="216" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="250.7"
+    y="216.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="35" y="216" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="271.7"
+    y="216.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="56" y="216" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="292.7"
+    y="216.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="77" y="216" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="313.7"
+    y="216.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="98" y="216" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="334.7"
+    y="216.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="119" y="216" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="355" y="216" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="140" y="216" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="376" y="216" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="14" y="237" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="250.7"
+    y="237.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="35" y="237" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="271.7"
+    y="237.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="56" y="237" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="292.7"
+    y="237.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="77" y="237" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="313.7"
+    y="237.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="98" y="237" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="334.7"
+    y="237.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="119" y="237" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="355.7"
+    y="237.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="140" y="237" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="376" y="237" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="161" y="237" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="397" y="237" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="14" y="258" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="250.7"
+    y="258.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="35" y="258" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="271.7"
+    y="258.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="56" y="258" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="292.7"
+    y="258.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="77" y="258" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="313.7"
+    y="258.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="98" y="258" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="334.7"
+    y="258.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="119" y="258" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="355.7"
+    y="258.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="140" y="258" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="376.7"
+    y="258.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="161" y="258" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="397" y="258" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="182" y="258" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="418" y="258" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="14" y="279" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="250.7"
+    y="279.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="35" y="279" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="271.7"
+    y="279.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="56" y="279" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="292.7"
+    y="279.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="77" y="279" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="313.7"
+    y="279.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="98" y="279" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="334.7"
+    y="279.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="119" y="279" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="355.7"
+    y="279.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="140" y="279" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="376.7"
+    y="279.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="161" y="279" width="17" height="16" fill="#c8c4b2" />
+  <rect
+    x="397.7"
+    y="279.7"
+    width="15.6"
+    height="14.6"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.4"
+  />
+  <rect class="m" x="182" y="279" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="418" y="279" width="17" height="16" fill="#f1cd80" />
+  <rect class="m" x="203" y="279" width="17" height="16" fill="#c8c4b2" />
+  <rect class="m" x="439" y="279" width="17" height="16" fill="#f1cd80" />
+  <text x="14" y="328" class="mono" font-size="22">7.46 s</text>
+  <text x="250" y="328" class="mono" font-size="22">2.30 s</text>
+  <text x="330" y="122" class="hand" transform="rotate(-4 330 122)">
+    a few tokens
+  </text>
+  <path
+    class="pen"
+    d="M440 134C452 170 440 200 428 214"
+    marker-end="url(#pa)"
+  />
+  <path class="line" d="M14 348H470" />
+  <text x="14" y="380" font-size="19">
+    replay CPU time, 32,768 tokens per request
+  </text>
+</svg>
+<div class="topic">
+  <svg viewBox="0 0 20 20">
+    <rect
+      x="2"
+      y="2"
+      width="16"
+      height="16"
+      fill="#f1cd80"
+      filter="url(#marker)"
+    /></svg
+  >Agents
+</div>
+<div class="sign">— Kamran</div>

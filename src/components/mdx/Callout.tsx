@@ -23,13 +23,11 @@ export default function Callout({
   return (
     <aside className={`mdx-callout mdx-callout-${type}`}>
       <header className="mdx-callout-header">
-        <span className="mdx-callout-icon" aria-hidden data-pagefind-ignore="">
+        <span className="mdx-callout-icon" aria-hidden>
           <Icon size={17} weight="duotone" />
         </span>
         <span className="mdx-callout-heading">
-          <span className="mdx-callout-kind" data-pagefind-ignore="">
-            {label}
-          </span>
+          <span className="mdx-callout-kind">{label}</span>
           {title ? <strong>{title}</strong> : null}
         </span>
       </header>

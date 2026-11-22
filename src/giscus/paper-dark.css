@@ -86,11 +86,7 @@ main {
 
   background: transparent;
   font-family:
-    'Instrument Sans',
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    'Segoe UI',
+    'Instrument Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
     sans-serif;
 }
 

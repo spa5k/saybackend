@@ -35,7 +35,7 @@ wasted on 530 junk URLs and thin tag archives that duplicate topic hubs.
 - Top pages by traffic: only 4 URLs, led by `/blog/2025-jan-kafka-docker-kraft-mode/`.
 - Crawled pages: 1,236 → **3XX redirect: 928 (75.1%)**, **404: 230 (18.6%)**, 200 OK: 78.
 - Site Audit: 378 errors; `Noindex page` 48, `Noindex follow page` 48, `Page has links
-to redirect` 64, `Redirected page has no incoming internal links` 59, `3XX redirect` 66.
+  to redirect` 64, `Redirected page has no incoming internal links` 59, `3XX redirect` 66.
 - Backlink profile is healthy (DR 51, 1.3K backlinks, 834 referring domains) — the
   traffic loss is not a link problem.
 

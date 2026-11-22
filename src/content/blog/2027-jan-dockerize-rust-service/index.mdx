@@ -1,0 +1,482 @@
+---
+title: "Dockerize a Rust Service: Small Image, Fast Rebuild"
+seoTitle: "Rust Dockerfile: Small Image and Fast Rebuilds, Measured"
+description: "A measured Dockerfile for a Rust service: multi-stage build, cache mounts against cargo-chef, release-profile sizes, base images, static musl, and signals."
+date: "2026-12-14"
+draft: true
+ogImage: "/images/2027-dockerize-rust-service-og.png"
+slug: "dockerize-rust-service"
+tags:
+  - "rust"
+  - "docker"
+  - "performance"
+---
+
+import { BeforeAfterBars } from "@/components/paper/BeforeAfterBars";
+import { NumberBand } from "@/components/paper/NumberBand";
+import { RankBars } from "@/components/paper/RankBars";
+import {
+  CargoCacheKeep,
+  Pid1Sigterm,
+  RustTwoStages,
+} from "@/components/react/blog/rustlaptop/RustFigures";
+
+This is part 5 of "Rust on a laptop". [Part 1](/blog/rust-target-directory-disk-space/) was about where the `target/` directory puts its gigabytes, and [part 4](/blog/faster-rust-dev-builds/) about faster dev builds. This part puts the same kind of service into a container image. It is the Rust version of my [Go Dockerfile checklist](/blog/golang-dockerfile-best-practices/), with the same measurements, and the answers are different in three places: dependency caching, the C library, and signals.
+
+The tags are Rust 1.100.0, the current stable release (`rust:1.100.0-trixie` and `rust:1.100.0-alpine3.24`), and the distroless images on Debian 13.
+
+The test service is small but real: axum 0.8.9 on tokio 1.54.1, sqlx 0.9.1 for Postgres with rustls, reqwest 0.13.5 for outbound HTTPS, and jiff 1.0.1 for time zones. It has a `health` subcommand and shuts down on `SIGTERM`. A release build compiles 173 crates. The machine is an Apple M4 with Docker Desktop, BuildKit 0.35.1, and all images are `linux/arm64`. Each time is the median of three runs.
+
+## Two stages: build in one, ship the other
+
+The simplest Dockerfile builds on the `rust` image and runs the binary from there:
+
+```dockerfile
+FROM rust:1.100.0-trixie
+WORKDIR /src
+COPY . .
+RUN cargo build --release --locked
+ENTRYPOINT ["/src/target/release/app"]
+```
+
+That image is the whole toolchain, the source, the registry download and the `target/` directory, with a 9 MB binary somewhere inside. A second stage copies only the binary out:
+
+<RustTwoStages />
+
+<NumberBand value="224×" note="same service">
+  smaller than the single-stage image: 2,147 MB against 9.6 MB, both unpacked.
+</NumberBand>
+
+The single-stage image is 730 MB compressed, and a registry stores and every node pulls that. The final image is the Dockerfile at the end of this post: a stripped static musl binary with mimalloc on `distroless/static`, 3.9 MB compressed. With a glibc binary on `distroless/cc` it is 45.9 MB, still 47 times smaller.
+
+## Caching the dependencies
+
+In a Go build, copying `go.mod` before the source and adding cache mounts is the whole story. In Rust the dependencies are most of the compile time, and Cargo has no command that builds only the dependencies. There are three common answers, and I timed all of them against a build with no caching at all.
+
+The first is the dummy `main.rs` trick: copy `Cargo.toml` and `Cargo.lock`, build an empty program to compile the dependencies into a layer, then copy the real source.
+
+```dockerfile
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && echo 'fn main() {}' > src/main.rs \
+    && cargo build --release --locked \
+    && rm -rf src
+COPY src src
+RUN touch src/main.rs && cargo build --release --locked
+```
+
+The `touch` is there because Cargo compares file times, and the copied `main.rs` can look older than the dummy build output. During the dummy build, Rust 1.100.0 prints `warning: unused dependency` for most of the dependencies, seven times for this crate.
+
+The second is [cargo-chef](https://github.com/LukeMathWalker/cargo-chef) 0.1.78. `cargo chef prepare` writes a recipe of the manifests and `cargo chef cook` builds the dependencies from it, so the layer survives source changes and handles workspaces without manual steps:
+
+```dockerfile
+FROM lukemathwalker/cargo-chef:0.1.78-rust-1.100.0-trixie AS chef
+WORKDIR /src
+
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS build
+COPY --from=planner /src/recipe.json recipe.json
+RUN cargo chef cook --release --locked --recipe-path recipe.json
+COPY . .
+RUN cargo build --release --locked
+```
+
+The third is BuildKit cache mounts for the registry and for `target/`, which keep Cargo's own caches between builds:
+
+```dockerfile
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/src/target \
+    cargo build --release --locked \
+    && cp target/release/app /app
+```
+
+`/usr/local/cargo` is `CARGO_HOME` in the official image. The `cp` is required: the mount is not part of the layer, so a binary left in `target/` is not there for `COPY --from=build`.
+
+<BeforeAfterBars
+  bleed
+  title="Rebuild time, no caching and with cache mounts"
+  unit="seconds"
+  beforeLabel="no caching"
+  afterLabel="cache mounts"
+  data={[
+    { label: "Edit one .rs file", before: 34.2, after: 4.9 },
+    { label: "Add one dependency", before: 32.6, after: 5.8 },
+  ]}
+  caption="Median of three builds on a shared machine; single runs varied by up to 20 s. A cold build took 33 to 38 s with every method, and a build with no change about 1.3 s."
+/>
+
+All three methods fix the edit case. The dummy trick, chef and cache mounts rebuilt one `.rs` change in 5.7, 4.3 and 4.9 s, because only the `app` crate compiles again. Adding a dependency is where they split:
+
+<RankBars
+  title="Rebuild after adding one dependency"
+  unit="seconds"
+  rows={[
+    { label: "no caching", value: 32.6, sub: "174 crates compiled" },
+    { label: "dummy main.rs", value: 35.3, sub: "175 crates compiled" },
+    { label: "cargo-chef", value: 34.1, sub: "175 crates compiled" },
+    { label: "cache mounts", value: 5.8, mark: "lilac", sub: "2 crates compiled" },
+    { label: "chef + cache mounts", value: 5.8, mark: "lilac", sub: "3 crates compiled" },
+  ]}
+  caption="The new dependency was humantime 2.4.0, which has no dependencies of its own. Median of three builds."
+/>
+
+A change to `Cargo.toml` or `Cargo.lock` invalidates the dependency layer, and a layer is all or nothing: the dummy trick and chef compile all 175 crates again for one new crate. A cache mount keeps the old `target/`, and Cargo compiles the new crate and the `app` crate.
+
+<CargoCacheKeep />
+
+Chef on top of cache mounts added nothing on my machine. Where it still matters is CI: cache mounts are not included in an exported build cache, so a fresh runner starts with empty mounts, while chef's dependency layer can be exported and pulled with `--cache-from`.
+
+## In CI, every builder starts empty
+
+On a hosted runner the BuildKit builder is new for each job. The cache mounts are empty, and the only thing that survives between jobs is what the job exports with `--cache-to` and the next one imports with `--cache-from`. To reproduce that on the laptop, I built each Dockerfile once on a new `docker-container` builder and exported its cache to a directory, then changed one string in `main.rs`, deleted the builder, created a new one, and built again from the export. These runs used a rebuild of the test service with the same crate versions, which compiles 172 crates instead of 173:
+
+```sh
+docker buildx create --name ci --driver docker-container
+docker buildx build --builder ci --cache-to type=local,dest=cache,mode=max .
+# edit src/main.rs, then: docker buildx rm ci, and create it again
+docker buildx build --builder ci --cache-from type=local,src=cache .
+```
+
+<RankBars
+  title="Rebuild after a one-line edit on a fresh builder"
+  unit="seconds"
+  rows={[
+    { label: "cache mounts", value: 99.5, mark: "rose", sub: "172 crates compiled, cache export 348 MB" },
+    { label: "cargo-chef", value: 36.9, mark: "lilac", sub: "1 crate compiled, cache export 547 MB" },
+  ]}
+  caption="Median of three edits, each on a new builder. The cold builds took 105 and 100 s on the same loaded machine, so compare the two rows with each other, not with the times above."
+/>
+
+The cache-mount build compiled every crate again. Its `target/` never was in a layer: the dependencies and the `app` crate compile in the same `RUN`, the edit invalidates that step, and the new builder has no mount to give Cargo. chef's `cook` step is its own layer with the compiled dependencies in it, its input is the recipe, which an edit to `main.rs` does not change, and so the new builder imported it and compiled one crate. Compiling that crate takes about 5 s, as the edit numbers earlier show, and the rest of the 37 s went to pulling the base images into the new builder and importing the cache.
+
+Two details decide whether this works. The export needs `mode=max`: the default, `mode=min`, exports only the layers of the final image, and chef's `cook` layer lives in the build stage, which the final image does not contain. And the cache has a size: 547 MB here, uploaded after every job that changes it and downloaded before every job. On GitHub Actions the `type=gha` backend stores it in the same Actions cache as everything else, where a repository gets 10 GB by default. For the laptop, cache mounts stay the better choice, because they also make a new dependency cheap, which no layer can.
+
+## Release profile and binary size
+
+All of these are one line in `[profile.release]` in `Cargo.toml`, or an environment variable such as `CARGO_PROFILE_RELEASE_STRIP=true` for a test. From the third row on, each row adds settings to `strip = true`:
+
+<RankBars
+  bleed
+  title="Binary size by release-profile setting"
+  unit="MB"
+  mono
+  rows={[
+    { label: "default release", value: 9.22, sub: "20.6 s" },
+    { label: "strip = true", value: 6.24, mark: "lilac", sub: "19.5 s" },
+    { label: 'lto = "thin"', value: 6.43, sub: "18.9 s" },
+    { label: 'lto = "fat"', value: 5.38, sub: "32.6 s" },
+    { label: "codegen-units = 1", value: 5.12, sub: "21.3 s" },
+    { label: 'opt-level = "s"', value: 5.51, sub: "14.2 s" },
+    { label: 'opt-level = "z"', value: 5.45, sub: "14.5 s" },
+    { label: 'panic = "abort"', value: 5.12, sub: "16.6 s" },
+    { label: "fat + cgu 1 + abort", value: 4.27, sub: "29.4 s" },
+    { label: 'fat + cgu 1 + abort + "z"', value: 3.22, mark: "lilac", note: "65% smaller", sub: "20.1 s" },
+  ]}
+  caption="glibc, linux/arm64. The small text is the clean build time with the crates already downloaded, median of three builds."
+/>
+
+The default release profile already drops debug information, so `strip = true` removes the symbol table, 3 MB here, at no cost. Thin LTO made the binary 0.2 MB larger. `codegen-units = 1` saved 1.1 MB for 1.8 s more build time. Fat LTO saved less and cost 13 s more. `opt-level = "s"` and `"z"` built faster than the default level 3 and gave smaller code, but they also change what the compiler optimizes for, so measure your own hot paths before you ship them.
+
+I leave `panic = "abort"` out of a server. tokio catches a panic in a task and reports it as an error for that task. With `abort`, a panic in one request handler ends the whole process.
+
+## glibc or musl
+
+A binary from `rust:1.100.0-trixie` links glibc dynamically, and it needs `libgcc_s` for unwinding. On an image without glibc it fails before `main` with a message that names neither:
+
+```text
+exec /app: no such file or directory
+```
+
+That is the text on `scratch`, `alpine:3.24` and `distroless/static`: the kernel cannot find the dynamic loader `/lib/ld-linux-aarch64.so.1`. On `distroless/base-nossl`, which has glibc but no `libgcc_s`, the loader says what is missing:
+
+```text
+/app: error while loading shared libraries: libgcc_s.so.1: cannot open shared object file: No such file or directory
+```
+
+This is why the Rust image in distroless is `cc` and not `base`. A crate that links OpenSSL (reqwest with `native-tls`, for example) also needs `libssl.so.3` at run time. On `cgr.dev/chainguard/glibc-dynamic` that binary failed with the same message for `libssl.so.3`. The test service uses rustls, so it needs no system TLS library.
+
+For a static binary there are two ways. The musl target is static by default. The `rust:1.100.0-alpine3.24` image has `aarch64-unknown-linux-musl` as its host target, so a plain `cargo build --release` gives a binary that `file` reports as `statically linked`. It was 6.10 MB stripped, against 6.24 MB for glibc. A crate with a C build step may need more packages: `tikv-jemallocator` needs `make`, and without it the build script fails with
+
+```text
+failed to execute command: No such file or directory (os error 2)
+```
+
+The other way keeps glibc and links it statically:
+
+```sh
+RUSTFLAGS="-C target-feature=+crt-static" \
+  cargo build --release --target aarch64-unknown-linux-gnu
+```
+
+The explicit `--target` keeps the flag away from build scripts and proc macros. The result is a `static-pie` binary, and the linker warns about every glibc function that loads modules at run time:
+
+```text
+Using 'getaddrinfo' in statically linked applications requires at runtime the shared libraries from the glibc version used for linking
+```
+
+std's `lookup_host` and the `whoami` crate (through sqlx) triggered it. On `scratch`, the static glibc binary still resolved a host name and completed an HTTPS request.
+
+## Choose the final image
+
+<RankBars
+  bleed
+  title="Final image with the same service"
+  unit="MB, unpacked"
+  mono
+  rows={[
+    { label: "scratch (musl)", value: 6.1 },
+    { label: "scratch + certs + zoneinfo", value: 7.3 },
+    { label: "chainguard/static (musl)", value: 8.3 },
+    { label: "distroless/static (musl)", value: 9.5, mark: "lilac", note: "my default" },
+    { label: "alpine:3.24 (musl)", value: 15.0 },
+    { label: "chainguard/glibc-dynamic", value: 16.7 },
+    { label: "distroless/cc (glibc)", value: 45.9 },
+    { label: "debian:trixie-slim (glibc)", value: 109.4 },
+  ]}
+  caption="Sum of the unpacked layers, with a 6.1 MB musl or 6.2 MB glibc binary. Compressed sizes in the same order: 2.9, 3.3, 3.4, 3.8, 7.1, 6.8, 13.9 and 33.1 MB."
+/>
+
+The base image did more than add bytes. I ran the same two subcommands on each image: one HTTPS request, and one time zone lookup.
+
+- `scratch` failed both. `distroless/static`, `chainguard/static` and `distroless/cc` passed both.
+- `alpine:3.24` and `chainguard/glibc-dynamic` have CA certificates but no time zone database.
+- `debian:trixie-slim` has the time zone database but no CA certificates.
+
+The errors on `scratch` came from the service, not from the kernel:
+
+```text
+error: builder error: unexpected error: No CA certificates were loaded from the system
+error: failed to find time zone `Europe/Berlin` since there is no time zone database configured
+```
+
+The rustls error comes from building the reqwest client, before any connection is made. The OpenSSL build on `debian:trixie-slim` failed later, at the handshake, with `certificate verify failed ... (unable to get local issuer certificate)`. On `scratch`, two `COPY` lines from the build stage fix both, for 1.2 MB:
+
+```dockerfile
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=build /usr/share/zoneinfo /usr/share/zoneinfo
+```
+
+The distroless and Chainguard images run as UID 65532 without a `USER` line. `scratch`, `alpine` and `debian` run as root unless you add one; on `scratch`, use a number, since there is no user database: `USER 65532:65532`.
+
+`distroless/static` with a musl binary is my default: it has the certificates, the time zone data and the user, for 3.4 MB over the binary. `distroless/cc` is the choice for a crate that must link a C library dynamically, at 4.8 times the size. A musl binary needs one more change, though, and the size chart does not show it.
+
+The cost of an image without a shell shows up the first time something goes wrong in production: there is no `sh` to `exec` into. distroless publishes a `:debug` variant of each image for that, and `gcr.io/distroless/static-debian13:debug-nonroot` has a busybox shell in `/busybox`, with `wget` and `nc`, and still runs as UID 65532. The release image can stay as it is. An `ARG` before the first `FROM` lets the same Dockerfile build either one:
+
+```dockerfile
+ARG BASE=gcr.io/distroless/static-debian13:nonroot
+# ... build stage as in the final Dockerfile below ...
+FROM ${BASE}
+COPY --from=build /app /app
+```
+
+```sh
+docker build --build-arg BASE=gcr.io/distroless/static-debian13:debug-nonroot -t app:debug .
+docker run --rm -it --entrypoint sh app:debug
+```
+
+## The musl allocator
+
+musl brings its own `malloc`, and a web server allocates on every request. I loaded `GET /items`, which builds and serializes a 50-item JSON list, with oha 1.17.0: 64 connections for 15 s after a 3 s warm-up. The server had 4 CPUs (`--cpuset-cpus 0-3`), and oha ran on the other six.
+
+<RankBars
+  bleed
+  title="Throughput by C library and allocator"
+  unit="thousand requests per second"
+  rows={[
+    { label: "glibc", value: 90.5, sub: "p50 0.66 ms" },
+    { label: "musl, default malloc", value: 12.1, mark: "rose", sub: "p50 5.26 ms" },
+    { label: "musl + mimalloc", value: 137.0, mark: "lilac", note: "11× musl", sub: "p50 0.44 ms" },
+    { label: "musl + jemalloc", value: 130.7, sub: "p50 0.47 ms" },
+  ]}
+  caption="Same code and profile, one endpoint, median of three 15 s runs. The gap depends on how much your handlers allocate."
+/>
+
+The plain musl build served 7.5 times fewer requests than the glibc build. With mimalloc it served 1.5 times more than glibc. The change is one dependency and two lines in `main.rs`:
+
+```toml
+[dependencies]
+mimalloc = "0.1.52"
+```
+
+```rust
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+```
+
+mimalloc compiles its C code with the `gcc` that the Alpine Rust image already has, and it added 76 KB to the binary. jemalloc was close behind, but it needs `make` in the build image and added 394 KB.
+
+## Building for amd64 on an arm64 Mac
+
+Many servers are x86-64, and the laptop is arm64. `docker buildx build --platform linux/amd64` with the Dockerfile as it is runs the whole build stage, rustc included, as amd64 code under Docker Desktop's emulation. A Rust compiler is close to the worst case for that. The alternative is to run the build stage on the native platform and let rustc cross-compile, which needs a target and a C toolchain for the C parts of the dependencies (ring, aws-lc-sys and mimalloc in this service). [tonistiigi/xx](https://github.com/tonistiigi/xx) 1.10.0 sets both up in a few lines:
+
+```dockerfile
+# syntax=docker/dockerfile:1
+FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.10.0 AS xx
+
+FROM --platform=$BUILDPLATFORM rust:1.100.0-alpine3.24 AS build
+COPY --from=xx / /
+RUN apk add --no-cache clang lld
+ARG TARGETPLATFORM
+RUN xx-apk add --no-cache musl-dev gcc
+WORKDIR /src
+COPY . .
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/src/target,id=target-$TARGETPLATFORM \
+    xx-cargo build --release --locked \
+    && cp target/$(xx-cargo --print-target-triple)/release/app /app \
+    && xx-verify --static /app
+```
+
+`FROM --platform=$BUILDPLATFORM` keeps the build stage on arm64. `xx-apk` installs the target's musl headers and libraries into a sysroot, `xx-cargo` adds the Rust target with rustup and sets the linker and the C compiler for it, and `xx-verify --static` fails the build if the binary has the wrong architecture or links anything dynamically. The `id` on the target mount keeps one `target/` per platform, so an arm64 and an amd64 build do not overwrite each other's files. The final stage is the same as before.
+
+<RankBars
+  title="Cold image build of the service, by platform and method"
+  unit="seconds"
+  rows={[
+    { label: "arm64, native", value: 91.8 },
+    { label: "arm64, through xx", value: 93.1 },
+    { label: "amd64, cross-compiled with xx", value: 103.0, mark: "lilac" },
+    { label: "amd64, emulated", value: 714.3, mark: "rose", note: "7.8× native" },
+  ]}
+  caption="One cold build each on a new docker-container builder, with other load on the machine. Both amd64 images ran the time zone lookup under emulation and reported amd64."
+/>
+
+The emulated build took 12 minutes, the cross build 1 minute 43 seconds, and the cross build for arm64 cost only 1.3 s more than the plain native one. The same Dockerfile serves both platforms, so `--platform linux/amd64,linux/arm64` builds a multi-platform image in one command, with both builds on native code.
+
+## Signals: Rust as PID 1
+
+`ENTRYPOINT ["/app"]` makes the binary PID 1. Linux does not apply a default signal action to PID 1 in its namespace: a signal it has no handler for is dropped. A Go binary installs its own `SIGTERM` handler at startup, so it exits anyway. A Rust binary installs none, and `docker stop` then waits for its timeout and sends `SIGKILL`. I timed `docker stop -t 10` on the test service, with the handler switched off by an environment variable:
+
+<RankBars
+  title="Time for docker stop -t 10 to return"
+  unit="seconds"
+  rows={[
+    { label: "exec form, SIGTERM handler", value: 0.09, mark: "lilac", sub: "exit code 0" },
+    { label: "exec form, no handler", value: 10.12, mark: "rose", sub: "killed, exit code 137" },
+    { label: "no handler, docker run --init", value: 0.08, sub: "exit code 143" },
+    { label: "shell form, debian slim", value: 10.12, mark: "rose", sub: "killed, exit code 137" },
+    { label: "shell form, alpine", value: 0.08, sub: "exit code 0" },
+  ]}
+  caption="Median of three runs. Both shell-form rows have the SIGTERM handler."
+/>
+
+With `--init`, Docker runs its `tini` as PID 1, the binary is an ordinary process, and the kernel's default action ends it: exit code 143 is 128 plus signal 15. That stops the container fast, but in-flight requests are cut off. The handler is the real fix, and with tokio and axum it is a few lines:
+
+```rust
+async fn shutdown_signal() {
+    use tokio::signal::unix::{SignalKind, signal};
+    let mut term = signal(SignalKind::terminate()).expect("SIGTERM handler");
+    tokio::select! {
+        _ = term.recv() => {}
+        _ = tokio::signal::ctrl_c() => {}
+    }
+}
+
+axum::serve(listener, app)
+    .with_graceful_shutdown(shutdown_signal())
+    .await?;
+```
+
+`with_graceful_shutdown` stops accepting connections and waits for the open requests to finish. The service logged its shutdown line and exited with 0.
+
+The shell form, `ENTRYPOINT /app`, starts `/bin/sh -c /app`. On Debian the shell stays as PID 1 and does not pass `SIGTERM` on, so even the binary with a handler was killed after 10 s. Alpine's shell replaced itself with the binary, and the handler ran. The exec form does not depend on the shell.
+
+<Pid1Sigterm />
+
+## HEALTHCHECK without a shell
+
+The final image has no shell and no `curl`, so the check is the exec form and runs the binary itself. The `health` subcommand opens a TCP connection to `127.0.0.1:8080`, sends `GET /healthz`, and exits with 0 for a `200` and 1 for anything else. It needs no HTTP client crate.
+
+```dockerfile
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --start-interval=1s \
+    CMD ["/app", "health"]
+```
+
+`--start-interval` makes Docker check every second during the start period, so the container reports `healthy` soon after it starts, and then every 30 seconds. Kubernetes ignores the instruction; use the same subcommand in an `exec` probe there.
+
+## Common mistakes
+
+- A glibc binary on `scratch`, `alpine` or `distroless/static`: `exec /app: no such file or directory`.
+- A glibc binary on `distroless/base-nossl`: no `libgcc_s.so.1`. Use `distroless/cc`.
+- `scratch` without `/etc/ssl/certs/ca-certificates.crt`, or `debian:*-slim` without the `ca-certificates` package.
+- Expecting cargo-chef or the dummy trick to make a new dependency cheap. They rebuild every crate.
+- A cache mount on `target/` and then `COPY --from=build /src/target/release/app`. The mount is gone at that point, and the build fails with `"/src/target/release/app": not found`.
+- `panic = "abort"` in a server, where one panicking handler then ends the process.
+- Relying on cache mounts in CI with a fresh builder per job: every edit compiles all crates again. Export chef's layers with `--cache-to ... mode=max`.
+- `--cache-to` with the default `mode=min`, which leaves out the build stage and so the compiled dependencies.
+- `--platform linux/amd64` on an arm64 machine without `FROM --platform=$BUILDPLATFORM`: rustc runs emulated, 7.8 times slower here.
+- A musl binary with the default allocator: 12,100 requests per second here, against 137,000 with mimalloc.
+- No `SIGTERM` handler in a binary that runs as PID 1: every `docker stop` waits for the timeout and ends with exit code 137.
+
+## The Dockerfile
+
+```dockerfile
+# syntax=docker/dockerfile:1
+
+FROM rust:1.100.0-alpine3.24 AS build
+WORKDIR /src
+COPY . .
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/src/target \
+    cargo build --release --locked \
+    && cp target/release/app /app
+
+FROM gcr.io/distroless/static-debian13:nonroot
+COPY --from=build /app /app
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --start-interval=1s \
+    CMD ["/app", "health"]
+ENTRYPOINT ["/app"]
+```
+
+With this in `Cargo.toml`, and the `#[global_allocator]` lines from the allocator section in `main.rs`:
+
+```toml
+[dependencies]
+mimalloc = "0.1.52"
+
+[profile.release]
+strip = true
+```
+
+And this `.dockerignore`, which keeps the local `target/` directory out of the build context, along with secrets:
+
+```text
+target/
+.git
+.env
+Dockerfile*
+```
+
+It assumes a single binary crate named `app` with a `health` subcommand, and a `SIGTERM` handler as in the section on signals. Change the names to match your project. The result is the 9.6 MB image from the size chart; it runs as UID 65532, makes HTTPS requests, resolves time zones and reports `healthy`. If a dependency must link a C library dynamically, build on `rust:1.100.0-trixie` and ship on `gcr.io/distroless/cc-debian13:nonroot`. For CI without a persistent builder, put cargo-chef's planner and cook stages in front of the build stage.
+
+## Sources
+
+- [Rust 1.100.0 tags of the official rust image](https://github.com/docker-library/official-images/blob/master/library/rust)
+- [docker-rust: Dockerfile for trixie](https://github.com/rust-lang/docker-rust/blob/master/stable/trixie/Dockerfile)
+- [docker-rust: Dockerfile for Alpine 3.24](https://github.com/rust-lang/docker-rust/blob/master/stable/alpine3.24/Dockerfile)
+- [cargo-chef README](https://github.com/LukeMathWalker/cargo-chef/blob/main/README.md)
+- [Cargo profiles](https://doc.rust-lang.org/cargo/reference/profiles.html)
+- [Cargo environment variables](https://doc.rust-lang.org/cargo/reference/environment-variables.html)
+- [Static and dynamic C runtimes](https://doc.rust-lang.org/reference/linkage.html#static-and-dynamic-c-runtimes)
+- [Dockerfile reference: RUN --mount and HEALTHCHECK](https://docs.docker.com/reference/dockerfile/)
+- [Optimize cache usage in builds](https://docs.docker.com/build/cache/optimize/)
+- [Cache storage backends: local, gha and mode=max](https://docs.docker.com/build/cache/backends/)
+- [GitHub Actions: dependency caching limits](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching)
+- [docker container stop](https://docs.docker.com/reference/cli/docker/container/stop/)
+- [Distroless cc image](https://github.com/GoogleContainerTools/distroless/blob/main/cc/README.md)
+- [Distroless base and static images](https://github.com/GoogleContainerTools/distroless/blob/main/base/README.md)
+- [Chainguard static image](https://images.chainguard.dev/directory/image/static/overview)
+- [tokio::signal::unix](https://docs.rs/tokio/latest/tokio/signal/unix/index.html)
+- [axum graceful shutdown](https://docs.rs/axum/latest/axum/serve/struct.Serve.html#method.with_graceful_shutdown)
+- [reqwest 0.13 TLS features](https://docs.rs/reqwest/latest/reqwest/#optional-features)
+- [jiff time zone database](https://docs.rs/jiff/latest/jiff/tz/index.html)
+- [oha](https://github.com/hatoo/oha)
+- [tonistiigi/xx: Dockerfile cross-compilation helpers](https://github.com/tonistiigi/xx)
+- [Docker: multi-platform builds and cross-compilation](https://docs.docker.com/build/building/multi-platform/)
+- [distroless: debug images](https://github.com/GoogleContainerTools/distroless#debug-images)
+- [pid_namespaces(7): signals and the init process](https://man7.org/linux/man-pages/man7/pid_namespaces.7.html)
+- [os/signal: default behavior of signals in Go programs](https://pkg.go.dev/os/signal)
+- [mimalloc crate](https://docs.rs/mimalloc/latest/mimalloc/)
+- [tikv-jemallocator crate](https://docs.rs/tikv-jemallocator/latest/tikv_jemallocator/)

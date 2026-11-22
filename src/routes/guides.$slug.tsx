@@ -103,7 +103,6 @@ function GuidePage() {
       {/* Outrank HTML comes from our own Outrank account at build time. */}
       <div
         className="post-body page-frame"
-        data-pagefind-body
         dangerouslySetInnerHTML={{ __html: guide.html }}
       />
       {moreGuides.length ? (

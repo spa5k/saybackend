@@ -60,7 +60,7 @@ export function LinesToEvent() {
             key={line.text}
             x={line.x + 12}
             y={51 + index * 30}
-            style={{ fill: '#141413', fontSize: 11 }}
+            style={{ fill: 'var(--ink)', fontSize: 11 }}
           >
             {line.text}
           </text>
@@ -98,7 +98,7 @@ export function LinesToEvent() {
                 x={x + part.width / 2}
                 y="123"
                 textAnchor="middle"
-                style={{ fill: '#141413' }}
+                style={{ fill: 'var(--ink)' }}
               >
                 {part.name}
               </text>

@@ -1,0 +1,375 @@
+---
+title: "Rust on a laptop: where the disk goes and how to get it back"
+seoTitle: "Rust target directory disk space: measured, then cut by 30%"
+description: "I measured a Rust target directory part by part, then tested each fix alone: debug info, split-debuginfo, incremental, build-dir, a shared target, rust-analyzer and cleanup tools."
+date: "2026-12-02"
+draft: true
+ogImage: "/images/2027-rust-target-disk-space-og.png"
+slug: "rust-target-directory-disk-space"
+tags:
+  - "rust"
+  - "tooling"
+  - "performance"
+---
+
+import { BeforeAfterBars } from "@/components/paper/BeforeAfterBars";
+import { NumberBand } from "@/components/paper/NumberBand";
+import { RankBars } from "@/components/paper/RankBars";
+import { SegmentBar } from "@/components/paper/SegmentBar";
+import {
+  BuildDirUnits,
+  SharedTargetLock,
+  UnpackedObjects,
+} from "@/components/react/blog/rustlaptop/RustFigures";
+
+This is the first post of a series about Rust on a laptop. Here I measure where the disk space goes, then try each common fix alone and measure it again. The other posts build on these numbers.
+
+The test project is [miniserve](https://github.com/svenstaro/miniserve) 0.35.0 at commit `68b6f063`, a file server built on actix-web. A plain `cargo build` compiles 293 crates. The toolchain is Rust 1.100.0, the current stable release, with a few comparisons on nightly 2026-11-20 (1.102.0-nightly). The machine is an Apple M4 with 10 cores on macOS. Times are medians of three runs.
+
+All sizes are allocated blocks, with hard links counted once. On macOS, Cargo copies the final binary from the build directory to `target/debug/` with an APFS clone, which uses no new blocks, so I count it once too. `du` counts it twice.
+
+## One day of commands: 3.9 GB
+
+I started from an empty `target/` and ran what a normal day runs, in this order: `cargo build`, `cargo check`, `cargo test --no-run`, `cargo clippy --all-targets`, the two commands that rust-analyzer runs, and `cargo build --release`.
+
+<RankBars
+  title="What each command added to target/"
+  unit="MB"
+  mono
+  rows={[
+    { label: "cargo build", value: 1283 },
+    { label: "cargo check", value: 210 },
+    { label: "cargo test --no-run", value: 1511, mark: "rose", note: "the largest" },
+    { label: "cargo clippy --all-targets", value: 241 },
+    { label: "rust-analyzer", value: 51 },
+    { label: "cargo build --release", value: 613 },
+  ]}
+  caption="miniserve 0.35.0, Rust 1.100.0, default profiles. Total 3,909 MB."
+/>
+
+The test build is the largest step. It links 19 test executables, and each one carries its own copy of the code it uses. It also compiled 164 crates, and 90 of them were crates that `cargo build` had compiled already. Dev-dependencies turn on more features in shared dependencies. A crate with other features is a different build, and so is every crate that depends on it: tokio, serde and actix-web were all compiled a second time. At the end of the day, 104 of the 326 packages in `target/debug` had more than one compiled copy.
+
+`cargo check` writes metadata only, so its copy of each dependency is small. Clippy checks the workspace crate again with its own compiler driver, and `--all-targets` adds the dev-dependencies in check mode. The release build is a separate directory with its own copy of every dependency.
+
+## Why the test build compiles the same crates again
+
+miniserve uses edition 2024, so Cargo resolves features with resolver 3, which behaves like resolver 2 here. Under that resolver, the features that dev-dependencies ask for apply only to commands that build tests, examples or benchmarks. `cargo build` and `cargo test` therefore see two different feature sets for the same dependency graph. Nightly Cargo prints the units of a command with their features, and a diff of the two outputs shows exactly what changed:
+
+```sh
+cargo +nightly build --unit-graph -Zunstable-options > build.json
+cargo +nightly test --no-run --unit-graph -Zunstable-options > test.json
+```
+
+Fourteen units in ten packages differed. `rustls` and `tokio-rustls` gained `tls12`, through `reqwest` in the dev-dependencies. `syn` gained `visit-mut`, through `async-trait`, which only the dev-dependency `reqwest_dav` uses. `chrono` gained `serde`, and `aho-corasick`, `regex-automata`, `smallvec`, `getrandom` and `crossbeam-utils` gained one to three features each. None of these is large. But the feature list is part of the hash of a unit, and the hash of a unit includes the hashes of its dependencies. `syn` sits under every proc macro in the graph, so one extra feature on `syn` gives `serde_derive`, `tokio-macros` and every crate that uses them a new hash.
+
+The usual fix is a workspace-hack crate: one crate that every member depends on, which asks for the union of the features that any command needs. [cargo-hakari](https://docs.rs/cargo-hakari) 0.9.39 generates it and keeps it current. For a single-crate project the same effect needs only a few lines in `Cargo.toml`, and I tried that on miniserve. I added the new features of the eight library packages to a `[target.'cfg(all())'.dependencies]` table, because Cargo rejects a second entry for a dependency in the plain `[dependencies]` table, and I added `syn` with `visit-mut` to `[build-dependencies]`, where the proc macros resolve their features:
+
+```toml
+[target.'cfg(all())'.dependencies]
+rustls = { version = "0.23", default-features = false, features = ["tls12"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["tls12"] }
+chrono = { version = "0.4", default-features = false, features = ["serde"] }
+# ... and the other five
+
+[build-dependencies]
+syn = { version = "3", features = ["full", "visit-mut"] }
+```
+
+Then I ran `cargo build` and `cargo test --no-run` from an empty `target/`, once with the original manifest and once with the new one:
+
+<BeforeAfterBars
+  title="cargo test --no-run straight after cargo build"
+  unit="MB added"
+  beforeLabel="original features"
+  afterLabel="unified features"
+  data={[{ label: "target/ growth", before: 1444, after: 751 }]}
+  caption="miniserve 0.35.0, Rust 1.100.0. The test build compiled 164 crates before, 79 of them already built. After, it compiled 91, and 6 of them were already built, miniserve itself among them."
+/>
+
+The 85 crates that remain are the dev-dependencies and the crates that only they use, and they have to be compiled once in any case. The cost is on the other side: `cargo build` compiled the same 293 crates and wrote 17 MB more, and the release binary now gets features that only the tests asked for. For a workspace where `cargo test` and `cargo build` alternate all day, I take that trade. For a binary that ships with a minimal feature set, I do not.
+
+<SegmentBar
+  bleed
+  title="target/ after one day, by kind of file (MB)"
+  unit="MB"
+  segments={[
+    { label: "rlib", size: 1237, mark: "lilac" },
+    { label: "rmeta", size: 787, mark: "blue" },
+    { label: "incremental", size: 637, mark: "amber" },
+    { label: "executables", size: 439, mark: "sage" },
+    { label: ".o files", size: 436, mark: "rose" },
+    { label: "macros, build scripts", size: 328, mark: "sand" },
+    { label: "other", size: 44, mark: "sand" },
+  ]}
+  caption="rlib: compiled libraries. rmeta: metadata for check and pipelined builds. .o files: object files kept next to the rlib for debug info. Macros and build scripts: proc-macro dylibs, build script binaries and their output."
+/>
+
+<BuildDirUnits />
+
+## The new layout in Cargo 1.100
+
+Cargo 1.100 changed the layout of the build directory. The old `target/debug/deps/` and `.fingerprint/` are gone. Each unit, which is one crate built one way, now has its own folder at `target/debug/build/<package>/<hash>/`, with `out/`, `fingerprint/` and, for a build script, `run/`. The folder for a package shows each copy at a glance:
+
+```sh
+ls target/debug/build/syn/
+```
+
+The layout is not a stable interface. Tools that read it break, and one of them is in the cleanup section below.
+
+## Where the debug info is
+
+A cold `cargo build` with the defaults wrote 1,283 MB. With `debug = 0` for everything, it wrote 773 MB. So 40% of a dev build is debug info.
+
+On macOS the default `split-debuginfo` is `unpacked`. The DWARF data stays in the object files, and the binary only points at them. For each dependency, rustc keeps the `.o` files on disk next to the `.rlib` that already contains the same objects. In this build that was 224 MB of object files that exist twice.
+
+<UnpackedObjects />
+
+There is a second cost in Cargo 1.100. The workspace crate gets new object files on each edit, and the old ones stay in its `out/` folder. After the first build, that folder held 256 `.o` files. After ten one-line edits it held 2,816, and `target/` had grown from 1,310 MB to 1,610 MB. Cargo 1.101 empties the `out` folder of a unit before it compiles the unit ([cargo#17675](https://github.com/rust-lang/cargo/pull/17675)). On nightly 2026-11-20 the count stayed at 256 for the same ten edits. On 1.100, `cargo clean -p miniserve` removes the pile and keeps the dependencies.
+
+## Each fix alone
+
+For each row I changed one setting, deleted `target/`, and ran a cold `cargo build`. Then I timed three rebuilds, each after a one-line change to `src/main.rs`.
+
+<RankBars
+  bleed
+  title="target/ after a cold cargo build, one change at a time"
+  unit="MB"
+  mono
+  rows={[
+    { label: "defaults", value: 1283, sub: "cold 26.9 s, edit 1.32 s" },
+    { label: 'deps: debug = "line-tables-only"', value: 1277, sub: "cold 24.4 s, edit 1.29 s" },
+    { label: 'split-debuginfo = "packed"', value: 1246, sub: "cold 33.1 s, edit 5.81 s", mark: "rose" },
+    { label: "incremental = false", value: 1196, sub: "cold 25.1 s, edit 2.98 s", mark: "rose" },
+    { label: 'split-debuginfo = "off"', value: 1060, sub: "cold 26.8 s, edit 1.50 s, no line numbers", mark: "rose" },
+    { label: 'debug = "line-tables-only"', value: 1031, sub: "cold 21.4 s, edit 1.39 s", mark: "blue" },
+    { label: "deps: debug = 0", value: 896, sub: "cold 22.0 s, edit 1.30 s", mark: "blue" },
+    { label: "both of the last two", value: 809, sub: "cold 24.1 s, edit 1.20 s *", mark: "lilac", note: "my pick" },
+    { label: "debug = 0", value: 773, sub: "cold 22.1 s, edit 1.25 s" },
+  ]}
+  caption="Rust 1.100.0 on an Apple M4. Sizes are the same on every run; times are medians of three. 'deps' means [profile.dev.package.&quot;*&quot;]. * Edit time from five rebuilds that alternated with the defaults: 1.20 s against 1.48 s."
+/>
+
+**Line tables for dependencies saved 6 MB.** The reason is the order of precedence of profile overrides. `[profile.dev.package."*"]` wins over `[profile.dev.build-override]`, and Cargo's built-in build override turns debug info off for build scripts and proc macros. So `package."*"` with `line-tables-only` adds line tables to those, and the rlibs shrink by about as much as the build scripts and macros grow. `debug = 0` for dependencies has no such side effect and saved 30%.
+
+**`split-debuginfo = "off"` is not a free 17%.** On macOS it skips `dsymutil`, and rustc deletes the object files. The binary then has no debug info for your own code. In a small test program, a panic printed the frame `hello::main` with no file and line, where the default printed `./src/main.rs:2:84`.
+
+**`packed` costs time on every edit.** It runs `dsymutil` at each link and writes a 187 MB `.dSYM` bundle. The edit loop went from 1.32 s to 5.81 s.
+
+**Incremental off** saved 87 MB and made each rebuild after an edit more than twice as slow. That is the wrong trade on a laptop.
+
+`debug = "line-tables-only"` keeps file and line numbers in backtraces and drops variables and types. It is the default of the dev profile on nightly Cargo since 2026-11-14 ([cargo#17518](https://github.com/rust-lang/cargo/pull/17518)). For dependencies I go one step further, to `debug = 0`. Backtraces then lose the file and line inside dependency frames, and keep them for your own code.
+
+## On Linux the debug info goes into the binary
+
+On Linux the default `split-debuginfo` is `off`. The DWARF data stays in the object files inside each rlib, and the linker copies all of it into the executable. No object files are kept next to the rlibs, but every link writes the debug info of the whole dependency graph again. I ran the same cold builds in a `rust:1.100.0-trixie` container (linux/arm64, Docker on the same Mac), with the target directory inside the container's own filesystem:
+
+<RankBars
+  title="target/ after a cold cargo build on Linux"
+  unit="MB"
+  mono
+  rows={[
+    { label: "defaults", value: 1554, sub: "binary 194 MB", mark: "rose" },
+    { label: 'split-debuginfo = "unpacked"', value: 1440, sub: "binary 73 MB, 256 .dwo files" },
+    { label: "deps: debug = 0", value: 996, sub: "binary 94 MB", mark: "blue" },
+    { label: "both settings from my pick", value: 842, sub: "binary 57 MB", mark: "lilac", note: "−46%" },
+    { label: "debug = 0", value: 803, sub: "binary 41 MB" },
+  ]}
+  caption="miniserve 0.35.0, Rust 1.100.0, GNU ld. One cold build per row; sizes do not change between runs."
+/>
+
+The default build is 21% larger than on macOS, and the binary is 194 MB of it. `unpacked` writes the debug info to `.dwo` files next to the objects, 256 of them for the workspace crate alone, and shrinks the binary to 73 MB. The debug info is still on disk, so `target/` drops by only 114 MB. The same two profile lines as on macOS save more here, 46% against 37%, because the binary loses the debug info of every dependency. [Part 4](/blog/faster-rust-dev-builds/) measures what the same lines do to the rebuild time.
+
+## Nightly: metadata stored once
+
+Cargo passes `--emit=metadata,link` to rustc for pipelined builds, so every library has an `.rmeta` file and the same metadata again inside its `.rlib`. On nightly, Cargo now passes `-Zembed-metadata=no` by default, and the metadata is stored only in the `.rmeta` file. Stable Cargo does not have this option.
+
+On nightly 2026-11-20, a cold build wrote 775 MB. With `-Zembed-metadata=yes` to turn the old behavior back on, it wrote 938 MB. The rlibs went from 364 MB to 200 MB.
+
+## build-dir moves the files, it does not remove them
+
+`build.build-dir`, stable since Cargo 1.91, puts the intermediate files in a different directory from the final artifacts:
+
+```sh
+CARGO_BUILD_BUILD_DIR='/path/to/cache/build/{workspace-path-hash}' cargo build
+```
+
+After a cold build, `target/` held 52 MB: the binary and its `.d` file. The build directory held 1,288 MB. The total is the same as before. What it gives you is one place for all build caches, outside every repository, so one `rm -rf` clears them and tools that scan the repository skip them. The build time did not change: 37.1 s cold, against 37.3 s for the defaults in the same series of runs, on a busier machine than the table above.
+
+## RUSTFLAGS keeps a second copy of everything
+
+Flags are part of the unit hash too. I built miniserve, then built it again with `RUSTFLAGS=--cfg=foo`, a flag that changes nothing in the code. Cargo compiled all 293 crates again into new folders, and `target/` went from 1,275 MB to 2,449 MB. A plain `cargo build` after that compiled nothing and finished in 0.52 s, because the first copy was still there:
+
+```sh
+$ ls target/debug/build/tokio/
+337300297ff11647  995555b4016c1250
+```
+
+So two sets of flags do not make Cargo rebuild on every switch, but each set costs a full copy of the build. The usual source is two tools with different environments: a `RUSTFLAGS` export in the shell profile that the editor never sees, a `RUSTFLAGS` variable, which replaces `build.rustflags` from `.cargo/config.toml` instead of adding to it, or a script that sets flags for one command. `cargo build -v` prints the flags of each rustc call, and two hash folders for every package in `target/debug/build/` are the sign on disk.
+
+## One shared target directory
+
+With two checkouts of the same commit and one `CARGO_TARGET_DIR`, the second `cargo build` compiled nothing. The shared directory held 1,289 MB, against 2,578 MB for two separate ones. Cargo hashes a workspace member by its path relative to the workspace root, so both checkouts map to the same units.
+
+That same hash is a trap. I changed one string in checkout B and built it. Then `cargo build` in checkout A, which still had the old string, finished in 0.29 s, and `target/debug/miniserve` contained B's string. The fingerprint for the unit lists B's source files, and those had not changed since B's build. A shared target directory for two checkouts of one project gives you the other checkout's binary.
+
+The second cost is the lock. Cargo 1.100 takes an exclusive lock on the build directory of a profile for the whole command. I started a cold `cargo build` in checkout A and, 2 s later, `cargo check` in checkout B:
+
+```text
+    Blocking waiting for file lock on build directory
+```
+
+<BeforeAfterBars
+  title="cargo check in checkout B"
+  unit="seconds"
+  beforeLabel="own target dir"
+  afterLabel="shared, A builds"
+  data={[{ label: "cargo check", before: 31.4, after: 48.5 }]}
+  caption="Medians of three. The build in A took 35.9 s, and the check in B waited for all of it."
+/>
+
+Nightly Cargo has `-Zfine-grain-locking`, which locks single units. With it, B waited only on units that A was building at the same moment, such as `syn` and `serde_derive`. But both commands shared the ten cores, and B still took 41.7 s against 19.7 s alone.
+
+<SharedTargetLock />
+
+[Part 2](/blog/rust-build-cache-worktrees-mbx/) of this series shares one build cache across worktrees without the stale binary and without one lock for everything.
+
+## rust-analyzer
+
+rust-analyzer 1.100.0 runs two Cargo commands. On start it builds only the build scripts and proc macros, with `cargo check --compile-time-deps`. On save it runs `cargo check --workspace --all-targets`. In the shared `target/`, the first added nothing and the second added 51 MB.
+
+The setting `rust-analyzer.cargo.targetDir = true` moves both into `target/rust-analyzer`. Then rust-analyzer no longer waits for the lock of your terminal builds, but it has its own copy of everything it checks. The same two commands with `--target-dir target/rust-analyzer` wrote 590 MB for this project. I leave it unset, and set it only for a project where the editor waits too often.
+
+## Cleaning up
+
+`cargo clean` has options that keep part of the cache, and `--dry-run` shows the size first. On a `target/` with a build, a test build, three edits and a release build, 3.3 GiB in total, Cargo reported:
+
+```text
+$ cargo clean -p miniserve --dry-run
+     Summary 9913 files, 1.5GiB total
+$ cargo clean --profile dev --dry-run
+     Summary 11825 files, 2.7GiB total
+$ cargo clean --release --dry-run
+     Summary 3016 files, 584.8MiB total
+```
+
+`-p miniserve` is the useful one on a laptop. It removes the workspace crate in every profile, with its test executables, its incremental data and the pile of old object files, and it keeps all the dependencies. The next build compiles one crate.
+
+[cargo-sweep](https://github.com/holmgr/cargo-sweep) 0.8.0, the current release, reads the old layout: `deps/` and `.fingerprint/`. On a target directory written by Cargo 1.100, `cargo sweep --time 0` printed `Cleaned nothing`. On a directory with artifacts from Rust 1.99.0 and 1.100.0, `cargo sweep --toolchains 1.100.0` removed only the 1.99.0 part. The open issue is [cargo-sweep#150](https://github.com/holmgr/cargo-sweep/issues/150).
+
+## ~/.cargo and ~/.rustup
+
+These two grow on every project.
+
+Since Cargo 1.88, Cargo deletes files in `~/.cargo` that it has not used for a while: downloaded files after 3 months, and files it can make again, such as extracted sources, after 1 month. It checks at most once a day, set by `cache.auto-clean-frequency`. Manual cleanup with limits is still nightly only:
+
+```sh
+cargo +nightly clean gc -Zgc --max-src-age='0 days'
+```
+
+On stable it fails with ``the `cargo clean gc` command is unstable``. In a separate `CARGO_HOME` for miniserve, the command above removed 13,904 files, 149.1 MiB of extracted sources. `cargo fetch --offline` extracted them again from the `.crate` files, with no network.
+
+The extracted sources are the large part. On my laptop, `~/.cargo/registry/src` held 2,564 MB and `~/.cargo/registry/cache`, the compressed `.crate` files, held 297 MB. Git dependencies in `~/.cargo/git/checkouts` held 2,185 MB. A plain `cargo fetch` also downloads the crates for other platforms: for miniserve it extracted 429 MB, against 183 MB with `--target aarch64-apple-darwin`.
+
+<RankBars
+  title="Size of each toolchain in ~/.rustup/toolchains"
+  unit="MB"
+  mono
+  rows={[
+    { label: "nightly-2026-10-25", value: 1575 },
+    { label: "1.99.0", value: 1554 },
+    { label: "stable (1.99.1)", value: 1434 },
+    { label: "1.96.1", value: 1391 },
+    { label: "1.95", value: 1383, mark: "rose", sub: "same release as the next row" },
+    { label: "1.95.0", value: 1383, mark: "rose" },
+    { label: "1.100.0, minimal profile", value: 526, mark: "lilac", note: "no rust-docs" },
+  ]}
+  caption="The first six rows: 8,722 MB. The last row is rustc, Cargo, the standard library, Clippy and rust-analyzer."
+/>
+
+The stable toolchain uses the default profile, which includes the local copy of the Rust documentation: `share/doc/rust/html` is 948 MB, 66% of the toolchain. `rustup` also keeps `1.95` and `1.95.0` as two full toolchains. To install with less:
+
+```sh
+rustup toolchain install 1.100.0 --profile minimal -c clippy -c rust-analyzer
+rustup component remove rust-docs --toolchain stable
+rustup toolchain uninstall 1.95
+```
+
+## In CI
+
+A CI cache is the same directory with a different cost: every byte goes up after the job and comes down before the next one. [Swatinem/rust-cache](https://github.com/Swatinem/rust-cache) v2.9.3, the common choice on GitHub Actions, handles most of what this post measured. It caches `~/.cargo` without `registry/src`, which Cargo extracts again from the `.crate` files, and `target/`. Before it saves, it removes the workspace crates, the incremental data, dependencies that are no longer used, and build files whose mtime is older than a week. It also sets `CARGO_INCREMENTAL=0` for the job.
+
+Its cache key includes the rustc version, a hash of `Cargo.lock` and of every `Cargo.toml`, and the values of environment variables that start with `CARGO`, `CC`, `CFLAGS`, `CXX`, `CMAKE` or `RUST`. A change to `RUSTFLAGS` therefore starts a new cache entry, the same way it starts a new copy of the build locally.
+
+The profile matters more in CI than on a laptop, because nobody attaches a debugger to a CI build. A custom profile keeps the laptop settings apart:
+
+```toml
+[profile.ci]
+inherits = "dev"
+debug = false
+incremental = false
+```
+
+`cargo test --profile ci` writes to `target/ci/`. On Linux, where `debug = 0` took the cold build of miniserve from 1,554 MB to 803 MB, that halves what the cache uploads.
+
+## The config to start from
+
+In `Cargo.toml`:
+
+```toml
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+```
+
+In `.cargo/config.toml`, or in `~/.cargo/config.toml` for every project:
+
+```toml
+[build]
+build-dir = "{cargo-cache-home}/build/{workspace-path-hash}"
+```
+
+The profile is the part that saves space. The `build-dir` line keeps `target/` small and puts all build caches under `~/.cargo/build`, one folder per checkout. Profiles can also go in `~/.cargo/config.toml`, where they apply to every project and override the values in `Cargo.toml`.
+
+<BeforeAfterBars
+  bleed
+  title="target/ before and after the config"
+  unit="MB"
+  beforeLabel="defaults"
+  afterLabel="profile above"
+  data={[
+    { label: "target/debug", before: 3287, after: 2111 },
+    { label: "target/release", before: 622, after: 618 },
+  ]}
+  caption="After the same six commands as in the first figure. The config changes only the dev profile, so the release build stays the same."
+/>
+
+<NumberBand value="1.18 GB" note="one project, one day">
+  less disk for miniserve: 3,909 MB to 2,729 MB, with backtraces that still show the file and line of your own code.
+</NumberBand>
+
+The dev builds are where the space goes, and they shrink by 36%. The release build does not change. [Part 3](/blog/git-twig-copy-on-write-worktrees/) adds worktrees that share files on disk with copy-on-write, and [part 4](/blog/faster-rust-dev-builds/) makes the dev build itself faster with Cranelift and the Wild linker. [Part 5](/blog/dockerize-rust-service/) puts the service in a container.
+
+## Sources
+
+- [Cargo changelog](https://github.com/rust-lang/cargo/blob/master/CHANGELOG.md)
+- [Cargo book: build cache](https://doc.rust-lang.org/cargo/reference/build-cache.html)
+- [Cargo book: profiles](https://doc.rust-lang.org/cargo/reference/profiles.html)
+- [Cargo book: feature resolver version 2 and 3](https://doc.rust-lang.org/cargo/reference/resolver.html#feature-resolver-version-2)
+- [Cargo book: --unit-graph](https://doc.rust-lang.org/nightly/cargo/reference/unstable.html#unit-graph)
+- [cargo-hakari: workspace-hack crates](https://docs.rs/cargo-hakari)
+- [Swatinem/rust-cache](https://github.com/Swatinem/rust-cache)
+- [Cargo book: configuration, build.build-dir and cache](https://doc.rust-lang.org/cargo/reference/config.html)
+- [Cargo book: unstable features (gc, embed-metadata, fine-grain-locking)](https://doc.rust-lang.org/nightly/cargo/reference/unstable.html)
+- [cargo clean](https://doc.rust-lang.org/cargo/commands/cargo-clean.html)
+- [cargo#17518: dev profile defaults to line-tables-only](https://github.com/rust-lang/cargo/pull/17518)
+- [cargo#17675: clean the out directory of a unit before compilation](https://github.com/rust-lang/cargo/pull/17675)
+- [cargo#17267: -Zembed-metadata=no by default on nightly](https://github.com/rust-lang/cargo/pull/17267)
+- [Cargo source: link_or_copy and APFS clones](https://github.com/rust-lang/cargo/blob/master/crates/cargo-util/src/paths.rs)
+- [rustc book: codegen options, debuginfo and split-debuginfo](https://doc.rust-lang.org/rustc/codegen-options/index.html)
+- [rust-analyzer configuration](https://rust-analyzer.github.io/book/configuration.html)
+- [cargo-sweep](https://github.com/holmgr/cargo-sweep) and [issue #150](https://github.com/holmgr/cargo-sweep/issues/150)
+- [rustup profiles](https://rust-lang.github.io/rustup/concepts/profiles.html)
+- [miniserve](https://github.com/svenstaro/miniserve)
+- [Rust 1.100.0 stable channel manifest](https://static.rust-lang.org/dist/channel-rust-stable.toml)

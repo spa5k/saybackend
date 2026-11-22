@@ -127,13 +127,13 @@
 .paper-widget .pgs-mode-toggle .pgs-mode-active-warn {
   border-color: transparent;
   background: var(--m-amber);
-  color: #141413;
+  color: var(--ink);
 }
 
 .paper-widget .pgs-mode-toggle .pgs-mode-active-on {
   border-color: transparent;
   background: var(--m-rose);
-  color: #141413;
+  color: var(--ink);
 }
 
 .pgs-result {

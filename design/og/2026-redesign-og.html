@@ -1,21 +1,159 @@
 <!doctype html>
-<meta charset="utf-8">
+<meta charset="utf-8" />
 <title>2026-redesign-og</title>
-<link rel="stylesheet" href="card.css">
-<svg width="0" height="0" style="position:absolute"><defs>
-<filter id="marker" x="-6%" y="-6%" width="112%" height="112%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="3" result="g"/><feColorMatrix in="g" type="luminanceToAlpha" result="a"/><feComposite in="SourceGraphic" in2="a" operator="arithmetic" k1="0" k2="1" k3="-.15" k4="0" result="i"/><feTurbulence type="fractalNoise" baseFrequency=".1" numOctaves="2" seed="8" result="w"/><feDisplacementMap in="i" in2="w" scale="2.8" xChannelSelector="R" yChannelSelector="G"/></filter>
-<pattern id="plus" width="44" height="44" patternUnits="userSpaceOnUse"><path d="M22 18v8M18 22h8" stroke="#141413" stroke-opacity=".13" fill="none"/></pattern>
-<pattern id="plus2" width="26" height="26" patternUnits="userSpaceOnUse"><path d="M13 9v8M9 13h8" stroke="#141413" stroke-opacity=".22" fill="none"/></pattern>
-<marker id="pa" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1L9 5L1 9" fill="none" stroke="#141413" stroke-width="1.6" stroke-linecap="round"/></marker>
-</defs></svg>
-<svg class="paper" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="url(#plus)"/></svg>
-<div class="brand"><svg viewBox="2 2 44 44"><path fill="#141413" d="M6 6 43 3 42.78 11.66 18.24 13.38 18.66 19.36 42.62 17.69 42 42 5 45 5.22 36.34 29.76 34.62 29.34 28.64 5.38 30.31Z"/></svg>SayBackend</div>
-<h1><span><b>SayBackend, redrawn:</b>paper, marker and pen</span></h1>
-<svg class="art" viewBox="0 0 480 400">
-<g transform="rotate(-4 85 250)"><rect x="0" y="150" width="170" height="200" fill="#faf9f5" stroke="#c8c4b2" stroke-width="1.6"/><rect x="0" y="150" width="170" height="200" fill="url(#plus2)"/></g>
-<g transform="rotate(2 235 200)"><rect x="150" y="100" width="170" height="200" fill="#faf9f5" stroke="#c8c4b2" stroke-width="1.6"/><rect class="m" x="178" y="150" width="40" height="110" fill="#c8c4b2"/><rect class="m" x="236" y="232" width="40" height="28" fill="#93b2f2"/><path class="line" d="M166 262H290"/></g>
-<g transform="rotate(5 385 150)"><rect x="300" y="50" width="170" height="200" fill="#faf9f5" stroke="#c8c4b2" stroke-width="1.6"/><text x="322" y="126" class="hand" transform="rotate(-5 322 126)">the result</text><path class="pen" d="M404 142C408 164 400 184 384 202" marker-end="url(#pa)"/></g>
-<text x="85" y="388" text-anchor="middle" class="dim">paper</text><text x="235" y="334" text-anchor="middle" class="dim">marker</text><text x="385" y="290" text-anchor="middle" class="dim">pen</text>
+<link rel="stylesheet" href="card.css" />
+<svg width="0" height="0" style="position: absolute">
+  <defs>
+    <filter
+      id="marker"
+      x="-6%"
+      y="-6%"
+      width="112%"
+      height="112%"
+      color-interpolation-filters="sRGB"
+    >
+      <feTurbulence
+        type="fractalNoise"
+        baseFrequency=".8"
+        numOctaves="2"
+        seed="3"
+        result="g"
+      />
+      <feColorMatrix in="g" type="luminanceToAlpha" result="a" />
+      <feComposite
+        in="SourceGraphic"
+        in2="a"
+        operator="arithmetic"
+        k1="0"
+        k2="1"
+        k3="-.15"
+        k4="0"
+        result="i"
+      />
+      <feTurbulence
+        type="fractalNoise"
+        baseFrequency=".1"
+        numOctaves="2"
+        seed="8"
+        result="w"
+      />
+      <feDisplacementMap
+        in="i"
+        in2="w"
+        scale="2.8"
+        xChannelSelector="R"
+        yChannelSelector="G"
+      />
+    </filter>
+    <pattern id="plus" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path
+        d="M22 18v8M18 22h8"
+        stroke="#141413"
+        stroke-opacity=".13"
+        fill="none"
+      />
+    </pattern>
+    <pattern id="plus2" width="26" height="26" patternUnits="userSpaceOnUse">
+      <path
+        d="M13 9v8M9 13h8"
+        stroke="#141413"
+        stroke-opacity=".22"
+        fill="none"
+      />
+    </pattern>
+    <marker
+      id="pa"
+      viewBox="0 0 10 10"
+      refX="8"
+      refY="5"
+      markerWidth="7"
+      markerHeight="7"
+      orient="auto"
+    >
+      <path
+        d="M1 1L9 5L1 9"
+        fill="none"
+        stroke="#141413"
+        stroke-width="1.6"
+        stroke-linecap="round"
+      />
+    </marker>
+  </defs>
 </svg>
-<div class="topic"><svg viewBox="0 0 20 20"><rect x="2" y="2" width="16" height="16" fill="#c8c4b2" filter="url(#marker)"/></svg>Notes</div>
+<svg class="paper" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="url(#plus)" />
+</svg>
+<div class="brand">
+  <svg viewBox="2 2 44 44">
+    <path
+      fill="#141413"
+      d="M6 6 43 3 42.78 11.66 18.24 13.38 18.66 19.36 42.62 17.69 42 42 5 45 5.22 36.34 29.76 34.62 29.34 28.64 5.38 30.31Z"
+    /></svg
+  >SayBackend
+</div>
+<h1>
+  <span><b>SayBackend, redrawn:</b>paper, marker and pen</span>
+</h1>
+<svg class="art" viewBox="0 0 480 400">
+  <g transform="rotate(-4 85 250)">
+    <rect
+      x="0"
+      y="150"
+      width="170"
+      height="200"
+      fill="#faf9f5"
+      stroke="#c8c4b2"
+      stroke-width="1.6"
+    />
+    <rect x="0" y="150" width="170" height="200" fill="url(#plus2)" />
+  </g>
+  <g transform="rotate(2 235 200)">
+    <rect
+      x="150"
+      y="100"
+      width="170"
+      height="200"
+      fill="#faf9f5"
+      stroke="#c8c4b2"
+      stroke-width="1.6"
+    />
+    <rect class="m" x="178" y="150" width="40" height="110" fill="#c8c4b2" />
+    <rect class="m" x="236" y="232" width="40" height="28" fill="#93b2f2" />
+    <path class="line" d="M166 262H290" />
+  </g>
+  <g transform="rotate(5 385 150)">
+    <rect
+      x="300"
+      y="50"
+      width="170"
+      height="200"
+      fill="#faf9f5"
+      stroke="#c8c4b2"
+      stroke-width="1.6"
+    />
+    <text x="322" y="126" class="hand" transform="rotate(-5 322 126)">
+      the result
+    </text>
+    <path
+      class="pen"
+      d="M404 142C408 164 400 184 384 202"
+      marker-end="url(#pa)"
+    />
+  </g>
+  <text x="85" y="388" text-anchor="middle" class="dim">paper</text>
+  <text x="235" y="334" text-anchor="middle" class="dim">marker</text>
+  <text x="385" y="290" text-anchor="middle" class="dim">pen</text>
+</svg>
+<div class="topic">
+  <svg viewBox="0 0 20 20">
+    <rect
+      x="2"
+      y="2"
+      width="16"
+      height="16"
+      fill="#c8c4b2"
+      filter="url(#marker)"
+    /></svg
+  >Notes
+</div>
 <div class="sign">— Kamran</div>

@@ -1,0 +1,206 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>2026-code-mode-pi-og</title>
+<link rel="stylesheet" href="card.css" />
+<svg width="0" height="0" style="position: absolute">
+  <defs>
+    <filter
+      id="marker"
+      x="-6%"
+      y="-6%"
+      width="112%"
+      height="112%"
+      color-interpolation-filters="sRGB"
+    >
+      <feTurbulence
+        type="fractalNoise"
+        baseFrequency=".8"
+        numOctaves="2"
+        seed="3"
+        result="g"
+      />
+      <feColorMatrix in="g" type="luminanceToAlpha" result="a" />
+      <feComposite
+        in="SourceGraphic"
+        in2="a"
+        operator="arithmetic"
+        k1="0"
+        k2="1"
+        k3="-.15"
+        k4="0"
+        result="i"
+      />
+      <feTurbulence
+        type="fractalNoise"
+        baseFrequency=".1"
+        numOctaves="2"
+        seed="8"
+        result="w"
+      />
+      <feDisplacementMap
+        in="i"
+        in2="w"
+        scale="2.8"
+        xChannelSelector="R"
+        yChannelSelector="G"
+      />
+    </filter>
+    <pattern id="plus" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path
+        d="M22 18v8M18 22h8"
+        stroke="#141413"
+        stroke-opacity=".13"
+        fill="none"
+      />
+    </pattern>
+    <pattern id="plus2" width="26" height="26" patternUnits="userSpaceOnUse">
+      <path
+        d="M13 9v8M9 13h8"
+        stroke="#141413"
+        stroke-opacity=".22"
+        fill="none"
+      />
+    </pattern>
+    <marker
+      id="pa"
+      viewBox="0 0 10 10"
+      refX="8"
+      refY="5"
+      markerWidth="7"
+      markerHeight="7"
+      orient="auto"
+    >
+      <path
+        d="M1 1L9 5L1 9"
+        fill="none"
+        stroke="#141413"
+        stroke-width="1.6"
+        stroke-linecap="round"
+      />
+    </marker>
+  </defs>
+</svg>
+<svg class="paper" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="url(#plus)" />
+</svg>
+<div class="brand">
+  <svg viewBox="2 2 44 44">
+    <path
+      fill="#141413"
+      d="M6 6 43 3 42.78 11.66 18.24 13.38 18.66 19.36 42.62 17.69 42 42 5 45 5.22 36.34 29.76 34.62 29.34 28.64 5.38 30.31Z"
+    /></svg
+  >SayBackend
+</div>
+<h1 class="long">
+  <span
+    ><b>Code Mode in pi:</b
+    ><span class="circled"
+      >28×<svg viewBox="0 0 200 100" preserveAspectRatio="none">
+        <path
+          d="M12 56C6 26 44 7 104 8C162 9 196 26 193 54C190 82 148 95 94 93C42 91 9 78 9 50C9 32 24 17 52 11"
+        /></svg
+    ></span>
+    fewer input tokens to search five files</span
+  >
+</h1>
+<svg class="art" viewBox="0 0 480 400">
+  <text x="14" y="17" class="dim" font-size="15">Code Mode series</text>
+  <rect
+    x="162"
+    y="4"
+    width="13"
+    height="13"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.6"
+  />
+  <rect class="m" x="182" y="4" width="13" height="13" fill="#f1cd80" />
+  <rect
+    x="202"
+    y="4"
+    width="13"
+    height="13"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.6"
+  />
+  <rect
+    x="222"
+    y="4"
+    width="13"
+    height="13"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.6"
+  />
+  <rect
+    x="242"
+    y="4"
+    width="13"
+    height="13"
+    fill="none"
+    stroke="#c8c4b2"
+    stroke-width="1.6"
+  />
+  <text x="266" y="17" class="dim" font-size="15">part 2 of 5</text>
+  <path class="m" d="M14 46H56L68 58V112H14Z" fill="#c8c4b2" />
+  <text x="41" y="94" class="mono" font-size="12" text-anchor="middle">
+    f1.txt
+  </text>
+  <path class="line" d="M41 118C41 140 194 136 194 156" />
+  <path class="m" d="M86 46H128L140 58V112H86Z" fill="#c8c4b2" />
+  <text x="113" y="94" class="mono" font-size="12" text-anchor="middle">
+    f2.txt
+  </text>
+  <path class="line" d="M113 118C113 140 194 136 194 156" />
+  <path class="m" d="M158 46H200L212 58V112H158Z" fill="#c8c4b2" />
+  <text x="185" y="94" class="mono" font-size="12" text-anchor="middle">
+    f3.txt
+  </text>
+  <path class="line" d="M185 118C185 140 194 136 194 156" />
+  <path class="m" d="M230 46H272L284 58V112H230Z" fill="#c8c4b2" />
+  <text x="257" y="94" class="mono" font-size="12" text-anchor="middle">
+    f4.txt
+  </text>
+  <path class="line" d="M257 118C257 140 194 136 194 156" />
+  <path class="m" d="M302 46H344L356 58V112H302Z" fill="#c8c4b2" />
+  <text x="329" y="94" class="mono" font-size="12" text-anchor="middle">
+    f5.txt
+  </text>
+  <path class="line" d="M329 118C329 140 194 136 194 156" />
+  <rect class="m" x="118" y="156" width="152" height="46" fill="#f1cd80" />
+  <text x="194" y="185" text-anchor="middle">QuickJS script</text>
+  <path class="line" d="M276 179H304" stroke="#141413" marker-end="url(#pa)" />
+  <text x="310" y="176" class="mono" font-size="14">NEEDLE is</text>
+  <text x="310" y="194" class="mono" font-size="14">in f3.txt</text>
+  <text x="14" y="252" font-size="17">one read per turn</text>
+  <text x="466" y="252" class="mono" font-size="17" text-anchor="end">
+    104,418
+  </text>
+  <rect class="m" x="14" y="262" width="452.0" height="18" fill="#c8c4b2" />
+  <text x="14" y="318" font-size="17">one codemode script</text>
+  <text x="466" y="318" class="mono" font-size="17" text-anchor="end">
+    3,751
+  </text>
+  <rect class="m" x="14" y="328" width="16.2" height="18" fill="#f1cd80" />
+  <text x="150" y="370" class="hand" transform="rotate(-3 150 370)">
+    28× fewer
+  </text>
+  <path class="pen" d="M140 358C100 360 60 354 34 342" marker-end="url(#pa)" />
+  <text x="14" y="396" class="dim" font-size="15">
+    input tokens over the whole session
+  </text>
+</svg>
+<div class="topic">
+  <svg viewBox="0 0 20 20">
+    <rect
+      x="2"
+      y="2"
+      width="16"
+      height="16"
+      fill="#f1cd80"
+      filter="url(#marker)"
+    /></svg
+  >Agents
+</div>
+<div class="sign">— Kamran</div>

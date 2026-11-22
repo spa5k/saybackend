@@ -8,7 +8,15 @@ import type { MarkName } from './Figure'
  * Each call must return the same number of shapes in the same order.
  */
 export type ShapeKind =
-  'line' | 'far' | 'bold' | 'dash' | 'mark' | 'bar' | 'dot' | 'node' | 'run'
+  | 'line'
+  | 'far'
+  | 'bold'
+  | 'dash'
+  | 'mark'
+  | 'bar'
+  | 'dot'
+  | 'node'
+  | 'run'
 
 export type Shape = { d: string; k: ShapeKind; c?: MarkName }
 export type Scene = (time: number, pointer: number | null) => Array<Shape>
@@ -312,28 +320,6 @@ const shrink: Scene = (t, p) => {
   })
 }
 
-/* A health check trace. The pointer adds a beat. */
-const pulse: Scene = (t, p) => {
-  const beat = (x: number) => {
-    const phase = (((x - t * 160) % 260) + 260) % 260
-    if (phase < 12) return (-62 * phase) / 12
-    if (phase < 22) return -62 + (92 * (phase - 12)) / 10
-    if (phase < 34) return 30 - (30 * (phase - 22)) / 12
-    return 0
-  }
-  const extra = (x: number) =>
-    p === null ? 0 : -52 * Math.exp(-(((x - p * W) / 16) ** 2))
-  return [
-    { k: 'far', d: seg(0, 40, W) },
-    { k: 'far', d: seg(0, 160, W) },
-    {
-      k: 'mark',
-      c: 'sage',
-      d: curve((x) => 100 + beat(x) + extra(x), 0, W, 4),
-    },
-  ]
-}
-
 /* The server renders, then streams across the boundary to the client. */
 const stream: Scene = (t, p) => {
   const x = at(p, t, 0.5, 0.1, 0.4)
@@ -358,33 +344,6 @@ const stairs: Scene = (t, p) => {
   shapes.push({ k: 'bar', c: 'lilac', d: seg(0, 175, W) })
   shapes.push({ k: 'dash', d: rise(line, 8, 192) })
   return shapes
-}
-
-/* A control plane in the middle, workers round it. */
-const orbit: Scene = (t, p) => {
-  const turn = p === null ? t * 0.25 : p * PI * 2
-  const spots: Array<Point> = [0, 1, 2, 3, 4].map((i) => {
-    const angle = turn + (i * PI * 2) / 5
-    return [500 + Math.cos(angle) * 400, 100 + Math.sin(angle) * 74]
-  })
-  let ring = ''
-  for (let i = 0; i <= 48; i += 1) {
-    const angle = (i / 48) * PI * 2
-    ring += `${i ? 'L' : 'M'}${n(500 + Math.cos(angle) * 400)} ${n(100 + Math.sin(angle) * 74)}`
-  }
-  return [
-    { k: 'dash', d: ring },
-    ...spots.map(([x, y]) => ({
-      k: 'far' as const,
-      d: `M500 100L${n(x)} ${n(y)}`,
-    })),
-    ...spots.map(([x, y]) => ({
-      k: 'dot' as const,
-      c: 'blue' as const,
-      d: dot(x, y),
-    })),
-    { k: 'node', d: dot(500, 100) },
-  ]
 }
 
 /* Three pieces of state above, the same three in one URL below. */
@@ -522,7 +481,477 @@ export const meet: Scene = (t, p) => {
   ]
 }
 
+/* REPACK: rows with holes on the right, packed rows on the left. The dashed
+   line is how far the rewrite has gone. */
+const repack: Scene = (t, p) => {
+  const cut = at(p, t, 0.45, 0.3, 0.4)
+  const shapes: Array<Shape> = []
+  for (let i = 0; i < 5; i += 1) {
+    const y = 30 + i * 35
+    let holes = ''
+    for (let slot = Math.ceil((cut + 14) / 50); slot < 20; slot += 1)
+      if (noise(i, slot) > 0.42) holes += seg(slot * 50 + 4, y, slot * 50 + 44)
+    shapes.push({ k: 'bar', c: 'blue', d: cut > 6 ? seg(0, y, cut - 6) : NONE })
+    shapes.push({ k: 'line', d: holes || NONE })
+  }
+  shapes.push({ k: 'dash', d: rise(cut, 8, 192) })
+  return shapes
+}
+
+/* One build goes to one of three ways to run it. The pointer picks the way. */
+const adapt: Scene = (t, p) => {
+  const pick = Math.min(2, Math.floor((p ?? (t * 0.25) % 1) * 3))
+  const way = (i: number): [Point, Point, Point, Point] => [
+    [340, 100],
+    [520, 100],
+    [560, 40 + i * 60],
+    [760, 40 + i * 60],
+  ]
+  const tail = (i: number) => `${cubic(...way(i))}H${W}`
+  return [
+    { k: 'line', d: seg(0, 100, 340) },
+    { k: 'far', d: tail(0) },
+    { k: 'far', d: tail(1) },
+    { k: 'far', d: tail(2) },
+    { k: 'mark', c: 'sage', d: tail(pick) },
+    { k: 'run', c: 'lilac', d: tail(pick) },
+    { k: 'node', d: dot(340, 100) },
+  ]
+}
+
+/* Two clients reach the proxy. The request goes on until the fault, and the
+   pointer moves the fault. */
+const fault: Scene = (t, p) => {
+  const x = Math.max(430, at(p, t, 0.68, 0.14, 0.5))
+  return [
+    { k: 'line', d: cubic([0, 50], [180, 50], [200, 100], [340, 100]) },
+    { k: 'line', d: cubic([0, 150], [180, 150], [200, 100], [340, 100]) },
+    { k: 'mark', c: 'amber', d: seg(340, 100, x - 16) },
+    { k: 'run', c: 'lilac', d: seg(340, 100, x - 16) },
+    { k: 'dash', d: seg(x + 16, 100, W) },
+    {
+      k: 'bold',
+      d: `M${n(x - 14)} 93L${n(x + 14)} 107M${n(x + 14)} 93L${n(x - 14)} 107`,
+    },
+    { k: 'node', d: dot(340, 100) },
+  ]
+}
+
+/* Dockerfile lines, top to bottom. Lines above the change come from the
+   cache, and the lines below it build again. The pointer picks the line. */
+const cache: Scene = (t, p) => {
+  const changed = Math.min(5, Math.floor((p ?? (t * 0.12 + 0.5) % 1) * 6))
+  const shapes: Array<Shape> = []
+  for (let i = 0; i < 6; i += 1) {
+    const y = 25 + i * 30
+    const length = 300 + noise(i, 3) * 560
+    const hit = i < changed
+    shapes.push({ k: 'far', d: seg(0, y, length) })
+    shapes.push({ k: 'bar', c: 'lilac', d: hit ? seg(0, y, length) : NONE })
+    shapes.push({ k: 'run', c: 'amber', d: hit ? NONE : seg(0, y, length) })
+  }
+  shapes.push({ k: 'bold', d: `M0 ${10 + changed * 30}H${W}` })
+  return shapes
+}
+
+/* Index pages in a row. Random keys land on any page. Ordered keys fill the
+   row from the left, and the pointer moves the newest key. */
+const edge: Scene = (t, p) => {
+  const pages = (y: number, from: number, to: number) => {
+    let d = ''
+    for (let i = from; i < to; i += 1) d += seg(i * 62.5 + 5, y, i * 62.5 + 57)
+    return d || NONE
+  }
+  const random = Math.floor(noise(Math.floor(t * 2.5)) * 16)
+  const head = Math.max(
+    1,
+    Math.min(16, Math.ceil((p ?? (t * 0.08 + 0.6) % 1) * 16)),
+  )
+  return [
+    { k: 'far', d: pages(60, 0, 16) },
+    { k: 'bar', c: 'rose', d: pages(60, random, random + 1) },
+    { k: 'far', d: pages(140, 0, 16) },
+    { k: 'bar', c: 'blue', d: pages(140, 0, head) },
+    { k: 'node', d: dot(head * 62.5 - 5, 140) },
+  ]
+}
+
+/* Code mode: a program on the left, a wall, and the calls that leave through
+   it. Each post in the series changes one thing: how many walls, where the
+   checks are, where the calls fan out, how far the wall is. */
+const sandbox =
+  (kind: 'plain' | 'nested' | 'gates' | 'exit' | 'far'): Scene =>
+  (t, p) => {
+    const wall = kind === 'far' ? Math.max(260, at(p, t, 0.5, 0.2, 0.4)) : 500
+    const fan = kind === 'exit' ? 760 : wall
+    const pick = Math.min(4, Math.floor((p ?? (t * 0.3) % 1) * 5))
+    const call = (i: number) =>
+      `${cubic([fan, 100], [fan + 90, 100], [fan + 70, 28 + i * 36], [fan + 170, 28 + i * 36])}H${W}`
+    const shapes: Array<Shape> = [
+      { k: 'bar', c: 'lilac', d: seg(40, 76, wall - 190) },
+      { k: 'bar', c: 'lilac', d: seg(40, 100, wall - 120) },
+      { k: 'bar', c: 'lilac', d: seg(40, 124, wall - 230) },
+      { k: 'line', d: seg(wall - 100, 100, fan) },
+    ]
+    for (let i = 0; i < 5; i += 1) shapes.push({ k: 'far', d: call(i) })
+    shapes.push({ k: 'run', c: 'amber', d: call(pick) })
+    let gates = ''
+    for (let i = 0; i < 5; i += 1) gates += dot(fan + 200, 28 + i * 36)
+    shapes.push({ k: 'node', d: kind === 'gates' ? gates : NONE })
+    shapes.push({
+      k: 'dash',
+      d: kind === 'nested' ? rise(wall - 50, 30, 170) : NONE,
+    })
+    shapes.push({ k: 'bold', d: rise(wall, 14, 186) })
+    return shapes
+  }
+
+/* Token history as ticks. Only the window at the end is copied on a step,
+   and the pointer moves the end of the output. */
+const windowed: Scene = (t, p) => {
+  const end = Math.max(160, at(p, t, 0.7, 0.25, 0.4))
+  const from = Math.max(0, end - 120)
+  let ticks = ''
+  for (let x = 10; x < end; x += 24) ticks += `M${x} 88V112`
+  return [
+    { k: 'far', d: seg(0, 100, W) },
+    { k: 'line', d: ticks || NONE },
+    { k: 'bar', c: 'blue', d: seg(from, 100, end) },
+    { k: 'bold', d: `M${n(from)} 70V130M${n(end)} 70V130` },
+    { k: 'dash', d: seg(0, 150, from) },
+    { k: 'node', d: dot(end, 100) },
+  ]
+}
+
+/* A queue in insertion order. One entry leaves from the middle and nothing
+   else moves. The pointer picks the entry. */
+const ordered: Scene = (t, p) => {
+  const pick = Math.min(11, Math.floor((p ?? (t * 0.15) % 1) * 12))
+  let rest = ''
+  for (let i = 0; i < 12; i += 1)
+    if (i !== pick) rest += seg(i * 82 + 14, 120, i * 82 + 78)
+  const x = pick * 82 + 14
+  return [
+    { k: 'line', d: rest },
+    { k: 'bar', c: 'amber', d: seg(x, 56, x + 64) },
+    { k: 'dash', d: `M${x + 32} 72V112` },
+    { k: 'far', d: seg(0, 160, W) },
+  ]
+}
+
+/* The ratchet: a count that goes down in steps, and a ceiling that follows
+   it. The pointer moves the present. */
+const ratchet: Scene = (t, p) => {
+  const now = at(p, t, 0.6, 0.3, 0.35)
+  const level = (x: number) => 40 + Math.floor(x / 125) * 18
+  let steps = `M0 ${level(0)}`
+  for (let x = 125; x <= now; x += 125) steps += `H${x}V${level(x)}`
+  steps += `H${n(now)}`
+  return [
+    { k: 'far', d: seg(0, 184, W) },
+    { k: 'mark', c: 'rose', d: steps },
+    { k: 'line', d: steps },
+    { k: 'dash', d: seg(now, level(now), W) },
+    { k: 'node', d: dot(now, level(now)) },
+  ]
+}
+
+/* Four levels of proof, each longer than the one before. The pointer picks
+   how far a run goes. */
+const tiers: Scene = (t, p) => {
+  const reach = Math.min(3, Math.floor((p ?? (t * 0.2) % 1) * 4))
+  const shapes: Array<Shape> = []
+  for (let i = 0; i < 4; i += 1) {
+    const y = 40 + i * 40
+    const length = 280 + i * 220
+    shapes.push({ k: 'far', d: seg(0, y, length) })
+    shapes.push({
+      k: 'bar',
+      c: 'sage',
+      d: i <= reach ? seg(0, y, length) : NONE,
+    })
+  }
+  shapes.push({ k: 'node', d: dot(280 + reach * 220, 40 + reach * 40) })
+  return shapes
+}
+
+/* Three review agents start. Two stop, and one goes on. The pointer moves
+   the present. */
+const kept: Scene = (t, p) => {
+  const now = Math.max(120, at(p, t, 0.75, 0.2, 0.4))
+  const stops = [360, W, 620]
+  const shapes: Array<Shape> = []
+  for (let i = 0; i < 3; i += 1) {
+    const y = 50 + i * 50
+    const end = Math.min(now, stops[i])
+    shapes.push({ k: i === 1 ? 'mark' : 'line', c: 'amber', d: seg(0, y, end) })
+    shapes.push({
+      k: 'dash',
+      d: now > stops[i] ? seg(stops[i] + 16, y, now) : NONE,
+    })
+  }
+  shapes.push({ k: 'node', d: dot(now, 100) })
+  return shapes
+}
+
+/* Jobs on a ruler of whole minutes. Each job is billed to the next mark,
+   and the pointer changes how long the jobs run. */
+const minutes: Scene = (t, p) => {
+  const scale = 0.5 + (p ?? 0.5 + 0.4 * Math.sin(t * 0.4)) * 1.2
+  let marks = ''
+  for (let x = 0; x <= W; x += 125) marks += rise(x, 20, 180)
+  const shapes: Array<Shape> = [{ k: 'far', d: marks }]
+  for (let i = 0; i < 4; i += 1) {
+    const y = 46 + i * 36
+    const length = Math.min(960, (90 + noise(i, 7) * 420) * scale)
+    const billed = Math.ceil(length / 125) * 125
+    shapes.push({ k: 'bar', c: 'sand', d: seg(0, y, billed) })
+    shapes.push({ k: 'run', c: 'blue', d: seg(0, y, length) })
+  }
+  return shapes
+}
+
+/* Rust on a laptop: where the build output is kept. Each post in the series
+   draws its own store, and the pointer changes how much of it there is. */
+const store =
+  (kind: 'twice' | 'shared' | 'clones' | 'loop' | 'ship'): Scene =>
+  (t, p) => {
+    const u = p ?? 0.5 + 0.4 * Math.sin(t * 0.4)
+    if (kind === 'twice') {
+      // The same object files, in the archive and beside it.
+      const gap = 380 + u * 260
+      const shapes: Array<Shape> = [
+        { k: 'bold', d: 'M20 30H330V170H20Z' },
+        { k: 'dash', d: rise(gap - 24, 30, 170) },
+      ]
+      for (let i = 0; i < 4; i += 1) {
+        const y = 52 + i * 32
+        const length = 150 + noise(i, 3) * 130
+        shapes.push({ k: 'bar', c: 'sand', d: seg(40, y, 40 + length) })
+        shapes.push({ k: 'bar', c: 'rose', d: seg(gap, y, gap + length) })
+      }
+      return shapes
+    }
+    if (kind === 'shared' || kind === 'clones') {
+      // Worktrees and one store. The pointer picks the worktree that builds.
+      const hub: Point = kind === 'shared' ? [760, 100] : [200, 100]
+      const count = kind === 'shared' ? 5 : 8
+      const pick = Math.min(count - 1, Math.floor(u * count))
+      const shapes: Array<Shape> = []
+      let own = ''
+      for (let i = 0; i < count; i += 1) {
+        const y = 20 + (i * 160) / (count - 1)
+        const path =
+          kind === 'shared'
+            ? `${seg(0, y, 300)}${cubic([300, y], [520, y], [560, 100], hub).replace('M', 'L')}`
+            : `${cubic(hub, [420, 100], [460, y], [640, y])}H${W}`
+        shapes.push({ k: i === pick ? 'run' : 'far', c: 'blue', d: path })
+        own +=
+          kind === 'shared'
+            ? seg(0, y, 44)
+            : seg(700 + noise(i, 5) * 220, y, 740 + noise(i, 5) * 220)
+      }
+      shapes.push({
+        k: 'bar',
+        c: kind === 'shared' ? 'lilac' : 'amber',
+        d: own,
+      })
+      shapes.push({
+        k: 'bold',
+        d:
+          kind === 'shared'
+            ? 'M760 40H980V160H760Z'
+            : `${seg(20, 100, 200)}M20 70V130`,
+      })
+      return shapes
+    }
+    if (kind === 'loop') {
+      // Edit, front end, codegen, link, run. The pointer shrinks the link.
+      const widths = [110, 210, 240, 40 + (1 - u) * 240, 90]
+      const shapes: Array<Shape> = [{ k: 'far', d: seg(0, 150, W) }]
+      let x = 10
+      widths.forEach((width, i) => {
+        shapes.push({
+          k: i === 3 ? 'run' : 'bar',
+          c: i === 3 ? 'amber' : 'sand',
+          d: seg(x, 100, x + width),
+        })
+        x += width + 16
+      })
+      shapes.push({ k: 'node', d: dot(x - 16, 100) })
+      return shapes
+    }
+    // The cache stays. One small binary crosses into the image.
+    const binary = 520 + u * 330
+    const shapes: Array<Shape> = [
+      { k: 'bold', d: 'M20 24H470V176H20Z' },
+      { k: 'bold', d: 'M800 60H960V140H800Z' },
+      { k: 'dash', d: seg(480, 100, 790) },
+      { k: 'run', c: 'sage', d: seg(binary, 100, binary + 40) },
+    ]
+    for (let i = 0; i < 4; i += 1)
+      shapes.push({
+        k: 'bar',
+        c: 'sand',
+        d: seg(44, 48 + i * 34, 220 + noise(i, 9) * 220),
+      })
+    return shapes
+  }
+
+/* Solid and TanStack Start: the pieces of an app and the paths between
+   them. Each post draws one path, and the pointer moves along it. */
+const graph =
+  (
+    kind: 'pending' | 'moves' | 'three' | 'order' | 'cut' | 'reads' | 'files',
+  ): Scene =>
+  (t, p) => {
+    const u = p ?? 0.5 + 0.45 * Math.sin(t * 0.4)
+    if (kind === 'pending') {
+      // The promise travels to the node. The readers wait with a dashed
+      // line and get the value when it lands.
+      const landed = u > 0.62
+      const shapes: Array<Shape> = [
+        { k: 'line', d: seg(0, 100, 420) },
+        { k: 'run', c: 'amber', d: seg(40, 100, Math.min(420, 40 + u * 610)) },
+        { k: 'bold', d: 'M420 76V124' },
+      ]
+      for (let i = 0; i < 3; i += 1) {
+        const path = `${cubic([420, 100], [560, 100], [600, 40 + i * 60], [760, 40 + i * 60])}H${W}`
+        shapes.push({ k: 'dash', d: landed ? NONE : path })
+        shapes.push({ k: 'bar', c: 'lilac', d: landed ? path : NONE })
+      }
+      shapes.push({ k: 'node', d: dot(420, 100) })
+      return shapes
+    }
+    if (kind === 'moves') {
+      // Old pieces on the left, new on the right. The pointer moves them.
+      const done = Math.floor(u * 5)
+      const shapes: Array<Shape> = []
+      for (let i = 0; i < 4; i += 1) {
+        const y = 34 + i * 44
+        const length = 180 + noise(i, 2) * 120
+        shapes.push({ k: 'far', d: seg(0, y, length) })
+        shapes.push({ k: 'dash', d: seg(length + 20, y, 620) })
+        shapes.push({
+          k: 'bar',
+          c: 'blue',
+          d: i < done ? seg(640, y, 640 + length) : NONE,
+        })
+      }
+      return shapes
+    }
+    if (kind === 'three') {
+      // One line in, three ways out. The pointer picks one.
+      const pick = Math.min(2, Math.floor(u * 3))
+      const shapes: Array<Shape> = [
+        { k: 'mark', c: 'sand', d: seg(0, 100, 380) },
+      ]
+      for (let i = 0; i < 3; i += 1) {
+        const path = `${cubic([380, 100], [540, 100], [560, 36 + i * 64], [720, 36 + i * 64])}H${W}`
+        shapes.push({ k: 'far', d: path })
+        shapes.push({
+          k: 'run',
+          c: (['lilac', 'blue', 'sage'] as const)[i],
+          d: i === pick ? path : NONE,
+        })
+      }
+      shapes.push({ k: 'node', d: dot(380, 100) })
+      return shapes
+    }
+    if (kind === 'order') {
+      // The build as a line of steps. The file list is closed at the mark,
+      // and the prerender writes its pages after it.
+      const now = u * W
+      return [
+        { k: 'far', d: seg(0, 100, W) },
+        { k: 'bar', c: 'sand', d: seg(0, 100, Math.min(now, 600)) },
+        { k: 'bold', d: rise(600, 40, 160) },
+        {
+          k: 'bar',
+          c: 'blue',
+          d: now > 640 ? seg(640, 100, now) : NONE,
+        },
+        { k: 'dash', d: now > 640 ? seg(640, 140, now) : NONE },
+        { k: 'node', d: dot(now, 100) },
+      ]
+    }
+    if (kind === 'cut') {
+      // The stub on the client, the module on the server, and one request
+      // that crosses the wire.
+      const head = 180 + u * 640
+      return [
+        { k: 'bar', c: 'lilac', d: seg(40, 70, 300) },
+        { k: 'bar', c: 'blue', d: seg(700, 70, 960) },
+        { k: 'bar', c: 'blue', d: seg(700, 100, 900) },
+        { k: 'bar', c: 'blue', d: seg(700, 130, 940) },
+        { k: 'bold', d: rise(500, 14, 186) },
+        { k: 'dash', d: seg(180, 160, 820) },
+        { k: 'run', c: 'amber', d: seg(180, 160, head) },
+        { k: 'node', d: dot(head, 160) },
+      ]
+    }
+    if (kind === 'reads') {
+      // Two reads after one click. Above they start together, below one
+      // waits for the other. The pointer is the clock.
+      const now = 80 + u * 880
+      const span = 380
+      const part = (from: number) =>
+        now > from ? seg(from, 0, Math.min(now, from + span)) : NONE
+      const on = (d: string, y: number) => d.replace(' 0H', ` ${y}H`)
+      return [
+        { k: 'far', d: seg(0, 100, W) },
+        { k: 'bar', c: 'lilac', d: on(part(80), 40) },
+        { k: 'bar', c: 'lilac', d: on(part(80), 68) },
+        { k: 'bar', c: 'blue', d: on(part(80), 132) },
+        { k: 'bar', c: 'blue', d: on(part(80 + span + 20), 160) },
+        { k: 'bold', d: rise(80, 24, 176) },
+        { k: 'dash', d: rise(now, 14, 186) },
+      ]
+    }
+    // The Worker writes its files, then a request from the right meets a
+    // file before it meets the Worker.
+    const written = Math.min(8, Math.floor(u * 9))
+    let files = ''
+    for (let i = 0; i < written; i += 1) files += rise(360 + i * 44, 64, 136)
+    const stop = written > 0 ? 360 + (written - 1) * 44 + 16 : 230
+    return [
+      { k: 'bold', d: 'M40 56H220V144H40Z' },
+      { k: 'dash', d: seg(230, 100, 350) },
+      { k: 'bar', c: 'sand', d: files || NONE },
+      { k: 'run', c: 'amber', d: seg(stop, 100, W) },
+      { k: 'node', d: dot(stop, 100) },
+    ]
+  }
+
 const scenes: Partial<Record<string, Scene>> = {
+  'rust-target-directory-disk-space': store('twice'),
+  'rust-build-cache-worktrees-mbx': store('shared'),
+  'git-twig-copy-on-write-worktrees': store('clones'),
+  'faster-rust-dev-builds': store('loop'),
+  'dockerize-rust-service': store('ship'),
+  'solid-2-async-reactive-graph': graph('pending'),
+  'migrate-solidstart-to-solid-2': graph('moves'),
+  'solidstart-maintenance-what-to-use': graph('three'),
+  'self-host-tanstack-start-docker': graph('order'),
+  'tanstack-start-server-functions-wire': graph('cut'),
+  'solid-start-mode-vs-tanstack-start-solid': graph('reads'),
+  'blog-on-tanstack-start-cloudflare-workers': graph('files'),
+  'code-mode-explained': sandbox('plain'),
+  'code-mode-pi': sandbox('nested'),
+  'code-mode-claude-code': sandbox('gates'),
+  'code-mode-opencode': sandbox('exit'),
+  'code-mode-compared': sandbox('far'),
+  'vllm-fallback-detokenizer-cpu': windowed,
+  'nvidia-dynamo-code-audit': ordered,
+  'lint-ratchet-ai-written-code': ratchet,
+  'coding-agent-verification-skill': tiers,
+  'pr-review-agents-what-stuck': kept,
+  'faster-cheaper-ci': minutes,
+  'postgresql-19-backend-engineers': repack,
+  'self-host-nextjs-16-standalone-adapter': adapt,
+  'cliproxyapi-setup-fixes-homebrew-codex-claude-code': fault,
+  'golang-dockerfile-best-practices': cache,
+  'uuidv7-postgres-uuidv7-vs-uuid-generate-v7': edge,
   'saybackend-redesign-paper-marker-pen': rough,
   'faster-github-actions-same-runners': lanes,
   'prompt-caching-agent-harnesses': prefix,
@@ -535,10 +964,8 @@ const scenes: Partial<Record<string, Scene>> = {
   '2025-feb-text-chunking-rag-systems': chunks,
   '2025-jan-kafka-docker-kraft-mode': quorum,
   '2024-sep-nextjs-deploy-any-server': shrink,
-  '09-nextjs-self-hosted-production': pulse,
   '2024-aug-nextjs-electron-server-components': stream,
   '2024-jun-golang-dockerfile-optimized': stairs,
-  '08-kubernetes-cluster-journey': orbit,
   '2023-dec-zustand-url-state-sharing': url,
   'uuidv7-postgres-comparison': bits,
   'recreating-planetscale-pg-strict-in-rust': hook,

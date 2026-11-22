@@ -1,0 +1,374 @@
+---
+title: "What a one-day code audit of NVIDIA Dynamo found"
+seoTitle: "A One-Day Code Audit of NVIDIA Dynamo: 4 Merged Fixes"
+description: "A one-day code audit of NVIDIA Dynamo's request path produced seven pull requests, and four merged. The findings, the evidence, and the limits, as an audit report."
+date: "2026-12-30"
+draft: true
+ogImage: "/images/nvidia-dynamo-code-audit-og.png"
+slug: "nvidia-dynamo-code-audit"
+tags:
+  - "rust"
+  - "nvidia-dynamo"
+  - "llm"
+  - "inference"
+  - "performance"
+  - "benchmarking"
+  - "code-audit"
+  - "code-review"
+faqs:
+  - question: "What did the one-day audit of NVIDIA Dynamo find?"
+    answer: "Four findings that merged upstream: a quadratic copy of the prompt batch in batch completions (#15973), a queue scan under a write lock in the router's prefill tracker (#15993), a full worker catalog scan for requests with few allowed workers (#15992), and a membership check that copied the full discovery list (#15974). Three more pull requests from the same day did not merge."
+  - question: "Did these changes make Dynamo serving faster?"
+    answer: "That was not measured. Each of my numbers comes from a local probe of one operation, and the reviewer's select_worker numbers cover worker selection only. None of them is a serving benchmark."
+  - question: "Why is one of the merged changes slower in some cases?"
+    answer: "The prefill tracker change replaces a queue with a BTreeMap. It removes a quadratic worst case, but every insertion and removal now costs a tree operation. A 512-deep FIFO drain was 10.4% slower, and a 32-deep shuffled drain was 6.4% slower."
+  - question: "How does the audit method work?"
+    answer: "A code read of the request path for copies and scans that repeat for every request, an ownership check for each candidate, a search for duplicate work upstream, and then a probe of the real code for each finding."
+---
+
+import Callout from "@/components/mdx/Callout";
+import { BeforeAfterBars } from "@/components/paper/BeforeAfterBars";
+import { NumberBand } from "@/components/paper/NumberBand";
+import {
+  PrefillOrder,
+} from "@/components/react/blog/workposts/WorkFigures";
+
+On 9 October 2026 I spent a day on a code audit of NVIDIA Dynamo's request path: the frontend that accepts requests, the runtime that dispatches them, and the KV router that picks a worker. I read the code for copies and scans that run for every request, wrote a probe for each candidate, and opened a pull request for each finding that held up.
+
+Seven pull requests came out of that day. Four of them merged upstream within two weeks, and they are the findings below. I closed one myself, and two were closed upstream because the component they touched is no longer maintained. This post is the audit report: the findings, the method, the evidence for each finding, and what I did not measure.
+
+<NumberBand value="4 of 7">
+  pull requests from one day of audit merged upstream within two weeks.
+</NumberBand>
+
+## Findings
+
+| Rank | Finding | Where | Measured evidence | Status |
+| ---: | --- | --- | --- | --- |
+| 1 | A batch completion request copied the full prompt batch once for each child request | Frontend: `completions_batch` in `lib/llm/src/http/service/openai.rs` | 64 prompts of 4 KiB: 17,262,208 → 126,592 requested allocation bytes for each batch, 99.3% less | [#15973](https://github.com/ai-dynamo/dynamo/pull/15973), merged 22 October |
+| 2 | An out-of-order prefill completion scanned the order queue under the worker write lock | KV router: `PrefillLoadTracker::remove` in `lib/kv-router/src/sequences/prefill_tracker.rs` | 512-deep shuffled drain: 298.854 → 72.162 µs, 75.9% less. The cost: a FIFO drain is 10.4% slower | [#15993](https://github.com/ai-dynamo/dynamo/pull/15993), merged 15 October |
+| 3 | A request with a small set of allowed workers scanned the full worker catalog | KV router: `lib/kv-router/src/scheduling/filter.rs` | 512 workers with 4 available: 3.132 µs → 60.0 ns, 98.1% less | [#15992](https://github.com/ai-dynamo/dynamo/pull/15992), merged 13 October |
+| 4 | A check for one live worker copied the full discovery list | Runtime: `direct_prepared_with_fallback` in `lib/runtime/src/pipeline/network/egress/push_router.rs` | 64 workers: 257 allocation events and 11,328 bytes → none | [#15974](https://github.com/ai-dynamo/dynamo/pull/15974), merged 13 October |
+
+The rows are ranked by how the cost grows with load. Findings 1 and 2 are quadratic, in the batch size and in the depth of the prefill queue. Findings 3 and 4 are linear in the number of workers.
+
+Every number in the table comes from a local probe of one operation. None of them is a serving benchmark, and the section on what I did not measure says what that leaves open.
+
+Since the router split in November 2026 ([#18055](https://github.com/ai-dynamo/dynamo/pull/18055)), the merged code for findings 2 and 3 lives in `lib/router/slot-tracker/src/prefill_tracker.rs` and `lib/router/scheduler/src/filter.rs`.
+
+## Method
+
+The audit had four steps, and their order matters.
+
+1. **Read the request path for repeated work.** I looked for two patterns: a copy of data that the code only reads, and a scan inside code that runs for every request. The first pass stayed near the request and response boundaries. The second moved into the core of the router: KV lookup, scheduling, and the accounting for prefill and decode.
+2. **Check that the work is not needed.** For each candidate I checked what owns the data, what else reads it, and what triggers the path. A copy that a caller depends on for isolation is not a finding.
+3. **Check for duplicates.** Before I wrote code, I searched the open issues and pull requests. Several copy and event-decoding improvements were already in progress upstream, and I left those alone.
+4. **Measure with a probe.** A code read shows that work exists, not that it matters. Each finding got a probe built on the real code: the public method where one exists, and the real types and source where it does not. The probe for the prefill tracker used FIFO completion as its control, and that control is where the change turned out to be slower.
+
+Dynamo expects every pull request to reference a tracked issue, so each finding became an issue first and a pull request second. Each pull request states its measurement and the limits of that measurement.
+
+The first step started mechanically. An inventory of every `.clone()` call in the repository found 7,171 sites, and a sort by position (inside a loop, on a request path) marked 294 of them as worth reading. Most of the rest were cheap or cold: clones of `Arc`, `Bytes`, and watch handles copy a pointer, and tests and startup code do not run per request.
+
+The duplicate check removed real candidates: token-block hashing copies ([#15701](https://github.com/ai-dynamo/dynamo/pull/15701)), Messages and Responses request copies ([#15867](https://github.com/ai-dynamo/dynamo/pull/15867)), KV event decoding ([#15877](https://github.com/ai-dynamo/dynamo/pull/15877)), and radix tree traversal ([#15609](https://github.com/ai-dynamo/dynamo/pull/15609) and two siblings).
+
+Measurement removed ideas that read well. Staging KV block copies through temporary GPU memory was 11–13% slower on an L4 and needed 40–160 MiB of extra GPU memory, so it never became a pull request. The first two pull requests, findings 1 and 4, were open about an hour and a half after I cloned the repository.
+
+<Callout type="info" title="Source of these numbers">
+  The 7,171 and 294 sites, 11–13%, 40–160 MiB, and the hour and a half are
+  from my working notes, not from the pull request pages. Every other number
+  in this report is on a public pull request or issue page, apart from the
+  arithmetic I derive from those numbers.
+</Callout>
+
+## Finding 1: the prompt batch was copied for every child
+
+A `/v1/completions` request can carry a batch of prompts, and the frontend turns that batch into one child request for each prompt. Before the change, it selected one prompt and then built the child from a clone of the parent request, which still held the whole batch:
+
+```rust
+let single_prompt = extract_single_prompt(&request.inner.prompt, prompt_idx);
+```
+
+```rust
+let mut single_request = request.content().clone();
+single_request.inner.prompt = single_prompt;
+```
+
+The clone copied every prompt in the batch, and the next line threw that copy away. For a batch of B prompts, the frontend made B copies of a B-prompt batch. With 64 prompts of 4 KiB, each discarded copy is 256 KiB, and 64 of them come to 16 MiB of prompt bytes copied and freed for one request, before any token reaches a worker.
+
+The fix takes the batch out of the parent request before the loop. The clone for each child no longer carries the batch, and each prompt moves into its child:
+
+```rust
+let prompts: Vec<Prompt> =
+    match std::mem::replace(&mut request.inner.prompt, Prompt::String(String::new())) {
+        Prompt::StringArray(prompts) => prompts.into_iter().map(Prompt::String).collect(),
+        Prompt::ArrayOfIntegerArray(prompts) => {
+            prompts.into_iter().map(Prompt::IntegerArray).collect()
+        }
+        single => vec![single],
+    };
+```
+
+My first version took the batch out the same way but cloned each selected prompt from it, which already made the copy linear. The reviewer asked for one more step: "Now that `batch_prompt` is owned, consume it rather than cloning each element, so no prompt bytes are copied", and noted that 64 × 4 KiB of the remaining 378 KB in my probe was those per-child clones. The merged loop takes ownership of the vector and moves each prompt into its child:
+
+```rust
+for (prompt_idx, single_prompt) in prompts.into_iter().enumerate() {
+```
+
+The common request fields, such as sampling options and metadata, are still cloned for each child, because each child request owns them.
+
+**Evidence.** An allocation probe with 64 text prompts of 4 KiB each measured the construction and drop of the child requests. Requested allocation bytes fell from 17,262,208 to 126,592 for each batch, which is 99.3% less. On the pull request I also reported 94.8% less CPU time to build and drop the 64 child requests. The probe used a debug build. HTTP latency and model throughput were not measured.
+
+**Check in your deployment.** This path runs only for `/v1/completions` requests whose `prompt` is an array of strings or of token arrays. Chat completions and single-prompt requests never reach it. If your clients batch prompts this way, the copy grew with the square of the batch size, and any build from before the merge on 22 October 2026 still has it.
+
+**Validation.** 33 HTTP tests, 6 completion protocol tests, and 3 batch helper tests passed. A separate probe passed 26 request-equivalence and buffer-identity cases for text and token prompts. Prompt order, child IDs, choice indexes, and cancellation behavior stay the same. The diff is 11 added lines and 6 removed lines in one file.
+
+## Finding 2: a queue scan under a write lock
+
+This finding has the longest history. Its first fix did not merge, and the fix that merged makes two of my three benchmark cases slower.
+
+### The tracker
+
+The KV router estimates the load on each worker before it routes a request, and part of that estimate is prefill work that is still in progress. For each worker and DP rank, a `PrefillLoadTracker` holds the requests whose prefill has not completed. Before the change it used two collections:
+
+```rust
+pub(super) prefills: HashMap<RequestId, PrefillLoadState>,
+pub(super) prefill_order: VecDeque<RequestId>,
+```
+
+The map holds the load state of each request, and the queue holds the order in which the requests arrived. The oldest request in the queue is the anchor for load decay, so the tracker must always know which request is oldest.
+
+A request leaves the tracker when its prefill completes, which on the normal path is when the frontend sees the first token. Prefill token tracking is on by default. Requests with zero prefill load and deployments that disable tracking skip this code.
+
+### The scan
+
+This is the removal code before the change:
+
+```rust
+let removed_front = self.prefill_order.front() == Some(request_id);
+if removed_front {
+    let removed = self.prefill_order.pop_front();
+    debug_assert_eq!(removed.as_ref(), Some(request_id));
+} else {
+    self.prefill_order
+        .retain(|queued_request_id| queued_request_id != request_id);
+    if let Some(expected_prefill_duration) = prefill.expected_prefill_duration {
+        self.shift_anchor_forward(expected_prefill_duration, decay_now);
+    }
+}
+```
+
+If the completed request is the oldest one, the tracker pops the front of the queue, which is O(1). For any other request, `retain` walks the full queue and compares each request ID with the one to remove. That is O(N) for a queue of N prefills, and it runs while the caller holds the write lock on that worker's sequence state. `ActiveSequencesMultiWorker` gives each worker slot its own `parking_lot::RwLock`, and `mark_prefill_completed` takes the write side before it touches the tracker:
+
+```rust
+let mut seq = table.slots[idx].sequences.write();
+let completion = seq.mark_prefill_completed(request_id, decay_now);
+```
+
+The lock is per worker, so a scan does not stop routing to other workers, but it blocks every other reader and writer of that worker's state, and a worker with a deep queue is already the busy one.
+
+Nothing forces first tokens to come back in the order in which the requests arrived. When prefills finish out of order, each removal scans what is left, and a full drain of N prefills can cost O(N²).
+
+The tracker was on my list after the first pass as a suspect that I had not measured. The second pass measured it. A release-build probe called the public `ActiveSequencesMultiWorker::mark_prefill_completed` method on the real tracker. With 512 unmodeled prefills, a full FIFO drain took 56–57 µs, a reverse-order drain took 246–249 µs, and a fixed shuffled order took 282–311 µs. Those numbers are in [issue #15980](https://github.com/ai-dynamo/dynamo/issues/15980), together with what I did not know: how often prefills complete out of order in live serving, and how large those batches are.
+
+### First design: a linked list
+
+The issue proposed "a private reusable order list with indexed links", and I built that first. It was a doubly linked list stored in a `Vec`, with indexes for links and a free list for the empty slots:
+
+```rust
+#[derive(Debug)]
+struct OrderedPrefill {
+    request_id: Option<RequestId>,
+    previous: usize,
+    next: usize,
+}
+
+#[derive(Debug)]
+pub(super) struct PrefillOrder {
+    slots: Vec<OrderedPrefill>,
+    front: usize,
+    back: usize,
+    free: usize,
+}
+```
+
+This code is from the first commit of the pull request, and it did not merge. Each request stored its slot index next to its load state, so removal was an O(1) unlink. On 12 October I reported on the pull request that the 512-prefill shuffled drain used 84.9% less CPU time with this version, and that the list retains its peak storage.
+
+### The review
+
+On 13 October the reviewer, `jthomson04`, requested changes:
+
+> The O(depth) `retain` is real, but depth here is in-flight prefills per DP rank, which stays small in normal operation. Measuring `mark_prefill_completed` through `ActiveSequencesMultiWorker` with out-of-order completion, this saves \~70 ns at depth 32 and \~300–400 ns at depth 128. That's well below the cost of selection itself, and it only reaches microseconds at 512+ in-flight prefills per rank, when the engine is already the bottleneck. For that, I'd rather not own a hand-rolled indexed linked list in the load tracker, where an index slip becomes a release panic.
+
+The same review named the version that could merge:
+
+> If we ever see deep prefill queues in real traces, the version I'd take is a `BTreeMap<u64, RequestId>` keyed by an insertion counter stored next to the load state. It's about 25 lines of std and captures most of the win (512-deep random completion: 1.5 µs → 0.27 µs, vs 0.20 µs here).
+
+The review makes two separate points. The first is about benefit: the scan is real, but the saving is small at the queue depths that the reviewer expects in normal operation. The second is about cost: custom index code in a load tracker is a burden for the people who maintain it, because a wrong index there becomes a panic in a release build.
+
+By the reviewer's own numbers, my list was the faster design, at 0.20 µs against 0.27 µs. The reviewer asked for the slower one, and I agreed. My reply on the pull request was: "Agreed, the custom list added too much code."
+
+### The design that merged
+
+Each request now gets a number from a counter that only goes up. The number is stored next to the load state, and it is the key of an ordered map:
+
+```rust
+#[derive(Debug, Clone, Copy)]
+pub(super) struct TrackedPrefill {
+    load: PrefillLoadState,
+    order: u64,
+}
+```
+
+```rust
+pub(super) prefills: HashMap<RequestId, TrackedPrefill>,
+pub(super) prefill_order: BTreeMap<u64, RequestId>,
+next_order: u64,
+```
+
+Removal uses the stored number as the key:
+
+```rust
+let removed = self.prefill_order.remove(&tracked.order);
+debug_assert_eq!(removed.as_ref(), Some(request_id));
+```
+
+<PrefillOrder />
+
+The map is sorted by key, so its first entry is the oldest request. Removal by key is O(log N), it is the same operation for the oldest request and for every other request, and there is no scan. A full drain costs O(N log N).
+
+The ordered map also gives the tracker something that the queue could not offer cheaply: a range of the requests that arrived before a given one. A later upstream fix to load decay, [#19113](https://github.com/ai-dynamo/dynamo/pull/19113), uses exactly that to walk the prefills ahead of a removed request:
+
+```rust
+for (_, request_id) in self.prefill_order.range(..removed.order) {
+```
+
+The reviewer measured this version and then gave two optional notes: always remove by the stored key and keep the debug assertion, and delete a reset of the counter that a `u64` does not need. I applied both. The pull request was approved on 14 October and merged on 15 October, with a final diff of 95 added lines and 37 removed lines in two files.
+
+### Validation
+
+The change must not alter load accounting, decay, or the choice of the oldest request. These are the checks:
+
+- `cargo test --locked -p dynamo-kv-router --lib -- --test-threads=4` passed 1,052 tests with 3 ignored, including all 17 prefill tracker tests.
+- A differential check of the final tracker source passed 65,536 lifecycle operations and 403,386 snapshot comparisons. It covered mixed durations, anchor changes, duplicate cleanup, request-ID reuse, ordering, and the order keys of the map.
+- Probes through the public method checked FIFO, reverse, and shuffled completion at depths 1 to 2,048, with modeled and unmodeled prefills.
+- The reviewer ran a separate check against `main`: a randomized lifecycle differential through `ActiveSequencesMultiWorker`, with identical decayed loads and projections over 160k operations.
+
+### Results, with the regressions
+
+Each value is the median time for a full drain of unmodeled prefills. Five alternating process pairs measured the public `mark_prefill_completed` method on an Apple M4, with setup and final cleanup outside the timed region.
+
+| Depth | Completion order | Before | After |
+| --- | --- | ---: | ---: |
+| 32 | Shuffled | 4.634 µs | 4.931 µs |
+| 512 | Shuffled | 298.854 µs | 72.162 µs |
+| 512 | FIFO | 74.135 µs | 81.844 µs |
+
+<BeforeAfterBars
+  bleed
+  title="Full drain of prefills through mark_prefill_completed"
+  unit="µs"
+  data={[
+    { label: "Depth 32, shuffled", before: 4.634, after: 4.931 },
+    { label: "Depth 512, shuffled", before: 298.854, after: 72.162 },
+    { label: "Depth 512, FIFO", before: 74.135, after: 81.844 },
+  ]}
+  caption="Median of five alternating process pairs on an Apple M4. Depth 32 shuffled and depth 512 FIFO are slower after the change."
+/>
+
+The change is slower in two of the three rows:
+
+- **512 deep, shuffled:** 75.9% less CPU time.
+- **512 deep, FIFO:** 10.4% slower, which is about 15.1 ns more for each completion.
+- **32 deep, shuffled:** 6.4% slower in this run.
+
+The FIFO result follows from the code. The old code removed the oldest request with `pop_front` on a `VecDeque`, and the new code does a tree removal for every request. The tree also makes insertion O(log N), and it allocates nodes.
+
+The reviewer measured the merged design on a different setup:
+
+> 512-deep random completion 1.3 µs → 0.22 µs, FIFO within \~10 ns
+
+In the first review, the reviewer measured calls to `mark_prefill_completed`, so I read these values as the time for each completion, while my values are for a full drain. I do not combine the two sets. They agree on the direction: a large gain for deep queues with random completion order, and a small cost for FIFO.
+
+Taken together, the change removes a quadratic worst case and pays for that with a small cost on every insertion and removal. If queue depth stays small in normal operation, as the reviewer expects, a deployment gets little of the gain and still pays the cost.
+
+**Check in your deployment.** What decides this finding is the number of in-flight prefills per worker and DP rank, and how often they finish out of order; long prompts mixed with short ones on one rank produce exactly that. With hundreds in flight, the tree saves real time under that worker's lock. With a handful, as the reviewer expects, it costs roughly 9–15 ns per completion in my probes.
+
+## Finding 3: a full catalog scan for sparse eligibility
+
+Some requests can go to only a few workers, because an allowed-worker set or an availability set limits the candidates. The filter still walked the full worker catalog for those requests and tested every worker against the set.
+
+The fix walks the smaller set and looks up each worker in the catalog, when the capacity of that set is less than half of the catalog capacity. Dense sets keep the catalog walk. The pull request states that the one-half cutoff is a conservative heuristic and not a measured crossover. This is the cutoff in the current source:
+
+```rust
+if allowed.min(available) < workers.capacity() / 2 {
+```
+
+The comparison uses `capacity()` and not `len()` on purpose, and the reviewer asked for a comment so that nobody changes it later. Iterating a Rust `HashMap` visits every bucket, so the cost of a walk follows the table's capacity, not the number of entries in it. Because capacities move in powers of two, the reviewer worked out that the sparse path engages, in practice, when the smaller set holds below roughly 25–50% of the catalog by element count.
+
+Session affinity to one worker produces a one-element allowed set, and a LoRA adapter loaded on a few workers produces a small availability set. Both save the most in large worker pools.
+
+**Evidence.** A release probe on an Apple M4 measured exhaustive collection with two DP ranks for each worker, over five alternating samples:
+
+| Catalog | Available workers | Before | After |
+| --- | ---: | ---: | ---: |
+| 64 workers | 1 | 367.6 ns | 19.5 ns |
+| 512 workers | 4 | 3.132 µs | 60.0 ns |
+
+The 512-worker case used 98.1% less helper CPU time. The reviewer measured the whole `select_worker` call with a single allowed worker and a four-worker LoRA availability set, and reported 0.56 → 0.07 µs at 64 workers, about 5.1 → 0.07 µs at 512, and about 21 → 0.07 µs at 2,048. A 25% availability set improved about 2.4× on the eligibility walk, and the dense path, where every routable worker is available, stayed within noise.
+
+**One behavior change.** Candidate order for sparse sets now follows the inclusion set. A picker that depends on order, such as `dynamo-two-tier-cost-fn` where the first row wins a tie, can therefore choose a different tied worker. The policy contract does not specify cross-worker order, and the tests preserve canonical order for seeded selection.
+
+**Validation.** 1,278 router tests passed with 3 ignored, 82 policy tests passed, and a probe of the final source passed 621 differential fixtures for candidate membership, rank expansion, early stop, and error precedence.
+
+## Finding 4: a membership check that copied the discovery list
+
+This is the full change:
+
+```rust
+let selected_is_discovered = self
+    .client
+    .instances()
+    .iter()
+    .any(|instance| instance.instance_id == instance_id);
+```
+
+```rust
+let selected_is_discovered = self.client.is_instance_live(instance_id);
+```
+
+`Client::instances()` returns a copy of the live discovery vector with all its worker records, and this code used that copy to answer one yes-or-no question. The helper `Client::is_instance_live` already existed, and it scans the same source through a borrow. The scan is still O(W) for W workers. Only the copy is gone.
+
+The two methods read the same `tokio::sync::watch::Receiver<Vec<Instance>>`, and the difference is one call:
+
+```rust
+self.instance_source.borrow().clone()
+```
+
+Each `Instance` owns its namespace, component, and endpoint names and its transport address as `String` values, so cloning the vector makes one allocation for the vector and four for each record. For 64 workers that is the 257 allocation events in the evidence below. The borrow has a cost of its own: a watch borrow holds a read lock on the value, and a borrow kept across an `.await` would block the discovery task that publishes updates. The reviewer checked this point on approval: "The borrow ends before any await."
+
+**Evidence.** With 64 workers, the old check made 257 allocation events for 11,328 requested bytes, and the helper makes none. Timing varied between runs, so the pull request reports the allocation count and claims no speedup. The diff is one added line and five removed lines.
+
+## What did not merge
+
+Three more pull requests came out of the same day.
+
+- **[#15976](https://github.com/ai-dynamo/dynamo/pull/15976), closed by me.** It removed copies from the decoding of network envelopes. Its first design shared the receive buffer with the decoded body, and a test showed that a small pending body could then keep a large receive buffer in memory. I changed the design to copy the body. After that, small inputs were 5.7–11.0% faster in a local probe, large bodies showed no consistent gain, and one 100 KiB case was 1.1–4.0% slower. That gain did not justify a change to buffer ownership, so I closed the pull request on the day I opened it.
+- **[#15994](https://github.com/ai-dynamo/dynamo/pull/15994) and [#15995](https://github.com/ai-dynamo/dynamo/pull/15995), closed upstream.** Both were in KVBM. The first skipped a redundant set build, and its extracted loop went from 1.528 ms to 67.6 µs. The second removed a full map scan on block removal: a removal batch went from 16.373 ms to 1.060 ms, while a store batch took 5.3% more time. The reviewer of finding 2 closed both on 13 October with the same reason: "kvbm is no longer maintained, so we're not taking changes to it".
+
+The last two were measured findings in a component that the project no longer maintains, so neither was worth a fix.
+
+## What I did not measure
+
+- **Serving speed and routing speed.** Each of my numbers times one operation: one tracker method, one filter helper, one membership check, or the construction of one batch of child requests. Only the reviewer's `select_worker` numbers in finding 3 time a full worker selection, and nothing here times a request to a model.
+- **How often each trigger occurs.** Finding 1 needs multi-prompt requests. Finding 3 needs requests with few eligible workers. Finding 2 needs deep prefill queues and out-of-order completion, and the reviewer expects that depth stays small in normal operation. I did not measure the frequency of any of these in a production workload.
+- **Lock contention.** The prefill scan ran under a write lock. The probe times the drain alone. It does not measure how long other requests wait for that lock.
+- **Server hardware.** The router probes ran on an Apple M4. No probe ran on server hardware.
+
+The audit shows where work can be removed and how much one operation saves. It does not show what a deployment gains, and I make no claim about that.
+
+An audit of your own stack gives you a report in this form: ranked findings, the evidence for each one, and a plain list of what was not measured.
+
+---
+
+I do this work for teams as a fixed-price audit of LLM cost and speed.\
+Details: [LLM cost and speed audit](https://kamran.sh/audit?utm_source=saybackend&utm_medium=post&utm_campaign=audit).

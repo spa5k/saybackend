@@ -22,6 +22,7 @@ import { sceneOf } from '@/components/paper/scenes'
 import { heroOf } from '@/lib/heroes'
 import { markOf } from '@/lib/marks'
 import CodeWindow from '@/components/mdx/CodeWindow'
+import PostLink from '@/components/mdx/PostLink'
 import ResponsiveTable from '@/components/mdx/ResponsiveTable'
 import { SITE, breadcrumb, seo, toIsoDateTime } from '@/lib/site'
 
@@ -176,11 +177,17 @@ function PostPage() {
           This article is a work in progress and may change.
         </div>
       ) : null}
-      <div className="post-body" data-pagefind-body>
+      <div className="post-body">
         <Suspense fallback={null}>
-          <Content components={{ pre: CodeWindow, table: ResponsiveTable }} />
+          <Content
+            components={{
+              a: PostLink,
+              pre: CodeWindow,
+              table: ResponsiveTable,
+            }}
+          />
         </Suspense>
-        <footer className="post-end not-typography" data-pagefind-ignore="">
+        <footer className="post-end not-typography">
           <div className="post-tags">
             <span className="post-tombstone" aria-hidden="true" />
             {(post.tags ?? []).slice(0, 5).map((tag) => (

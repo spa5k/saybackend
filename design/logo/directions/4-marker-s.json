@@ -1,72 +1,54 @@
 {
- "name": "SayBackend",
- "title": "Marker S",
- "idea": "The site's tilted marker block with two slots, one from each side: an S in negative space.",
- "grid": 48,
- "mark": [
-  {
-   "shape": "polygon",
-   "points": [
-    [
-     6,
-     6
-    ],
-    [
-     43,
-     3
-    ],
-    [
-     42,
-     42
-    ],
-    [
-     5,
-     45
-    ]
-   ]
+  "name": "SayBackend",
+  "title": "Marker S",
+  "idea": "The site's tilted marker block with two slots, one from each side: an S in negative space.",
+  "grid": 48,
+  "mark": [
+    {
+      "shape": "polygon",
+      "points": [
+        [6, 6],
+        [43, 3],
+        [42, 42],
+        [5, 45]
+      ]
+    },
+    {
+      "op": "cut",
+      "shape": "rect",
+      "x": 19,
+      "y": 13,
+      "w": 30,
+      "h": 6,
+      "rotate": -4,
+      "about": [24, 24]
+    },
+    {
+      "op": "cut",
+      "shape": "rect",
+      "x": -1,
+      "y": 29,
+      "w": 30,
+      "h": 6,
+      "rotate": -4,
+      "about": [24, 24]
+    }
+  ],
+  "wordmark": {
+    "text": "saybackend",
+    "font": "Newsreader",
+    "weight": 600,
+    "tracking": -5
   },
-  {
-   "op": "cut",
-   "shape": "rect",
-   "x": 19,
-   "y": 13,
-   "w": 30,
-   "h": 6,
-   "rotate": -4,
-   "about": [
-    24,
-    24
-   ]
+  "lockup": {
+    "mark_scale": 1.8,
+    "gap": 0.8
   },
-  {
-   "op": "cut",
-   "shape": "rect",
-   "x": -1,
-   "y": 29,
-   "w": 30,
-   "h": 6,
-   "rotate": -4,
-   "about": [
-    24,
-    24
-   ]
+  "palette": {
+    "ink": "#141413",
+    "paper": "#faf9f5",
+    "accent": "#f2a48f",
+    "neutral": "#73726c",
+    "tint": "#e3e0d3"
   }
- ],
- "wordmark": {
-  "text": "saybackend",
-  "font": "Newsreader",
-  "weight": 600,
-  "tracking": -5
- },
- "lockup": {
-  "mark_scale": 1.8,
-  "gap": 0.8
- },
- "palette": {
-  "ink": "#141413",
-  "paper": "#faf9f5",
-  "accent": "#f2a48f",
-  "neutral": "#73726c",
-  "tint": "#e3e0d3"
- }
 }

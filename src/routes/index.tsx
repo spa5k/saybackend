@@ -1,11 +1,8 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 
 import { PageHero } from '@/components/paper/PageHero'
-import {
-  PostTiles,
-  PostTimeline,
-  PostsByYear,
-} from '@/components/paper/HomeParts'
+import { PostTiles, PostTimeline } from '@/components/paper/HomeParts'
+import { PostList } from '@/components/paper/PostList'
 import { formatDate, posts } from '@/lib/content'
 import { heroOf } from '@/lib/heroes'
 import { PAGE_META, SITE, breadcrumb, seo } from '@/lib/site'
@@ -30,7 +27,7 @@ export const Route = createFileRoute('/')({
               '@type': 'SearchAction',
               target: {
                 '@type': 'EntryPoint',
-                urlTemplate: `${SITE.origin}/pagefind/?q={search_term_string}`,
+                urlTemplate: `${SITE.origin}/search/?q={search_term_string}`,
               },
               'query-input': 'required name=search_term_string',
             },
@@ -90,7 +87,8 @@ function Home() {
         </h1>
         <PostTiles posts={rest.slice(0, 6)} />
         <PostTimeline posts={posts} />
-        <PostsByYear posts={posts} />
+        <h2 className="home-list-title">More writing</h2>
+        <PostList posts={rest.slice(6, 14)} />
         <div className="home-more">
           <Link to="/blog/" className="pill">
             All writing →
