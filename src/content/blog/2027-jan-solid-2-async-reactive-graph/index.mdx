@@ -2,7 +2,7 @@
 title: "Solid 2.0 for Backend Engineers: Async Inside the Reactive Graph"
 seoTitle: "Solid 2.0 Async: How the Reactive Graph Suspends and Resumes"
 description: "How Solid 2.0 runs promises inside its reactive graph: pending nodes, Loading boundaries, microtask flushes and optimistic actions, measured against Solid 1.9."
-date: "2026-12-16"
+date: "2026-11-23"
 ogImage: "/images/2027-solid-2-async-og.png"
 slug: "solid-2-async-reactive-graph"
 tags:
@@ -12,18 +12,17 @@ tags:
 ---
 
 import { BeforeAfterBars } from "@/components/paper/BeforeAfterBars";
-import { NumberBand } from "@/components/paper/NumberBand";
 import { RankBars } from "@/components/paper/RankBars";
 import {
   BoundaryCatch,
+  DeferredTimeline,
   GraphPlayground,
-  HeightOrder,
   LandingBatch,
+  OptimisticAction,
   PendingNode,
   SupersededFlights,
   WriteQueue,
 } from "@/components/react/blog/solid2/AsyncGraphFigures";
-import { DeferredTimeline, OptimisticAction } from "@/components/react/blog/solid2/SolidFigures";
 
 I've been waiting to write on SolidJS for quite a long time, I've built some stuff on it as well but over the time due to AI and LLMs, I lost my touch on it, and my day to day work has been mainly stuck to React.js, and its neo-frameworks, so the release of SolidJS 2.0 was a nice reminder to try the things again.
 I was quite excited to see how the library or "framework" that is done from scratch, with AI in mind will behave, what it will have that can help AI write better code, and it did surprise me on how it handled some of the bigger issues that Solid 1 had.
@@ -36,9 +35,9 @@ Let's start from the graph, graph is the base of how SolidJS orchestrates its wo
 
 ## The graph in backend terms
 
-Since there's a graph, there will be nodes on it, and types of node, nice thing is that, there are just 3 types of nodes you have to learn about, or your agent has to consider:
+Since there's a graph, there will be nodes on it, and different types of node, nice thing is that, there are just 3 types of nodes you have to learn about, or your agent has to consider:
 
-- **Signal** - It holds a value, it was quite a rage back then when it was released, with voices on both sides, but gradually everyone has surrendered to it, and it became part of 3 most popular libraries/frameworks other than React, to the point, there's even a [TC39 Proposal](https://github.com/tc39/proposal-signals) to add it in the language itself.
+- **Signal** - It holds a value, it was quite a rage back then when it was released, with voices opposing it, but gradually everyone has surrendered to it, and it became part of 3 most popular libraries/frameworks other than React, to the point, there's even a [TC39 Proposal](https://github.com/tc39/proposal-signals) to add it in the language itself.
 - **Memo** - Memo holds a cached result, similar to [useMemo in React](https://react.dev/reference/react/useMemo).
 - **Effect** - By name, it does sound like how [useEffect in React](https://react.dev/reference/react/useEffect) works, and it sort of does act like it, with some subtle changes, it has no dependency array, SolidJS handles it automatically.
 
@@ -77,9 +76,11 @@ price(); // 12
 
 Now when it comes to flush, it's a topological sort with a heap, each memo has a height, one more than the tallest memo it reads from. Flush walks the heap from height 0 upwards. The memo runs after all of its inputs. Each of the dirty nodes in the graph runs one time.
 
-And height is the depth of the node in the chain of the reads that happen. A signal has the height of 0. Check the diagram below, it's relatively easy to understand.
+And height is the depth of the node in the chain of the reads that happen. A signal has the height of 0.
 
-<HeightOrder />
+In the diagram below, `net` and `tax` read `price` and `qty`, and `total` reads both of them. The flush runs `net` and `tax` first, then `total`. A memo always runs after all of its inputs.
+
+Check the diagram below, it's relatively easy to understand.
 
 <WriteQueue />
 
@@ -110,8 +111,7 @@ Rejection is also similarly treated, since error is a value as well, it's just w
 Check this diagram below to see what's going on, click those buttons as well.
 <PendingNode />
 
-One thing to consider is that Solid only records dependencies up to the first await. A signal read after it is not tracked, and if there's a late read that finds a pending resource, the memo it belongs to can never try again. So to prevent it, during development, Solid throws an error instead of hanging, and you or your agent can read it and fix.
-
+One thing to consider is that Solid only records dependencies up to the first await. A signal read after it is not tracked (in development you get an `UNTRACKED_READ_AFTER_AWAIT` warning), and if there's a late read that finds a pending resource, the memo it belongs to can never try again. So to prevent it, during development, Solid throws an error instead of hanging, and you or your agent can read it and fix.
 
 ## Superseded flights are dropped, not cancelled
 
@@ -142,7 +142,7 @@ It's better to create a helper function for your async calls so that the abort c
 
 ## Boundaries catch pending and errors
 
-There are two boundaries in Solid v2, there's `<Loading>` and `<Errored>`, in v1 it was `<Suspense>` and `ErrorBoundary`. For errors, it's quite similar to how ErrorBoundary in React works. When a read is pending in a node, it's not an error, the `<Errored>` is only shown when an error happens.
+There are two boundaries in Solid v2, there's `<Loading>` and `<Errored>`, in v1 it was `<Suspense>` and `<ErrorBoundary>`. For errors, it's quite similar to how ErrorBoundary in React works. When a read is pending in a node, it's not an error, the `<Errored>` is only shown when an error happens.
 
 The loading boundary is similar to how [Suspense in React](https://react.dev/reference/react/Suspense) works.
 
@@ -207,7 +207,7 @@ I connected a fast source (20 ms) and a slow source (200 ms) to one signal, then
 - With both as `createMemo`, the two widgets kept the old value and changed together, 202 ms after the write.
 - With the slow source as `createDeferred`, the fast widget changed at 23 ms and the slow one at 202 ms.
 
-In a sense, it's mainly there if you want immediate updates.
+In a sense, it's mainly there if you don't want one slow source to hold back the rest of the page.
 
 <DeferredTimeline />
 
@@ -255,14 +255,10 @@ I built each app with `vite build` and measured the single JavaScript file with 
     { label: "1.9 list app", value: 7.1 },
     { label: "2.0 counter", value: 11.8, mark: "lilac" },
     { label: "2.0 list, async memo only", value: 16.0, mark: "lilac" },
-    { label: "2.0 list app", value: 37.4, mark: "rose", note: "5.2× the 1.9 app" },
+    { label: "2.0 list app", value: 37.4, mark: "rose", note: "5.3× the 1.9 app" },
   ]}
   caption="Raw and brotli sizes for the same five builds: 11.4 / 4.1, 17.9 / 6.5, 29.0 / 10.9, 39.4 / 14.7 and 99.3 / 33.8 KB."
 />
-
-<NumberBand value="5.2×" note="same app, same features">
-  the gzip size of the 2.0 list app against 1.9: 37.4 KB against 7.1 KB.
-</NumberBand>
 
 Most of the size is the reactive core. I checked the dependencies, `@solidjs/signals` is 90.2 KB of the 99.3 KB raw bundle, and `@solidjs/web` is 7.5 KB. The action, the optimistic store, `<Errored>` and `isPending` add another 59.9 KB raw on top of the async-memo-only build. So most of the growth comes from the mutation side, not from async reads. I still don't think it's a big problem tbf.
 
@@ -305,7 +301,7 @@ The micro-benchmark is one signal with 10,000 dependents, in Node, with the brow
 
 2.0 is slower on this shape. Every write in 2.0 is staged, then committed at the flush, also when nothing is async. The design notes of the reactive core do not allow a direct commit for each write. They call this commit cost the price of the semantics: reads must not change before the flush. One write that reaches 10,000 effects costs about one millisecond. Real pages rarely have that much fan-out from one signal. Mine do not.
 
-> Disclaimer - I don't think microbenchmarks tell what happens in a real app of good scale, I mainly did them to see some numbers, and decided to share it here.
+I don't think microbenchmarks tell what happens in a real app of good scale, I mainly did them to see some numbers, and decided to share it here.
 
 ## Running 1.x code on 2.0
 
@@ -347,7 +343,7 @@ After that, the bundler reports each removed export:
 
 Each message links to its page in the diagnostics reference. I wish every framework did this. 👑
 
-To move a full SolidStart app, with the router and the server, read [migrating a SolidStart app to Solid 2.0](/blog/migrate-solidstart-to-solid-2/). Server functions are part of the change: in 2.0, the `"use server"` runtime is part of `@solidjs/web`. For projects that use SolidStart today, read [SolidStart is in maintenance: what to use now](/blog/solidstart-maintenance-what-to-use/) first.
+Server functions are part of the change: in 2.0, the `"use server"` runtime is part of `@solidjs/web`.
 
 ## Sources
 

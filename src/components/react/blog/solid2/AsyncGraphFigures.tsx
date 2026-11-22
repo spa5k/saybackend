@@ -208,11 +208,19 @@ function Arrow({ d, dashed = false }: { d: string; dashed?: boolean }) {
 }
 
 /** The one sentence under a figure that says what happens now. */
-function Status({ y, children }: { y: number; children: ReactNode }) {
+function Status({
+  x = 320,
+  y,
+  children,
+}: {
+  x?: number
+  y: number
+  children: ReactNode
+}) {
   return (
     <text
       className="fig-strong"
-      x="320"
+      x={x}
       y={y}
       textAnchor="middle"
       style={{ fontSize: 13 }}
@@ -562,7 +570,7 @@ export function WriteQueue() {
   return (
     <Figure
       bleed
-      title="Writes wait in a queue. One flush runs the graph from the bottom up."
+      title="Writes wait in a queue. One flush runs the graph by height."
       legend={[
         { label: 'signal', mark: 'sand' },
         { label: 'queued write', mark: 'amber' },
@@ -588,13 +596,13 @@ export function WriteQueue() {
         <CodePanel x={10} y={6} w={620} lines={lines} active={active} />
 
         <text x="245" y="214" textAnchor="middle" style={TINY}>
-          level 0
+          height 0
         </text>
         <text x="390" y="214" textAnchor="middle" style={TINY}>
-          level 1
+          height 1
         </text>
         <text x="540" y="214" textAnchor="middle" style={TINY}>
-          level 2
+          height 2
         </text>
 
         <Outline x={14} y={262} w={150} h={52} />
@@ -701,9 +709,9 @@ export function WriteQueue() {
               : step === 2
                 ? 'A read before the flush gets the old value: 10.'
                 : step === 3
-                  ? 'The flush runs the lowest memos first: net, then tax.'
+                  ? 'The flush runs height 1 first: net and tax.'
                   : step === 4
-                    ? 'total runs one time, with both new inputs.'
+                    ? 'Then height 2: total runs one time, with both new inputs.'
                     : 'The effect runs last. The screen changes one time.'}
         </Status>
       </svg>
@@ -1014,174 +1022,6 @@ export function BoundaryCatch() {
             : step === 1
               ? 'An error goes past <Loading>. <Errored> catches it.'
               : 'Without <Errored>, one error stops the whole app.'}
-        </Status>
-      </svg>
-    </Figure>
-  )
-}
-
-/* ------------------------------------------------------------------ */
-/* 5. Height order (stepped)                                          */
-/* ------------------------------------------------------------------ */
-
-const HEIGHT_STEPS = ['write', 'height 0', 'height 1', 'height 2', 'height 3']
-
-/** A chain and a diamond, flushed one height at a time. */
-export function HeightOrder() {
-  const { ref, step, go, replay } = useSteps(HEIGHT_STEPS.length, 1500)
-  const queued = step === 0
-
-  return (
-    <Figure
-      bleed
-      title="Height order: the flush runs the heap level by level"
-      legend={[
-        { label: 'signal', mark: 'sand' },
-        { label: 'queued write', mark: 'amber' },
-        { label: 'memo', mark: 'lilac' },
-      ]}
-      card={{
-        title: 'The rule',
-        body: 'height = 1 + the tallest memo a node reads',
-      }}
-      caption={
-        <StepControls
-          labels={HEIGHT_STEPS}
-          step={step}
-          go={go}
-          replay={replay}
-        />
-      }
-    >
-      <svg
-        ref={ref}
-        className="sa-fig"
-        viewBox="0 0 640 440"
-        role="img"
-        aria-label="Two graphs side by side. Left, a chain: the signal price at height 0, memo net at height 1, memo tax at height 2, memo total at height 3, with an edge from net straight to total that skips a level. Right, a diamond: the signal query at height 0, memos list and sorted both at height 1, memo summary at height 2 reading both. After one write, the flush commits the signals at height 0, runs net, list and sorted at height 1, then tax and summary at height 2, then total at height 3. Each memo runs one time."
-      >
-        <text x="40" y="140" textAnchor="end" style={TINY}>
-          height 3
-        </text>
-        <text x="40" y="212" textAnchor="end" style={TINY}>
-          height 2
-        </text>
-        <text x="40" y="284" textAnchor="end" style={TINY}>
-          height 1
-        </text>
-        <text x="40" y="356" textAnchor="end" style={TINY}>
-          height 0
-        </text>
-
-        <Outline x={46} y={96} w={270} h={300} />
-        <text x={181} y={90} textAnchor="middle" style={TINY}>
-          chain: each hop adds one
-        </text>
-        <Outline x={330} y={96} w={270} h={300} />
-        <text x={465} y={90} textAnchor="middle" style={TINY}>
-          diamond: two memos, one height
-        </text>
-
-        {/* Chain */}
-        <Edge d="M170 330V302" live={step >= 2} />
-        <Edge d="M170 258V230" live={step >= 3} />
-        <Edge d="M170 186V158" live={step >= 4} />
-        <Edge
-          d="M230 280C282 262 282 178 230 160"
-          live={step >= 4}
-        />
-        <Node
-          x={110}
-          y={330}
-          w={120}
-          mark={queued ? 'amber' : 'sand'}
-          title="price"
-          value={queued ? '10 (next 12)' : '12'}
-          ring={step === 1}
-        />
-        <Node
-          x={110}
-          y={258}
-          w={120}
-          mark="lilac"
-          title="net"
-          value={step >= 2 ? '36' : '30'}
-          ring={step === 2}
-        />
-        <Node
-          x={110}
-          y={186}
-          w={120}
-          mark="lilac"
-          title="tax"
-          value={step >= 3 ? '7.2' : '6'}
-          ring={step === 3}
-        />
-        <Node
-          x={110}
-          y={114}
-          w={120}
-          mark="lilac"
-          title="total"
-          value={step >= 4 ? '43.2' : '36'}
-          ring={step === 4}
-        />
-        <text x={236} y={222} style={TINY}>
-          net feeds total too
-        </text>
-
-        {/* Diamond */}
-        <Edge d="M465 330L405 302" live={step >= 2} />
-        <Edge d="M465 330L525 302" live={step >= 2} />
-        <Edge d="M405 258L445 230" live={step >= 3} />
-        <Edge d="M525 258L485 230" live={step >= 3} />
-        <Node
-          x={405}
-          y={330}
-          w={120}
-          mark={queued ? 'amber' : 'sand'}
-          title="query"
-          value={queued ? 'next "ab"' : '"ab"'}
-          ring={step === 1}
-        />
-        <Node
-          x={345}
-          y={258}
-          w={110}
-          mark="lilac"
-          title="list"
-          value={step >= 2 ? '2 rows' : '3 rows'}
-          ring={step === 2}
-        />
-        <Node
-          x={470}
-          y={258}
-          w={110}
-          mark="lilac"
-          title="sorted"
-          value={step >= 2 ? '"ab"' : '"abc"'}
-          ring={step === 2}
-        />
-        <Node
-          x={410}
-          y={186}
-          w={110}
-          mark="lilac"
-          title="summary"
-          value="runs once"
-          ring={step === 3}
-        />
-
-        <Status y={424}>
-          {queued
-            ? 'One write. The heap holds the dirty memos, sorted by height.'
-            : step === 1
-              ? 'Height 0: the signals commit. No memo has run yet.'
-              : step === 2
-                ? 'Height 1: net, list and sorted run. Same height, any order.'
-                : step === 3
-                  ? 'Height 2: tax and summary run one time, all inputs fresh.'
-                  : 'Height 3: total runs last, after net and tax.'}
         </Status>
       </svg>
     </Figure>
@@ -1629,6 +1469,299 @@ export function LandingBatch() {
               : step === 2
                 ? '1.9 runs keep stacking up. 2.0 still shows its old frame.'
                 : 'The last answer lands. 2.0 commits one frame: 1 run, not 1,001.'}
+        </Status>
+      </svg>
+    </Figure>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* 8. createDeferred: one write, a fast and a slow source (animated)   */
+/* ------------------------------------------------------------------ */
+
+const DEFER_STEPS = ['setPeriod(2)', '23 ms', '202 ms']
+
+/** Two pills that switch between two versions of the same code. */
+function ModeSwitch<T extends string>({
+  modes,
+  mode,
+  pick,
+}: {
+  modes: Array<{ id: T; label: string }>
+  mode: T
+  pick: (next: T) => void
+}) {
+  return (
+    <span className="paper-widget sa-controls">
+      {modes.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          className={item.id === mode ? 'is-active' : undefined}
+          aria-pressed={item.id === mode}
+          onClick={() => pick(item.id)}
+        >
+          {item.label}
+        </button>
+      ))}
+    </span>
+  )
+}
+
+/** A fast and a slow async source read one signal. The slow one can be deferred. */
+export function DeferredTimeline() {
+  const { ref, step, go, replay } = useSteps(DEFER_STEPS.length, 1800)
+  const [mode, setMode] = useState<'memo' | 'deferred'>('deferred')
+  const deferred = mode === 'deferred'
+  const fastDone = step >= 1
+  const slowDone = step >= 2
+  const fastShown = slowDone || (fastDone && deferred)
+  const held = fastDone && !fastShown
+  const lines: Array<CodeLine> = [
+    { text: 'const [period, setPeriod] = createSignal(1);', kind: 'sand' },
+    { text: 'const fast = createMemo(() => load(period(), 20));', kind: 'lilac' },
+    {
+      text: `const slow = ${deferred ? 'createDeferred' : 'createMemo'}(() => load(period(), 200));`,
+      kind: 'lilac',
+    },
+    { text: 'setPeriod(2);', note: 'one write' },
+  ]
+  const active = [[3], [1], [2]][step] ?? []
+
+  return (
+    <Figure
+      bleed
+      title="One write, a fast and a slow source: who waits for whom"
+      legend={[
+        { label: 'signal', mark: 'sand' },
+        { label: 'pending', mark: 'amber' },
+        { label: 'memo, new value', mark: 'lilac' },
+        { label: 'screen', mark: 'sage' },
+      ]}
+      caption={
+        <>
+          <ModeSwitch
+            modes={[
+              { id: 'memo', label: 'slow is createMemo' },
+              { id: 'deferred', label: 'slow is createDeferred' },
+            ]}
+            mode={mode}
+            pick={(next) => {
+              setMode(next)
+              replay()
+            }}
+          />
+          <StepControls labels={DEFER_STEPS} step={step} go={go} replay={replay} />
+        </>
+      }
+    >
+      <svg
+        ref={ref}
+        className="sa-fig"
+        viewBox="0 0 640 330"
+        role="img"
+        aria-label={`Code: a signal period, a fast async memo of 20 ms and a slow async source of 200 ms that both read period, then setPeriod(2). The slow source is ${deferred ? 'createDeferred' : 'createMemo'}. With createMemo, both widgets keep period 1 and change together at 202 ms. With createDeferred, the fast widget changes at 23 ms and the slow one at 202 ms.`}
+      >
+        <CodePanel x={10} y={6} w={620} lines={lines} active={active} />
+
+        <text x="620" y="128" textAnchor="end" style={MONO}>
+          {['0 ms', '23 ms', '202 ms'][step]}
+        </text>
+
+        <Edge d="M140 214C170 214 170 170 200 170" live={step === 0} />
+        <Edge d="M140 226C170 226 170 260 200 260" live={step === 0} />
+        <Edge d="M350 170H430" live={fastShown && step === (deferred ? 1 : 2)} />
+        <Edge d="M350 260H430" live={step === 2} />
+
+        <Node x={20} y={198} w={120} mark="sand" title="period" value="2" />
+        <Node
+          x={200}
+          y={148}
+          w={150}
+          mark={fastDone ? 'lilac' : 'amber'}
+          title="fast, 20 ms"
+          value={fastDone ? 'period 2' : 'pending'}
+          ring={step === 1}
+        />
+        <Node
+          x={200}
+          y={238}
+          w={150}
+          mark={slowDone ? 'lilac' : 'amber'}
+          title="slow, 200 ms"
+          value={slowDone ? 'period 2' : 'pending'}
+          ring={step === 2}
+        />
+        <Node
+          x={430}
+          y={148}
+          w={190}
+          mark="sage"
+          title="fast widget"
+          value={fastShown ? 'period 2' : 'period 1'}
+          ring={fastShown && step === (deferred ? 1 : 2)}
+        />
+        <Node
+          x={430}
+          y={238}
+          w={190}
+          mark="sage"
+          title="slow widget"
+          value={slowDone ? 'period 2' : 'period 1'}
+          ring={step === 2}
+        />
+        <text x="525" y="208" textAnchor="middle" style={TINY} opacity={held ? 1 : 0}>
+          held: the change waits for slow
+        </text>
+
+        <Status y={318}>
+          {step === 0
+            ? 'One write. Both sources start to load.'
+            : step === 1
+              ? deferred
+                ? 'fast lands and shows now. The deferred source does not hold it.'
+                : 'fast has landed, but the screen waits: one change, one frame.'
+              : deferred
+                ? 'slow lands and shows. Each widget changed when it was ready.'
+                : 'slow lands. Both widgets change together.'}
+        </Status>
+      </svg>
+    </Figure>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* 9. An optimistic action: rollback or confirm (animated)             */
+/* ------------------------------------------------------------------ */
+
+const SAVE_STEPS = ['save(5)', 'in flight', 'answer']
+
+/** createOptimistic and an action, when the server rejects and when it accepts. */
+export function OptimisticAction() {
+  const { ref, step, go, replay } = useSteps(SAVE_STEPS.length, 1900)
+  const [mode, setMode] = useState<'reject' | 'accept'>('reject')
+  const rejects = mode === 'reject'
+  const answered = step === 2
+  const guessing = !answered
+  const failed = answered && rejects
+  const lines: Array<CodeLine> = [
+    { text: 'const [count, setCount] = createOptimistic(() => saved);', kind: 'lilac' },
+    { text: 'const save = action(function* (n) {' },
+    { text: '  setCount(n);', note: 'shows now' },
+    { text: '  yield api.save(n);', note: 'the transaction stays open' },
+    { text: '  refresh(count);', note: 'read saved again' },
+    { text: '});' },
+  ]
+  const active = [[2], [3], rejects ? [3] : [4]][step] ?? []
+  const screen = failed ? '0' : '5'
+
+  return (
+    <Figure
+      bleed
+      title="An optimistic write shows at once, then the server decides"
+      legend={[
+        { label: 'committed', mark: 'sand' },
+        { label: 'guess, transaction open', mark: 'amber' },
+        { label: 'server', mark: 'blue' },
+        { label: 'rolled back', mark: 'rose' },
+        { label: 'screen', mark: 'sage' },
+      ]}
+      caption={
+        <>
+          <ModeSwitch
+            modes={[
+              { id: 'reject', label: 'server rejects' },
+              { id: 'accept', label: 'server accepts' },
+            ]}
+            mode={mode}
+            pick={(next) => {
+              setMode(next)
+              replay()
+            }}
+          />
+          <StepControls labels={SAVE_STEPS} step={step} go={go} replay={replay} />
+        </>
+      }
+    >
+      <svg
+        ref={ref}
+        className="sa-fig"
+        viewBox="0 0 640 380"
+        role="img"
+        aria-label="Code: an optimistic count over the saved value, and an action that sets count to n, yields api.save(n), then refreshes count. save(5) shows 5 on screen at once, as a guess, while the transaction is open. If the server rejects, the guess rolls back and the screen shows 0 again. If the server accepts, saved becomes 5, refresh reads it, and the guess becomes the committed value."
+      >
+        <CodePanel
+          x={10}
+          y={6}
+          w={620}
+          lines={lines}
+          active={active}
+          mark={failed ? 'rose' : answered ? 'lilac' : 'amber'}
+        />
+
+        <Node
+          x={20}
+          y={250}
+          w={130}
+          mark="sand"
+          title="saved"
+          value={answered && !rejects ? '5' : '0'}
+          ring={answered && !rejects}
+        />
+        <Edge d="M85 250V226" live={answered && !rejects} />
+        <Node
+          x={20}
+          y={180}
+          w={130}
+          mark={guessing ? 'amber' : failed ? 'rose' : 'lilac'}
+          title="count"
+          value={guessing ? 'guess: 5' : failed ? 'guess dropped: 0' : '5, from saved'}
+          ring={step === 0 || answered}
+        />
+        <Edge d="M150 202H250" live={step === 0 || answered} />
+        <Node
+          x={250}
+          y={180}
+          w={130}
+          mark={failed ? 'rose' : 'sage'}
+          title="screen"
+          value={screen}
+          ring={step === 0 || answered}
+        />
+
+        <rect
+          x={530}
+          y={160}
+          width={90}
+          height={150}
+          filter="url(#pp-marker)"
+          style={{ fill: MARKS.blue }}
+          opacity={step >= 1 ? 0.85 : 0.3}
+        />
+        <text className="fig-strong" x="575" y="180" textAnchor="middle" style={SMALL}>
+          server
+        </text>
+        <g opacity={step === 1 ? 1 : 0}>
+          <Arrow d="M386 200H524" />
+          <text x="455" y="192" textAnchor="middle" style={TINY}>
+            api.save(5)
+          </text>
+        </g>
+        <g opacity={answered ? 1 : 0}>
+          <Arrow d="M524 222H386" dashed />
+          <text x="455" y="240" textAnchor="middle" style={TINY}>
+            {rejects ? 'rejects: server said no' : 'ok'}
+          </text>
+        </g>
+
+        <Status y={350}>
+          {step === 0
+            ? 'save(5) runs. The screen shows 5 at once: a guess.'
+            : step === 1
+              ? 'The request is in flight. The guess stays while the transaction is open.'
+              : rejects
+                ? 'The server says no. The guess rolls back: the screen shows 0.'
+                : 'The server says yes. refresh reads saved: 5 is now committed.'}
         </Status>
       </svg>
     </Figure>
