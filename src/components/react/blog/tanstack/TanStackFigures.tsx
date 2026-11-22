@@ -839,3 +839,81 @@ export function StreamedBody() {
     </Figure>
   )
 }
+
+/** Blog post: Pagefind read the rendered page; the new index reads the Markdown. */
+export function SearchIndexPath() {
+  const before = 46
+  const now = 146
+  return (
+    <Figure
+      bleed
+      title="Where the search index gets the post text"
+      caption="Pagefind read the HTML after React rendered it. The new index reads the same Markdown as the .md copy of each post, so a change in rendering cannot empty it."
+      legend={[
+        { label: 'the post text', mark: 'lilac' },
+        { label: 'a build step', mark: 'blue' },
+      ]}
+    >
+      <svg
+        viewBox="0 0 640 250"
+        role="img"
+        aria-label="Before: the MDX file goes through the React render to streamed HTML, and Pagefind found 0 of 18 posts there. Now: the MDX file becomes portable Markdown, is cut at each heading, and goes into a MiniSearch index of 46 posts and 677 parts; all 640 heading anchors match ids in the pages."
+      >
+        <text x="20" y={before - 14} style={TINY}>
+          Pagefind (before)
+        </text>
+        <Box x={20} y={before} w={90} mark="sand">
+          index.mdx
+        </Box>
+        <Arrow d={`M114 ${before + 15} H136`} />
+        <Box x={140} y={before} w={110} mark="sand">
+          React render
+        </Box>
+        <Arrow d={`M254 ${before + 15} H276`} />
+        <Wall x={280} y={before - 4} w={110} h={38} dashed />
+        <text x={335} y={before + 19} textAnchor="middle" style={SMALL}>
+          streamed HTML
+        </text>
+        <Arrow d={`M394 ${before + 15} H416`} />
+        <Box x={420} y={before} w={90} mark="blue">
+          Pagefind
+        </Box>
+        <Stop x={526} y={before + 15} />
+        <text x={538} y={before + 19} style={SMALL} className="fig-strong">
+          0 of 18 posts
+        </text>
+
+        <text x="20" y={now - 14} style={TINY}>
+          MiniSearch (now)
+        </text>
+        <Box x={20} y={now} w={90} mark="sand">
+          index.mdx
+        </Box>
+        <Arrow d={`M114 ${now + 15} H136`} />
+        <Box x={140} y={now} w={110} mark="blue">
+          Markdown copy
+        </Box>
+        <Arrow d={`M254 ${now + 15} H276`} />
+        <Box x={280} y={now} w={110} mark="lilac" strong>
+          one part per heading
+        </Box>
+        <Arrow d={`M394 ${now + 15} H416`} />
+        <Box x={420} y={now} w={90} mark="lilac">
+          MiniSearch
+        </Box>
+        <text x={526} y={now + 12} style={SMALL} className="fig-strong">
+          46 posts
+        </text>
+        <text x={526} y={now + 27} style={SMALL}>
+          677 parts
+        </text>
+
+        <Arrow d={`M335 ${now + 34} V${now + 62}`} dashed />
+        <text x={335} y={now + 78} textAnchor="middle" style={SMALL}>
+          heading anchors: 640 of 640 in the page
+        </text>
+        <HandNote x={430} y={now + 62} text="no React in the path" rotate={-3} />
+      </svg>
+    </Figure>
+  )
+}

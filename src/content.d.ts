@@ -21,13 +21,5 @@ declare module '*.svg' {
   export default Component
 }
 
-interface Window {
-  PagefindUI?: new (options: {
-    element: HTMLElement
-    showSubResults?: boolean
-    showImages?: boolean
-  }) => unknown
-}
-
 /** The UTC day of the build, as YYYY-MM-DD. Set in vite.config.ts. */
 declare const __BUILD_DATE__: string

@@ -177,7 +177,7 @@ function PostPage() {
           This article is a work in progress and may change.
         </div>
       ) : null}
-      <div className="post-body" data-pagefind-body>
+      <div className="post-body">
         <Suspense fallback={null}>
           <Content
             components={{
@@ -187,7 +187,7 @@ function PostPage() {
             }}
           />
         </Suspense>
-        <footer className="post-end not-typography" data-pagefind-ignore="">
+        <footer className="post-end not-typography">
           <div className="post-tags">
             <span className="post-tombstone" aria-hidden="true" />
             {(post.tags ?? []).slice(0, 5).map((tag) => (

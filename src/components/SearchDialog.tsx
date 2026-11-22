@@ -1,24 +1,19 @@
 import { MagnifyingGlass, X } from '@phosphor-icons/react'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { mountPagefind } from '@/lib/pagefind'
+import { SearchBox } from './SearchBox'
 
 export function SearchDialog() {
   const dialog = useRef<HTMLDialogElement>(null)
-  const container = useRef<HTMLDivElement>(null)
+  const input = useRef<HTMLInputElement>(null)
+  // The search box, and so the index download, mounts on the first open.
+  const [opened, setOpened] = useState(false)
 
-  const open = useCallback(async () => {
-    if (!dialog.current || !container.current) return
+  const open = useCallback(() => {
+    if (!dialog.current) return
+    setOpened(true)
     dialog.current.showModal()
-    try {
-      await mountPagefind(container.current)
-      container.current
-        .querySelector<HTMLInputElement>('.pagefind-ui__search-input')
-        ?.focus()
-    } catch {
-      container.current.textContent =
-        'Search could not load. Please refresh and try again.'
-    }
+    requestAnimationFrame(() => input.current?.focus())
   }, [])
 
   const close = useCallback(() => dialog.current?.close(), [])
@@ -35,7 +30,7 @@ export function SearchDialog() {
         ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k')
       ) {
         event.preventDefault()
-        void open()
+        open()
       }
     }
     document.addEventListener('keydown', handleKeyboard)
@@ -48,7 +43,7 @@ export function SearchDialog() {
         className="search-toggle"
         type="button"
         aria-label="Search articles"
-        onClick={() => void open()}
+        onClick={open}
       >
         <MagnifyingGlass size={18} weight="regular" aria-hidden="true" />
       </button>
@@ -63,14 +58,14 @@ export function SearchDialog() {
         <div className="search-panel">
           <div className="search-panel-header">
             <div>
-              <p className="eyebrow">Search the journal</p>
+              <p className="eyebrow">Search the posts</p>
               <p>Press / or ⌘K from anywhere.</p>
             </div>
             <button type="button" aria-label="Close search" onClick={close}>
               <X size={18} aria-hidden="true" />
             </button>
           </div>
-          <div id="pagefind-search" ref={container} />
+          {opened ? <SearchBox inputRef={input} onNavigate={close} /> : null}
         </div>
       </dialog>
     </>

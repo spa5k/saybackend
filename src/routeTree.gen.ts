@@ -14,8 +14,9 @@ import { Route as R404RouteImport } from './routes/404'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as HiringRouteImport } from './routes/hiring'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
-import { Route as PagefindRouteImport } from './routes/pagefind'
 import { Route as RssDotxmlRouteImport } from './routes/rss[.]xml'
+import { Route as SearchRouteImport } from './routes/search'
+import { Route as SearchIndexDotjsonRouteImport } from './routes/search-index[.]json'
 import { Route as Sitemap0DotxmlRouteImport } from './routes/sitemap-0[.]xml'
 import { Route as SitemapIndexDotxmlRouteImport } from './routes/sitemap-index[.]xml'
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
@@ -56,14 +57,19 @@ const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
   path: '/llms.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PagefindRoute = PagefindRouteImport.update({
-  id: '/pagefind',
-  path: '/pagefind',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const RssDotxmlRoute = RssDotxmlRouteImport.update({
   id: '/rss.xml',
   path: '/rss.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchIndexDotjsonRoute = SearchIndexDotjsonRouteImport.update({
+  id: '/search-index.json',
+  path: '/search-index.json',
   getParentRoute: () => rootRouteImport,
 } as any)
 const Sitemap0DotxmlRoute = Sitemap0DotxmlRouteImport.update({
@@ -145,8 +151,9 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/hiring': typeof HiringRoute
   '/llms.txt': typeof LlmsDottxtRoute
-  '/pagefind': typeof PagefindRoute
   '/rss.xml': typeof RssDotxmlRoute
+  '/search': typeof SearchRoute
+  '/search-index.json': typeof SearchIndexDotjsonRoute
   '/sitemap-0.xml': typeof Sitemap0DotxmlRoute
   '/sitemap-index.xml': typeof SitemapIndexDotxmlRoute
   '/blog/$slug': typeof BlogSlugRoute
@@ -168,8 +175,9 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/hiring': typeof HiringRoute
   '/llms.txt': typeof LlmsDottxtRoute
-  '/pagefind': typeof PagefindRoute
   '/rss.xml': typeof RssDotxmlRoute
+  '/search': typeof SearchRoute
+  '/search-index.json': typeof SearchIndexDotjsonRoute
   '/sitemap-0.xml': typeof Sitemap0DotxmlRoute
   '/sitemap-index.xml': typeof SitemapIndexDotxmlRoute
   '/blog/$slug': typeof BlogSlugRoute
@@ -192,8 +200,9 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/hiring': typeof HiringRoute
   '/llms.txt': typeof LlmsDottxtRoute
-  '/pagefind': typeof PagefindRoute
   '/rss.xml': typeof RssDotxmlRoute
+  '/search': typeof SearchRoute
+  '/search-index.json': typeof SearchIndexDotjsonRoute
   '/sitemap-0.xml': typeof Sitemap0DotxmlRoute
   '/sitemap-index.xml': typeof SitemapIndexDotxmlRoute
   '/blog/$slug': typeof BlogSlugRoute
@@ -217,8 +226,9 @@ export interface FileRouteTypes {
     | '/about'
     | '/hiring'
     | '/llms.txt'
-    | '/pagefind'
     | '/rss.xml'
+    | '/search'
+    | '/search-index.json'
     | '/sitemap-0.xml'
     | '/sitemap-index.xml'
     | '/blog/$slug'
@@ -240,8 +250,9 @@ export interface FileRouteTypes {
     | '/about'
     | '/hiring'
     | '/llms.txt'
-    | '/pagefind'
     | '/rss.xml'
+    | '/search'
+    | '/search-index.json'
     | '/sitemap-0.xml'
     | '/sitemap-index.xml'
     | '/blog/$slug'
@@ -263,8 +274,9 @@ export interface FileRouteTypes {
     | '/about'
     | '/hiring'
     | '/llms.txt'
-    | '/pagefind'
     | '/rss.xml'
+    | '/search'
+    | '/search-index.json'
     | '/sitemap-0.xml'
     | '/sitemap-index.xml'
     | '/blog/$slug'
@@ -287,8 +299,9 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   HiringRoute: typeof HiringRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
-  PagefindRoute: typeof PagefindRoute
   RssDotxmlRoute: typeof RssDotxmlRoute
+  SearchRoute: typeof SearchRoute
+  SearchIndexDotjsonRoute: typeof SearchIndexDotjsonRoute
   Sitemap0DotxmlRoute: typeof Sitemap0DotxmlRoute
   SitemapIndexDotxmlRoute: typeof SitemapIndexDotxmlRoute
   BlogSlugRoute: typeof BlogSlugRoute
@@ -342,18 +355,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LlmsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/pagefind': {
-      id: '/pagefind'
-      path: '/pagefind'
-      fullPath: '/pagefind'
-      preLoaderRoute: typeof PagefindRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/rss.xml': {
       id: '/rss.xml'
       path: '/rss.xml'
       fullPath: '/rss.xml'
       preLoaderRoute: typeof RssDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search-index.json': {
+      id: '/search-index.json'
+      path: '/search-index.json'
+      fullPath: '/search-index.json'
+      preLoaderRoute: typeof SearchIndexDotjsonRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap-0.xml': {
@@ -463,8 +483,9 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   HiringRoute: HiringRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
-  PagefindRoute: PagefindRoute,
   RssDotxmlRoute: RssDotxmlRoute,
+  SearchRoute: SearchRoute,
+  SearchIndexDotjsonRoute: SearchIndexDotjsonRoute,
   Sitemap0DotxmlRoute: Sitemap0DotxmlRoute,
   SitemapIndexDotxmlRoute: SitemapIndexDotxmlRoute,
   BlogSlugRoute: BlogSlugRoute,

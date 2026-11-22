@@ -63,7 +63,7 @@ export function Figure({
         </div>
       ) : null}
       {legend?.length ? (
-        <ul className="fig-legend" data-pagefind-ignore="">
+        <ul className="fig-legend">
           {legend.map((item) => (
             <li key={item.label}>
               <span

@@ -40,7 +40,7 @@ export default function CodeWindow({
 
   return (
     <figure className="code-window">
-      <figcaption className="code-window-toolbar" data-pagefind-ignore="">
+      <figcaption className="code-window-toolbar">
         <span className="code-window-controls" aria-hidden>
           {WINDOW_CONTROLS.map((control) => (
             <Circle

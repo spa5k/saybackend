@@ -27,7 +27,7 @@ export const Route = createFileRoute('/')({
               '@type': 'SearchAction',
               target: {
                 '@type': 'EntryPoint',
-                urlTemplate: `${SITE.origin}/pagefind/?q={search_term_string}`,
+                urlTemplate: `${SITE.origin}/search/?q={search_term_string}`,
               },
               'query-input': 'required name=search_term_string',
             },

@@ -19,6 +19,7 @@ import remarkGfm from 'remark-gfm'
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
+import rehypeSlug from 'rehype-slug'
 
 import rehypeCollapseSources from './src/lib/rehypeCollapseSources'
 import svgr from 'vite-plugin-svgr'
@@ -186,6 +187,7 @@ const config = defineConfig({
         [remarkMdxFrontmatter, { name: 'frontmatter' }],
       ],
       rehypePlugins: [
+        rehypeSlug,
         rehypeKatex,
         rehypeCollapseSources,
         [
@@ -208,6 +210,7 @@ const config = defineConfig({
         { path: '/guides' },
         { path: '/rss.xml' },
         { path: '/llms.txt' },
+        { path: '/search-index.json' },
         { path: '/sitemap-index.xml' },
         { path: '/sitemap-0.xml' },
       ],

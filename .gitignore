@@ -37,3 +37,4 @@ uuidv7-postgres-benchmark
 
 # synced Outrank articles (scripts/sync-outrank.mjs)
 src/data/outrank/
+

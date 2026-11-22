@@ -135,6 +135,11 @@ function directoryId(path: string) {
   return path.split('/').at(-2) ?? path
 }
 
+/** A draft, or a post with a date after the build day, is not published. */
+export function isPublished(post: Pick<Frontmatter, 'draft' | 'date'>) {
+  return !post.draft && post.date.slice(0, 10) <= __BUILD_DATE__
+}
+
 export const posts: Array<Post> = Object.entries(blogFrontmatter)
   .map(([path, frontmatter]) => {
     const id = directoryId(path)
@@ -152,13 +157,8 @@ export const posts: Array<Post> = Object.entries(blogFrontmatter)
       }),
     }
   })
-  // A draft, or a post with a date after the build day, is not published.
-  // The local dev server shows both, so they can be read first.
-  .filter(
-    (post) =>
-      import.meta.env.DEV ||
-      (!post.draft && post.date.slice(0, 10) <= __BUILD_DATE__),
-  )
+  // The local dev server shows unpublished posts too, so they can be read first.
+  .filter((post) => import.meta.env.DEV || isPublished(post))
   .sort((a, b) => Date.parse(b.date) - Date.parse(a.date))
 
 /** Slugs of posts that exist but are not published in this build. */
