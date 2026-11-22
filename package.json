@@ -78,6 +78,7 @@
     ]
   },
   "overrides": {
-    "katex": "$katex"
+    "katex": "$katex",
+    "minimatch": "^11.0.8"
   }
 }
