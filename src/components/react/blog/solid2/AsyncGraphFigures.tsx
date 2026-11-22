@@ -1187,3 +1187,450 @@ export function HeightOrder() {
     </Figure>
   )
 }
+
+/* ------------------------------------------------------------------ */
+/* 6. Superseded flights: dropped, or aborted (animated)               */
+/* ------------------------------------------------------------------ */
+
+const FLIGHT_STEPS = [
+  'first query',
+  'four keystrokes',
+  'stale answers land',
+  'last answer lands',
+]
+/** The time on the clock at each step, in ms. */
+const FLIGHT_NOW = [55, 95, 133, 150]
+/** One query, then four keystrokes 10 ms apart. Each fetch takes 50 ms. */
+const FLIGHTS = [
+  { query: '"s"', start: 0 },
+  { query: '"so"', start: 60 },
+  { query: '"sol"', start: 70 },
+  { query: '"soli"', start: 80 },
+  { query: '"solid"', start: 90 },
+]
+const FETCH_MS = 50
+const flightX = (ms: number) => 110 + (ms * 500) / 150
+
+/** One lane: five fetches on a clock, and the renders they cause. */
+function FlightLane({
+  y,
+  abort,
+  now,
+}: {
+  y: number
+  abort: boolean
+  now: number
+}) {
+  const flights = FLIGHTS.map((flight, index) => {
+    const end = flight.start + FETCH_MS
+    const kept = index === 0 || index === FLIGHTS.length - 1
+    const abortAt = abort && !kept ? FLIGHTS[index + 1]?.start : undefined
+    const stop = abortAt ?? end
+    return {
+      ...flight,
+      end,
+      kept,
+      abortAt,
+      stop,
+      started: now >= flight.start,
+      done: now >= stop,
+    }
+  })
+  const finished = flights.filter((f) => f.done && f.abortAt === undefined)
+  const dropped = finished.filter((f) => !f.kept).length
+  const aborted = flights.filter((f) => f.done && f.abortAt !== undefined).length
+  const renders = flights.filter((f) => f.kept && f.done)
+
+  return (
+    <g>
+      <Outline x={14} y={y} w={612} h={180} />
+      <text className="fig-strong" x="26" y={y + 18} style={LABEL}>
+        {abort ? 'with onCleanup(() => ac.abort())' : 'without onCleanup'}
+      </text>
+      <text x="614" y={y + 18} textAnchor="end" style={SMALL}>
+        {abort
+          ? `${finished.length} finished · ${aborted} aborted · ${renders.length} renders`
+          : `${finished.length} finished · ${dropped} dropped · ${renders.length} renders`}
+      </text>
+
+      {flights.map((flight, index) => {
+        const top = y + 28 + index * 22
+        const barEnd = Math.min(now, flight.stop)
+        const fill = !flight.done
+          ? MARKS.amber
+          : flight.abortAt === undefined
+            ? MARKS.blue
+            : MARKS.rose
+        return (
+          <g key={flight.query}>
+            <text x="100" y={top + 12} textAnchor="end" style={MONO}>
+              {flight.query}
+            </text>
+            <rect
+              x={flightX(flight.start)}
+              y={top}
+              width={Math.max(flightX(barEnd) - flightX(flight.start), 2)}
+              height={16}
+              filter="url(#pp-marker)"
+              style={{ fill }}
+              opacity={flight.started ? 1 : 0}
+            />
+            {flight.abortAt === undefined ? (
+              <g opacity={flight.done ? 1 : 0}>
+                {flight.kept ? null : (
+                  <rect
+                    x={flightX(flight.end) + 3}
+                    y={top + 3}
+                    width={9}
+                    height={10}
+                    filter="url(#pp-marker)"
+                    style={{ fill: MARKS.rose }}
+                  />
+                )}
+                <text
+                  x={flightX(flight.end) + (flight.kept ? 6 : 16)}
+                  y={top + 12}
+                  style={TINY}
+                >
+                  {flight.kept ? 'kept' : 'dropped'}
+                </text>
+              </g>
+            ) : (
+              <g opacity={flight.done ? 1 : 0}>
+                <Outline
+                  x={flightX(flight.abortAt)}
+                  y={top}
+                  w={flightX(flight.end) - flightX(flight.abortAt)}
+                  h={16}
+                />
+                <text
+                  x={(flightX(flight.abortAt) + flightX(flight.end)) / 2}
+                  y={top + 12}
+                  textAnchor="middle"
+                  style={TINY}
+                >
+                  aborted
+                </text>
+              </g>
+            )}
+          </g>
+        )
+      })}
+
+      <text x="100" y={y + 156} textAnchor="end" style={TINY}>
+        renders
+      </text>
+      {flights
+        .filter((flight) => flight.kept)
+        .map((flight, index) => (
+          <g key={flight.query} opacity={flight.done ? 1 : 0}>
+            <rect
+              x={flightX(flight.end) - 8}
+              y={y + 144}
+              width={16}
+              height={16}
+              filter="url(#pp-marker)"
+              style={{ fill: MARKS.sage }}
+            />
+            <text
+              className="fig-strong"
+              x={flightX(flight.end)}
+              y={y + 156}
+              textAnchor="middle"
+              style={TINY}
+            >
+              {index + 1}
+            </text>
+          </g>
+        ))}
+    </g>
+  )
+}
+
+/** A typeahead: five fetches, two answers on screen, with and without abort. */
+export function SupersededFlights() {
+  const { ref, step, go, replay } = useSteps(FLIGHT_STEPS.length, 1900)
+  const now = FLIGHT_NOW[step] ?? 150
+
+  return (
+    <Figure
+      bleed
+      title="Superseded flights: the screen is the same, the server work is not"
+      legend={[
+        { label: 'in flight', mark: 'amber' },
+        { label: 'server finished', mark: 'blue' },
+        { label: 'aborted or dropped', mark: 'rose' },
+        { label: 'render', mark: 'sage' },
+      ]}
+      caption={
+        <StepControls
+          labels={FLIGHT_STEPS}
+          step={step}
+          go={go}
+          replay={replay}
+        />
+      }
+    >
+      <svg
+        ref={ref}
+        className="sa-fig"
+        viewBox="0 0 640 456"
+        role="img"
+        aria-label="Two timelines of the same typeahead. One query, s, starts at 0 ms, then four keystrokes start fetches at 60, 70, 80 and 90 ms. Each fetch takes 50 ms. Without onCleanup, all five fetches run to the end on the server, and Solid drops the three middle answers when they land. With onCleanup and an AbortController, each new run aborts the fetch before it, so three fetches stop after 10 ms and two finish. In both timelines the render effect runs two times: at 50 ms for s and at 140 ms for solid."
+      >
+        <text x={flightX(0)} y="24" textAnchor="middle" style={TINY}>
+          0 ms
+        </text>
+        <text x={flightX(50)} y="24" textAnchor="middle" style={TINY}>
+          50
+        </text>
+        <text x={flightX(100)} y="24" textAnchor="middle" style={TINY}>
+          100
+        </text>
+        <text x={flightX(150)} y="24" textAnchor="middle" style={TINY}>
+          150 ms
+        </text>
+
+        <FlightLane y={36} abort={false} now={now} />
+        <FlightLane y={232} abort now={now} />
+
+        <Status y={440}>
+          {step === 0
+            ? 'The first query lands at 50 ms. Both versions render it.'
+            : step === 1
+              ? 'Four keystrokes, 10 ms apart. With onCleanup, each run aborts the last fetch.'
+              : step === 2
+                ? 'Without onCleanup, three stale answers land. Solid drops them.'
+                : 'The last answer lands. Both render it: two effect runs each.'}
+        </Status>
+      </svg>
+    </Figure>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* 7. Landing batching: 1,001 runs against one frame (animated)        */
+/* ------------------------------------------------------------------ */
+
+const LANDING_STEPS = ['empty state', 'first answers', 'most answers', 'all landed']
+/** The time on the clock at each step, in ms. */
+const LANDING_NOW = [0, 22, 26.5, 29.5]
+/** Twelve landings drawn for 1,000 sources, each on a 20 to 29 ms timer. */
+const LANDINGS = [
+  20.2, 20.9, 21.5, 22.3, 23.1, 23.8, 24.6, 25.4, 26.2, 27.1, 28.0, 28.9,
+]
+const SOURCES = 1000
+const landX = (ms: number) => 150 + (ms - 19.5) * 28
+
+/** 1,000 async sources and one effect that adds them: 1.9 against 2.0. */
+export function LandingBatch() {
+  const { ref, step, go, replay } = useSteps(LANDING_STEPS.length, 1900)
+  const now = LANDING_NOW[step] ?? 29.5
+  const landed = LANDINGS.filter((ms) => ms <= now)
+  const newest = landed[landed.length - 1]
+  const committed = landed.length === LANDINGS.length
+  const oldRuns = 1 + Math.round((landed.length / LANDINGS.length) * SOURCES)
+  const heldEnd = landX(Math.min(Math.max(now, 19.5), LANDINGS[LANDINGS.length - 1] ?? 29))
+  const blockH = (108 * oldRuns) / (SOURCES + 1)
+
+  return (
+    <Figure
+      bleed
+      title="Landing batching: 1,000 answers, one frame"
+      legend={[
+        { label: 'answer lands', mark: 'blue' },
+        { label: 'effect run, 1.9', mark: 'sand' },
+        { label: 'held change', mark: 'amber' },
+        { label: 'effect run, 2.0', mark: 'sage' },
+      ]}
+      caption={
+        <StepControls
+          labels={LANDING_STEPS}
+          step={step}
+          go={go}
+          replay={replay}
+        />
+      }
+    >
+      <svg
+        ref={ref}
+        className="sa-fig"
+        viewBox="0 0 640 436"
+        role="img"
+        aria-label="Two lanes on one clock. 1,000 async sources each land at 20 to 29 ms; twelve landings are drawn. In Solid 1.9, with createResource and createEffect, the effect runs one time for the empty state and one time for each resource that lands, 1,001 runs on the first load. In Solid 2.0, with async memos and a render effect, the change is held while the answers land, and the screen keeps its frame. After the last answer, one frame commits and the effect runs one time."
+      >
+        <text x="100" y="26" textAnchor="middle" style={TINY}>
+          0 ms
+        </text>
+        <text x={landX(20)} y="26" textAnchor="middle" style={TINY}>
+          20
+        </text>
+        <text x={landX(25)} y="26" textAnchor="middle" style={TINY}>
+          25
+        </text>
+        <text x={landX(29)} y="26" textAnchor="middle" style={TINY}>
+          29 ms
+        </text>
+        <text x="540" y="26" textAnchor="middle" style={TINY}>
+          effect runs
+        </text>
+
+        {/* Solid 1.9 */}
+        <Outline x={14} y={36} w={612} h={170} />
+        <text className="fig-strong" x="26" y="54" style={LABEL}>
+          Solid 1.9: createResource + createEffect
+        </text>
+        <text x="24" y="77" style={TINY}>
+          answers
+        </text>
+        <text x="24" y="111" style={TINY}>
+          effect
+        </text>
+        <rect
+          x={96}
+          y={92}
+          width={8}
+          height={30}
+          filter="url(#pp-marker)"
+          style={{ fill: MARKS.sand }}
+        />
+        <text x="100" y="138" textAnchor="middle" style={TINY}>
+          empty
+        </text>
+        {LANDINGS.map((ms) => {
+          const on = ms <= now
+          return (
+            <g key={ms} opacity={on ? 1 : 0}>
+              <rect
+                x={landX(ms) - 3}
+                y={66}
+                width={6}
+                height={14}
+                filter="url(#pp-marker)"
+                style={{ fill: MARKS.blue }}
+              />
+              <Edge d={`M${landX(ms)} 80V92`} live={ms === newest} />
+              <rect
+                x={landX(ms) - 4}
+                y={92}
+                width={8}
+                height={30}
+                filter="url(#pp-marker)"
+                style={{ fill: MARKS.sand }}
+              />
+            </g>
+          )
+        })}
+        <text x="150" y="160" style={TINY}>
+          each tick stands for about 83 sources
+        </text>
+        <rect
+          x={470}
+          y={176 - blockH}
+          width={140}
+          height={blockH}
+          filter="url(#pp-marker)"
+          style={{ fill: MARKS.sand }}
+        />
+        <text
+          className="fig-strong"
+          x="540"
+          y="194"
+          textAnchor="middle"
+          style={LABEL}
+        >
+          {oldRuns.toLocaleString('en-US')}
+        </text>
+
+        {/* Solid 2.0 */}
+        <Outline x={14} y={222} w={612} h={170} />
+        <text className="fig-strong" x="26" y="240" style={LABEL}>
+          Solid 2.0: async memos + render effect
+        </text>
+        <text x="24" y="263" style={TINY}>
+          answers
+        </text>
+        <text x="24" y="297" style={TINY}>
+          screen
+        </text>
+        <rect
+          x={96}
+          y={278}
+          width={Math.max(heldEnd - 96, 8)}
+          height={30}
+          filter="url(#pp-marker)"
+          style={{ fill: MARKS.amber }}
+          opacity={committed ? 0.45 : 1}
+        />
+        <text x="104" y="297" style={TINY} opacity={step >= 2 ? 1 : 0}>
+          held: the screen keeps its frame
+        </text>
+        {LANDINGS.map((ms) => (
+          <g key={ms} opacity={ms <= now ? 1 : 0}>
+            <rect
+              x={landX(ms) - 3}
+              y={252}
+              width={6}
+              height={14}
+              filter="url(#pp-marker)"
+              style={{ fill: MARKS.blue }}
+            />
+            <Edge d={`M${landX(ms)} 266V278`} live={ms === newest} />
+          </g>
+        ))}
+        <g opacity={committed ? 1 : 0}>
+          <rect
+            x={418}
+            y={278}
+            width={14}
+            height={30}
+            filter="url(#pp-marker)"
+            style={{ fill: MARKS.sage }}
+          />
+          <rect
+            className="sa-ring is-on"
+            x={414}
+            y={274}
+            width={22}
+            height={38}
+            rx="6"
+          />
+          <text x="425" y="326" textAnchor="middle" style={TINY}>
+            one frame
+          </text>
+        </g>
+        <text x="150" y="346" style={TINY}>
+          the effect waits for the answers it reads, then runs
+        </text>
+        <rect
+          x={526}
+          y={334}
+          width={28}
+          height={28}
+          filter="url(#pp-marker)"
+          style={{ fill: MARKS.sage }}
+          opacity={committed ? 1 : 0}
+        />
+        <text
+          className="fig-strong"
+          x="540"
+          y="380"
+          textAnchor="middle"
+          style={LABEL}
+        >
+          {committed ? '1' : '0'}
+        </text>
+
+        <Status y={420}>
+          {step === 0
+            ? 'First load. 1.9 runs the effect for the empty state. 2.0 holds.'
+            : step === 1
+              ? 'Answers land. 1.9 runs the effect again for each one.'
+              : step === 2
+                ? '1.9 runs keep stacking up. 2.0 still shows its old frame.'
+                : 'The last answer lands. 2.0 commits one frame: 1 run, not 1,001.'}
+        </Status>
+      </svg>
+    </Figure>
+  )
+}
