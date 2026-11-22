@@ -3,6 +3,7 @@ title: 'How Code Mode Works in OpenCode: One execute Tool and a JavaScript VM'
 seoTitle: 'OpenCode Code Mode: How the execute Tool and Its VM Work'
 description: "OpenCode 2.3.2 puts every MCP tool behind one execute tool and runs the model's JavaScript in its own bytecode VM. Request sizes, sandbox probes and the config switch, measured on GitHub's MCP tool list."
 date: "2026-12-01"
+draft: true
 ogImage: '/images/2026-code-mode-opencode-og.png'
 slug: 'code-mode-opencode'
 tags:
@@ -316,7 +317,7 @@ Code Mode is on unless you turn it off. Per server, set `codemode` to `false` to
 
 V2 puts servers under `mcp.servers`, not directly under `mcp`. To turn Code Mode off for every server, deny `execute`. `packages/core/src/tool.ts` then lists all Code Mode tools as direct tools:
 
-{/* prettier-ignore */}
+{/* oxfmt-ignore */}
 ```ts
 const codeModeEnabled = !whollyDisabled("execute", rules)
 // Without Code Mode its tools would be unreachable, so expose them as direct tools instead.
