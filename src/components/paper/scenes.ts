@@ -943,7 +943,7 @@ const scenes: Partial<Record<string, Scene>> = {
   'code-mode-compared': sandbox('far'),
   'vllm-fallback-detokenizer-cpu': windowed,
   'nvidia-dynamo-code-audit': ordered,
-  'lint-ratchet-ai-written-code': ratchet,
+  'lint-baseline-ai-written-code': ratchet,
   'coding-agent-verification-skill': tiers,
   'pr-review-agents-what-stuck': kept,
   'faster-cheaper-ci': minutes,
