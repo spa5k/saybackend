@@ -677,6 +677,19 @@ mark,
   background-size: 100% 1.5px;
 }
 
+.footer-audit {
+  margin: 18px 0 0;
+  color: var(--ink-soft);
+  font-family: var(--font-serif);
+  font-size: 16px;
+}
+
+.footer-audit a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 /* The drawing has its own band. No text sits on the lines. */
 .footer-art {
   position: relative;
@@ -3159,7 +3172,7 @@ html.dark .shiki-code span {
   }
 
   .header-inner > .main-nav:first-child,
-  .main-nav-end > a {
+  .header-inner .main-nav-end > a {
     display: none;
   }
 

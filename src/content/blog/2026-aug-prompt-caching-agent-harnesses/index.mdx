@@ -370,3 +370,8 @@ When the context does fill up, auto-compaction replaces an older part of the ses
 The provider executes the cache. The harness decides how stable your prefix stays, and therefore how often your requests actually hit it. Claude Code documents the invalidation list, Codex leaves it to the provider, and pi and opencode v2 rebuild a shorter prefix on compaction to keep the input bill down.
 
 So when a turn is slow, check the cache hit rate before blaming the model. A slow turn is usually a cache miss you caused: a model switch, an edit to a rare-change layer, or a gap long enough to let the TTL expire. The fix is to keep the prefix stable, not to wait for a faster model.
+
+---
+
+I do this work for teams as a fixed-price audit of LLM cost and speed.\
+Details: [LLM cost and speed audit](https://kamran.sh/audit?utm_source=saybackend&utm_medium=post&utm_campaign=audit).

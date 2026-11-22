@@ -13,7 +13,15 @@ const leftNavigation = [
   { label: 'Projects', to: '/projects/' },
 ]
 
-const rightNavigation = [{ label: 'About', to: '/about/' }]
+const auditUrl = (place: string) =>
+  `https://kamran.sh/audit?utm_source=saybackend&utm_medium=${place}&utm_campaign=audit`
+
+type NavItem = { label: string; to?: string; href?: string }
+
+const rightNavigation: NavItem[] = [
+  { label: 'LLM audit', href: auditUrl('header') },
+  { label: 'About', to: '/about/' },
+]
 
 export function SiteShell({ children }: { children: React.ReactNode }) {
   return (
@@ -26,22 +34,22 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
   )
 }
 
-function NavLinks({
-  items,
-  pathname,
-}: {
-  items: typeof leftNavigation
-  pathname: string
-}) {
-  return items.map((item) => (
-    <Link
-      key={item.label}
-      to={item.to}
-      className={pathname.startsWith(item.to) ? 'active' : ''}
-    >
-      {item.label}
-    </Link>
-  ))
+function NavLinks({ items, pathname }: { items: NavItem[]; pathname: string }) {
+  return items.map((item) =>
+    item.href ? (
+      <a key={item.label} href={item.href}>
+        {item.label}
+      </a>
+    ) : (
+      <Link
+        key={item.label}
+        to={item.to}
+        className={item.to && pathname.startsWith(item.to) ? 'active' : ''}
+      >
+        {item.label}
+      </Link>
+    ),
+  )
 }
 
 function SiteHeader() {
@@ -186,6 +194,10 @@ function SiteFooter() {
           <a href="mailto:hello@kamran.sh">Email</a>
         </nav>
       </div>
+      <p className="footer-audit">
+        I audit LLM serving cost and speed.{' '}
+        <a href={auditUrl('footer')}>See the audit</a>.
+      </p>
       <FooterArt kind={kind} scene={scene} />
       <div className="footer-note">
         <small>
