@@ -103,12 +103,15 @@ The list is then filtered once, at module load:
 )
 ```
 
-`__BUILD_DATE__` is a Vite `define`, set in the config to the UTC day of the build unless a `BUILD_DATE` variable overrides it:
+`__BUILD_DATE__` is a Vite `define`, set in the config to the India time (IST) day of the build unless a `BUILD_DATE` variable overrides it:
 
 ```ts
 define: {
   __BUILD_DATE__: JSON.stringify(
-    process.env.BUILD_DATE ?? new Date().toISOString().slice(0, 10),
+    process.env.BUILD_DATE ??
+      new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(
+        new Date(),
+      ),
   ),
 },
 ```
@@ -117,7 +120,7 @@ ISO dates compare correctly as strings, so the check is one comparison. The dev 
 
 The override previews the site as it will look on a later day. The repository has 47 post folders: one draft, 18 posts dated on or before 21 November, and 28 scheduled between 23 November and 31 December. A normal build on 21 November prerendered 47 pages. With `BUILD_DATE=2026-12-31` the same source prerendered 75 pages, with 46 posts under `/blog/`, and nothing else changed.
 
-A link to a post that is not out yet would be a 404, so the MDX `a` element is a small `PostLink` component that renders plain text when the target slug is in `unpublishedSlugs`, a set built from the same filter. The daily build turns that text into a link on the morning the target goes out.
+A link to a post that is not out yet would be a 404, so the MDX `a` element is a small `PostLink` component that renders plain text when the target slug is in `unpublishedSlugs`, a set built from the same filter. The daily build turns that text into a link on the day the target goes out.
 
 ### What the filter does not hide
 

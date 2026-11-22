@@ -4,7 +4,7 @@ name: Sync Outrank guides
 # time. This job asks Cloudflare for a fresh build daily so new articles go live.
 on:
   schedule:
-    - cron: '0 6 * * *' # daily, 06:00 UTC
+    - cron: '35 18 * * *' # daily, 18:35 UTC = 00:05 IST, so a post goes out at the start of its IST day
   workflow_dispatch:
 
 jobs:
