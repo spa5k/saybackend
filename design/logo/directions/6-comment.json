@@ -1,43 +1,67 @@
 {
-  "name": "SayBackend",
-  "title": "Comment slashes",
-  "idea": "Two marker strokes: the // that starts a code comment.",
-  "grid": 48,
-  "mark": [
-    {
-      "shape": "polygon",
-      "points": [
-        [12, 5],
-        [24, 4],
-        [15, 43],
-        [3, 44]
-      ]
-    },
-    {
-      "shape": "polygon",
-      "points": [
-        [33, 4],
-        [45, 5],
-        [36, 44],
-        [24, 43]
-      ]
-    }
-  ],
-  "wordmark": {
-    "text": "saybackend",
-    "font": "Instrument Serif",
-    "weight": 400,
-    "tracking": 0
+ "name": "SayBackend",
+ "title": "Comment slashes",
+ "idea": "Two marker strokes: the // that starts a code comment.",
+ "grid": 48,
+ "mark": [
+  {
+   "shape": "polygon",
+   "points": [
+    [
+     12,
+     5
+    ],
+    [
+     24,
+     4
+    ],
+    [
+     15,
+     43
+    ],
+    [
+     3,
+     44
+    ]
+   ]
   },
-  "lockup": {
-    "mark_scale": 1.8,
-    "gap": 0.8
-  },
-  "palette": {
-    "ink": "#141413",
-    "paper": "#faf9f5",
-    "accent": "#93b2f2",
-    "neutral": "#73726c",
-    "tint": "#e3e0d3"
+  {
+   "shape": "polygon",
+   "points": [
+    [
+     33,
+     4
+    ],
+    [
+     45,
+     5
+    ],
+    [
+     36,
+     44
+    ],
+    [
+     24,
+     43
+    ]
+   ]
   }
+ ],
+ "wordmark": {
+  "text": "saybackend",
+  "font": "Instrument Serif",
+  "weight": 400,
+  "tracking": 0
+ },
+ "lockup": {
+  "mark_scale": 1.8,
+  "gap": 0.8
+ },
+ "palette": {
+  "ink": "#141413",
+  "paper": "#faf9f5",
+  "accent": "#93b2f2",
+  "neutral": "#73726c",
+  "tint": "#e3e0d3"
+ }
 }

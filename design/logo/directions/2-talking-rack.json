@@ -1,57 +1,66 @@
 {
-  "name": "SayBackend",
-  "title": "Talking rack",
-  "idea": "Three rack units stacked into a speech bubble: the backend has something to say.",
-  "grid": 48,
-  "mark": [
-    {
-      "shape": "rect",
-      "x": 4,
-      "y": 3,
-      "w": 40,
-      "h": 9,
-      "r": 2
-    },
-    {
-      "shape": "rect",
-      "x": 4,
-      "y": 16,
-      "w": 40,
-      "h": 9,
-      "r": 2
-    },
-    {
-      "shape": "rect",
-      "x": 4,
-      "y": 29,
-      "w": 40,
-      "h": 9,
-      "r": 2
-    },
-    {
-      "shape": "polygon",
-      "points": [
-        [9, 36],
-        [21, 36],
-        [9, 46]
-      ]
-    }
-  ],
-  "wordmark": {
-    "text": "SAYBACKEND",
-    "font": "JetBrains Mono",
-    "weight": 700,
-    "tracking": 40
+ "name": "SayBackend",
+ "title": "Talking rack",
+ "idea": "Three rack units stacked into a speech bubble: the backend has something to say.",
+ "grid": 48,
+ "mark": [
+  {
+   "shape": "rect",
+   "x": 4,
+   "y": 3,
+   "w": 40,
+   "h": 9,
+   "r": 2
   },
-  "lockup": {
-    "mark_scale": 1.8,
-    "gap": 0.8
+  {
+   "shape": "rect",
+   "x": 4,
+   "y": 16,
+   "w": 40,
+   "h": 9,
+   "r": 2
   },
-  "palette": {
-    "ink": "#141413",
-    "paper": "#faf9f5",
-    "accent": "#86cfc5",
-    "neutral": "#73726c",
-    "tint": "#e3e0d3"
+  {
+   "shape": "rect",
+   "x": 4,
+   "y": 29,
+   "w": 40,
+   "h": 9,
+   "r": 2
+  },
+  {
+   "shape": "polygon",
+   "points": [
+    [
+     9,
+     36
+    ],
+    [
+     21,
+     36
+    ],
+    [
+     9,
+     46
+    ]
+   ]
   }
+ ],
+ "wordmark": {
+  "text": "SAYBACKEND",
+  "font": "JetBrains Mono",
+  "weight": 700,
+  "tracking": 40
+ },
+ "lockup": {
+  "mark_scale": 1.8,
+  "gap": 0.8
+ },
+ "palette": {
+  "ink": "#141413",
+  "paper": "#faf9f5",
+  "accent": "#86cfc5",
+  "neutral": "#73726c",
+  "tint": "#e3e0d3"
+ }
 }

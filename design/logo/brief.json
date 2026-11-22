@@ -1,14 +1,1 @@
-{
-  "name": "SayBackend",
-  "what": "A blog about backend engineering, for working engineers",
-  "idea": "say (a comment, a prompt) and backend (the layer behind, a rack)",
-  "references": "none given; defaults: Are.na general set only",
-  "lives": "favicon and site header",
-  "colour": "one colour on the site's paper, site marker tints as accent",
-  "kind": "mark and wordmark",
-  "defaults_taken": [
-    "no personal references",
-    "no traced directions (potrace not installed, no moodboard)",
-    "no photos in the book"
-  ]
-}
+{"name":"SayBackend","what":"A blog about backend engineering, for working engineers","idea":"say (a comment, a prompt) and backend (the layer behind, a rack)","references":"none given; defaults: Are.na general set only","lives":"favicon and site header","colour":"one colour on the site's paper, site marker tints as accent","kind":"mark and wordmark","defaults_taken":["no personal references","no traced directions (potrace not installed, no moodboard)","no photos in the book"]}
