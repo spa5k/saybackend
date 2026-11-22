@@ -17,34 +17,51 @@ import { RankBars } from "@/components/paper/RankBars";
 import {
   BoundaryCatch,
   GraphPlayground,
+  HeightOrder,
   PendingNode,
   WriteQueue,
 } from "@/components/react/blog/solid2/AsyncGraphFigures";
 import { DeferredTimeline, OptimisticAction } from "@/components/react/blog/solid2/SolidFigures";
 
-Solid 2.0 became stable on 16 November 2026. I gave it a week. Then I moved a small app to it and read the reactive core file by file. This post is what came out of that.
+I've been waiting to write on Solidjs for quite a long time, I've built some stuff on it as well but over the time due to AI and LLMs, I lost my touch on it, and my day to day work has been mainly stuck to reactjs, and its neo-frameworks, so the release of Solidjs 2.0 was a nice reminder to try the things again.
+I was quite excited to see how the library or "framework" that is done from scratch, with AI in mind will behave, what it will have that can help AI write better code, and it did surprise me on how it handled some of the bigger issues that SOlid 1 had.
 
-The big change is where async work lives. In 1.x, a fetch was a `createResource`. That was a separate primitive, with its own `loading` and `error` flags. In 2.0, any computation can return a promise. The graph itself knows that a node is waiting.
+So, I started writing this blog, took longer than expected, the diagrams were created using Fable 5.2, and GLM-5.3, and I did factcheck using them as well on the blog, rest is all hand-keyboard writte, very tough thing to I will say since the AI era came. The official launch post is also quite nice, I will say that you should read it first then continue on my blog, because reading from official prespective is always a nice thing to do before looking around.
 
-This post is for engineers who know promises, queues and transactions. Signal graph experience is not required. Every measurement below comes from the same small app on an Apple M4.
+{/* It has been five years since [Solid 1](https://github.com/solidjs/solid/releases/tag/v1.0.0) came out, and now it is finally the turn of [Solid 2.0](https://github.com/solidjs/solid/releases/tag/solid-js%402.0.0). It went stable after being on beta for ages on 16 November 2026. The biggest change, you could say, is in how the async work is handled, and where it lives. 
+
+In 1.x, a fetch was a `createResource`: a separate primitive, with its own `loading` and `error` flags. In Solid 2.0, any computation, anything, can return a promise, not just fetch. The SolidJS graph itself knows when a node is pending, and it handles the things automatically.
+
+You should also read the official [launch post](https://www.solidjs.com/blog/solid-2-0-the-long-hold/) by Ryan Carniato as well, our audience for this blog is mainly engineers who know promises, queues and transactions, but don't exactly know how signal graphs work. */}
+
+Let's start from the graph, graph is the base of how solidjs orchestrates it's work, in terms of importance, its like reactjs fiber?? and its vdom but relatively much simpler, since there are fewer concepts and footguns to care about.
 
 ## The graph in backend terms
 
-Solid has three kinds of node:
+Since theres a graph, there will be nodes on it, and types of node, nice thing is that, its just 3 types of nodes you have to learn about or your agent have to consider
 
-- A **signal** holds a value. Think of a row.
-- A **memo** is a cached result. It records the signals and memos it read on its last run. It runs again only when one of them changes. Think of a materialized view that knows its own dependencies.
-- An **effect** is a leaf. It does work outside the graph. It writes to the DOM, it logs, or it calls an API. Think of a subscriber on a change feed.
+- Signal - It holds a value, it was quite a rage back then when it was released, with voices on both sides, but gradually everyone has surrendered to it, and it became part of 3 most popular libaries/frameworks other than react, to the point, there's even a TC39 Proposal to add it in the language itself.
+- Memo - Memo holds cached result, similar to useMemo in react.
+- Effect - By name, it does sounds like how useEffect in reactjs works, and it sort of does acts like useEffect, with some subtle changes, it has no dependency array, solidjs handles it automatically.
 
-I borrowed these analogies from my day job. They held up well.
+{/* There are three types of node:
 
-Use the figure below. Each button writes a signal. Watch the two counters. One write gives one memo run and one effect run. Two writes in the same tick also give one run each.
+- A **signal** holds a value. Think of a row. Everyone knows this one. SolidJS made it popular. [Svelte](https://svelte.dev/docs/svelte/runes) and [Angular](https://angular.dev/guide/signals) all have signals now. There is even talk of [adding them to JavaScript itself](https://github.com/tc39/proposal-signals).
+- A **memo** is a cached result. It records the signals and memos it read on its last run. It runs again only when one of them changes. Think of a materialized view that knows its own dependencies. The memo is popular from [React.js](https://react.dev/reference/react/memo): you cache a value, and it does not render again. Typical thing.
+- An **effect** is a leaf. It does work outside the graph. It writes to the DOM, it logs, or it calls an API. Think of a subscriber on a change feed. The effect was also borrowed from [React.js](https://react.dev/reference/react/useEffect). It is something that happens externally, and we need the result to reflect in the main graph. In Solid.js that graph is the reactive graph. In React.js it is the virtual DOM.
+
+Use the figure below. Each button writes a signal. Watch the two counters. One write gives one memo run and one effect run. Two writes in the same tick also give one run each. */}
+
+Check the diagram below, each button sends a signal, there's also memo and effect in it.
 
 <GraphPlayground />
 
-Every memo and effect also has an **owner**. The owner is the computation that ran when the node was made. Owners form a tree. When a parent runs again or is disposed, Solid disposes its children first and calls their `onCleanup` callbacks. This is the rule of structured concurrency: cancel a task, and you cancel its subtasks.
+Every node has an owner, the owner is basically the computation that ran when the node was made, these owners form a tree. When a parent node is discarded and disposed off, Solidjs also cleans up its dependents and calls their onCleanup callback handler, the children and cleanedup up, this is how the structured concurrency works in solidjs, you cancel a task, you also cancel its subtasks.
 
-One small change in 2.0. A `createRoot` that you make inside another owner now belongs to that owner. Solid disposes it with that owner.
+
+{/* Every memo and effect also has an **owner**. The owner is the computation that ran when the node was made. Owners form a tree. When a parent runs again or is disposed, Solid cleans its children first and calls their `onCleanup` callbacks. This is the rule of how structured concurrency works in solid: cancel a task, and you also cancel its subtasks.
+
+There's one small change in 2.0 in respect to the graph. A `createRoot` that you make inside another owner now belongs to that owner. Solid disposes it with that owner. */}
 
 ```ts
 import { createSignal, createMemo, createEffect, flush } from "solid-js";
@@ -58,12 +75,11 @@ createEffect(
   value => console.log("total", value) // apply: the side effect
 );
 ```
-
 In 2.0, an effect has two parts. The first function is tracked. It returns a value. The second function receives that value and does the side effect. It can return a cleanup function. A 1.x effect with one function fails in development. The message is clear. I show the full text near the end of this post.
 
 ## Writes are queued, then flushed in height order
 
-In 2.0, a write does not change what reads return. Not right away. The write stages the value, marks the subscribers, and queues one microtask:
+In 2.0, a write does not change what the reads return, at least Not right away. The write stages the value, marks the subscribers, and queues one microtask:
 
 ```ts
 setPrice(12);
@@ -72,17 +88,27 @@ flush();
 price(); // 12
 ```
 
-`schedule()` calls `queueMicrotask(flush)` one time per tick. All writes in one synchronous run of your code join that one flush. This is why `batch` is gone. Batching is the default now. Call `flush()` in tests when you must see the new value at once.
+schedule calls the queueMicrotask(flush) (it's an internal function), one time each tick. All the writes that has happened in one synchronous run of your code combine in that flush, thats why the old separate batching mechanism is gone, as batching is now the default mechanism. In tests, if you want to see immediate read, you do a `flush()`, but thats it.
 
-The flush is a topological sort with a heap. Each memo has a height: one more than the highest memo it reads. `runHeap` walks the heap from height 0 upwards. A memo always runs after all of its inputs. Each dirty node runs one time. Draw a diamond: two memos read one signal, and a third memo reads both. The bottom memo runs one time, with both inputs new. It never sees a half-updated pair. After the heap, the flush settles held changes. Then render effects run, then user effects.
+Now when ti comes to flush, its a topological sort with a heap, each memo has a height, one more than the memo it reads from. Flush walks the heal from height 0 to upwards. The memo runs after all of its inputs. Each of the dirty node in the graph runs one more time.
 
-When this clicked for me, I sat there for a minute. It is a query planner, more or less.
+And height is the depth of the node in the chain of the reads that happen. A signal has the height of 0. Check the diagram below, its realtively easy to understand.
+
+{/* `schedule()` calls `queueMicrotask(flush)` one time per tick. All writes in one synchronous run of your code join that one flush as batch basically. This is why the separate `batch` is gone. Batching is the default now. Call `flush()` in tests when you must see the new value at once.
+
+The flush is a topological sort with a heap. Each memo has a height: one more than the highest memo it reads. It walks the heap from height to to upwards, A memo always runs after all of its inputs. Each dirty node runs one time. Draw a diamond: two memos read one signal, and a third memo reads both. The bottom memo runs one time, with both inputs new. It never sees a half-updated pair. After the heap, the flush settles held changes. Then render effects run, then user effects.
+
+Height is the depth of a node in the chain of reads. A signal has height 0. A memo has a height of one more than the tallest memo it reads. In the chain below, `net` sits at height 1, `tax` at height 2, and `total` at height 3. In the diamond, `list` and `sorted` share height 1, so the heap can run them in any order. The bottom memo runs one time, after both are fresh. */}
+
+<HeightOrder />
 
 <WriteQueue />
 
 ## What a pending node is
 
-Now return a promise from a memo:
+By name its obvious, a node that's pending, for example, in a case where it awaits a promise, that's a node that's marked as pending in the graph.
+
+Here, we return a promise from a memo:
 
 ```ts
 const [id, setId] = createSignal(1);
@@ -93,21 +119,47 @@ const user = createMemo(async () => {
 });
 ```
 
-`handleAsync` sees a thenable. It stores the promise on the node as the current flight. The node gets a pending status. A read of it throws a `NotReadyError`. The `source` of that error is the node. Solid marks the dependents as pending too, with the same source. It does not run them again. There is no new input for them yet.
+When you trigger this, the handleAsync (internal function), sees a thenable, not a value. So it stores the promise on the node as current flight (in progress), the not gets a pending status. If you try to read the pending node right now, it iwll throw a `NotReadyError`. The error itself comes from the node.
+Solid marks the dependents of this node as pending too, so you cant read them as well. And it then does not run those dependents again unless the parent node resolves.
+
+When the reading gives error, the reader does not blocks the read, it does not get undefined either, if you want to compare, it's more like `EAGAIN` instead. The scheduler runs the reader again when the input arrives. In the production builds of SolidJS on v8, the `NotReadyError` constructor sets the `Error.stackTraceLimit` to be 0. The throw happens on every read, it does not go and scan the slack. Very nice.
+
+{/* `handleAsync` sees a thenable. It stores the promise on the node as the current flight. The node gets a pending status. A read of it throws a `NotReadyError`. The `source` of that error is the node. 
+Solid marks the dependents as pending too, with the same source. It does not run them again. There is no new input for them yet.
 
 Each read of a pending node throws again. The reader does not block a thread. It does not get `undefined` either. It is like `EAGAIN`: the scheduler runs the reader again when its input arrives. In production builds on V8, the `NotReadyError` constructor sets `Error.stackTraceLimit` to 0. The throw happens on every read of a pending source. It is control flow, not a failure. A stack trace there is pure waste. I like this detail a lot.
 
-When the promise resolves, Solid first checks that this promise is still the current flight. Did `id` change in the meantime? Then the node has a newer flight, and Solid drops the old answer. Same idea as a compare-and-set on a version number. A late response to an old request cannot overwrite a newer one. If the promise is current, Solid writes the value like any other write. It clears the pending marks from the dependents and schedules a flush. A rejection takes the same path with an error status. Solid wraps it in a `StatusError` and keeps the original error as `cause`.
+When the promise resolves, Solid first checks that this promise is still the current flight. Did `id` change in the meantime? Then the node has a newer flight, and Solid drops the old answer. Same idea as a compare-and-set on a version number. A late response to an old request cannot overwrite a newer one. 
+If the promise is current, Solid writes the value like any other write. It clears the pending marks from the dependents and schedules a flush. 
+A rejection takes the same path with an error status. Solid wraps it in a `StatusError` and keeps the original error as `cause`. */}
 
+When the promise of the pending node finally resolves, solid first checks that the promise that resolves belongs to the current "render/flight", since what if the data itself has changed? it wants to make sure that old data does not show, since there's another promise from a newer flight in progress, think of it like versioning, only the latest version is considered.
+And if the promise is current, solid writes the value like any other typical write, it then removes the pending marks from the node, and its dependents, and schedules a flush for the `microtask queu`
+Rejection is also similarly treated, since error is a value as well, its just wrapped in `StatusError`, and keeps the original error in the `cause`.
+
+Check this diagram below to see whats going on, click those buttons as well.
 <PendingNode />
 
-One rule burned itself into my memory. Solid records dependencies only up to the first `await`. A signal read after it is not tracked. If that late read finds a pending source, the memo can never try again. So in development, Solid throws an error instead of hanging: "Read of an unresolved async source after an `await`." Read your signals before the await. Every time. It becomes a habit.
+{/* One rule burned itself into my memory. Solid records dependencies only up to the first `await`. A signal read after it is not tracked. If that late read finds a pending source, the memo can never try again. So in development, Solid throws an error instead of hanging: "Read of an unresolved async source after an `await`." 
+Read your signals before the await. Every time. It becomes a habit. */}
+
+One thing to consider is that solid only records dependencies upto the first await. A signal read after it is not tracked, and if there's a late read that finds a pending resoucrse, the memo it belongs to can never try again. So to prevent in, during development, solid throws and error instead of hanging in prod, and you or your agent can read it and fix.
+
 
 ## Superseded flights are dropped, not cancelled
 
+As I explained about the latest flight, what do you think happens with the requests that are triggered one after the other for same thing, with no one returning yet? They get cancelled.
+But cancelling isn't enough since the cancelling by default is just ignoring their data by solid, to truly stop them and make sure they don't reach backend or backend stops them, you need to add `AbortController` to them.
+
+(Explain how each request taking 50ms, and 4 requests happen, only first and last shows, rest 2 discarded, create a diagram as well showing this, with and without abort controller`)
+
+
+{/* 
 The check on landing protects the screen. It does not protect the server. Solid does not cancel requests itself. When a newer flight replaces an old one, the old flight still runs to the end. Solid discards its answer. Want the request to stop? The memo must do it.
 
-Every run of a computation is an owner. When Solid replaces a run that never reached the screen, it disposes that run and calls its `onCleanup` callbacks. Register an `AbortController` before the first `await`. That disposal cancels the request:
+If more than one flight of a request happens together, the superseded flights still run in the backend, even when you are not handling them correctly. Their result will not appear on the frontend. For example, if you are doing four flights together, only the first one and the last one can appear.
+
+Every run of a computation is an owner. When Solid replaces a run that never reached the screen, it disposes that run and calls its `onCleanup` callbacks. Register an `AbortController` before the first `await`. That disposal cancels the request: */}
 
 ```ts
 const results = createMemo(async () => {
@@ -119,29 +171,36 @@ const results = createMemo(async () => {
 });
 ```
 
-I measured both versions with a typeahead. It loads one query, then gets four keystrokes 10 ms apart. Each keystroke calls a fake fetch that takes 50 ms.
+{/* I measured both versions with a typeahead. It loads one query, then gets four keystrokes 10 ms apart. Each keystroke calls a fake fetch that takes 50 ms.
 
 - Without `onCleanup`, five fetches started and all five ran to the end. Solid discarded three of the answers when they landed.
 - With `onCleanup`, five fetches started, three were aborted, and two finished: the first query and the last.
 
-In both versions, the render effect ran two times, one time for each answer it kept. The screen never showed the three discarded answers. The only difference is the work the server did. Your database feels it. Your users do not.
+In both versions, the render effect ran two times, one time for each answer it kept. The screen never showed the three discarded answers. The only difference is the work the server did.
 
-Solid keeps one exception. It does not clean up the run that is on the screen when a newer run starts. That run stays live until its replacement lands, because the user still sees it. Solid disposes only the runs between the two. With the attribution build on, Solid also reports the pattern. The `ABANDONED_FLIGHTS` diagnostic fires when one async source abandons three or more flights in one second. That is the one-request-per-keystroke smell.
+To manage this correctly, you should use an abort controller, similar to how `context` works in Golang. Everything should use an abort controller. You should probably create a helper function, so that it is managed automatically.
+
+Solid keeps one exception. It does not clean up the run that is on the screen when a newer run starts. That run stays live until its replacement lands, because the user still sees it. Solid disposes only the runs between the two. With the attribution build on, Solid also reports the pattern. The `ABANDONED_FLIGHTS` diagnostic fires when one async source abandons three or more flights in one second. That is the one-request-per-keystroke smell. */}
+Its better to create a helper function for your async calls so that abort controller is there by default. There's one exception that SOlid still keeps, it does not clean up the dat that's still on screen even when a newer run has started, as the user is still seeing it, it's only updated when the replaccement lands.
 
 ## Boundaries catch pending and errors
 
-Something must catch the throw. In 2.0, `<Loading>` catches pending reads. It was `Suspense` in 1.x. `<Errored>` catches errors. It was `ErrorBoundary`. The two are separate on purpose. A pending read is never an error, and `<Errored>` never shows its fallback for a wait.
+There's two boundaries, in solid v2, there's `<Loading>` and `<Errored>`, in v1 it was `<Suspense>`. For errors, its quite simliar to how ErrorBoundary in reactjs works, When a read is pending in a node, its not an error, the Errored is only shown when a error happens.
+
+{/* Something must catch the throw. In 2.0, `<Loading>` catches pending reads. It was `Suspense` in 1.x. `<Errored>` catches errors. It was `ErrorBoundary`. The two are separate on purpose. A pending read is never an error, and `<Errored>` never shows its fallback for a wait.
+
+The loading boundary is relatively similar to how it works in Next.js. The suspense part is sort of borrowed from React, and the error boundary is called an error boundary there too. The logging works nicely: you can see where things are failing, especially during build time, so your agent can fix it automatically. Keep in mind that you must handle all of the errors. The error boundaries are nice, the fallback is clean. */}
+
+The loading boundary is simlar to how Suspense is in reactjs,  (add link of the doc here, not in modd to explain suspense)
 
 <BoundaryCatch />
-
-`<Loading>` catches pending reads only until it has shown content one time. After that, Solid **holds** a change that needs new async data. The screen keeps the old content. When every async value the new frame needs has landed, the whole change appears in one frame. Think of a transaction. The writes go to a staged world. Readers of the visible world still see the committed snapshot. The commit is atomic. Need the fallback back for one specific change? Use the `on` prop. It lists the dependencies that arm the boundary again: `<Loading on={id()}>`.
 
 Two functions read the uncommitted state on purpose:
 
 - `isPending(() => user())` is true while a new answer for that expression is in flight.
 - `latest(id)` returns the newest written value while the hold is open.
 
-I ran the memo above with a fake fetch of 50 ms and logged what an effect saw:
+I ran the above memo with a fake fetch of 50 ms and logged what an effect saw, quite nice ill say:
 
 ```text
 [61ms] effect saw user = Ada
@@ -152,26 +211,30 @@ I ran the memo above with a fake fetch of 50 ms and logged what an effect saw:
 [142ms] isPending(user) = false  latest(id) = 2
 ```
 
-The effect never saw an empty or half-loaded value. Between 92 ms and 142 ms it showed Ada. The two reads of the uncommitted state reported the in-flight change correctly.
+The effect never saw an empty or half-loaded value. Between 92 ms and 142 ms it showed Ada.
 
-Errors follow the same graph. A `try`/`catch` around a reactive read in a memo does not catch an error from upstream. A memo that reads a failed source fails itself. You recover through `<Errored>`. A rejected promise that your own code awaits is still a normal exception. Catch that yourself.
+{/* Now the part that surprised me. If no `<Errored>` catches an error, Solid does not log it and continue. The error stops the scheduler. I rejected an async memo with no boundary above it. The development build printed this, then passed the error to `reportError`: */}
+Also if there's no Errored to catch the erroor, solid wont log it and continues, the error will then stop the scheduler and if you do this, in development build, you get this nice error, or your agent gets.
 
-Now the part that surprised me. If no `<Errored>` catches an error, Solid does not log it and continue. The error stops the scheduler. I rejected an async memo with no boundary above it. The development build printed this, then passed the error to `reportError`:
 
 ```text
 [REACTIVITY_HALTED] An uncaught error halted the reactive system. No further updates will be processed. Handle errors with <Errored> or treat this as a crash.
   in computed
 ```
 
-After that, Solid ignores all writes. Also writes to signals with no relation to the failed memo. In Node, the rejection stopped the process. Put an `<Errored>` at the root, as you put a top-level exception handler in a server. Skip it, and one bad response stops every update after it.
+{/* After that, Solid ignores all writes. Also writes to signals with no relation to the failed memo. In Node, the rejection stopped the process. Put an `<Errored>` at the root, as you put a top-level exception handler in a server. Skip it, and one bad response stops every update after it. */}
+
+And after this happens, SOlid will ignore all the writes, icnluding the writes to signals that dont related to this failed memo, a bit simlar to process being stopped. You should add a errored at the root to avoid it, similar to adding a top level exception handler in a server, else one bad response and your app halts.
 
 ## Every change is a transition
 
-1.x had `startTransition` and `useTransition`. 2.0 removes both. Every change is already a transition. The rules are short:
+1.x had `startTransition` and `useTransition`. 2.0 removes both. Every change is already a transition. The rules are relatively short:
 
 - A change is a write, the writes of an action, or an async answer that lands.
 - All writes in one synchronous tick are one change.
 - Solid holds a change when it would put a render effect on screen that reads async data with no answer yet. Until the answer comes, the screen keeps its frame.
+
+I think this is a big change, but a very nice one. When everything is a transition, it is relatively easier for the agent, and even for your mental model, to remain consistent. You don't need to understand lots of things. As long as everything is a transition, and you understand how it works, it does not really matter.
 
 Two details follow. First, only render effects hold. A memo that no render effect reads can stay pending forever and hold nothing. A memo made during a hold does not join it. It joins when it reads a held value. Second, holds join through the graph, not through time. Two writes that share an async value on screen settle as one frame. Two writes that share nothing land separately, also when they are one millisecond apart.
 
@@ -184,27 +247,28 @@ That pair of numbers is the drawing on the share card of this post, by the way.
 
 The cost is the other side of the same rule. The effect shows nothing new until the slowest of the 1,000 sources has answered. For a list, that is usually correct. For two widgets on one page that have no relation, it is not. The next primitive is for that case.
 
+(create a diagram to show this batching microtask thing in animation)
+
 ## When waiting is wrong: createDeferred and quiet refreshes
 
-`createDeferred` keeps its 1.x name but not its meaning. In 2.0 it is an async memo that can be late but is never early. Before its first answer, it acts like any async memo. After that, a new fetch holds nothing. Its readers keep the last committed value until the new value lands, and the rest of the screen moves on without it. `isPending` still shows the new fetch, so the widget can dim itself.
+`createDeferred` was already in v1, and is in v2 as well, but it's a changed man under same name. Now its an async memo that can be late, but is never early. 
+
+{/* `createDeferred` was already inkeeps its 1.x name but not its meaning. In 2.0 it is an async memo that can be late but is never early. Before its first answer, it acts like any async memo. After that, a new fetch holds nothing. Its readers keep the last committed value until the new value lands, and the rest of the screen moves on without it. `isPending` still shows the new fetch, so the widget can dim itself. */}
 
 I connected a fast source (20 ms) and a slow source (200 ms) to one signal, then changed the signal one time:
 
 - With both as `createMemo`, the two widgets kept the old value and changed together, 202 ms after the write.
 - With the slow source as `createDeferred`, the fast widget changed at 23 ms and the slow one at 202 ms.
 
+In sense, it's mainly there if you want immediate updates.
+
 <DeferredTimeline />
-
-`refresh()` is quiet by default. It asks the same question again, so the value on screen still answers it. `isPending` stays `false` for the full round trip. Want to show a reload as pending? Declare it first: `affects(data); refresh(data)`. In the same test, `isPending(() => data())` was `false` 20 ms into a plain refresh. It was `true` 20 ms into a declared refresh, and it went back to `false` when the new value landed.
-
-The other way to never suspend is `loadingValue`. It is a declared first paint. Its type is strictly `T`, so the placeholder must have the shape of a real answer. If it cannot, the source needs a `<Loading>` boundary.
 
 ## Optimistic actions and rollback
 
-Mutations are not reads, so 2.0 has a separate primitive for them. `action()` wraps a generator. Each call runs as one transaction. Solid holds the writes in it until the body has returned and all work it started has landed. At `yield`, the action waits for a promise and then enters its transaction again.
+Mutations are not reads, so solid v2 has a separate primitive for them, the `action()` wraps a generator, each call runs as one transaction. Solid holds the writes in it until the body has returned and all work it started has landed, and when it `yield`s, the action waits for a promise and then enters its transaction again.
 
-`createOptimistic` and `createOptimisticStore` give you values whose writes show at once. Solid discards these writes when the transaction ends. In the source, an optimistic write is a guess (`optimisticWrite`). At the next flush, each guess becomes the value of its node in a **lane**. A lane is a sub-transaction under the hold. The committed value under it does not change, so a rollback costs nothing. Solid drops the lane, and the committed value shows again. On success, the `refresh()` in the action fetches the source again, and the real value replaces the guess in the same frame.
-
+`createOptimistic` and `createOptimisticStore` give you values whose writes show at once. 
 ```ts
 let saved = 0;
 const [count, setCount] = createOptimistic(() => saved);
@@ -225,55 +289,9 @@ With a fake `api.save` that rejected after 50 ms, the effect on `count` printed 
 [53ms] action rejected: server said no
 ```
 
-If you have written a saga, you know this shape. It is the compensating step, minus the code you wrote for it.
+If you have written a saga, you will find this shape familiar. It is the compensating step, minus the code you wrote for it.
 
 <OptimisticAction />
-
-## The same feature in 1.9 and 2.0
-
-My test app is a list page. It loads 1,000 items through an async function, filters them by a text input, and toggles an item with an optimistic update. In 1.9:
-
-```tsx
-const [query, setQuery] = createSignal("");
-const [items, { mutate, refetch }] = createResource(query, fetchItems);
-
-const toggle = async (item: Item) => {
-  const before = items();
-  mutate(list => list?.map(i => (i.id === item.id ? { ...i, done: !i.done } : i)));
-  try {
-    await toggleItem(item.id);
-  } catch {
-    mutate(before);
-  }
-  refetch();
-};
-```
-
-In 2.0:
-
-```tsx
-const [query, setQuery] = createSignal("");
-const [items, setItems] = createOptimisticStore(() => fetchItems(query()), []);
-
-const toggle = action(function* (id: number) {
-  setItems(list => {
-    const item = list.find(i => i.id === id);
-    if (item) item.done = !item.done;
-  });
-  yield toggleItem(id);
-  refresh(items);
-});
-```
-
-The JSX changes too:
-
-- `<Loading>` replaces `<Suspense>`, and `<Errored>` replaces `ErrorBoundary`.
-- `class={{ done: item.done }}` replaces `classList`.
-- `isPending(() => items.length)` replaces `items.loading`.
-- `<For>` reads the store directly as `each={items}`.
-
-The full component has 35 lines (not counting blank lines) in 1.9 and 33 in 2.0. The toggle handler goes from 11 lines to 8. No manual snapshot, no restore. The store setter takes a draft, so `produce` is gone too. Small numbers, I know. I still prefer the 2.0 shape. The 1.9 toggle hides two concerns in one function. The 2.0 one states the transaction out loud.
-
 ## What it costs
 
 ### Bundle size
@@ -298,14 +316,14 @@ I built each app with `vite build` and measured the single JavaScript file with 
   the gzip size of the 2.0 list app against 1.9: 37.4 KB against 7.1 KB.
 </NumberBand>
 
-Most of the size is the reactive core. I split the dependencies into chunks. `@solidjs/signals` is 90.2 KB of the 99.3 KB raw bundle, and `@solidjs/web` is 7.5 KB. The action, the optimistic store, `<Errored>` and `isPending` add 59.9 KB raw on top of the async-memo-only build. So most of the growth comes from the mutation side, not from async reads. That 5.2× number stings. On a public site it matters. On an internal tool, maybe less. Know it before you ship.
+Most of the size is the reactive core. I checked the dependencies, `@solidjs/signals` is 90.2 KB of the 99.3 KB raw bundle, and `@solidjs/web` is 7.5 KB. The action, the optimistic store, `<Errored>` and `isPending` add another 59.9 KB raw on top of the async-memo-only build. So most of the growth comes from the mutation side, not from async reads. I still don't think its a big problem tbf.
 
 ### Server render time
 
-For the server, I built an SSR entry for each version and rendered a list of 1,000 rows two ways:
+For the server, I asked Opus 5.5 to built an SSR entry for each version and then render a list of 1,000 rows two ways:
 
 - With `renderToString`, with the rows already in memory.
-- With `renderToStream`, where the rows come from an async loader under `<Loading>` (`<Suspense>` in 1.9). The stream goes into a Node `Writable` until it ends.
+- With `renderToStream`, where the rows come from an async loader under `<Loading>` (`<Suspense>` in v1.x). The stream goes into a Node `Writable` until it ends.
 
 <BeforeAfterBars
   title="Server render of 1,000 rows"
@@ -319,7 +337,7 @@ For the server, I built an SSR entry for each version and rendered a list of 1,0
   caption="Median of five processes, each the median of 1,000 renders after 200 warm-up renders. The stream time runs to the end of the Writable."
 />
 
-The two results move in opposite directions. The string render is 1.9 times slower in 2.0: 144 µs against 77.5 µs. The streamed page with async data is 17% faster: 765 µs against 917 µs. The 2.0 output is also smaller. The hydration keys changed from `data-hk="012"` to `_hk=120`, and the string for 1,000 rows went from 44,128 to 37,169 bytes. Both renders stay far below one millisecond for 1,000 rows. Watch the string render on large pages that have no async data.
+The two results move in opposite but expected directions. The string render is 1.9 (not a v1.9 this time :funnyface:) times slower in v2.0: 144 µs against 77.5 µs. The streamed page with async data is 17% faster: 765 µs against 917 µs. The 2.0 output is also smaller. The hydration keys changed from `data-hk="012"` to `_hk=120`, and the string for 1,000 rows went from 44,128 to 37,169 bytes. Both renders stay far below one millisecond for 1,000 rows. Watch the string render on large pages that have no async data.
 
 ### Update time
 
@@ -339,9 +357,13 @@ The micro-benchmark is one signal with 10,000 dependents, in Node, with the brow
 
 2.0 is slower on this shape. Every write in 2.0 is staged, then committed at the flush, also when nothing is async. The design notes of the reactive core do not allow a direct commit for each write. They call this commit cost the price of the semantics: reads must not change before the flush. One write that reaches 10,000 effects costs about one millisecond. Real pages rarely have that much fan-out from one signal. Mine do not.
 
+> Disclamer - I don't think microbenchmarks tell what happens in a real app of good scale, i mainly did them to see some numbers, and decided to share it here.
+
 ## Running 1.x code on 2.0
 
-I copied the 1.9 app into the 2.0 project with no changes and built it. The first failure is the import path:
+What happens when you update the dependency version but not the code? BTW there are already codemods to help you with this, and your agent can help in this as well.
+
+The first failure is the import path:
 
 ```text
 "./web" is not exported under the conditions ["solid", "module", "browser", "production", "import"] from package .../node_modules/solid-js
@@ -375,7 +397,7 @@ After that, the bundler reports each removed export:
 - The second comes from the 1.x habit of `createMemo(() => setDoubled(count() * 2))`.
 - The third is a warning, not an error. It comes from a component that destructures its props.
 
-Each message links to its page in the diagnostics reference. I wish every framework did this.
+Each message links to its page in the diagnostics reference. I wish every framework did this. :crown:
 
 To move a full SolidStart app, with the router and the server, read [migrating a SolidStart app to Solid 2.0](/blog/migrate-solidstart-to-solid-2/). Server functions are part of the change: in 2.0, the `"use server"` runtime is part of `@solidjs/web`. For projects that use SolidStart today, read [SolidStart is in maintenance: what to use now](/blog/solidstart-maintenance-what-to-use/) first.
 

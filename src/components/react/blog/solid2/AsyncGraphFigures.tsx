@@ -1019,3 +1019,171 @@ export function BoundaryCatch() {
     </Figure>
   )
 }
+
+/* ------------------------------------------------------------------ */
+/* 5. Height order (stepped)                                          */
+/* ------------------------------------------------------------------ */
+
+const HEIGHT_STEPS = ['write', 'height 0', 'height 1', 'height 2', 'height 3']
+
+/** A chain and a diamond, flushed one height at a time. */
+export function HeightOrder() {
+  const { ref, step, go, replay } = useSteps(HEIGHT_STEPS.length, 1500)
+  const queued = step === 0
+
+  return (
+    <Figure
+      bleed
+      title="Height order: the flush runs the heap level by level"
+      legend={[
+        { label: 'signal', mark: 'sand' },
+        { label: 'queued write', mark: 'amber' },
+        { label: 'memo', mark: 'lilac' },
+      ]}
+      card={{
+        title: 'The rule',
+        body: 'height = 1 + the tallest memo a node reads',
+      }}
+      caption={
+        <StepControls
+          labels={HEIGHT_STEPS}
+          step={step}
+          go={go}
+          replay={replay}
+        />
+      }
+    >
+      <svg
+        ref={ref}
+        className="sa-fig"
+        viewBox="0 0 640 440"
+        role="img"
+        aria-label="Two graphs side by side. Left, a chain: the signal price at height 0, memo net at height 1, memo tax at height 2, memo total at height 3, with an edge from net straight to total that skips a level. Right, a diamond: the signal query at height 0, memos list and sorted both at height 1, memo summary at height 2 reading both. After one write, the flush commits the signals at height 0, runs net, list and sorted at height 1, then tax and summary at height 2, then total at height 3. Each memo runs one time."
+      >
+        <text x="40" y="140" textAnchor="end" style={TINY}>
+          height 3
+        </text>
+        <text x="40" y="212" textAnchor="end" style={TINY}>
+          height 2
+        </text>
+        <text x="40" y="284" textAnchor="end" style={TINY}>
+          height 1
+        </text>
+        <text x="40" y="356" textAnchor="end" style={TINY}>
+          height 0
+        </text>
+
+        <Outline x={46} y={96} w={270} h={300} />
+        <text x={181} y={90} textAnchor="middle" style={TINY}>
+          chain: each hop adds one
+        </text>
+        <Outline x={330} y={96} w={270} h={300} />
+        <text x={465} y={90} textAnchor="middle" style={TINY}>
+          diamond: two memos, one height
+        </text>
+
+        {/* Chain */}
+        <Edge d="M170 330V302" live={step >= 2} />
+        <Edge d="M170 258V230" live={step >= 3} />
+        <Edge d="M170 186V158" live={step >= 4} />
+        <Edge
+          d="M230 280C282 262 282 178 230 160"
+          live={step >= 4}
+        />
+        <Node
+          x={110}
+          y={330}
+          w={120}
+          mark={queued ? 'amber' : 'sand'}
+          title="price"
+          value={queued ? '10 (next 12)' : '12'}
+          ring={step === 1}
+        />
+        <Node
+          x={110}
+          y={258}
+          w={120}
+          mark="lilac"
+          title="net"
+          value={step >= 2 ? '36' : '30'}
+          ring={step === 2}
+        />
+        <Node
+          x={110}
+          y={186}
+          w={120}
+          mark="lilac"
+          title="tax"
+          value={step >= 3 ? '7.2' : '6'}
+          ring={step === 3}
+        />
+        <Node
+          x={110}
+          y={114}
+          w={120}
+          mark="lilac"
+          title="total"
+          value={step >= 4 ? '43.2' : '36'}
+          ring={step === 4}
+        />
+        <text x={236} y={222} style={TINY}>
+          net feeds total too
+        </text>
+
+        {/* Diamond */}
+        <Edge d="M465 330L405 302" live={step >= 2} />
+        <Edge d="M465 330L525 302" live={step >= 2} />
+        <Edge d="M405 258L445 230" live={step >= 3} />
+        <Edge d="M525 258L485 230" live={step >= 3} />
+        <Node
+          x={405}
+          y={330}
+          w={120}
+          mark={queued ? 'amber' : 'sand'}
+          title="query"
+          value={queued ? 'next "ab"' : '"ab"'}
+          ring={step === 1}
+        />
+        <Node
+          x={345}
+          y={258}
+          w={110}
+          mark="lilac"
+          title="list"
+          value={step >= 2 ? '2 rows' : '3 rows'}
+          ring={step === 2}
+        />
+        <Node
+          x={470}
+          y={258}
+          w={110}
+          mark="lilac"
+          title="sorted"
+          value={step >= 2 ? '"ab"' : '"abc"'}
+          ring={step === 2}
+        />
+        <Node
+          x={410}
+          y={186}
+          w={110}
+          mark="lilac"
+          title="summary"
+          value="runs once"
+          ring={step === 3}
+        />
+
+        <Status y={424}>
+          {queued
+            ? 'One write. The heap holds the dirty memos, sorted by height.'
+            : step === 1
+              ? 'Height 0: the signals commit. No memo has run yet.'
+              : step === 2
+                ? 'Height 1: net, list and sorted run. Same height, any order.'
+                : step === 3
+                  ? 'Height 2: tax and summary run one time, all inputs fresh.'
+                  : 'Height 3: total runs last, after net and tax.'}
+        </Status>
+      </svg>
+    </Figure>
+  )
+}
