@@ -121,7 +121,7 @@ A link to a post that is not out yet would be a 404, so the MDX `a` element is a
 
 ### What the filter does not hide
 
-The filter decides which pages exist. It does not decide which files the client build writes. The lazy glob has one entry per file on disk, and Vite gives every entry its own chunk, so the client output had a compiled chunk for all 47 posts: the draft and the 28 scheduled posts as well. The `content` chunk that every page loads holds the import map with each chunk's hashed file name, and the front matter of every post, titles included. In my build, `/assets/2027-feb-tanstack-start-server-functions-Cpde2Dl_.js` returned 200 and 72,464 bytes from `vite preview` more than five weeks before that post's date.
+The filter decides which pages exist. It does not decide which files the client build writes. The lazy glob has one entry per file on disk, and Vite gives every entry its own chunk, so the client output had a compiled chunk for all 47 posts: the draft and the 28 scheduled posts as well. The `content` chunk that every page loads holds the import map with each chunk's hashed file name, and the front matter of every post, titles included. In my build, `/assets/2026-dec-tanstack-start-server-functions-Cpde2Dl_.js` returned 200 and 72,464 bytes from `vite preview` more than five weeks before that post's date.
 
 So on this site, "not published" means "not linked", not "not public". A site with embargoed content would have to filter before the glob, so that a future file never becomes a module.
 
