@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { AbsoluteFill, Easing } from 'remotion'
-import { type Bezier, type VideoTheme, stack } from './theme'
+import { stack } from './theme'
+import type { Bezier, VideoTheme } from './theme'
 
 // The motion primitives every scene builds on (references/motion.md). Every value is a pure function of the frame.
 

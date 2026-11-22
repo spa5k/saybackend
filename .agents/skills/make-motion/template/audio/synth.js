@@ -1077,18 +1077,16 @@
         )
         const stab = at(G, c, 5)
         if (stab >= 0 && stab < G.gate)
-          voicing
-            .slice(-2)
-            .forEach((m, i) =>
-              keys.push({
-                at: stab,
-                dt: i * 0.008,
-                midi: tr(m),
-                level: 0.036,
-                len: 0.35,
-                p: 0.2 - i * 0.2,
-              }),
-            )
+          voicing.slice(-2).forEach((m, i) =>
+            keys.push({
+              at: stab,
+              dt: i * 0.008,
+              midi: tr(m),
+              level: 0.036,
+              len: 0.35,
+              p: 0.2 - i * 0.2,
+            }),
+          )
       } else {
         // Laid back: rolled up from 20 ms behind the one, then pushed again, softer, on the "and" of two.
         voicing.forEach((m, i) =>

@@ -126,11 +126,9 @@ async function read(tries = 2) {
     await page.goto({ url, timeout: 45000, options: { waitUntil: 'load' } })
     await new Promise((r) => setTimeout(r, 1500)) // late stylesheets and web fonts
     const light = await page.evaluate(READ)
-    await page
-      ._client()
-      .send('Emulation.setEmulatedMedia', {
-        features: [{ name: 'prefers-color-scheme', value: 'dark' }],
-      })
+    await page._client().send('Emulation.setEmulatedMedia', {
+      features: [{ name: 'prefers-color-scheme', value: 'dark' }],
+    })
     await page.evaluate(() => {
       document.documentElement.classList.add('dark')
       document.documentElement.dataset.theme = 'dark'

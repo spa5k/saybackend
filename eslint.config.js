@@ -17,6 +17,8 @@ export default [
   {
     ignores: [
       'dist/**',
+      '.agents/**',
+      'design/**',
       'worker-configuration.d.ts',
       'src/components/react/**',
       'src/components/ui/**',

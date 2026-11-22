@@ -11,9 +11,11 @@ import {
   whole,
 } from '../kit/motion'
 import { Pointer, pointerAt, pressAt } from '../kit/pointer'
-import { type Scene, Scenes } from '../kit/shot'
+import { Scenes } from '../kit/shot'
+import type { Scene } from '../kit/shot'
 import { Soundtrack } from '../kit/soundtrack'
-import { mix, resolve, stack, type VideoTheme } from '../kit/theme'
+import { mix, resolve, stack } from '../kit/theme'
+import type { VideoTheme } from '../kit/theme'
 import { SFX } from './audio/cues.mjs'
 import themeJson from './theme.json'
 import {

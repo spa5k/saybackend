@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { cancelRender, continueRender, delayRender, staticFile } from 'remotion'
-import { alias, type Face, type VideoTheme } from './theme'
+import { alias } from './theme'
+import type { Face, VideoTheme } from './theme'
 
 // Loads the theme's faces before the first frame, so no frame is drawn, or measured, in a fallback font.
 //

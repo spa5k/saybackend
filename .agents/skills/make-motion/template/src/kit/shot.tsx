@@ -1,4 +1,5 @@
-import { useMemo, type ReactNode } from 'react'
+import { useMemo } from 'react'
+import type { ReactNode } from 'react'
 import { AbsoluteFill, Sequence, useCurrentFrame } from 'remotion'
 import { Sampled, whipAt, whipping } from './motion'
 import type { VideoTheme } from './theme'
