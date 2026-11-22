@@ -2,7 +2,7 @@
 title: "Solid 2.0 Start mode against TanStack Start on Solid: the same app, built twice"
 seoTitle: "Solid 2.0 Start Mode vs TanStack Start: Measured"
 description: "One small notes app built with Solid 2.0's Start mode and with TanStack Start on Solid 2.0, measured: install size, build time, client JS, req/s, streaming and types."
-date: "2026-12-18"
+date: "2026-12-24"
 ogImage: "/images/2027-solid-start-mode-vs-tanstack-og.png"
 slug: "solid-start-mode-vs-tanstack-start-solid"
 tags:
@@ -294,6 +294,36 @@ The API route is short in both. Solid needs a `GET` export and one middleware li
 
 Start mode builds one fetch handler, `dist/server/server.js`, with a `{ fetch }` default export for Workers, Bun, Deno and Netlify, plus `node.js` for Node.js when you set `start: { nodeServer: true }`. It ships no platform adapters. TanStack Start builds through Nitro here, so Nitro's presets apply, and the [self-hosting post](/blog/self-host-tanstack-start-docker/) covers the Docker image for it.
 
+The two approaches put the platform decision in different places. With TanStack Start it is a build setting: Nitro reads the preset and writes the server in the layout that the platform expects, and the app code does not change. With Start mode it is a few lines of your own code around the handler. `node.js` is that code for Node, and it is 8.6 KB. For Bun or Deno you write the equivalent yourself, in the shape of `Bun.serve({ fetch: (req) => handler.fetch(req) })` or `Deno.serve((req) => handler.fetch(req))`.
+
+### One handler, three runtimes
+
+To see whether the fetch-handler contract holds, I built the official `solid-v2/fullstack` template, which has SSR pages, a JSON route, sessions and a 404 route, and imported its `dist/server/server.js` in Node.js 26.13.1, Bun 1.4.0 and Deno 2.7.13. All three served `/`, `/users`, `/api/users` and a missing path with the same status codes and the same HTML, with no change to the build. Then I called `handler.fetch()` in a loop inside the process, with 50 requests in flight and 20,000 requests per run. That isolates the render and the routing from the HTTP server, so it is not comparable with the oha numbers above, which went through a network and a container.
+
+<RankBars
+  title="Start mode handler, called in-process"
+  unit="req/s"
+  rows={[
+    { label: "Node.js 26.13.1, SSR /", value: 7637 },
+    { label: "Bun 1.4.0, SSR /", value: 10421, mark: "lilac" },
+    { label: "Deno 2.7.13, SSR /", value: 5738 },
+    { label: "Node.js 26.13.1, /api/users", value: 130667 },
+    { label: "Bun 1.4.0, /api/users", value: 301533, mark: "lilac" },
+    { label: "Deno 2.7.13, /api/users", value: 144792 },
+  ]}
+  caption="solid-v2/fullstack template, bundled build, Apple M4. Median of 3 runs after one warm-up run. No HTTP server: Request in, Response out."
+/>
+
+On the SSR page, Bun rendered 36% more pages per second than Node and Deno 25% fewer. On the JSON route Bun was 2.3 times faster than Node, and Deno was 11% faster than Node. The JSON route does almost no rendering, so it mostly measures each runtime's `Request`, `Response` and JSON code; the SSR page runs the same Solid render in all three, and the spread between runtimes is smaller there.
+
+For Cloudflare Workers, a three-line worker that imports `server.js` and forwards `fetch` bundled with `wrangler deploy --dry-run` (Wrangler 4.87.0) to 688 KiB, or 161 KiB with gzip, under the 3 MB limit of the free plan. Wrangler warned about one thing: `server.js` imports `node:async_hooks` for the request scope, so the Worker needs the `nodejs_compat` compatibility flag. The handler does not serve `dist/client`: through `server.js`, both `/favicon.ico` and a hashed script under `/assets/` answered with the 404 page. `node.js` adds the file serving for Node, so on any other platform the files go to the platform's static hosting, and only the remaining paths reach the handler. What `node.js` does for those files is worth copying to the other platforms: it picks the `.br` or `.gz` file the build wrote next to an asset, by the weights in `Accept-Encoding`, sets `Vary: Accept-Encoding`, and sends `Cache-Control: public, max-age=31536000, immutable` for hashed files under `/assets/` and `max-age=0, must-revalidate` with `Last-Modified` for everything else. Set the same two rules on the static host that serves `dist/client`.
+
+### Closing the node_modules gap
+
+The largest practical difference in the results table is the server output: 1.08 MB self-contained for TanStack against 148 KB plus 54.2 MB of `node_modules` for Start mode. That gap is a default, not a limit. With `ssr: { noExternal: true }` in the Vite config, the SSR build inlines `solid-js`, `@solidjs/web`, the router and the app's own dependencies. On the template, `dist/server` went from 164 KB plus `node_modules` to 680 KB, and the handler ran from a directory that held only `dist` and a `package.json` with `"type": "module"`. `filesystem-routing` with its Vite and oxc-parser dependencies drops out, because only `filesystem-routing/api` is imported at run time.
+
+Bundling also made the cold start shorter. From process start to the first rendered page, in-process with Node.js 26.13.1, the bundled build took 30.5 ms and the build with `node_modules` 51.4 ms (median of 7 cold processes). Throughput did not change: 7,637 req/s bundled against 7,784 req/s with `node_modules`, inside run-to-run noise. For a container or a serverless function, I would set `noExternal` by default.
+
 ## Maturity
 
 TanStack Start's first stable release, 1.169.0, was announced on 13 October 2026, and Solid 2.0.0 on 16 November 2026. The Solid 2.0 line of TanStack Start is still a release candidate. With `@tanstack/solid-start@2.0.0-rc.11` the SSR build failed:
@@ -308,7 +338,7 @@ Start mode has its own rough edges. `serverFunctions` is marked experimental in 
 
 ## When to pick which
 
-Pick Start mode when the bundle and the deploy shape matter most: 43% less client JS on every route of this app, one request per mutation, and a server that is a plain fetch handler. Accept that you write the prerender step, and ship `node_modules` with the server.
+Pick Start mode when the bundle and the deploy shape matter most: 43% less client JS on every route of this app, one request per mutation, and a server that is a plain fetch handler that runs unchanged on Node, Bun and Deno. Accept that you write the prerender step and the few lines that host the handler, and set `ssr: { noExternal: true }` or ship `node_modules` with the server.
 
 Pick TanStack Start when you want TanStack Router's typed links and loaders, Nitro's hosting presets, a self-contained server bundle and built-in prerendering. On Solid 2.0 today that means a release candidate, pinned to a version that builds, and a CDN in front of `.output/public` if prerendered pages must skip SSR.
 
@@ -324,3 +354,8 @@ Pick TanStack Start when you want TanStack Router's typed links and loaders, Nit
 - [solid-js on npm](https://www.npmjs.com/package/solid-js) and [@tanstack/solid-start on npm](https://www.npmjs.com/package/@tanstack/solid-start)
 - [oha, HTTP load generator](https://github.com/hatoo/oha)
 - [Node.js 26 release index](https://nodejs.org/dist/index.json)
+- [Solid 2 templates: solid-v2/fullstack](https://github.com/solidjs/templates/tree/main/solid-v2/fullstack)
+- [Vite SSR options: ssr.noExternal](https://vite.dev/config/ssr-options)
+- [Cloudflare Workers: Node.js compatibility](https://developers.cloudflare.com/workers/runtime-apis/nodejs/)
+- [Cloudflare Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
+- [Bun.serve](https://bun.sh/docs/api/http) and [Deno.serve](https://docs.deno.com/api/deno/~/Deno.serve)

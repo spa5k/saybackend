@@ -1893,6 +1893,43 @@ mark,
   font-size: 25px;
 }
 
+/* The closing Sources list, folded by rehypeCollapseSources. */
+.post-body .post-sources {
+  margin: 44px 0 0;
+  border-top: 1px solid var(--rule);
+  padding-top: 12px;
+}
+
+.post-body .post-sources > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 700;
+  list-style: none;
+}
+
+.post-body .post-sources > summary::-webkit-details-marker {
+  display: none;
+}
+
+.post-body .post-sources > summary::after {
+  color: var(--ink-soft);
+  content: 'show';
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.post-body .post-sources[open] > summary::after {
+  content: 'hide';
+}
+
+.post-body .post-sources > ul {
+  font-size: 15px;
+}
+
 .post-body h3:not(.not-typography *) {
   margin: 32px 0 10px;
   font-family: var(--font-serif);

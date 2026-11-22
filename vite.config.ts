@@ -19,6 +19,8 @@ import remarkGfm from 'remark-gfm'
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
+
+import rehypeCollapseSources from './src/lib/rehypeCollapseSources'
 import svgr from 'vite-plugin-svgr'
 
 const frontmatterModulePrefix = '\0saybackend-frontmatter:'
@@ -185,6 +187,7 @@ const config = defineConfig({
       ],
       rehypePlugins: [
         rehypeKatex,
+        rehypeCollapseSources,
         [
           rehypeShiki,
           {

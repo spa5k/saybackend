@@ -2,7 +2,7 @@
 title: "How we made development with coding agents faster and consistent"
 seoTitle: "A Verification Skill for Coding Agents: Seven Weeks of Improvements"
 description: "We started from a generated verification skill and improved it for seven weeks: stricter commands, cheaper runs, an app and a database for each agent, a lighter development stack, and evidence that cannot overclaim."
-date: "2027-01-20"
+date: "2026-11-30"
 ogImage: "/images/agents-prove-changes-og.png"
 slug: "coding-agent-verification-skill"
 tags:
@@ -116,6 +116,10 @@ Two more limits pushed the same way. Each preview environment needed a database 
 
 **A feature map and a planner.** The three recipes of the first version became a map of 65 feature areas. Each one has its source paths, its entry points, its test suites, and the lowest tier that can verify it. A check fails when a product file has no owner in the map, so the map cannot drift in silence again. The planner reads the diff and prints the features that it touches, the tier, the checks, and the commands in order.
 
+The planner is where most of the saving comes from, so it is worth a closer look. For each changed file it finds the owning feature. A feature whose changed lines are only imports, exports, comments, or blank lines is listed as reference-only, and it adds no tier, suite, or journey. For the rest, the plan lists the changed and sibling unit tests, a type check for each changed package, lint of the changed files, the integration suites of the features, one probe for each removed route that expects a 404, and the browser journeys that need no model. Journeys that call a paid model are listed as optional. The plan ends with the lowest tier and the reason for it, and with the files that match no feature.
+
+A plan on its own creates no evidence, starts no service, and calls no model, so an agent can run it at any point. With `--start`, it opens an evidence run, records the selected checks in it, and prints the full command sequence with the real run ID. A selected check that never runs stays open in the report as a gap, and a captured command stops after 10 minutes. The planner was replayed on 200 commits of the main branch: the lint cleanup changed no plan, and the review fixes lowered no tier.
+
 <VerificationTiers />
 
 **One web instance for each checkout.** A command builds this checkout's web app and starts it on its own port and hostname, so many checkouts run at the same time. One instance uses about 9x less memory than the full development stack, and it starts about 20 seconds after a build.
@@ -131,11 +135,17 @@ Two more limits pushed the same way. Each preview environment needed a database 
   caption="Measured in November 2026."
 />
 
-**One database for each pull request.** The start command creates a separate database project for the checkout, applies all its migrations there, and points the web instance at it. It starts only the services that the app uses, which is 4 containers (about 500 MB), and it takes about 52 seconds from zero to a usable instance. Two pull requests never share a database.
+Ports are the first thing that two agents fight over, so the claim has to be atomic. Each instance takes a port from a range of 800. The claim is a directory named after the port, inside the Git common directory, so every worktree of the repository sees the same claims. An agent writes its owner record into a draft directory and renames it into place. A rename onto a directory that exists fails, so only one agent can win a port. The record holds the process ID and its start time. A claim whose process is gone counts as abandoned and can be taken, and a port with a listener outside the claims is skipped.
 
-**Test data and flags.** A seed command fills the test account with realistic data, and cleanup removes all of it. A feature flag can be switched on for one instance through a local stand-in for the flag service. No product code changes for that, so the override cannot exist in production.
+The start command is safe to repeat. With the same options, it returns the instance that already runs. With another mode, flag set, or database, it returns `blocked` and names what runs, so an agent cannot replace another agent's instance by accident. A production instance that no longer matches the source of the checkout is rebuilt. A start that fails or is interrupted stops its own processes and releases its port. In one test, a start was interrupted while its database came up: at the interrupt it held 1 container, 1 volume, and 1 port claim, and none of them remained after.
 
-**Teardown.** One command removes the account and the seed rows, stops the web instance, destroys the database project with its containers and volumes, and removes the images that the run built. Then it lists what remains, and a leftover gives exit code 1.
+**One database for each pull request.** The start command creates a separate database project for the checkout, applies all its migrations there, and points the web instance at it. It starts only the services that the app uses, which is 4 containers (about 500 MB), and it takes about 52 seconds from zero to a usable instance. Two pull requests never share a database. On an earlier version, a pull request with a new migration applied 282 migrations on its own database while the shared one stayed at 289, and the new check constraints refused the value that they were written to refuse.
+
+The shared database that people use for daily work got its own repair. The start command now starts it from a permanent mirror, repairs one container at a time, and applies pending migrations, so a deleted worktree can no longer stop it. A healthy project is not touched: on the real shared project, 10 of 10 containers kept their ID and start time. An unhealthy optional container was restarted in place in 3 seconds, without a restart of the project.
+
+**Test data and flags.** A seed command fills the test account with realistic data, and cleanup removes all of it. A feature flag can be switched on for one instance through a local stand-in for the flag service. No product code changes for that, so the override cannot exist in production. The flags must be set before the account's first request, because the server caches some flag results for each user. With a new account for each run, a flag on and off gave the two expected results on a gated route: 200 and 403.
+
+**Teardown.** One command removes the account and the seed rows, stops the web instance, destroys the database project with its containers and volumes, and removes the images that the run built. Then it lists what remains, and a leftover gives exit code 1. The rule that decides what is in use had to be right. During this work, an early version of teardown stopped the shared database one time. I corrected the rule, and the full flow on the final version ended with 0 leftovers, 0 containers, and 0 volumes.
 
 ## Evidence that cannot say more than was proved
 
@@ -196,6 +206,48 @@ I gave the tools to ten agents and ten real pull requests, in two waves, with up
 There was no collision on a port, an account, or a database. The first wave took about 10 minutes for each pull request. The second wave used three different models, and the tool defects from the first wave did not appear again.
 
 Two of the ten runs ended with "could not check the main claim". The evidence rules exist for that result: the run states the gap, and the report does not hide it behind a smaller claim that passed.
+
+## The first five days of real use
+
+The tools merged on 16 November. In the five days after, agents published or updated 136 verification reports on 129 pull requests, from the accounts of seven engineers and one coding agent's bot. A report is one comment that a later run updates in place, so each count below is the last state of a report.
+
+| Headline of the report | Reports |
+| --- | ---: |
+| Selected checks passed | 116 |
+| Some checks could not run | 13 |
+| Verification is not finished | 3 |
+| Checks need a fix | 3 |
+| Other | 1 |
+
+So 85% passed, and 19 reports, or 14%, said in their first line that something could not run, was not finished, or failed. I count that second number as a result of the design: a report that says "not finished" tells the reviewer where to look.
+
+## Set it up in another repository
+
+The order that I would follow:
+
+1. **Generate the base.** Run a skill generator such as pstack's `/create-verification-skill` against the repository, and correct what it got wrong on the first real run. Ours started with 62 files.
+2. **Make it the rule.** One paragraph in the repository guide: every change to code or runtime configuration ends with review, then verification, started by the agent without asking.
+3. **Fail on unknown options.** Define the options of every driver in one place, and reject an unknown, repeated, or missing option before any action. It is the cheapest step in the list.
+4. **Give each agent its own instance.** An atomic port claim, a production build, and a database for each checkout. This is the expensive step, and it is the one that turned verification from one agent at a time into four at a time.
+5. **Put the rules in the recorder, not in the prompt.** A prompt can ask for an assertion. Only the recorder can refuse a check without one.
+
+The recorder rules are short enough to start with in a few lines. This sketch is written for the post, and it is not our code:
+
+```js
+function verdict(check, previous) {
+  const pattern = check.expectOutput;
+  if (pattern !== undefined && (pattern === "" || new RegExp(pattern).test("")))
+    throw new Error("A pattern that matches empty output proves nothing.");
+  if (check.level === "user" && pattern === undefined) return "incomplete";
+  if (previous?.status === "failed" && previous.command !== check.command && !check.harnessError)
+    throw new Error("A different command cannot replace a failed check without a reason.");
+  if (check.exitCode !== (check.expectStatus ?? 0)) return "failed";
+  if (pattern !== undefined && !new RegExp(pattern).test(check.output)) return "failed";
+  return "passed";
+}
+```
+
+The test for a match-all pattern is the one line that I would keep in any version: a pattern that matches empty text cannot fail, so it is not an assertion.
 
 ## The daily load
 

@@ -2,7 +2,7 @@
 title: 'Faster Rust dev builds in 2026: Cranelift, Wild, and what is next'
 seoTitle: 'Faster Rust Dev Builds in 2026: Linkers, Cranelift, Hot-Patching'
 description: 'I timed the edit-build-run loop of a 504-crate Rust project on stable and nightly: linkers, debug info, Cranelift, the parallel front end, hot-patching, and what is not ready yet.'
-date: "2026-12-30"
+date: "2026-12-10"
 ogImage: '/images/2027-faster-rust-dev-builds-og.png'
 slug: 'faster-rust-dev-builds'
 tags:
@@ -124,6 +124,32 @@ rustflags = ["-Clink-arg=--ld-path=wild"]
 
 Wild 0.11.0 does not link incrementally yet. Incremental linking is the long-term goal of the project and an item on the Rust project's Fast Builds roadmap, so the link step could shrink further.
 
+## Test binaries multiply the link
+
+A `cargo build` links one binary. `cargo test` links one executable for each library's unit tests, one for each file in `tests/`, and one for each binary's tests, and Zola's workspace produces 24 of them. After the core edit, every test executable that depends on `utils` is linked again. I ran `cargo test --workspace --no-run` after the core edit in the same Linux container, which has 8 GB of memory:
+
+```text
+  = note: collect2: fatal error: ld terminated with signal 9 [Killed]
+```
+
+GNU ld ran out of memory twice in a row at Cargo's default of ten jobs, and the kernel killed it. Cargo reports this as a compile error of whichever crate was linking at that moment (`site` once, the `zola` binary tests the next time), so it looks like a code problem at first. With `-j 4` the same command passed in 19 to 34 s, and with `-j 2` in 23 s. Wild linked all of them at ten jobs in 3.0 to 3.5 s, three runs in a row. The machine had other load during these runs, so read the GNU ld times as a range; the failure at ten jobs happened every time.
+
+<RankBars
+  title="cargo test --workspace --no-run after the core edit, linux/arm64"
+  unit="s"
+  mono
+  rows={[
+    { label: "GNU ld, -j 4", value: 18.8, sub: "second run 33.8 s", mark: "rose" },
+    { label: "GNU ld, -j 2", value: 22.8 },
+    { label: "Wild 0.11.0, -j 10", value: 3.4, mark: "blue", sub: "median of three" },
+  ]}
+  caption="Zola v0.23.6, Rust 1.100.0, Docker Desktop with 8 GB and 10 CPUs on an Apple M4. 24 test executables. GNU ld at -j 10 was killed for lack of memory in both runs."
+/>
+
+Each file in `tests/` is its own crate and its own executable, with its own copy of the dependency code. Moving integration tests into one `tests/main.rs` with modules gives one link in place of several. The other fix is the linker: Wild linked the same executables at ten jobs without running out of memory, in about a fifth of the time that GNU ld needed at four.
+
+On GitHub Actions, the `x86_64-unknown-linux-gnu` runners already link with LLD by default since Rust 1.90, so the default there is not GNU ld. The arm64 runners use `aarch64-unknown-linux-gnu`, which still links through GNU ld, and they gain the most from a config line. `cargo install --locked wild-linker` builds Wild from source, and the config above also needs `clang` on the runner.
+
 ## Debug info
 
 `debug = "line-tables-only"` keeps file and line numbers in backtraces and drops variables and types. On stable it cut the leaf edit from 1.51 s to 1.10 s and the core edit from 2.61 s to 2.21 s. Adding `debug = false` for dependencies changed neither (1.09 s and 2.20 s), and the link section in the nightly timings stayed at 840 ms with it. With both settings, the clean build and the run did not change. [Part 1](/blog/rust-target-directory-disk-space/) has what these settings do to the disk and to backtraces.
@@ -243,6 +269,18 @@ Two young projects go further, in the direction of the JVM: keep a process alive
 
 Neither is part of rustc or Cargo, and both re-implement parts of the compiler, so their behavior can differ from rustc's.
 
+## Rebuilds that are not your edit
+
+Every number above assumes that Cargo rebuilds only what the edit touched. Three things make it rebuild much more, and none of them shows up as a slow compiler.
+
+**Switching between build and test.** On macOS, `cargo test --workspace --no-run` straight after `cargo build` compiled 54 crates, and 28 of them were crates the build had just compiled, among them tokio, hyper, axum and reqwest. The dev-dependencies turn on more features in shared dependencies, and a different feature set is a different unit. Cargo keeps both copies, so a later `cargo build` compiled nothing and finished in 1.68 s. The cost is paid once per target directory, and again whenever a dependency below those crates changes. [Part 1](/blog/rust-target-directory-disk-space/) traces the exact features on another project and halves the test build with a workspace-hack crate.
+
+**Different flags.** `RUSTFLAGS` is part of every unit's hash. A terminal with one value and an editor or script with another build two complete copies, and each copy goes cold separately after `cargo update`. Part 1 measured a full second copy of 293 crates for one extra `--cfg`. The linker settings in this post belong in `.cargo/config.toml`, where every tool reads the same value, and not in a shell profile.
+
+**A toolchain update.** A new rustc changes the hash of every unit, so the first build after `rustup update` is a clean build, and the old artifacts stay on disk until `cargo clean`. Pinning the toolchain in `rust-toolchain.toml` makes that happen once per update for everyone, on a day you choose.
+
+`cargo build -v` shows why a crate rebuilt: Cargo prints a `Dirty` line with the reason, such as a changed file or a changed dependency, before it starts rustc. A crate that should be fresh and shows up as `Compiling` without such a line is a new unit, not a stale one, and the cause is in its features or flags.
+
 ## What is not ready yet
 
 - **TPDE.** This fast back end for LLVM IR in debug builds got an unstable flag on 2026-11-13 ([rust#164108](https://github.com/rust-lang/rust/pull/164108)), with the values `try` and `only`. The rustup nightly does not ship the plugin, on macOS or on Linux. TPDE writes ELF only, so macOS is out in any case. A [goal update](https://github.com/rust-lang/goals/issues/802) on 2026-11-18 says that its sponsor funding fell through.
@@ -255,6 +293,22 @@ Neither is part of rustc or Cargo, and both re-implement parts of the compiler, 
 - **Relink Don't Rebuild.** Rustc would hash the public API of a crate and skip the dependents when it did not change, as a C build relinks after an edit to a `.c` file. That is the 1.1 s front-end chain above. The implementation, [rust#156940](https://github.com/rust-lang/rust/pull/156940), is open and waits for funding ([goals#843](https://github.com/rust-lang/goals/issues/843)). The first version will count a moved line number of a public item as an API change, so my one-line insert, which moves the public functions under it, would still rebuild the chain.
 - **Wild incremental linking.** Planned, not in 0.11.0.
 - **The parallel front end on stable.** Nightly only.
+
+## In CI
+
+CI runs the clean build and the test link, not the edit loop, so the settings shift. Incremental state is written for the next edit, and a CI job has no next edit. Swatinem/rust-cache sets `CARGO_INCREMENTAL=0`, and `incremental = false` in a profile does the same without the action. Debug info for dependencies made no difference to build time above, but it fills the cache that the job uploads, as part 1 measured. The linker matters most, because a test job links every test executable after every change. A profile for it:
+
+```toml
+[profile.ci]
+inherits = "dev"
+debug = "line-tables-only"
+incremental = false
+
+[profile.ci.package."*"]
+debug = false
+```
+
+With `cargo test --profile ci`, panics in your own code still print file and line in the job log. Check the memory of the runner against the number of parallel links: the out-of-memory failure above came from ten GNU ld processes in 8 GB, and Cargo will start as many jobs as the runner has CPUs unless `-j` or `CARGO_BUILD_JOBS` says otherwise.
 
 ## The dev profile I use
 
@@ -301,6 +355,9 @@ The two lines cut 0.4 s from every rebuild and cost nothing on a clean build. De
 - [Goal: TPDE](https://goals.rust-lang.org/2026/tpde.html), [its tracking issue](https://github.com/rust-lang/goals/issues/802) and [rust#164108](https://github.com/rust-lang/rust/pull/164108)
 - [Goal: Relink Don't Rebuild](https://goals.rust-lang.org/2026/relink-dont-rebuild.html), [rust#156940](https://github.com/rust-lang/rust/pull/156940) and [goals#843](https://github.com/rust-lang/goals/issues/843)
 - [Wild 0.11.0](https://github.com/wild-linker/wild/releases/tag/0.11.0)
+- [Cargo targets: integration tests](https://doc.rust-lang.org/cargo/reference/cargo-targets.html#integration-tests)
+- [Cargo reference: build.jobs](https://doc.rust-lang.org/cargo/reference/config.html#buildjobs)
+- [Swatinem/rust-cache](https://github.com/Swatinem/rust-cache)
 - [mold 3.0.0](https://github.com/rui314/mold/releases/tag/v3.0.0)
 - [subsecond 0.7.10 documentation](https://docs.rs/subsecond/0.7.10/subsecond/)
 - [Dioxus 0.7.10](https://github.com/DioxusLabs/dioxus/releases/tag/v0.7.10)

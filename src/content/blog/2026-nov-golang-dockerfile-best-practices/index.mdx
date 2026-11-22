@@ -2,7 +2,7 @@
 title: "Golang Dockerfile Best Practices: Every Line and the Reason for It"
 seoTitle: "Golang Dockerfile Best Practices, Line by Line"
 description: "A Go Dockerfile with the reason for each line: multi-stage build, cache mounts, a static binary, a distroless final image, and a non-root user."
-date: "2027-01-04"
+date: "2026-12-07"
 ogImage: "/images/2026-golang-dockerfile-best-practices-og.png"
 slug: "golang-dockerfile-best-practices"
 tags:
@@ -80,6 +80,16 @@ FROM golang:1.27.4-trixie@sha256:<digest from the command above> AS build
 
 The cost is real: with a pinned digest you opt out of automated security fixes. So pin digests only if something (Dependabot can do it) opens a pull request when a new one appears.
 
+### Keep the image version and go.mod in step
+
+The official image sets `GOTOOLCHAIN=local`, so the `go` command in it never downloads another toolchain. The `go` line in `go.mod` is a minimum, and a module that a developer bumped to 1.27.4 on a laptop does not build on an image that is one release behind. On `golang:1.26.11-trixie` the build stopped at once:
+
+```text
+go: go.mod requires go >= 1.27.4 (running go 1.26.11; GOTOOLCHAIN=local)
+```
+
+That is the behaviour I want, because the error names both versions. With `GOTOOLCHAIN=auto` the same build passed after `go: downloading go1.27.4 (linux/arm64)`, but then the image tag no longer says which compiler built the binary, and each build without a warm module cache downloads a toolchain. Bump the `FROM` line in the same commit that bumps `go.mod`.
+
 ## Copy go.mod and go.sum before the source
 
 Docker reuses a layer when the instruction and its inputs did not change. The source changes on every commit, but `go.mod` and `go.sum` change rarely. Copying those two files first means `go mod download` runs again only when the dependencies change, and an edit to a `.go` file starts the build at `COPY . .`.
@@ -87,6 +97,31 @@ Docker reuses a layer when the instruction and its inputs did not change. The so
 <LayerCache />
 
 On my test service the order alone saved little: a one-line edit to a `.go` file took 11.7 s with `COPY . .` first and 10.1 s with the module files first. The download was back in the cache, but the compiler still built all 310 packages. The next section removes that part.
+
+### Private modules
+
+A private module needs `GOPRIVATE`, so the `go` command skips the public proxy and checksum database for that path, and a credential for the host. The credential must not go in an `ARG`. After a build with `--build-arg GIT_TOKEN=not-a-real-token`, `docker history --no-trunc` printed it back:
+
+```text
+RUN |1 GIT_TOKEN=not-a-real-token /bin/sh -c echo using token >/dev/null # buildkit
+ARG GIT_TOKEN=not-a-real-token
+```
+
+BuildKit warns about this (`SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data`), but the build still succeeds. A secret mount puts the file in place for one `RUN` instruction only:
+
+```dockerfile
+ENV GOPRIVATE=git.example.com/*
+COPY go.mod go.sum ./
+RUN --mount=type=secret,id=netrc,target=/root/.netrc \
+    --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+```
+
+```sh
+docker buildx build --secret id=netrc,src=$HOME/.netrc .
+```
+
+In my test the next instruction could not see the file, and the history showed only the command. For a token in an environment variable, `--mount=type=secret,id=token,env=GIT_TOKEN` exposes it to that one instruction, with `--secret id=token,env=GIT_TOKEN` on the command line.
 
 ## Cache mounts for modules and for the build cache
 
@@ -109,7 +144,39 @@ The two targets are Go's two caches. `/go/pkg/mod` is the module cache, because 
 
 With the mounts, the compile step after a source edit took 0.4 s. A new dependency no longer starts from zero: Go downloads one module and compiles the packages that are new.
 
-One limit matters in CI: cache mounts are not included in an exported build cache. A fresh CI runner starts with empty mounts unless you keep the builder itself between jobs.
+### Cache mounts on a fresh CI runner
+
+Cache mounts are not included in an exported build cache: `--cache-to` writes layers, and a mount is not a layer. So a fresh CI runner starts with empty mounts unless the builder itself survives between jobs.
+
+To measure it, each run built on a new `docker-container` builder with `--cache-to type=local,mode=max`, deleted the builder, edited one file, and built on a second new builder with `--cache-from`. That is a hosted runner with `type=gha` or `type=registry`, with a local directory as the store.
+
+<RankBars
+  title="Compile step after a one-line edit"
+  unit="seconds"
+  mono
+  rows={[
+    { label: "fresh builder, layer cache imported", value: 13.0, mark: "rose", sub: "all 310 packages again" },
+    { label: "fresh builder, mounts restored", value: 0.4, mark: "lilac" },
+    { label: "same builder, warm mounts", value: 0.7 },
+  ]}
+  caption="Median of three runs. Other containers shared the machine during these runs, so read the ratio and not the seconds."
+/>
+
+The `go mod download` layer came back as `CACHED`, and then the compile step ran with an empty build cache and took 10.6 to 16.1 s, as long as a cold build. The exported cache was 308 MB and saved nothing on the step that matters.
+
+The mounts can be carried across by hand. A mount is keyed by its `target` unless you give it an `id`, so any Dockerfile that mounts `/root/.cache/go-build` on the same builder sees the same directory. One small Dockerfile archives both mounts into a local output after the build, and another unpacks them on the new builder before it. With the mounts restored, the compile step took 0.3 to 0.5 s. The archives were 79 MB of modules and 179 MB of build cache.
+
+```dockerfile
+# seed.Dockerfile, built with the restored archives as its context
+FROM busybox:1.37
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=bind,source=.,target=/seed \
+    tar -xf /seed/gomod.tar -C /go/pkg/mod && \
+    tar -xf /seed/gobuild.tar -C /root/.cache/go-build
+```
+
+On GitHub Actions, `reproducible-containers/buildkit-cache-dance` packages the same two steps around `actions/cache`. For this service the trade is about 12 s per build against moving 258 MB. A self-hosted runner that keeps one long-lived builder needs none of this.
 
 ## CGO_ENABLED=0, and when you cannot use it
 
@@ -176,6 +243,14 @@ The distroless static image has both already, plus a `/tmp` directory and an `/e
 
 Alpine is the choice when the container must run other programs or you need to install packages at build time. Its base image has a shell, `apk` and a CA bundle but no timezone data. The same `LoadLocation` call failed on `alpine:3.24` and passed on both distroless images.
 
+### When distroless is the wrong choice
+
+Distroless static fits a pure Go binary that talks to the network and nothing else. It is the wrong base in three cases:
+
+- **cgo.** A binary linked against glibc needs `distroless/base-debian13`, or `distroless/cc-debian13` when it also needs `libgcc`.
+- **Other programs at run time.** A service that runs `ffmpeg`, `git` or a database client as a subprocess needs a distribution with a package manager. Use `debian:trixie-slim` and install only those packages, with `--no-install-recommends`.
+- **A shell in production.** Distroless has nothing to `kubectl exec` into. `kubectl debug` with an ephemeral container replaces that habit, but the team has to adopt it first.
+
 ## Run as a non-root user
 
 The `:nonroot` tag makes the container run as an unprivileged user with UID 65532, so the Dockerfile needs no `USER` line. On `scratch` there is no user database, but `USER` accepts numeric IDs:
@@ -185,6 +260,49 @@ USER 65532:65532
 ```
 
 On Alpine or Debian, create the user with an explicit UID and GID. Automatically assigned IDs can change between rebuilds.
+
+## Scan what you ship
+
+I scanned the five final images and the build image with Trivy 0.76.2. Trivy found nothing in the binary itself: Go 1.27.4 and the 18 modules had no known vulnerability on the day of the scan. Everything below comes from the base image.
+
+<RankBars
+  bleed
+  title="Vulnerabilities Trivy reports in the final image"
+  unit="findings"
+  mono
+  rows={[
+    { label: "scratch", value: 0 },
+    { label: "distroless/static", value: 0, mark: "lilac" },
+    { label: "alpine:3.24", value: 11, sub: "all 11 have a fix: libcrypto3, libssl3, zlib" },
+    { label: "distroless/base", value: 38, sub: "14 with a fix, all in libc6" },
+    { label: "debian:trixie-slim", value: 222, mark: "rose", sub: "30 with a fix" },
+  ]}
+  caption="Trivy 0.76.2, linux/arm64, images pulled on November 21, 2026. The golang:1.27.4-trixie build image had 2,165 findings, and none of them reach the final image."
+/>
+
+The counts follow how much software each image contains. Most Debian findings have no fixed package yet, so `--ignore-unfixed` brings Debian slim down to 30. The Alpine tag was older than its fixed packages: with `RUN apk upgrade --no-cache` added, Trivy reported 0.
+
+The build image number is the two-stage split in a form a security team reads.
+
+In CI, scan the image you are about to push and fail on what you can act on:
+
+```sh
+trivy image --scanners vuln --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 registry.example.com/app:1.0.0
+```
+
+Run it on a schedule too, because a new CVE in a base image arrives without a commit in your repository.
+
+## SBOM and provenance attestations
+
+BuildKit can attach two records to the image: a software bill of materials and a provenance record of how it was built. Neither is signed by this step.
+
+```sh
+docker buildx build --sbom=true --provenance=mode=max -t registry.example.com/app:1.0.0 --push .
+```
+
+Both go into separate attestation manifests in the image index, so they do not change the image layers or the image digest that `docker run` pulls. On my test service the SBOM was a 664 KB SPDX document listing 27 packages: 20 Go entries (the modules, the standard library as `stdlib go1.27.4`, and the main module) and 6 Debian packages from the distroless base. The main module was listed with version `UNKNOWN`, because `.git` was not in the context. Provenance in `mode=max` was 14.7 KB and records the Dockerfile, the build arguments and the resolved base images, each with its digest. The default `mode=min` record was 1.3 KB.
+
+The SBOM covers the final stage only, which is what ships. The Go entries come from the binary's build information, which `-s -w` does not remove: the stripped binary still gave the scanners every module and version.
 
 ## A .dockerignore file
 
@@ -200,6 +318,33 @@ dist/
 
 Two of those lines are about more than speed. `.env` stays out so that a secret never reaches a layer. Without `.git`, the `go` command has no repository to read, so the binary carries no version control stamp. Remove that line if you read the commit from `go version -m`.
 
+### Version stamps and -buildvcs
+
+When the context does include `.git`, the result depends on the build image. The Debian image has `git`, and the binary built in it carried the full stamp:
+
+```text
+mod    example.com/app  v0.0.0-20261121172147-28e4345f74c4
+build  vcs=git
+build  vcs.revision=28e4345f74c4439a8df11780f71e4e7d0e7ef751
+build  vcs.time=2026-11-21T17:21:47Z
+build  vcs.modified=false
+```
+
+The Alpine image `golang:1.27.4-alpine3.24` has no `git`. The same build passed there with no warning, and the main module version in the binary was `(devel)` with no `vcs` lines at all. A version endpoint that reads `debug.ReadBuildInfo` then reports nothing useful. The SBOM above shows the same gap.
+
+`.git` can be larger than the source and changes with every fetch, so I keep it out and pass the commit in, with `-buildvcs=false` to make the intent clear:
+
+```dockerfile
+ARG VERSION=dev
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -trimpath -buildvcs=false \
+      -ldflags="-s -w -X main.version=${VERSION}" -o /out/app ./cmd/app
+```
+
+`docker buildx build --build-arg VERSION=$(git rev-parse --short HEAD) .` fills it in, and `main.version` must be a package-level `string` variable for `-X` to set it. A commit hash is not a secret, so an `ARG` is fine here. A changed `ARG` value is a cache miss from the first instruction that uses it, which here is the compile step.
+
 ## Multi-platform builds without emulation
 
 `--platform=$BUILDPLATFORM` pins the build stage to the platform of the machine that runs the build. The compiler runs natively, and `GOOS` and `GOARCH` tell it what to produce. `TARGETOS` and `TARGETARCH` are set by BuildKit, but they are global, so each stage that reads them must declare them again with `ARG`.
@@ -210,7 +355,26 @@ docker buildx build --platform linux/amd64,linux/arm64 -t registry.example.com/a
 
 On my arm64 machine, a build for both platforms took 13.4 s, and the amd64 compile step took 6.0 s of that. The build log shows it as `linux/arm64->amd64`: a cross-compile, with no emulator.
 
-Without the pin, an arm64 image built on an amd64 machine runs the whole Go compiler under emulation. Multi-platform images also need an image store that supports manifest lists. Docker Desktop and Docker Engine 29.0 or later have one by default.
+Without the pin, the build stage pulls the `golang` image for the target platform and runs the whole Go compiler under QEMU. I removed `--platform=$BUILDPLATFORM` and built `linux/amd64` on the arm64 machine with `--no-cache`, three times each way:
+
+<BeforeAfterBars
+  bleed
+  title="Building linux/amd64 on an arm64 machine, no cache"
+  unit="seconds"
+  beforeLabel="QEMU emulation"
+  afterLabel="cross-compile"
+  data={[
+    { label: "Compile step", before: 204.1, after: 16.3 },
+    { label: "Whole build", before: 223.9, after: 36.9 },
+  ]}
+  caption="Median of three runs. The machine was shared with other builds, which explains why the cross-compile is slower here than the 6.0 s above."
+/>
+
+The emulated compile took 131 to 228 s, more than ten times the native one. `go mod download` was barely affected, because it waits on the network.
+
+The pin works because the Go compiler cross-compiles on its own. With cgo on, the C compiler must also produce target code, so that build needs a cross C toolchain with `CC` set per platform, or emulation.
+
+Multi-platform images also need an image store that supports manifest lists. Docker Desktop and Docker Engine 29.0 or later have one by default.
 
 ## HEALTHCHECK without a shell
 
@@ -248,6 +412,22 @@ exec: "/bin/sh": stat /bin/sh: no such file or directory
 
 Receiving the signal is half of the work. By default a Go program exits on `SIGTERM` immediately, with requests still in flight. Use `signal.NotifyContext` with `SIGTERM` and call `Shutdown` on the HTTP server when the context is done.
 
+## GOMAXPROCS and GOMEMLIMIT in a container
+
+Since Go 1.25 the runtime reads the cgroup CPU limit and sets `GOMAXPROCS` from it. I ran a binary that prints the values on the 10-core machine. With no limit, `GOMAXPROCS` was 10. With `--cpus=2` it was 2, and with `--cpus=1.5` it was also 2, because the runtime rounds a fractional limit up.
+
+Memory is different. With `--memory=256m` the soft memory limit stayed at its default, `math.MaxInt64`, so the garbage collector paces itself on heap growth alone. Set `GOMEMLIMIT` yourself, a little below the container limit:
+
+```yaml
+# Kubernetes container spec
+resources:
+  limits:
+    memory: 512Mi
+env:
+  - name: GOMEMLIMIT
+    value: 450MiB
+```
+
 ## Common mistakes
 
 - `FROM golang:latest`, or an unpinned final image such as `alpine:latest`.
@@ -259,6 +439,9 @@ Receiving the signal is half of the work. By default a Go program exits on `SIGT
 - Shell-form `ENTRYPOINT` or `CMD`, which on most base images keeps `SIGTERM` away from the process.
 - No `.dockerignore`, so `.git` and local `.env` files go into the build context.
 - Reading `TARGETOS` or `TARGETARCH` in a `RUN` line without an `ARG` declaration in that stage. The values are empty.
+- A token passed with `--build-arg`, which stays readable in `docker history`.
+- A build image older than the `go` line in `go.mod`, which fails with `GOTOOLCHAIN=local`.
+- Expecting `--cache-to` to carry cache mounts to the next CI runner.
 
 ## Sources
 
@@ -282,4 +465,16 @@ Receiving the signal is half of the work. By default a Go program exits on `SIGT
 - [Distroless README](https://github.com/GoogleContainerTools/distroless/blob/main/README.md)
 - [Distroless base and static images](https://github.com/GoogleContainerTools/distroless/blob/main/base/README.md)
 - [Distroless user IDs](https://github.com/GoogleContainerTools/distroless/blob/main/common/variables.bzl)
+- [Dockerfile reference: RUN --mount=type=secret](https://docs.docker.com/reference/dockerfile/#run---mounttypesecret)
+- [Build secrets](https://docs.docker.com/build/building/secrets/)
+- [Build checks: SecretsUsedInArgOrEnv](https://docs.docker.com/reference/build-checks/secrets-used-in-arg-or-env/)
+- [Cache storage backends](https://docs.docker.com/build/cache/backends/)
+- [buildkit-cache-dance](https://github.com/reproducible-containers/buildkit-cache-dance)
+- [SBOM attestations](https://docs.docker.com/build/metadata/attestations/sbom/)
+- [Provenance attestations](https://docs.docker.com/build/metadata/attestations/slsa-provenance/)
+- [Trivy documentation](https://trivy.dev/latest/docs/)
+- [Go toolchains and GOTOOLCHAIN](https://go.dev/doc/toolchain)
+- [Go 1.25 release notes: container-aware GOMAXPROCS](https://go.dev/doc/go1.25#container-aware-gomaxprocs)
+- [runtime/debug.SetMemoryLimit and GOMEMLIMIT](https://pkg.go.dev/runtime/debug#SetMemoryLimit)
+- [Private modules and GOPRIVATE](https://go.dev/ref/mod#private-modules)
 - [Alpine Linux 3.24 release files](https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/)

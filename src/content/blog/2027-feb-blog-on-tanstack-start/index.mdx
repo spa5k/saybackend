@@ -2,7 +2,7 @@
 title: "How This Blog Runs on TanStack Start and Cloudflare Workers"
 seoTitle: "TanStack Start on Cloudflare Workers: How This Blog Works"
 description: "The build behind this blog: MDX through Vite, every page prerendered by the Worker itself, Pagefind search with no server, and a daily rebuild that publishes posts by date."
-date: "2027-01-29"
+date: "2026-12-31"
 ogImage: "/images/2027-blog-on-tanstack-start-og.png"
 slug: "blog-on-tanstack-start-cloudflare-workers"
 tags:
@@ -58,6 +58,8 @@ plugins: [
 ],
 ```
 
+One of my two plugins, `mdxImageDimensions`, runs before the MDX compiler. For each image a post imports, it reads the width and height from the file's header bytes and adds them to every `<Picture>` that has neither, so the browser reserves the space and I never type a size. The other is the front matter loader below.
+
 `wrangler.jsonc` points `main` at `src/worker.ts`, sets `nodejs_compat` and binds the custom domain. There is no `assets` block: the Cloudflare plugin writes `dist/server/wrangler.json` with `"assets": { "directory": "../client" }`, so the prerendered pages and the Worker deploy together.
 
 ## How posts are loaded and filtered
@@ -99,15 +101,27 @@ The list is then filtered once, at module load:
 )
 ```
 
-`__BUILD_DATE__` is a Vite `define`, set in the config to the UTC day of the build:
+`__BUILD_DATE__` is a Vite `define`, set in the config to the UTC day of the build unless a `BUILD_DATE` variable overrides it:
 
 ```ts
 define: {
-  __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+  __BUILD_DATE__: JSON.stringify(
+    process.env.BUILD_DATE ?? new Date().toISOString().slice(0, 10),
+  ),
 },
 ```
 
 ISO dates compare correctly as strings, so the check is one comparison. The dev server shows drafts and future posts, and a production build leaves out both. Every route reads the same `posts` array, so the post pages, the archive, the RSS feed, the sitemaps and `llms.txt` agree about which posts exist.
+
+The override previews the site as it will look on a later day. The repository has 47 post folders: one draft, 18 posts dated on or before 21 November, and 28 scheduled between 23 November and 31 December. A normal build on 21 November prerendered 47 pages. With `BUILD_DATE=2026-12-31` the same source prerendered 75 pages, with 46 posts under `/blog/`, and nothing else changed.
+
+A link to a post that is not out yet would be a 404, so the MDX `a` element is a small `PostLink` component that renders plain text when the target slug is in `unpublishedSlugs`, a set built from the same filter. The daily build turns that text into a link on the morning the target goes out.
+
+### What the filter does not hide
+
+The filter decides which pages exist. It does not decide which files the client build writes. The lazy glob has one entry per file on disk, and Vite gives every entry its own chunk, so the client output had a compiled chunk for all 47 posts: the draft and the 28 scheduled posts as well. The `content` chunk that every page loads holds the import map with each chunk's hashed file name, and the front matter of every post, titles included. In my build, `/assets/2027-feb-tanstack-start-server-functions-Cpde2Dl_.js` returned 200 and 72,464 bytes from `vite preview` more than five weeks before that post's date.
+
+So on this site, "not published" means "not linked", not "not public". A site with embargoed content would have to filter before the glob, so that a future file never becomes a module.
 
 ## How prerender finds the pages
 
@@ -136,6 +150,32 @@ Locally, through `vite preview`, a prerendered post came back in 3.0 ms and a Wo
 
 The full Worker upload is 3,776.80 KiB, 638.58 KiB with gzip, in 66 modules (`wrangler deploy --dry-run`). About half of it, 1.8 MB, is the compiled posts. The prerender needed them, and at run time every post URL is answered by its file.
 
+The giscus files are the one case where a static file was not enough. The comment frame on `giscus.app` loads a custom theme with a CORS request, so the two stylesheets are imported into the Worker with `?raw` and returned with `Access-Control-Allow-Origin: https://giscus.app`. On `http:` the client falls back to giscus's own themes, because the frame cannot load a stylesheet from a local address.
+
+The retired tag archive is a table in the Worker: 50 old tags map to one of six topic pages with a 301, `/tags/` goes to `/blog/` with a 301, and every other tag gets `410 Gone` with `X-Robots-Tag: noindex, follow`, so search engines drop those URLs instead of retrying them. The same table is copied into a `/tags/$tag` server route in the app, for requests that reach TanStack's handler directly. Two copies of one table will drift the first time someone edits only one of them.
+
+## Markdown copies and llms.txt
+
+Every post and project also exists as Markdown at the same path with `.md` in place of the trailing slash, linked from the page with `rel="alternate" type="text/markdown"`. These are the dynamic routes the prerender filter leaves out. The source comes from a third glob with a `?content-source-only` query, which the front matter plugin answers with the raw file as a string, imported only from a module marked `@tanstack/react-start/server-only`.
+
+An MDX file is not portable Markdown, so the route converts it line by line. It removes the `import` block, leaves fenced code alone, turns a `<Callout>` into a bold label and an image component into `![alt](absolute URL)`, and replaces any other capitalised component with a link back to the HTML page, such as `[Interactive element: build pipeline]`. The response carries `Content-Type: text/markdown`, a `Link` header with the HTML page as `rel="canonical"`, and `X-Robots-Tag: noindex, follow`, so the copy never competes with the page in search results.
+
+The redesign post is 100,041 bytes as HTML and 9,498 bytes as Markdown, 10.5 times smaller.
+
+`/llms.txt` is a server route that is prerendered to a file. It writes the site description, the main pages, and one line per post and project with its description and a second link to its `.md` copy, from the same `posts` array as everything else. With 18 posts and 3 projects it is 7,765 bytes.
+
+The converter has a gap. It handles `<img` and components that start with a capital letter, and nothing else. A 2024 post embeds a `<video>` tag over several lines, and its Markdown copy still has the raw tag with `src={WellWellWell}` and a closing `/>` on its own line. The route checker below caught it.
+
+## Checking a build
+
+`scripts/verify-routes.mjs` is the check I run against `vite preview` or the live site. It reads `sitemap-0.xml` and, for every URL in it plus `/hiring/` and `/pagefind`, asserts a 200, a `<title>`, a description, a robots tag, Open Graph and Twitter tags, and a canonical URL that ends with exactly one slash. Article pages also need `og:type` `article`, published and modified times with a time zone, and a `BlogPosting` JSON-LD block. Each Markdown copy must start with `---`, carry the right headers, and contain no leftover `import` line, capitalised tag or lone `/>`. Then it checks the redirects: the nine legacy slugs, `/tags/` as 301, `/tags/backend` as 410 and `/tags/kafka` as 301 to its topic.
+
+Against a fresh build that is 78 requests, which took 0.28 s locally. It exited with code 1 and one failure, the `.md` copy of the 2024 Next.js post with the `<video>` tag. Nothing runs the script in the build or after a deploy, which is why that failure could sit there.
+
+## Topic pages
+
+The ten topic pages under `/topics/` have no tag list of their own. Each topic has an array of match terms, and a post belongs to it when any term appears anywhere in its title, description and tags joined into one lowercase string. That is a substring test, and short terms match inside other words. The AI and RAG topic matches `ai` and `rag`, and in the 21 November build its page listed 11 posts. Five of them are there by accident: the Zustand post through "getstorage", the Go Dockerfile and Next.js deploy posts through "container", the changelog through "mermaid" and the redesign post through "plain".
+
 ## Search with no server
 
 Search is Pagefind. After `vite build`, `pagefind --site dist/client` reads the HTML and writes a static index next to it. The search dialog and the search page load `pagefind-ui.js` only when they open, so a page without search pays nothing for it. The full build script is a chain of five commands:
@@ -145,6 +185,10 @@ Search is Pagefind. After `vite build`, `pagefind --site dist/client` reads the 
 ```
 
 The last script checks that `404.html`, `llms.txt`, `rss.xml`, both sitemaps and `pagefind/pagefind.js` exist and are not empty. Indexing 18 posts took 0.28 s, median of three runs.
+
+The first and last scripts also keep a committed copy of the index in `public/pagefind`, so search works under `vite dev`, which never runs Pagefind. That copy records what each build indexed, which is how the history below can be read from Git.
+
+`sync-outrank.mjs` runs before the build and writes the guides from the Outrank API to `src/data/outrank/articles.json`. Without a key it writes an empty list and warns, which is what `npm run dev` wants. The build passes `--required`, and then a missing key is an error: `OUTRANK_API_KEY is not set. Add it to .env so the build does not ship an empty /guides.`
 
 When I measured this step, the index had no posts in it:
 
@@ -168,6 +212,8 @@ The post route renders the body as `<Suspense><Content /></Suspense>`, where `Co
 ```
 
 A small inline script moves `S:0` into place in the browser. Pagefind does not run scripts, so it sees an empty body and drops the page. All 18 posts were built this way.
+
+The production build still passed because the index was not empty. The guides route renders the article HTML straight into `data-pagefind-body`, with no lazy boundary, so the guides were indexed when the posts were not. In my copy, without an Outrank key, it had zero pages, and Pagefind 1.6.0 stopped with exit code 1: `Error: Pagefind was not able to build an index.` The `&&` chain then skips the finalize script. So the same bug gives an empty search on the live site and a failed build on a machine without the key, and the build with the key is the one that hides it.
 
 <StreamedBody />
 
@@ -216,7 +262,9 @@ jobs:
         run: node scripts/ping-indexnow.mjs
 ```
 
-The deploy hook starts a Workers Builds run. That build sets `__BUILD_DATE__` to the day, so a post dated 10 February appears with the 06:00 UTC build on 10 February, or earlier that day if I push to `main`. Then the job waits six minutes and submits the sitemap to IndexNow. The real `run` step also fails with a clear error when the secret is missing.
+The deploy hook starts a Workers Builds run. That build sets `__BUILD_DATE__` to the day, so a post dated 10 February appears with the 06:00 UTC build on 10 February, or earlier that day if I push to `main`. Then the job waits six minutes and submits the sitemap to IndexNow. The real `run` step also fails with a clear error when the secret is missing. A second workflow runs the same wait and ping on every push to `main`, because a push also starts a Workers Build.
+
+`ping-indexnow.mjs` needs no build output. It fetches the live `sitemap-0.xml`, pulls every `<loc>` out with a regular expression, and posts the whole list in one request with the host, the key and the URL of the key file, which is a plain text file in `public/`. A build without guides has 37 URLs in that sitemap. The script tries `api.indexnow.org` first and then Bing, Yandex and Seznam in turn, and stops at the first `200` or `202`. The engines share submissions, so one success is enough. The fixed six-minute sleep is the weak part: after a slow build, the ping submits the old sitemap.
 
 ## The numbers
 
@@ -311,6 +359,8 @@ The Worker rule never ran for those pages. On 15 November the redirect moved to 
 - **Load the body before render.** A lazy component is right for client navigation, but a static page should have its text in the first HTML. The loader change above does that.
 - **Delete the deploy redirect.** Since the app moved to the root, `vite build` writes `.wrangler/deploy/config.json` by itself with the same `configPath`. The copy in the finalize script does nothing.
 - **Count reading time in the plugin.** Reading minutes are a hand-kept map in `content.tsx`, and a missing entry shows "1 min". The front matter plugin already reads each file, so it can count the words. The `reading-time` package is in `package.json` and nothing imports it.
+- **Run the route check in CI.** `verify-routes.mjs` already knows what a correct page looks like, and it found a broken Markdown copy in a fresh build. It belongs after `vite preview` in the build job, and against the live site after the IndexNow wait.
+- **Keep future posts out of the client build.** The date filter runs after the glob, so every scheduled post ships as a chunk. Filtering in the plugin, before the files become modules, would make the schedule private as well as unlinked.
 
 ## Sources
 
@@ -328,4 +378,9 @@ The Worker rule never ran for those pages. On 15 November the redirect moved to 
 - [React: lazy](https://react.dev/reference/react/lazy)
 - [Lighthouse](https://github.com/GoogleChrome/lighthouse)
 - [IndexNow](https://www.indexnow.org/documentation)
+- [Pagefind: CLI and configuration](https://pagefind.app/docs/config-options/)
+- [giscus: advanced usage and custom themes](https://github.com/giscus/giscus/blob/main/ADVANCED-USAGE.md)
+- [The llms.txt proposal](https://llmstxt.org/)
+- [TanStack Start: server routes](https://tanstack.com/start/latest/docs/framework/react/guide/server-routes)
+- [TanStack Start: execution model and server-only imports](https://tanstack.com/start/latest/docs/framework/react/guide/execution-model)
 - [TanStack Router and Start releases](https://github.com/TanStack/router/releases)

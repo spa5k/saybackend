@@ -2,7 +2,7 @@
 title: "Code Mode, Explained: Why Agents Write Code Instead of Calling Tools"
 seoTitle: "Code Mode Explained: Why AI Agents Write Code Instead of Tool Calls"
 description: "What code mode changes in an agent's tool loop, how Cloudflare and Anthropic built it, what the sandbox must block, and token counts measured on the GitHub MCP server's 46 tools."
-date: "2026-11-27"
+date: "2026-11-23"
 ogImage: "/images/2026-code-mode-explained-og.png"
 slug: "code-mode-explained"
 tags:
@@ -107,6 +107,16 @@ The full API sits in the context, and the TypeScript rendering is larger than th
 
 The generator writes each parameter description twice: once as a comment on the input type and once as an `@param` line on the function. The `@param` lines are 5,985 of the 16,770 tokens of description text. The server declares no output schemas, so every return type is `unknown`.
 
+### One run through `@cloudflare/codemode`
+
+`createCodeTool` returns an ordinary AI SDK tool whose input is `{ code: string }`. When the model calls it, the library passes the code through `normalizeCode` in `src/normalize.ts` before anything runs. That function strips a Markdown code fence, because models often wrap code in one, and parses the rest with Acorn. An arrow function passes through. `export default` is unwrapped. A single named function is wrapped and called. A list of statements is wrapped in an async arrow function, and when the last statement is an expression, it becomes the `return`. So `codemode.get_me({})` alone returns its result, and a model that ignores the "write an async arrow function" instruction still gets its program run.
+
+The executor then generates one module per run. Inside it, `console.log`, `warn` and `error` push to an array, each namespace is a `Proxy` over the host's `ToolDispatcher`, and the normalized function is raced against the timeout. On the host side, each tool's input goes through the AI SDK's schema validation before its `execute` runs. A tool that throws comes back to the sandbox as JSON with an `error` field, and the proxy turns it into a thrown `Error` with the same message, so the program can catch it. A call still pending when the program finishes is answered with "The code execution finished before this tool call settled. Await every tool call before returning."
+
+A failed run does not lose its logs. `runCode` throws `Code execution failed: <message>`, followed by the console lines under "Console output:", and the AI SDK hands that text to the model as the tool error. A program that logs each step gives the model the partial results it would otherwise lose, which matters given the debugging case further down.
+
+The executor is an interface, and the package ships two. `DynamicWorkerExecutor` loads a Worker through the Worker Loader with `globalOutbound: null` and a default timeout of 60 seconds. `IframeSandboxExecutor` runs the code in the browser, in a hidden iframe with `sandbox="allow-scripts"` and a Content Security Policy of `default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval';`, with a default timeout of 30 seconds and tool calls over `postMessage`. Anything that implements `execute(code, providers)` can take their place.
+
 The second design moves the work to the server. On February 20, 2026, Matt Carey described Cloudflare's MCP server for its API, which has over 2,500 endpoints, with two tools. `search()` runs model-written JavaScript against the OpenAPI spec, so the model filters the spec instead of reading it. `execute()` runs model-written JavaScript that calls the API through `cloudflare.request()`. Both run in a Dynamic Worker. The same pattern is `openApiMcpServer` in the SDK, and its two definitions are 1,264 tokens whatever the size of the spec.
 
 ## Anthropic's version
@@ -138,6 +148,28 @@ Anthropic does not run the tool. When the Python code calls it, the code pauses 
 <PtcPause />
 
 The limits matter for design. Tools from the MCP connector cannot be called this way, and neither can tools with `strict: true`. Each Python cell has a 90-second wall-clock limit, and a pending call times out after about 4 minutes. The container has no internet access, 5 GiB of memory and one CPU.
+
+The paused response carries three things the client needs. A `server_tool_use` block holds the Python. A `tool_use` block holds the call, with a `caller` that names the run:
+
+```json
+{
+  "type": "tool_use",
+  "id": "toolu_def456",
+  "name": "query_database",
+  "input": { "sql": "<sql>" },
+  "caller": { "type": "code_execution_20260120", "tool_id": "srvtoolu_abc123" }
+}
+```
+
+And a `container` object gives the ID of the container the code is paused in. The continuation has strict rules. The user message may contain only `tool_result` blocks, with no text after them. It must pass the container ID, or the API rejects it. It must send the same `tools` array, because the paused code needs the code execution tool to resume. And each result must be a string or text blocks, so a tool that returns an image cannot be called from code. Responses tag the caller as `code_execution_20260120` even when the request declared `code_execution_20260521`. A direct call has `"caller": { "type": "direct" }`, which is how one client loop can tell the two apart.
+
+Failures come back as Python errors. A tool result that says `Error: ...` is a string the code can inspect. A result that does not arrive in about 4 minutes raises inside the code and reaches Claude in `stderr`, with `return_code` 0:
+
+```text
+TimeoutError: Calling tool ['query_database'] timed out (no response after 270s).
+```
+
+A schema with a recursive `$ref` fails the request with `400 invalid_request_error` and `Circular $ref detected` once the tool lists a code execution caller, though the same schema works for direct calls. Anthropic's own numbers mark where the feature helps. On a 75-tool project-management benchmark it cut billed input tokens by about 38 percent with no change in accuracy. On τ²-bench, where each turn makes one or two sequential calls, it left scores unchanged and cost about 8 percent more.
 
 ## The arithmetic for N calls
 
@@ -222,6 +254,18 @@ The loop is the instructive one. The executor's timeout is a `setTimeout` raced 
 
 **Prompt cache.** The whole API lives in one tool description. Any change to one tool's schema changes that description, and a change to tool definitions invalidates the entire cache. Search and execute avoids this, because schemas arrive as results inside the messages.
 
+## What tool authors can change
+
+Most of the failures above come from the tools, not from the sandbox, and an MCP server author can fix them.
+
+**Declare output schemas.** Every return type in the GitHub API above is `unknown`, so the model guesses field names and the `labels.includes` crash follows. MCP has had `outputSchema` and `structuredContent` since the June 2025 revision of the spec. With one, the generated type names the fields, and a field the schema does not require is marked optional where the model can see it. OpenCode goes as far as parsing JSON text results when no schema is declared, because programs assume objects.
+
+**Return errors as errors.** A result with `isError: true` becomes a thrown exception in Cloudflare's executor and in OpenCode, which the program can catch. pi hands the program the whole `CallToolResult`, `isError` included, so the program has to check it. An error written as ordinary text with no flag comes back as a successful string everywhere, and the program reads it as data.
+
+**Name tools with the words people search for.** The agents that do not list every tool find them by keyword. A tool called `get_me` is hard to find for "who am I" or "current user", as the OpenCode post in this series shows with real queries. The description is the cheap fix: it is searched, and it costs nothing in a design where descriptions stay out of the prompt.
+
+**Make writes idempotent.** When a program runs `Promise.all` over several calls and one fails, pi and OpenCode abort the calls still running. I tested both with a mock tool: the three sibling calls of a failed call were cancelled mid-flight. A cancelled write may already have reached the server, and the model's next program may send it again. A write that takes a client-supplied key, or that checks the current state first, survives that retry.
+
 ## Next in this series
 
 The next three posts cover how pi, Claude Code and OpenCode handle code mode. The fifth compares them.
@@ -239,3 +283,5 @@ The next three posts cover how pi, Claude Code and OpenCode handle code mode. Th
 - [Code execution tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/code-execution-tool)
 - [Prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)
 - [GitHub MCP server](https://github.com/github/github-mcp-server)
+- [MCP specification 2025-06-18: structured tool output](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#structured-content)
+- [`normalize.ts`](https://github.com/cloudflare/agents/blob/main/packages/codemode/src/normalize.ts), [`executor.ts`](https://github.com/cloudflare/agents/blob/main/packages/codemode/src/executor.ts) and [`iframe-executor.ts`](https://github.com/cloudflare/agents/blob/main/packages/codemode/src/iframe-executor.ts) in `@cloudflare/codemode`

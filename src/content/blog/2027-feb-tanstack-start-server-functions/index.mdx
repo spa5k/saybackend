@@ -2,7 +2,7 @@
 title: "TanStack Start Server Functions: What Goes Over the Wire"
 seoTitle: "TanStack Start Server Functions: Requests, Errors and Security"
 description: "A createServerFn call is a public HTTP endpoint. The URL, the body, the error envelope, the middleware order, a forged context and an XSS fix, captured with curl on TanStack Start 1.169."
-date: "2027-01-08"
+date: "2026-12-28"
 ogImage: "/images/2027-tanstack-start-server-functions-og.png"
 slug: "tanstack-start-server-functions-wire"
 tags:
@@ -119,6 +119,50 @@ The envelope costs bytes. I returned the same object from a `GET` server functio
   caption="Same data from a GET server function and from a server route with Response.json. Neither response is compressed by the server; the gzip rows are gzip -9 of the body."
 />
 
+## What survives serialization
+
+seroval handles far more than JSON, and it fails differently from JSON when it meets a value it cannot handle. For this section and the next two I built the same app in a `node:26.13.1-slim` container, returned one value per `GET` function and read the tag that came back:
+
+| Returned value | On the wire |
+| --- | --- |
+| `new Map([["k", 1]])` | `t: 8`, keys and values as separate lists |
+| `2n ** 64n` | `t: 3`, `"18446744073709551616"` as a string |
+| `{ a: undefined, b: 1 }` | `a` kept, as constant `t: 2, s: 1` |
+| `[NaN, Infinity, -0]` | three constants, `s: 7`, `5` and `4` |
+| `/ab+c/gi` | `t: 6` with source and flags |
+| `new Uint8Array([1, 2, 3])` | `t: 15` around base64 `"AQID"` |
+| an object that contains itself | `t: 4`, a reference back to node 2 |
+| the same object twice in an array | the second entry is a reference, not a copy |
+| `Object.create(null)` with a key | `t: 11`, a null-prototype object |
+| `new URL(...)` | `500`, `Seroval Error (specific: 1)` |
+| a class instance | `500`, `Seroval Error (specific: 1)` |
+| a function or a `Symbol` | `500`, `Seroval Error (specific: 1)` |
+
+Two rows behave unlike `JSON.stringify`, and both matter for a reviewer. Undefined keys survive, so `"a" in result` is true on the client, where JSON would drop the key. And shared references stay shared, so a client that mutates one entry of that array mutates the other too. Circular data that would throw in `JSON.stringify` goes through.
+
+The failures are all or nothing. One `URL` deep in a result fails the whole response with HTTP `500`, and the error message does not say which key held it. The server log does: it printed `SerovalUnsupportedTypeError: Seroval Error (specific: 1)` with `value: Symbol(s)` under it. This is also the one function-level failure that produces a `500` and a log line, unlike a thrown error. A class instance fails even when it only holds plain fields, so map domain objects to plain objects before you return them, or register an adapter for the type with `createSerializationAdapter` and pass it in the `serializationAdapters` option of `createStart`.
+
+## Streaming results
+
+A result that contains a `ReadableStream`, an async generator or an unresolved `Promise` comes back as `application/x-tss-framed; v=1` with chunked transfer encoding. I returned `{ total: 3, rows: stream }` with a stream that emits a string every 500 ms, and timed each chunk on the client:
+
+```text
++20ms    375 B  00 00000000 0000013f  {"t":10,...,"k":["total","rows"],...}
++526ms    47 B  00 00000000 00000026  {"t":32,"i":4,"f":{"t":1,"s":"row 1"}}
++1030ms   47 B  00 00000000 00000026  {"t":32,"i":4,"f":{"t":1,"s":"row 2"}}
++1533ms   41 B  00 00000000 00000020  {"t":34,"i":4,"f":{"t":2,"s":1}}
+```
+
+Every frame has a 9-byte header: one byte of frame type, four bytes of stream id and four bytes of payload length, big-endian, then the payload. Type 0 is a JSON frame with a seroval node, type 1 a raw byte chunk, type 2 the end of a raw stream and type 3 an error. The first chunk holds the result object with a placeholder for the stream, plus the frame for `row 0`, and each later frame pushes one value (`t: 32`) into node 4 until `t: 34` closes it. An async generator handler produced the same pattern, and `{ fast: 1, slow: promise }` sent `fast` at once and the resolved `"late"` 1 s later as a `t: 23` frame. The server sent the framed type even when the request's `Accept` header asked only for `application/json`, so a client other than Start's has to parse frames.
+
+The protocol has limits in `constants.ts` of `start-client-core`: 16 MiB per frame, 1,024 raw streams per response, and 128 MiB that one raw stream may hold unread. The first is the one an app can hit, by putting a large blob in one value instead of a stream.
+
+nginx does not compress `application/x-tss-framed` unless you add it to `gzip_types`, so the gzip buffering that holds streamed HTML does not affect these responses with the default nginx settings.
+
+## Returning a Response
+
+A handler can return a `Response` object, and the server passes it through as it is. A function that returned `new Response("a,b\n1,2\n", { headers: { "content-type": "text/csv" } })` answered with `content-type: text/csv`, the body as written and one extra header, `x-tss-raw: true`, which tells the client fetcher not to decode it. This is the way to send a file or a non-JavaScript format from a server function, but at that point a server route with its own URL is usually the better tool, since it can be cached and called by any client without the RPC id.
+
 ## Errors, redirects and notFound
 
 A function that throws `new Error("connect ECONNREFUSED 10.0.3.7:5432 (user=billing)")` sends this in production:
@@ -132,6 +176,10 @@ x-tss-serialized: true
 ```
 
 Three things in that response matter to an operator. The message goes to the caller word for word, with the internal address and the database user. The stack trace does not. The status is `200`, so a dashboard that counts `5xx` sees nothing, and the server printed nothing either. Only failures outside the handler, such as a bad payload or an unknown id, got a `500` and a line in the server log.
+
+Only the message crosses the wire. A `PaymentError` subclass with `name = "PaymentError"` and a `code: "card_declined"` field arrived as `{"message":{"t":1,"s":"declined"}}` under the same `$TSR/Error` tag, so the client gets a plain `Error` and cannot branch on the code. Return an error value as data, `{ ok: false, code: "card_declined" }`, when the client needs to tell failures apart.
+
+The status code is under your control. `setResponseStatus(402)` before the `throw` gave `HTTP/1.1 402` with the same error envelope, and the client still raised the error. That is the cheapest fix for the dashboard problem: set a `4xx` or `5xx` status in a global function middleware that catches errors, and your access logs count failed server functions again.
 
 `throw notFound()` also answers `200`, with `{"isNotFound":true}` under the `error` key. `throw redirect({ to: "/login" })` depends on the caller. With `x-tsr-serverfn: true` the response is `200` with a JSON body that the client turns into a navigation:
 
@@ -255,7 +303,8 @@ so a caller could put a `result` or `error` key in the payload. When the `x-tsr-
 - **Caching.** A `GET` function sends no `Cache-Control`. Set `private` or `no-store` for anything that depends on the user.
 - **Error leakage.** Error messages reach the caller verbatim in production. Catch database and network errors and throw a short message of your own.
 - **Rate limits and body size.** Start has no `POST` body limit and no rate limit. Set both in the proxy for `/_serverFn/*`.
-- **Logging.** A thrown error is HTTP `200` and is not logged. Log in a global function middleware around `next()`, because access logs and `5xx` alerts will not show it.
+- **Logging.** A thrown error is HTTP `200` and is not logged. Log in a global function middleware around `next()` and call `setResponseStatus` there, so access logs and `5xx` alerts see the failure.
+- **Return types.** No `URL`, class instance, function or `Symbol` in a result: one of them turns the whole response into a `500`. Error subclasses lose everything but the message.
 - **Deploys.** Renaming a function or its file changes its id. Old tabs get `500` for that function until they reload.
 - **Version.** `@tanstack/react-start` 1.168.60 or later, for CVE-2026-102989.
 
@@ -276,3 +325,5 @@ so a caller could put a `result` or `error` key in the payload. When the `x-tsr-
 - [seroval](https://github.com/lxsmnsyc/seroval)
 - [autocannon](https://github.com/mcollina/autocannon)
 - [Node.js: --max-http-header-size](https://nodejs.org/api/cli.html#--max-http-header-sizesize)
+- [constants.ts in start-client-core](https://github.com/TanStack/router/blob/main/packages/start-client-core/src/constants.ts)
+- [Serialization adapters in router-core](https://github.com/TanStack/router/blob/main/packages/router-core/src/ssr/serializer/transformer.ts)

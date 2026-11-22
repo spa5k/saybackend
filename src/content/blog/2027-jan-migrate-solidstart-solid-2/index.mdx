@@ -2,7 +2,7 @@
 title: "Migrating a SolidStart App to Solid 2.0: Every Error and Its Fix"
 seoTitle: "Migrate SolidStart to Solid 2.0: Every Error and Fix"
 description: "A real SolidStart app moved to Solid 2.0 and Start mode, step by step: 29 problems with the exact error text, the cause, the fix, and the build and bundle numbers before and after."
-date: "2026-11-30"
+date: "2026-12-18"
 ogImage: "/images/2027-migrate-solidstart-solid-2-og.png"
 slug: "migrate-solidstart-to-solid-2"
 tags:
@@ -324,6 +324,50 @@ export default function TodoPage(props: RouteProps<typeof route>) {
 }
 ```
 
+## Step 13: dependencies that still want Solid 1
+
+My app had no UI library, so none of this is in the count below. Most real apps have one, and it is the step that decides whether the migration can start at all. I added two common libraries to a clean Solid 2.0.3 project: `solid-toast` 0.5.0 and `@kobalte/core` 0.13.14, the `latest` versions of both. npm stops at the first one:
+
+```text
+npm error ERESOLVE unable to resolve dependency tree
+npm error Found: solid-js@2.0.3
+npm error Could not resolve dependency:
+npm error peer solid-js@"^1.5.4" from solid-toast@0.5.0
+```
+
+With `--legacy-peer-deps` the install passes and the build fails in the resolver, on code compiled for 1.x:
+
+```text
+"./store" is not exported under the conditions ["solid", "module", "browser", "production", "import"] from package .../node_modules/solid-js
+"./web" is not exported under the conditions ["solid", "module", "browser", "production", "import"] from package .../node_modules/solid-js
+```
+
+As in step 6, neither error names the package that imports the subpath. `npm ls solid-js` does: every package with a Solid 1 peer is printed with `invalid: "^1.x" from node_modules/<package>`. For these two direct dependencies, 17 packages were invalid, most of them `@solid-primitives/*` packages that Kobalte pulls in. A Solid 1 library cannot run on 2.0 with a flag or an alias. Its compiled output calls the 1.x runtime, so the only fixes are a 2.0 release of the library or its removal. Kobalte has `2.0.0-alpha.5` on its `alpha` tag. The newest majors of the `@solid-primitives` packages already declare `solid-js` `^2.0.0`. Make this list before you change any code: if one library you depend on has no 2.0 release, the rest of the migration waits for it.
+
+## What the build catches, and what it lets through
+
+My app did not use every 1.x feature, so I compiled the rest one by one in a Solid 2.0.3 project with `@solidjs/vite-plugin` 3.0.1. The compiler rejects the removed JSX namespaces, and each message names the replacement:
+
+```text
+Error: `use:clickOutside` on <div> uses the `use:` namespace, which was removed in Solid 2.0. Use a `ref` directive factory instead: `ref={clickOutside(options)}`, or `ref={clickOutside}` without options; arrays compose (`ref={[a, b]}`). (3:19)
+
+Error: `on:click` on <button> uses the `on:` namespace, which was removed in Solid 2.0. Use a camelCase handler such as `onClick={handler}` for Solid events, or a `ref` callback that calls `addEventListener` for listener options or custom event names. (2:22)
+
+Error: `attr:foo` on <input> uses the `attr:` namespace, which was removed in Solid 2.0. Attributes are the default in 2.0: write `foo={value}` (or `prop:foo` to set a DOM property). (2:21)
+```
+
+Removed exports fail as `MISSING_EXPORT`, like step 7: `Index`, `mergeProps`, `splitProps` and `createSelector` among them. Their replacements are `<For keyed={false}>`, `merge`, `omit` and `createProjection`.
+
+Five 1.x patterns compile without an error. I ran each in the development build:
+
+- `<Ctx.Provider value={2}>` builds, and the render throws `Comp is not a function`. In 2.0 the context object is the provider: `<Ctx value={2}>`.
+- `<button onclick={handler}>` builds and renders the function's source text as an attribute. The click does nothing. The development build warns: "`onclick` received a function, but `onclick` is an attribute in Solid 2.0, not an event handler: the function was set as the attribute's text. Use `onClick` for event handlers."
+- `createSignal(() => "clicked")` builds, and the signal holds the string `"clicked"`, not the function. A function passed to `createSignal` is now a derived signal. To store a function, wrap it: `createSignal(() => fn)`.
+- `store.n = 2` outside the setter, the `createMutable` habit, is ignored. The warning is "Writing store property "n" outside its setter was ignored. Stores are read-only outside the setter's draft".
+- `createDeferred(source)` builds and means something new. In 1.x it delayed a value until the browser was idle; in 2.0 it is an async memo that keeps its last answer while a new one loads, and with a synchronous function it behaves like `createMemo`.
+
+`tsc` with `jsxImportSource: "@solidjs/web"` catches four of the five: `Property 'Provider' does not exist on type 'Context<number>'`, `Property 'onclick' does not exist ... Did you mean 'onClick'?`, `Type 'string' is not assignable to type '() => string'` where the stored value is used as a function, and `'timeoutMs' does not exist in type 'MemoOptions<number>'` for the old `createDeferred` options. Only the store write passes the type check, and only the development build reports it. So run `tsc` before you trust a passing build, and click through the app with the console open after both pass.
+
 ## The count
 
 <NumberBand value="29" note="342 lines of app">
@@ -384,6 +428,30 @@ The client JavaScript grew by 1.8 times. Most of the growth is one chunk: the ru
 
 Fewer bytes cross the network all the same. The Nitro `node-server` output sent the scripts uncompressed, and `dist/server/node.js` serves the `.br` file that the build writes next to every asset of 1 KiB or more. On the first load of the home page that is 58.8 KB against 106.8 KB. A CDN or a compressing proxy in front of the old server would close most of that gap; the parse cost stays.
 
+## Deploying the result
+
+`dist/server/node.js` replaces `.output/server/index.mjs`, but the two are not the same kind of artifact. Nitro bundled every dependency into `.output`. Start mode's server imports `solid-js`, `@solidjs/web`, `@solidjs/router`, `filesystem-routing/api` and your own dependencies from `node_modules` at run time, so a Dockerfile that copied only `.output` into the final image now needs `package.json` and an `npm ci --omit=dev` as well.
+
+There is a shorter way. Vite's `ssr.noExternal: true` makes the SSR build inline its dependencies, and Start mode respects it. On the official `solid-v2/fullstack` template, `dist/server` went from 164 KB plus `node_modules` to 680 KB with nothing else. I copied only `dist` and a one-line `package.json` with `"type": "module"` into an empty directory, and the handler served `/`, `/users`, `/api/users` and the 404 page with the right status codes. With Node.js 26.13.1, importing the server and rendering the first page took 30.5 ms for the bundled build against 51.4 ms with `node_modules` (median of 7 cold processes), and throughput did not change. The [comparison with TanStack Start](/blog/solid-start-mode-vs-tanstack-start-solid/) has the runtime numbers.
+
+```ts
+// vite.config.ts: a self-contained server bundle
+export default defineConfig({
+  plugins: [/* solid({ start: ... }), fileRoutes(...) */],
+  ssr: { noExternal: true },
+});
+```
+
+Nitro's deployment presets go away with Nitro. For anything other than a Node process, the contract is `dist/server/server.js`, whose default export is `{ fetch }`. The same file served the template under Bun 1.4.0 and Deno 2.7.13 without changes; for Cloudflare or Netlify, the provider's Vite plugin consumes it.
+
+## Order of work for a larger app
+
+My app took one sitting because it was small. On a larger one I would change the order. The steps above follow the order in which the tools reported problems, and that order is not the cheapest. The build stops at the first failing module and reports removed exports five at a time, so a large app needs many build runs before it reaches the files that only fail at run time.
+
+First, the dependency audit from step 13, because it can block the whole move and needs no code change to run. Second, the package swap and the Vite config, with `jsxImportSource` changed at the same time. Third, `tsc --noEmit` until it is clean: one run lists every removed import, every `Provider`, every lowercase handler and every unknown error type across the whole app, where the build shows them a few at a time. Fourth, the build, which now mostly reports the compiler rejections such as `classList` and `use:`. Last, `vite dev` with the console open on every route, for the `onSettled` returns, the unkeyed lists and the API routes that answer with the 404 page.
+
+Keep the move on a branch until the last step is clean. A half-migrated app does not run. A component compiled for 1.x imports `solid-js/web`, which 2.0 does not export, so one app cannot move route by route.
+
 ## Migration checklist
 
 - Remove `@solidjs/start` and `nitro`. Install `solid-js`, `@solidjs/web`, `@solidjs/router` 2, `@solidjs/meta` 2, `@solidjs/vite-plugin` and `filesystem-routing`.
@@ -402,6 +470,9 @@ Fewer bytes cross the network all the same. The Nitro `node-server` output sent 
 - Key lists of server data with `keyed={(item) => item.id}`.
 - Set `jsxImportSource` to `@solidjs/web`.
 - Point the `start` script at `dist/server/node.js`.
+- Run `npm ls solid-js` and replace every package marked `invalid` with a 2.0 release before you start.
+- Run `tsc --noEmit` before `vite build`; it catches `Context.Provider`, lowercase `on*` handlers and function-form `createSignal` that the build lets through.
+- Copy `node_modules` into the server image, or set `ssr: { noExternal: true }`.
 - Run the app in `vite dev` with the console open. Five of the 29 problems showed up only there or in the running server.
 
 ## Sources
@@ -420,3 +491,6 @@ Fewer bytes cross the network all the same. The Nitro `node-server` output sent 
 - [SolidStart CHANGELOG](https://github.com/solidjs/solid-start/blob/main/packages/start/CHANGELOG.md)
 - [@solidjs/start on npm](https://www.npmjs.com/package/@solidjs/start)
 - [Vite shared options: resolve.tsconfigPaths](https://vite.dev/config/shared-options)
+- [Vite SSR options: ssr.noExternal](https://vite.dev/config/ssr-options)
+- [Solid 2.0 diagnostics list (diagnostics.json)](https://github.com/solidjs/solid/blob/main/packages/solid/diagnostics.json)
+- [@kobalte/core on npm](https://www.npmjs.com/package/@kobalte/core)

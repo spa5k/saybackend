@@ -2,7 +2,7 @@
 title: "One Rust build cache for every worktree with mbx"
 seoTitle: "mbx: One Rust Build Cache Shared by Every Git Worktree"
 description: "mbx keeps one content-addressed build cache per machine and restores it into each git worktree. How it works, the setup, and measurements against sccache and a shared target directory."
-date: "2026-12-23"
+date: "2026-12-04"
 ogImage: "/images/2027-rust-mbx-worktrees-og.png"
 slug: "rust-build-cache-worktrees-mbx"
 tags:
@@ -169,7 +169,60 @@ sccache saved 3 s per new worktree. Of 223 rustc calls it saw, 143 hit, 40 misse
 
 A shared `CARGO_TARGET_DIR` took 3.2 s in every new worktree, whatever the edit. Cargo reused the dependencies and compiled the 8 workspace crates again over the other worktree's outputs.
 
-The shared directory also has one lock. I started a cold build in worktree 1 and a second build in worktree 2 five seconds later. The second printed `Blocking waiting for file lock on build directory`, waited a median 18.4 s, and then had nothing to compile. With mbx there was no lock. The second build took the 149 compilations that worktree 1 had in flight and finished a median 17.6 s after it started, before the first build. The end time was about the same, because both builds had the same work. The machine had other load during these three runs each, so both times are higher than in the rounds.
+The shared directory also has the trap from [part 1](/blog/rust-target-directory-disk-space/): Cargo keys a workspace crate by its path relative to the workspace root, so two checkouts write to the same units, and one checkout can end up with the other's binary. I repeated that test with mbx. In worktree B I changed the help text of `mdbook completions`, built B, and then built worktree A, which still had the old text. A finished in 0.27 s. Its `target/debug/mdbook completions --help` printed the old text, and B's binary printed the new one. Each worktree has its own managed target, so Cargo's freshness check only ever compares a worktree with its own earlier build, and what is shared is keyed by the content of the inputs.
+
+A shared directory also has one lock. I started a cold build in worktree 1 and a second build in worktree 2 five seconds later. The second printed `Blocking waiting for file lock on build directory`, waited a median 18.4 s, and then had nothing to compile. With mbx there was no lock. The second build took the 149 compilations that worktree 1 had in flight and finished a median 17.6 s after it started, before the first build. The end time was about the same, because both builds had the same work. The machine had other load during these three runs each, so both times are higher than in the rounds.
+
+## The edit loop in one worktree
+
+A crate you edit cannot hit the shared cache, because its sources are new. mbx handles this with private incremental state. On the first source edit to a workspace crate, it compiles that crate with rustc's incremental mode, in a directory that belongs to the checkout, and the result never enters the store. Every crate that links the edited one keeps private state too, because its inputs now contain an artifact that no other checkout has. With rustc 1.98 or later, mbx also seeds that state from the checkout that used it most recently, as copy-on-write clones, so the first edit in a new worktree can compile incrementally as well.
+
+Incremental state holds absolute paths. To make it portable between checkouts, mbx adds `-Zremap-cwd-prefix=.` for these compilations, and on a stable compiler it sets `RUSTC_BOOTSTRAP=1` for those processes only, with `-Zallow-features=` so that `#![feature]` stays rejected. The visible effect is in debug info and panics: a crate you are editing reports `./src/lib.rs`, not the absolute path. A debugger started outside the checkout needs a source map for `.`.
+
+I timed five one-line edits to `src/main.rs`, each built once with mbx in a managed worktree and once with plain Cargo in another worktree, alternating:
+
+<BeforeAfterBars
+  title="Leaf edit in the same worktree"
+  unit="seconds"
+  beforeLabel="plain Cargo"
+  afterLabel="mbx"
+  data={[{ label: "One line in src/main.rs", before: 0.67, after: 0.88 }]}
+  caption="Median of five alternating edits, mdBook v0.5.4, Rust 1.100.0. mbx reported 1 incremental compilation for each."
+/>
+
+mbx adds about 0.2 s to each build of the edit loop. That cost is small next to the 11 s it saves in each new worktree, but it means mbx does not make the loop inside one worktree faster.
+
+## Finding the cause of a miss
+
+`mbx analyze` reads the last recorded build and charges each uncached compilation to one cause. After a one-line edit to `mdbook-core` in worktree A, it printed this (shortened):
+
+```text
+compiler time: 14.80s in 7 uncached compilations
+
+uncached compiler time by cause
+
+ 14.80s  misses with no earlier recording (7)
+         mdbook_core 1.31s
+         then 6 crates that depend on it rebuilt: mdbook 8.82s, mdbook_html 2.44s, mdbook_driver 1.35s and 3 more
+
+private incremental state for 7 compilations
+  8.82s  started from this checkout's earlier state (1)
+  5.99s  started empty: no other checkout had it (6)
+
+critical path: 20.60s, 100% of the 20.60s between the first unit starting and the last finishing
+```
+
+The report follows a change through the dependency graph and charges the dependents to the crate where the change started, so a core edit shows up as one cause and not seven. The causes it knows include changed compiler arguments, a changed environment variable that is part of a key, a toolchain change, a linker change and evicted results. `mbx explain --last` shows the key details of one crate. This build ran on a loaded machine, so the seconds are higher than in the rounds above; the structure is the point. Only the `mdbook` binary had incremental state from my earlier leaf edits. The six library crates started empty, because no checkout had edited them before.
+
+## After a toolchain update
+
+The full `rustc -vV` output is in every key, so a toolchain change starts the store over. I built a fresh worktree with Rust 1.99.1 after all the 1.100.0 builds. mbx copied no registry units from the other managed targets, looked up nothing (`232 not looked up`), and stored 565.2 MiB of new objects, so the store went from 566 MiB to 1.1 GiB. The old objects stay until collection removes them. A team that updates the toolchain in one commit pays one cold build per machine, and a machine that switches between two toolchains keeps two copies.
+
+## Checking that a hit is correct
+
+A content-addressed cache is only as good as its key. `MBX_VERIFY=1` compiles every eligible unit and also consults the cache, then compares the two results byte for byte and names the first difference. It is expensive. `MBX_VERIFY_SAMPLE_RATE=5` verifies about 5% of compilations, with a stable selection, so the same command checks the same units each time. Outputs from two checkouts are equivalent but not always identical, because rustc records absolute paths in metadata and debug info, so a cross-worktree audit needs the same `--remap-path-prefix` in both checkouts.
+
+mbx and sccache cannot run together. Both use `RUSTC_WRAPPER`, and when that variable is already set, mbx defers to it, prints a warning, and caches nothing.
 
 ## The collection budget
 
@@ -204,6 +257,8 @@ steps:
 
 A push to the default branch saves an entry, and a pull request only restores. The default payload is a pruned target directory with Cargo's downloads. `github-cache-mode: objects` stores mbx's own cache entries in place of the target, which suits jobs that build several target directories.
 
+Outside GitHub Actions, mbx talks to a remote store: its own cache server, or an S3-compatible bucket with `url = "s3://..."` and a namespace per project in the `[remote]` section of the global config, or `MBX_REMOTE_*` variables in CI. The configured mode is narrowed by the trigger of the job. Only a push to a protected branch on GitHub Actions or GitLab CI may write; pull requests, tags, scheduled runs and local shells only read. A pull request from a fork therefore cannot put an artifact into the cache that a release build later restores.
+
 Each worktree still has its own copy of the source tree. [Part 3](/blog/git-twig-copy-on-write-worktrees/) makes those copies copy-on-write with git twig.
 
 ## Sources
@@ -217,6 +272,11 @@ Each worktree still has its own copy of the source tree. [Part 3](/blog/git-twig
 - [Managed target directories and collection](https://github.com/jdx/mr-boxington/blob/main/docs/managed-targets.md)
 - [How mbx compares](https://github.com/jdx/mr-boxington/blob/main/docs/compared.md)
 - [mbx GitHub Action](https://github.com/jdx/mr-boxington/blob/main/docs/github-action.md)
+- [Incremental builds in mbx](https://github.com/jdx/mr-boxington/blob/main/docs/incremental.md)
+- [Analyzing a build: mbx analyze](https://github.com/jdx/mr-boxington/blob/main/docs/analyze.md)
+- [Remote cache and write policy](https://github.com/jdx/mr-boxington/blob/main/docs/remote-cache.md)
+- [Troubleshooting: verify mode](https://github.com/jdx/mr-boxington/blob/main/docs/troubleshooting.md)
+- [mbx FAQ: toolchain updates and sccache](https://github.com/jdx/mr-boxington/blob/main/docs/faq.md)
 - [Path placeholders in the rustc shim (rustc.rs)](https://github.com/jdx/mr-boxington/blob/main/crates/mbx/src/rustc.rs)
 - [sccache README: SCCACHE_BASEDIRS and Rust caveats](https://github.com/mozilla/sccache/blob/main/README.md)
 - [sccache Rust notes](https://github.com/mozilla/sccache/blob/main/docs/Rust.md)

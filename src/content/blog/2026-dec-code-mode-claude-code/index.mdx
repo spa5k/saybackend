@@ -2,7 +2,7 @@
 title: "How Code Mode Works in Claude Code"
 seoTitle: "Claude Code Code Mode: the REPL Tool, Limits and Measured Tokens"
 description: "Claude Code's experimental Code Mode runs Claude's JavaScript in a sealed VM inside the CLI. What the shipped bundle shows, where rules and hooks fire, and 12 requests cut to 3 on a ten-call MCP task."
-date: "2026-12-04"
+date: "2026-11-27"
 ogImage: "/images/2026-code-mode-claude-code-og.png"
 slug: "code-mode-claude-code"
 tags:
@@ -21,7 +21,7 @@ import {
 
 Claude Code 2.1.323, released on November 12, 2026, added Code Mode. With it on, Claude does not ask for `Read`, `Bash` or an MCP tool one call at a time. It writes JavaScript, and Claude Code runs that script inside its own process. Every tool call the script makes still goes through the permission rules and hooks under the tool's usual name.
 
-The [first post in this series](/blog/code-mode-explained/) covers the idea. This one covers Claude Code's version: how to turn it on, what the shipped bundle shows about the runtime and its limits, and what it did on a ten-call MCP task. Everything here is on 2.1.329, the current `latest` release.
+The [first post in this series](/blog/code-mode-explained/) covers the idea. This one covers Claude Code's version: how to turn it on, what the shipped bundle shows about the runtime and its limits, how a script fails, and what it did on a ten-call MCP task. The measurements ran on 2.1.329. The current `latest` release is 2.1.330, whose Code Mode changes are bug fixes. Its bundle has the same limits as below.
 
 ## Turn it on
 
@@ -40,7 +40,7 @@ The first start asks for confirmation. After **Yes, turn on Code Mode**, Claude 
 Code Mode (experimental) is on · this session can be resumed only with Code Mode on
 ```
 
-The requirements are narrow. It needs the native build, an interactive terminal, a direct Claude API or subscription login, and Opus 5.5, Sonnet 5.5, Haiku 5.5 or Fable 5.2. Bedrock and the other cloud providers, gateways, a custom `ANTHROPIC_BASE_URL`, an API key helper and OpenTelemetry tracing all keep it off. The `stable` release channel is at 2.1.311, so it does not have Code Mode yet.
+The requirements are narrow. It needs the native build, an interactive terminal, a direct Claude API or subscription login, and Opus 5.5, Sonnet 5.5, Haiku 5.5 or Fable 5.2. Bedrock and the other cloud providers, gateways, a custom `ANTHROPIC_BASE_URL`, an API key helper and OpenTelemetry tracing all keep it off. The `stable` release channel is at 2.1.323, the first release with Code Mode, so stable users get it without the many fixes of the releases after it.
 
 Print mode is also out. `claude -p` with the variable set starts with the ordinary tools and writes this to stderr:
 
@@ -60,7 +60,7 @@ Code Mode replaces direct tool calls with one tool. Its name in the bundle and i
 - `description`: a 5 to 10 word summary.
 - `timeout`: "Optional limit on the script's own running time in milliseconds; time spent inside the tool calls it awaits is not counted (default 30000, max 600000)".
 
-The npm package `@anthropic-ai/claude-code` is now a wrapper around a 360 MB native binary, so I read the prompt text and the runtime with `strings`. The script does not run in a child process or a container. Claude Code transpiles it with `Bun.Transpiler` and runs it in a `vm` context in its own process. The context is created with string code generation and WebAssembly off, so `eval` and `new Function` do not work either. The tool prompt says it directly:
+The npm package `@anthropic-ai/claude-code` is now a wrapper around a 360 MB native binary, so I read the prompt text and the runtime with `strings`. The binary is built with Bun 1.4.4, so the JavaScript engine is JavaScriptCore, not V8. The script does not run in a child process or a container. Claude Code transpiles it with `Bun.Transpiler` and runs it in a `vm` context in its own process. The context is created with string code generation and WebAssembly off, so `eval` and `new Function` do not work either. The tool prompt says it directly:
 
 > There is no `import`, `require` or `process`: the context is sealed, and the globals below are how it reaches the machine. The REPL language is always JavaScript, whatever the codebase is written in — run the codebase's own tools (pytest, cargo, go test, …) with `$`.
 
@@ -74,15 +74,33 @@ The bundle carries two versions of the paragraph that tells Claude what a call c
 
 ## The limits in the bundle
 
-These constants sit next to the REPL runtime in 2.1.329:
+These constants sit next to the REPL runtime in 2.1.329 and 2.1.330:
 
 - A script that Claude waits for stops after 10 minutes (600,000 ms) of wall-clock time. In auto and `bypassPermissions` modes a script can move to the background, and there the limit is 2 hours (7,200,000 ms).
 - The script's own running time, without tool calls, defaults to 30 seconds and can be raised to 10 minutes with `timeout`.
 - After about 30 seconds a running script detaches and the next script starts beside it. The two share variables.
-- One script can make at most 50,000 tool calls. Call number 50,001 throws "this script has made 50,000 calls, its cap."
-- The transpiler puts a step counter into the code, and each script gets a budget of 300,000,000 steps.
+- One script can make at most 50,000 tool calls. Call number 50,001 throws "this script has made 50,000 calls, its cap. The call was not made, and no later call of this script will be answered."
+- The transpiler puts a step counter into the code. The budget is 300,000,000 steps per turn, where a step is one pass through a loop or one call of a function, and a turn is the code that runs between two awaited tool results or timers.
 - Memory growth is stopped at a quarter of the machine's memory, with a floor of 1 GiB and a ceiling of 4 GiB. Before 2.1.329, a runaway loop in a script could fill the machine's memory.
 - A read of a line range over 256 MiB is refused.
+- An MCP call inside a script waits up to 10 minutes and then fails with an error. Before 2.1.329, a call that took over two minutes returned a "moved to the background" message as if it were data.
+
+The step budget being per turn matters for long scripts. A loop that awaits a tool call on every pass resets the counter each time, so it is bounded by the 30-second script time, the wall clock and the call cap, not by the steps. The steps stop only code that never yields, which is the case a timer cannot catch.
+
+## How a script fails
+
+A script's result has its return value, the `self.log` lines, and notes that Claude Code adds about calls that did not go as planned. The note texts are in the bundle, and the ones a model meets most often are these.
+
+- **A refused call.** It shows under "Tool calls that were refused while this script ran:", one line each, with "and N more refused calls" past a limit. A call refused after the script returned goes under a second heading, "Tool calls that were refused after this script returned:".
+- **A call the script forgot to await.** When the script ends first, Claude reads that the call "had not started when the script ended, and did not run" or that it was "still running when the script ended. They have since finished or moved to the background, where they may still be running, but the script ended before their results came". Both end with "Add 'await'", and the second also says "Do not make them again."
+- **A call still running when the script failed.** Since 2.1.328, Claude is told which ones they were.
+- **A forgotten call that then fails.** Its error is listed with the script's error, with the note that it "did not cause" it.
+
+The second case is the one to know when comparing agents. pi and OpenCode abort the calls a finished script left running. Claude Code lets them finish and tells the model not to repeat them. For writes that is the safer default, because a cancelled write may have landed anyway.
+
+Output has caps too. A single log line over 1 MiB keeps its start and end around "[N characters of this console line were not kept]", and captured console output stops at 50 MB with "[console output truncated at 50MB]".
+
+Variables that persist between scripts are the other source of surprises, and the changelog shows how many edge cases that has. 2.1.328 fixed top-level variables that an earlier failed script never set being silently `undefined`. 2.1.329 fixed `let x;` keeping the value an earlier script gave `x`, and fixed scripts losing `tools` in sessions with more than 4,096 tools. State in a long-lived context is convenient for the model, and it is also where a script can read a value that a different script left behind.
 
 ## What I measured
 
@@ -227,6 +245,14 @@ The Claude API has a related feature, programmatic tool calling. There, Claude w
 
 Code Mode is the local counterpart. The language is JavaScript, the host is the Claude Code process, and every tool the session has is callable, MCP servers included. Your permission rules and hooks are the place to put checks, because Claude Code runs each call itself.
 
+The time limits differ in the same direction. A programmatic call that your application does not answer in about 4 minutes raises a `TimeoutError` inside the Python, and each cell has 90 seconds of wall clock. A Code Mode script has 30 seconds of its own running time, 10 minutes of wall clock in the foreground, and an MCP call inside it waits up to 10 minutes. Time spent waiting on a permission prompt, a plan approval or an MCP form does not count toward the 10 minutes since 2.1.328 and 2.1.329. On the API side your tools must answer within minutes; in Code Mode a slow approval does not kill the script.
+
+## When to leave it off
+
+Code Mode earns its keep on chains of dependent calls, where it removed 9 of 12 model requests in my runs. On the parallel task it read less input but took slightly longer, so for work that the model already batches in one message the gain is the smaller prompt, not the wall clock.
+
+The costs are in control and in operations. Auto mode reviews the script once, so a destructive call whose target the script computes is judged on the code, not on the value. The sandbox setting covers only the shell commands a script runs; file edits, web fetches and MCP calls from the script run in the Claude Code process with its full rights, which is the same as outside Code Mode but easier to forget when one tool call does 200 things. A session started with Code Mode can be resumed only with it on. And the feature is young: the stable channel has 2.1.323, while the releases since have fixed scripts that held earlier values, lost tools or ran into the ten-minute limit during a prompt. For a team, the managed setting `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0` keeps it off until the fixes reach stable.
+
 ## Sources
 
 - [Run tool calls from code with Code Mode (Claude Code docs)](https://code.claude.com/docs/en/code-mode)
@@ -235,5 +261,6 @@ Code Mode is the local counterpart. The language is JavaScript, the host is the 
 - [Permissions (Claude Code docs)](https://code.claude.com/docs/en/permissions)
 - [Hooks reference (Claude Code docs)](https://code.claude.com/docs/en/hooks)
 - [Sandboxing (Claude Code docs)](https://code.claude.com/docs/en/sandboxing)
+- [Code execution tool (Claude API docs)](https://platform.claude.com/docs/en/agents-and-tools/tool-use/code-execution-tool)
 - [Programmatic tool calling (Claude API docs)](https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling)
 - [@anthropic-ai/claude-code on npm](https://www.npmjs.com/package/@anthropic-ai/claude-code)

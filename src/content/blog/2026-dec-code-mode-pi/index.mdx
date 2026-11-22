@@ -2,7 +2,7 @@
 title: "How Code Mode Works in pi: QuickJS in a Worker, Calls Through the Real Tool Pipeline"
 seoTitle: "How Code Mode Works in pi: the codemode Tool and Its QuickJS Sandbox"
 description: "pi 1.6.0 runs model-written JavaScript in a QuickJS VM on a worker thread and sends every nested call through its own tool pipeline. Source, limits, exact errors, and token counts from sessions against a mock model."
-date: "2026-12-02"
+date: "2026-11-25"
 ogImage: "/images/2026-code-mode-pi-og.png"
 slug: "code-mode-pi"
 tags:
@@ -104,6 +104,20 @@ Output:
 NEEDLE is in f3.txt
 ```
 
+The output has a fixed layout, set in `execute.ts`. Every `text()` call and the returned value are text items in order, and when there is more than one, each starts with a `==> text N/M <==` line so the model can tell them apart. `console.log` lines go after everything else in one `<console_output>` block. `image()` adds an image item: a base64 `data:` URL, or an image block such as an MCP tool or `read` returns for a PNG. pi saves each image to a temp file and puts the path before it, because the model can see the image but a script has no other way to write its bytes. Remote image URLs are refused.
+
+The output has two caps. Past `max_output_tokens`, 10,000 estimated tokens unless the options line sets another value, pi keeps the start and the end, writes the full text to a temp file and gives the model the path. Past 16,777,216 characters of text and image data, or 100,000 calls to `text()`, `image()` and `console`, the script fails.
+
+## State across scripts
+
+A script can keep small JSON values for later scripts with `store(key, value)` and read them with `load(key)`. The sandbox persists nothing itself. When a script succeeds, pi appends its writes to the session as a `codemode-store` custom entry, and the next script's store is rebuilt from those entries on the current branch. A resumed session keeps the values, and each branch of the session sees only what was written on its own path. A failed script writes nothing. One value may be up to 262,144 characters of JSON and the whole store up to 1,048,576; a larger write throws a `RangeError` inside the script.
+
+That gives pi a middle ground between Claude Code's REPL, where variables stay in memory until a restart, and OpenCode, where every program starts empty. The values survive a restart, but only what the script chose to save, so a cursor or a list of IDs fits and a 5 MB result does not.
+
+## Models inside a script
+
+The `models` global reaches pi's model catalog with the session's credentials. A script can list models, run a classifier that answers typed questions about JSON state (and, for some models, images), and generate images. Chat models are listed but cannot be run, so a script cannot start its own LLM conversation. At most four `classify()` or `generateImages()` calls run at once per script, and a `Promise.all` over 100 items queues the rest. Their token usage is added to the `codemode` tool result and counts toward the session cost. For a task such as "label these 300 issues", the labels come from a classifier inside the script and only the counts go back to the model.
+
 ## Which tools a script can call
 
 The session decides that in one line:
@@ -188,6 +202,22 @@ Error: boom
 Tool calls made before the failure (they are not undone): echo (ok)
 ```
 
+Parallel calls fail in a way that is easy to miss. I gave the sandbox a mock `get` tool that fails for item 3 after 10 ms and answers the others after 100 ms, and ran `Promise.all` over items 1 to 4. When item 3 rejected, the script threw, the script ended, and pi aborted the three calls still running: the host saw `cancelled 1`, `cancelled 2`, `cancelled 4`. The summary the model gets names every call with its status:
+
+```text
+Tool calls made before the failure (they are not undone): get (cancelled), get (cancelled), get (error), get (cancelled)
+```
+
+"Cancelled" means pi fired the call's abort signal, not that the call had no effect. A `bash` command or an MCP write may have finished on the far side before the signal arrived. With `Promise.allSettled` all four calls ran to the end and the script got three values and one rejection. A call that the script starts and never awaits is cancelled when the script returns.
+
+The worker cap gives a failure of its own. Two workers are shared by every session in the process, including in-process subagents, and a cancelled worker holds its slot until it exits. A third script waits in arrival order, and after 60 seconds it fails without starting:
+
+```text
+No codemode worker became free within 60 seconds. All 2 workers, shared by every session in this process, are held by other scripts. Retry after they finish.
+```
+
+A script with `timeout_ms` shorter than 60 seconds fails at its own deadline instead, and the wait counts toward that deadline.
+
 ## Speed
 
 With mock tools, an empty script took 20.1 ms, which is the cost of a new worker and VM. A script with 1,000 mock calls took 42.7 ms, so one crossing of the bridge costs about 0.02 ms. Through a real pi session, with pi's `read` tool on a small file and the time taken inside the VM, a nested call cost 0.4 to 0.45 ms.
@@ -205,6 +235,14 @@ With mock tools, an empty script took 20.1 ms, which is the cost of a new worker
 />
 
 The bridge is not where the time goes. Almost all of each call is pi's pipeline and the `read` tool itself.
+
+Work inside the script is a different matter, because QuickJS is an interpreter with no JIT. I ran five small programs in `@earendil-works/pi-codemode` 1.6.0 and took off the 33 ms that an empty script cost in that run. Summing a loop to one million took 22 ms, against 3 ms in plain Node. Sorting 100,000 numbers took 137 ms against 37 ms, a JSON round trip of 1 MB took 64 ms against 7 ms, and filtering 10,000 objects took 20 ms against 0.15 ms. Those are medians of 7 runs. QuickJS is roughly 4 to 10 times slower than V8 on loops and sorts, and much more on short array work that V8 optimizes away, which is fine for the filtering most scripts do.
+
+## The same sandbox outside pi
+
+`@earendil-works/pi-codemode` has no pi dependencies and ships three sandboxes with one script environment and one result format. `CodemodeSandbox` is the one the coding agent uses, with a worker thread per script on Node or Bun. `RemoteCodemodeSandbox`, from the `portable` entry, runs scripts in a Durable Object in a separately deployed Cloudflare Worker. `InlineCodemodeSandbox` runs the VM on the calling thread, for runtimes without workers, at the cost of blocking the caller.
+
+The worker design has one known gap. On Bun, a built-in such as a long `String.prototype.indexOf` may not poll QuickJS's interrupt handler, so a cancelled worker can keep computing until the built-in returns, and it holds a worker slot while it does. On Node, the `while (true) {}` test above stopped at its 2,000 ms deadline.
 
 ## One session, end to end
 
@@ -254,6 +292,7 @@ Their defaults differ from the built-in tool where it matters. `pi-opencode-mode
 - [Codemode reference](https://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/docs/codemode.md), [MCP servers](https://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/docs/mcp.md), [Run pi safely](https://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/docs/security.md)
 - [pi coding agent changelog, 0.99.0 and 1.6.0](https://github.com/earendil-works/pi/blob/v1.6.0/packages/coding-agent/CHANGELOG.md)
 - [@earendil-works/pi-coding-agent on npm](https://www.npmjs.com/package/@earendil-works/pi-coding-agent/v/1.6.0)
+- [@earendil-works/pi-codemode 1.6.0 on npm](https://www.npmjs.com/package/@earendil-works/pi-codemode/v/1.6.0)
 - [quickjs-wasi 3.6.2](https://www.npmjs.com/package/quickjs-wasi/v/3.6.2)
 - [pi-opencode-mode 0.2.1](https://www.npmjs.com/package/pi-opencode-mode/v/0.2.1) and [@opencode/codemode 2.3.0](https://www.npmjs.com/package/@opencode/codemode/v/2.3.0)
 - [@georgebashi/pi-codemode 0.1.0](https://www.npmjs.com/package/@georgebashi/pi-codemode/v/0.1.0)

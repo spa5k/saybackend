@@ -2,7 +2,7 @@
 title: "SolidStart Is in Maintenance. What to Use Now"
 seoTitle: "SolidStart Maintenance: Stay, Start Mode or TanStack Start"
 description: "SolidStart is retired in favour of Solid 2.0's Start mode. What maintenance covers, the three paths left, and the same small app built on each, with numbers."
-date: "2026-12-11"
+date: "2026-12-22"
 ogImage: "/images/2027-solidstart-maintenance-og.png"
 slug: "solidstart-maintenance-what-to-use"
 tags:
@@ -44,6 +44,47 @@ No end date is published. The published package sets the Solid version. `@solidj
 So SolidStart cannot run Solid 2.0. In March the roadmap said "[Start v2 will not drop support on Solid v1](https://github.com/solidjs/solid-start/discussions/2119)", and the RC post then ruled out a Solid 2.0 version: that would have been the "hollow 3.0".
 
 In practice, "maintenance" has been more than security fixes. Since the RC post, `@solidjs/start` has published 2.0.1 to 2.2.3 on the 2.x line and 1.3.5 to 1.5.1 on the old Vinxi-based 1.x line. 2.1.0 (2026-10-22) added `ssr: "data-only"` and an `earlyHints` option, and 2.2.0 (2026-11-01) added skew protection for server functions. Solid 1.x has its own `v1-latest` npm tag and got 1.9.16 to 1.9.20 between 2026-10-06 and 2026-11-19. Bug fixes and small features still land. Expect them to slow down. Do not expect Solid 2.0 features.
+
+## The ecosystem moved its latest tags
+
+The quiet change for a SolidStart app is on npm, not in SolidStart. With the 2.0 release, the `latest` tags of the core packages moved to the 2.0 line, and the 1.x line moved to a tag of its own:
+
+- `solid-js`: `latest` is 2.0.3, `v1-latest` is 1.9.20.
+- `@solidjs/router`: `latest` is 2.0.1, `v1-latest` is 1.0.3.
+- `@solidjs/meta`: `latest` is 2.0.0, `v1-latest` is 0.29.8.
+- `@solidjs/start`: `latest` is still 2.2.3, the Solid 1 line.
+
+Libraries are moving at their own pace. On 2026-11-21 the `latest` versions on npm split into three groups:
+
+- **Solid 2.0 only:** the new majors of `@solid-primitives/*` (`storage` 5.0.0, `scheduled` 2.0.0, `refs` 3.0.0), `@solidjs/router` 2 and `@solidjs/meta` 2.
+- **Both, by peer range:** `@sentry/solid` 11.16.0 (`^1.8.4 || ^2.0.0`), `solid-icons` 2.0.0 (`>=1.7.0 || ^2.0.0`). `@ark-ui/solid` (`>=1.6.0`) and `@tanstack/solid-table` (`>=1.3`) allow 2.0 only because their ranges are open; a range is not a test.
+- **Solid 1 only:** `@tanstack/solid-query` 5.108.2, `@tanstack/solid-router` 1.170.43, `@kobalte/core` 0.13.14, `@modular-forms/solid`, `@felte/solid`, `solid-toast`, `@corvu/dialog`, `@tanstack/solid-virtual`, `lucide-solid`, `solid-markdown` and `@solid-devtools/overlay`. Several have 2.0 work on a prerelease tag: Kobalte on `2.0.0-alpha.5`, TanStack Query on `6.0.0-rc.6`, TanStack Router on `2.0.0-rc.11`.
+
+For a team that stays, the first group is the trap. In a project on `solid-js` 1.9.20, a plain `npm install @solid-primitives/storage` resolves to 5.0.0, which was published on 2026-11-17, and fails:
+
+```text
+npm error ERESOLVE unable to resolve dependency tree
+npm error Found: solid-js@1.9.20
+npm error Could not resolve dependency:
+npm error peer solid-js@"^2.0.3" from @solidjs/web@2.0.3
+npm error   peer @solidjs/web@"^2.0.0" from @solid-primitives/storage@5.0.0
+```
+
+`npm install @solid-primitives/storage@4` installs 4.4.0, the last Solid 1 version. Expect the same with any library that cuts a 2.0 major, and expect your dependency bot to propose `solid-js` 2.0 as a routine bump. Block the major in its config:
+
+```json
+{
+  "packageRules": [
+    {
+      "matchPackageNames": ["solid-js", "@solidjs/router", "@solidjs/meta"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    }
+  ]
+}
+```
+
+That is Renovate. For Dependabot, the same rule is an `ignore` entry with `update-types: ["version-update:semver-major"]` per package.
 
 ## Three ways to build the same app
 
@@ -100,7 +141,7 @@ export const Route = createFileRoute("/")({
 
 ### Does it work out of the box
 
-SolidStart 2 and TanStack Start built and served on the first try. I checked each one in Chrome: the HTML from the server contains the greeting, `/about` returns 200, the counter responds after hydration, and a client-side navigation from `/about` to `/` fetches the greeting from the server function endpoint (`/_server?id=...` for SolidStart, `/_serverFn/<hash>` for TanStack Start).
+SolidStart 2 and TanStack Start built and served on the first try. In Chrome, for each one, the HTML from the server contains the greeting, `/about` returns 200, the counter responds after hydration, and a client-side navigation from `/about` to `/` fetches the greeting from the server function endpoint (`/_server?id=...` for SolidStart, `/_serverFn/<hash>` for TanStack Start).
 
 Start mode failed twice before it worked. The `--ssr` option of `create-solid` 0.13.0 writes `start: { node: true }` into `vite.config.ts`, and the 3.0.1 plugin rejects it:
 
@@ -213,9 +254,41 @@ Downloads of `@solidjs/start` kept rising after the retirement notice on 2026-08
 
 <ThreePathsKeepRewrite />
 
+## How each path deploys
+
+The three paths produce three different server artifacts, and the deploy pipeline is where the choice shows up first.
+
+SolidStart 2 and TanStack Start both build through Nitro here. The `.output/server` directory is self-contained, and a Nitro preset decides the target: a Node server, a Workers bundle, a Vercel or Netlify function layout. Moving between them is a build setting, not a code change.
+
+Start mode has no Nitro and no presets. It writes `dist/server/server.js`, a module whose default export is `{ fetch }`, and with `start.nodeServer` also `dist/server/node.js`, a small Node HTTP server around it. Any runtime that can call a fetch handler can host it. On the `solid-v2/fullstack` template, the same `server.js` answered the home page, a nested route, a JSON route and the 404 page under Node.js 26.13.1, Bun 1.4.0 and Deno 2.7.13 without changes. The cost is that the server is not self-contained by default: it imports `solid-js`, `@solidjs/web`, the router and your own dependencies from `node_modules` at run time. `ssr: { noExternal: true }` in the Vite config fixes that, at 680 KB for the template, with nothing else in the directory. The [migration post](/blog/migrate-solidstart-to-solid-2/) has the cold-start numbers and the [Start mode against TanStack Start comparison](/blog/solid-start-mode-vs-tanstack-start-solid/) has the throughput.
+
+For a team with a working Nitro deploy, that means a deploy change as well as a code change. The Dockerfile, the serverless layout and the health checks were built for `.output`, and a move to Start mode rewrites them. A move to TanStack Start keeps them.
+
+## What Start mode adds, and what it leaves to you
+
+Start mode is not SolidStart with the name changed. Some pieces SolidStart did for you are now your job, and some pieces SolidStart never had come with the official template.
+
+The gaps I hit across this series:
+
+- Server functions are off until you set `serverFunctions`, and with them off a `"use server"` body ships to the browser with no build warning (above).
+- API routes need `createAPIHandler(routes)` in the middleware chain. Without it, `GET /api/health` answers with the HTML of the 404 page.
+- The `~` import alias is gone; `resolve.tsconfigPaths: true` brings it back for dev and build alike.
+- There is no prerender option for SSR pages. A static page is your own script that calls the built handler and writes the HTML.
+- There are no deployment presets. The contract is the fetch handler, and the server is not self-contained unless you bundle it.
+
+What the `solid-v2/fullstack` template adds is a typed environment. `env.ts` declares server and client variables with any Standard Schema validator, and the plugin reads server variables from `process.env` when the server boots, not at build time. Because the values are read at boot, one image can run in staging and production with different secrets, and a rotated secret needs a restart, not a rebuild. A missing secret fails the boot with a clear message, not the first request that needs it:
+
+```text
+Error: [@solidjs/vite-plugin] server env validation failed at boot (1 issue) — schema: env.ts
+
+  ✗ SESSION_SECRET: Invalid type: Expected string but received undefined
+```
+
+I imported the server env module into a route component, and the build stopped: "virtual:solid-env/server is server-only and was imported from the client module graph", followed by the path of the importing route. A secret cannot reach the browser bundle through that module by accident, which is the failure mode that matters with server functions living in the same files as components. Client variables are a separate module, must carry the `VITE_` prefix, and are validated and baked in at build time. The template also signs session cookies with `@remix-run/cookie` over the request event, with secret rotation through a comma-separated `SESSION_SECRET`, and the `diagnostics` option exposes the dev-only diagnostics endpoint at `/__solid/diagnostics`. None of this needs SolidStart, which is the point the Solid team made when they retired it.
+
 ## Which one to pick
 
-- **An existing production app:** stay on SolidStart 2 and plan the Solid 2.0 move as its own project. Upgrade from 1.x to 2.x now if you have not: that step is small, and the 2.x line got 11 of the 15 releases since the RC post. When you move, move to Start mode: it keeps your route files and server functions, and TanStack Start rewrites both.
+- **An existing production app:** stay on SolidStart 2 and plan the Solid 2.0 move as its own project. Pin the Solid 1 packages and block their majors in your dependency bot first. Upgrade from 1.x to 2.x now if you have not: that step is small, and the 2.x line got 11 of the 15 releases since the RC post. When you move, move to Start mode: it keeps your route files and server functions, and TanStack Start rewrites both.
 - **A new app:** start on Solid 2.0 with Start mode. A new app on Solid 1.x starts with a migration already owed. Turn on `serverFunctions: true` on the first day, and pin `@solidjs/vite-plugin` until the 3.0 line settles.
 - **A library author:** publish for `solid-js` 2.0 and `@solidjs/web`, and import nothing from `@solidjs/start`. Server functions, `getRequestEvent()`, `httpStatus()` and the serialization plugins now live in `@solidjs/web`, so a library that depends only on core does not tie its users to one framework. Keep a Solid 1.x branch for fixes only, as Solid itself does.
 
@@ -239,3 +312,7 @@ Downloads of `@solidjs/start` kept rising after the retirement notice on 2026-08
 - [@tanstack/solid-start on npm](https://www.npmjs.com/package/@tanstack/solid-start)
 - [npm download counts API](https://github.com/npm/registry/blob/main/docs/download-counts.md)
 - [Node.js releases](https://nodejs.org/en/about/previous-releases)
+- [@solid-primitives/storage on npm](https://www.npmjs.com/package/@solid-primitives/storage)
+- [Renovate: packageRules](https://docs.renovatebot.com/configuration-options/#packagerules)
+- [Dependabot options: ignore](https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference#ignore--)
+- [Vite SSR options: ssr.noExternal](https://vite.dev/config/ssr-options)

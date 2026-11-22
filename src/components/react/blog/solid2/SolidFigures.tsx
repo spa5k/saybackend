@@ -99,11 +99,6 @@ function Arrow({ d, dashed = false }: { d: string; dashed?: boolean }) {
   )
 }
 
-/** A dependency edge of the graph, with no arrow head. */
-function Edge({ d }: { d: string }) {
-  return <path className="fig-axis" d={d} />
-}
-
 /** One message between the browser and the server, with its label above. */
 function Trip({
   x1,
@@ -184,251 +179,6 @@ function Lifelines({
 /* ------------------------------------------------------------------ */
 /* Post 1: async inside the reactive graph                             */
 /* ------------------------------------------------------------------ */
-
-function Order({ x, y, n }: { x: number; y: number; n: number }) {
-  return (
-    <g>
-      <circle className="fig-axis" cx={x} cy={y} r="9" />
-      <text
-        className="fig-strong"
-        x={x}
-        y={y + 4}
-        textAnchor="middle"
-        style={TINY}
-      >
-        {n}
-      </text>
-    </g>
-  )
-}
-
-/** Two writes in one tick, one flush, memos in order of height. */
-export function FlushOrder() {
-  const band = [
-    'microtask: flush()',
-    'heap by height',
-    'settle holds',
-    'render effects',
-    'user effects',
-  ]
-  return (
-    <Figure
-      bleed
-      title="Two writes, one flush"
-      legend={[
-        { label: 'signal', mark: 'sand' },
-        { label: 'memo', mark: 'lilac' },
-      ]}
-    >
-      <svg
-        viewBox="0 0 640 250"
-        role="img"
-        aria-label="Two writes in one tick become one microtask flush. The heap runs memos level by level, so total runs once after net and tax. Then held changes settle, render effects run, and user effects run last."
-      >
-        <text x="85" y="18" textAnchor="middle" style={TINY}>
-          level 0
-        </text>
-        <text x="295" y="18" textAnchor="middle" style={TINY}>
-          level 1
-        </text>
-        <text x="505" y="18" textAnchor="middle" style={TINY}>
-          level 2
-        </text>
-
-        <Edge d="M130 67H250" />
-        <Edge d="M130 137L250 75" />
-        <Edge d="M130 73L250 133" />
-        <Edge d="M340 67L460 98" />
-        <Edge d="M340 137L460 108" />
-
-        <text x="40" y="44" style={TINY}>
-          setPrice(12)
-        </text>
-        <Box x={40} y={52} w={90} mark="sand">
-          price
-        </Box>
-        <text x="40" y="114" style={TINY}>
-          setQty(4)
-        </text>
-        <Box x={40} y={122} w={90} mark="sand">
-          qty
-        </Box>
-
-        <Box x={250} y={52} w={90} mark="lilac">
-          net
-        </Box>
-        <Order x={340} y={52} n={1} />
-        <Box x={250} y={122} w={90} mark="lilac">
-          tax
-        </Box>
-        <Order x={340} y={122} n={2} />
-        <Box x={460} y={88} w={90} mark="lilac" strong>
-          total
-        </Box>
-        <Order x={550} y={88} n={3} />
-        <HandNote
-          x={470}
-          y={150}
-          text={'runs once, sees\nboth new inputs'}
-          rotate={-3}
-        />
-
-        {band.map((label, index) => (
-          <g key={label}>
-            <rect
-              x={10 + index * 124}
-              y={200}
-              width={120}
-              height={26}
-              filter="url(#pp-marker)"
-              style={{ fill: index < 3 ? MARKS.lilac : MARKS.sand }}
-              opacity={index === 0 || index > 2 ? 1 : 0.7}
-            />
-            <text
-              x={70 + index * 124}
-              y={217}
-              textAnchor="middle"
-              style={TINY}
-            >
-              {label}
-            </text>
-          </g>
-        ))}
-        <text x="10" y="244" style={TINY}>
-          one flush, in this order
-        </text>
-      </svg>
-    </Figure>
-  )
-}
-
-function SuspendPanel({
-  x,
-  title,
-  step,
-}: {
-  x: number
-  title: string
-  step: 'write' | 'pending' | 'landed'
-}) {
-  const landed = step === 'landed'
-  return (
-    <g transform={`translate(${x} 0)`}>
-      <text className="fig-strong" x="0" y="18">
-        {title}
-      </text>
-      <Edge d="M35 60V84" />
-      <Box x={0} y={32} w={70} h={28} mark="sand">
-        id
-      </Box>
-      <Box x={0} y={84} w={70} h={28} mark={landed ? 'lilac' : 'amber'}>
-        user
-      </Box>
-      <Outline x={-6} y={140} w={92} h={44} dashed />
-      <text x="40" y="198" textAnchor="middle" style={TINY}>
-        {'<Loading>'}
-      </text>
-      {step === 'pending' ? (
-        <g>
-          <Outline x={0} y={148} w={80} h={28} dashed />
-          <text x="40" y="166" textAnchor="middle" style={TINY}>
-            {'<Profile>'}
-          </text>
-        </g>
-      ) : (
-        <Box x={0} y={148} w={80} h={28} mark={landed ? 'lilac' : 'sand'}>
-          {'<Profile>'}
-        </Box>
-      )}
-      <Arrow d="M35 112V136" dashed={!landed} />
-
-      <Outline x={112} y={144} w={72} h={36} />
-      <text
-        className="fig-strong"
-        x="148"
-        y="167"
-        textAnchor="middle"
-        style={SMALL}
-      >
-        {landed ? 'Grace' : 'Ada'}
-      </text>
-      <text x="148" y="198" textAnchor="middle" style={TINY}>
-        screen
-      </text>
-
-      {step === 'write' ? (
-        <g>
-          <text x="78" y="50" style={TINY}>
-            setId(2)
-          </text>
-          <text x="78" y="102" style={TINY}>
-            flight #2
-          </text>
-          <text x="44" y="128" style={TINY}>
-            NotReadyError(source: user)
-          </text>
-          <text x="0" y="218" style={TINY}>
-            screen keeps old frame
-          </text>
-        </g>
-      ) : null}
-      {step === 'pending' ? (
-        <g>
-          <text x="78" y="96" style={TINY}>
-            flight #1
-          </text>
-          <path className="ink-stroke" d="M76 93H126" />
-          <text x="78" y="110" style={TINY}>
-            superseded, dropped
-          </text>
-          <text x="0" y="218" style={TINY}>
-            effect is pending, not run
-          </text>
-        </g>
-      ) : null}
-      {landed ? (
-        <g>
-          <text x="78" y="102" style={TINY}>
-            flight #2: Grace
-          </text>
-          <text className="fig-strong" x="44" y="128" style={TINY}>
-            one flush
-          </text>
-          <text x="0" y="218" style={TINY}>
-            isPending(user): true, then false
-          </text>
-        </g>
-      ) : null}
-    </g>
-  )
-}
-
-/** One graph at three moments: the write, the wait, and the landing. */
-export function GraphSuspendResume() {
-  return (
-    <Figure
-      bleed
-      title="A pending node, from the write to the landing"
-      legend={[
-        { label: 'settled', mark: 'sand' },
-        { label: 'pending', mark: 'amber' },
-        { label: 'new value', mark: 'lilac' },
-      ]}
-    >
-      <svg
-        viewBox="0 0 640 228"
-        role="img"
-        aria-label="A write to id starts a new fetch in the user memo. Readers throw NotReadyError and wait while the screen keeps showing Ada. A late answer from an older fetch is dropped. When the new fetch lands, one flush shows Grace."
-      >
-        <SuspendPanel x={14} title="1. write" step="write" />
-        <path className="fig-axis" strokeDasharray="2 6" d="M214 8V222" />
-        <SuspendPanel x={230} title="2. pending" step="pending" />
-        <path className="fig-axis" strokeDasharray="2 6" d="M430 8V222" />
-        <SuspendPanel x={446} title="3. landed" step="landed" />
-      </svg>
-    </Figure>
-  )
-}
 
 /** An optimistic guess as a lane above the committed value. */
 export function OptimisticAction() {
@@ -519,6 +269,82 @@ export function OptimisticAction() {
           x={at(3) + 110}
           y={240}
           text="guess replaced by truth in one frame"
+          rotate={-2}
+        />
+      </svg>
+    </Figure>
+  )
+}
+
+/** One widget row: the old answer on screen until `at`, the new one after. */
+function ScreenRow({
+  y,
+  label,
+  switchAt,
+  x,
+}: {
+  y: number
+  label: string
+  switchAt: number
+  x: (ms: number) => number
+}) {
+  return (
+    <g>
+      <text x="10" y={y + 15} style={SMALL}>
+        {label}
+      </text>
+      <Box x={x(0)} y={y} w={x(switchAt) - x(0)} h={22} mark="sand">
+        {switchAt > 40 ? 'period 1' : ''}
+      </Box>
+      <Box x={x(switchAt)} y={y} w={x(220) - x(switchAt)} h={22} mark="lilac">
+        period 2
+      </Box>
+    </g>
+  )
+}
+
+export function DeferredTimeline() {
+  const x = (ms: number) => 150 + ms * 2.15
+  return (
+    <Figure
+      bleed
+      title="One write, two widgets: when each shows the new period"
+      legend={[
+        { label: 'old answer on screen', mark: 'sand' },
+        { label: 'new answer on screen', mark: 'lilac' },
+      ]}
+      caption="A fast source of 20 ms and a slow source of 200 ms read the same signal. Times are from the write, measured with Solid 2.0.3 in Node."
+    >
+      <svg
+        viewBox="0 0 640 250"
+        role="img"
+        aria-label="With createMemo for the slow source, both widgets keep the old period until 202 ms and switch together. With createDeferred, the fast widget switches at 23 ms and the slow one at 202 ms."
+      >
+        <text className="fig-strong" x="10" y="22">
+          slow source is createMemo
+        </text>
+        <ScreenRow y={32} label="fast widget" switchAt={202} x={x} />
+        <ScreenRow y={60} label="slow widget" switchAt={202} x={x} />
+
+        <text className="fig-strong" x="10" y="122">
+          slow source is createDeferred
+        </text>
+        <ScreenRow y={132} label="fast widget" switchAt={23} x={x} />
+        <ScreenRow y={160} label="slow widget" switchAt={202} x={x} />
+
+        <path className="fig-axis" d={`M${x(0)} 200H${x(220)}`} />
+        {[0, 23, 202].map((ms) => (
+          <g key={ms}>
+            <path className="fig-axis" d={`M${x(ms)} 196V204`} />
+            <text x={x(ms)} y="218" textAnchor="middle" style={TINY}>
+              {ms === 0 ? 'write' : `${ms} ms`}
+            </text>
+          </g>
+        ))}
+        <HandNote
+          x={x(40)}
+          y={242}
+          text="the fast widget stops waiting"
           rotate={-2}
         />
       </svg>

@@ -2,7 +2,7 @@
 title: "I moved our coding rules from a skill file into lint. Now each count can only go down."
 seoTitle: "From Agent Skill to Lint Rule: Rules That Coding Agents Cannot Skip"
 description: "An instruction in a skill file is a suggestion. A lint rule is a check. How I turned our agent instructions into lint rules, and how a ratchet stops 26,332 old violations from growing."
-date: "2027-01-13"
+date: "2026-11-24"
 ogImage: "/images/lint-ratchet-og.png"
 slug: "lint-ratchet-ai-written-code"
 tags:
@@ -40,7 +40,7 @@ So between May and November 2026 I moved every rule that a program can check out
 2. **Record the old violations, and let no count go up.** The code already broke these rules 26,332 times. A ratchet lets those stay and fails the build for one more.
 3. **Close the ways around it.** A pull request cannot raise its own allowed count, and a new "disable this rule" comment fails the build.
 
-The number that I watch is the total. In the 28 hours before the ratchet merged, it grew by 181. In the 57 hours after, it fell by 197.
+The number that I watch is the total. In the 28 hours before the ratchet merged, it grew by 181. In the 57 hours after, it fell by 197. Four days after the merge, on 21 November, it stood at 25,797: 535 fewer, or 2.0%, with no cleanup project.
 
 <RatchetSteps />
 
@@ -66,10 +66,28 @@ For each instruction I ask one question. Can a program see this in the code, wit
 | A feature does not import another feature | `no-cross-feature-import` | An import from one feature folder into another |
 | Do not hide an error | `no-swallowed-error` | A `catch` that never reads the error that it caught |
 | Do not wait for a fixed time | `no-inline-sleep` | A promise that only resolves from a timer |
+| Parse external JSON with a schema | `no-json-cast` | A type assertion on the result of `JSON.parse` or `response.json()` |
+| Do not classify an error by its text | `no-error-message-match` | A branch on `includes`, `match` or a regex test of an error message |
+| Production code does not know about tests | `no-test-awareness` | A check for a test run, or an export that only tests use |
+
+The November rules came from a review of the whole code base with several models, which found the same five shapes again and again: a comment that explains a workaround in place of a fix, a disable directive, an `as` cast on parsed JSON, a `catch` that drops its error, and a feature that imports another feature. Each of them is now a rule.
 
 Some instructions stayed in the skill, because they need intent. Which part of the app owns a piece of state, when a form must reset, and whether a search waits for the user to stop typing are decisions about the product. A linter cannot see them.
 
-With the rules in place, the text could shrink. The two React skills with 536 lines became one skill with 54. It says what to decide, and it points to the lint rules for everything else.
+With the rules in place, the text could shrink. The two React skills with 536 lines became one skill with 54. It says what to decide, and it points to the lint rules for everything else. Its core is a table of owners for state:
+
+| State | Owner |
+| --- | --- |
+| Computed from props, a query, or the URL | Derive it during render |
+| Remote data and the status of a mutation | The query library |
+| Search, filters, tabs, or a selection that a user can share | The URL |
+| Form input and validation | The form library |
+| A local dialog or interaction | The leaf component |
+| Client state that distant components share | A small store inside the feature |
+
+The rest is a list of behaviors to compare after a change, such as the loading, error and empty states and back navigation. No rule can judge those.
+
+The code review skill got the matching line. It tells the reviewer that lint already rejects the mechanical cases, and it names them: effects, debounce, query keys, pending state, and raw client `fetch`. "Do not repeat them as findings."
 
 ### What a rule looks like
 
@@ -112,7 +130,7 @@ export const noInlineSleep = defineRule({
 
 Three things that I learned from writing 24 of these:
 
-- **The message is written for the agent.** It says what to do instead, because the agent reads the error and tries again.
+- **The message is written for the agent.** It says what to do instead, because the agent reads the error and tries again. The message of `no-type-assertion` is a fair sample: "This assertion makes the checker trust a type it cannot prove. Fix the declaration that produced the wrong type, narrow with a type guard or a schema, or use `satisfies` to check a literal."
 - **A custom rule sees the shape of the code and no types.** So each rule needs a second signal before it reports. `no-effect-debounce` reports a timer in an effect only when the timer callback sets state. A delayed focus or a scroll passes.
 - **The tests that matter are for code that must pass.** When a rule reports correct code, the fix goes into the rule. Step 3 explains why there is no other way out.
 
@@ -145,7 +163,18 @@ One script lints the repository and compares the result with that file.
 
 The fourth result keeps the gain. When a count falls and the record still allows the old value, the next person can add a violation back with no failure. So the record must follow each count down.
 
-For someone who opens a pull request, the rule is short. A file that you do not touch costs you nothing. A file that you touch keeps its number, and you cannot add to it.
+For a pull request the rule is short: a file that you do not touch costs nothing, and a file that you touch cannot gain a violation.
+
+The output is written for a person and an agent alike. A rise names the file, the rule, both counts, the rule's message, and each location. A fall names the command that locks it in. With made-up paths:
+
+```text
+✗ src/features/reports/report-table.tsx  no-comments  allowed 0, found 3
+    Delete this comment and make the code say it: rename, extract a named function or constant, ...
+    at 14:5, 31:3, 52:7
+↓ src/features/reports/export.ts  no-type-assertion  allowed 4, found 3. Lock in the cleanup: run `just lint-ratchet --update` and commit the baseline.
+```
+
+Before the merge I put the new files of two other open pull requests on the branch. The ratchet failed with 26 new violations in 9 files, and passed again without them.
 
 In August I had used a harder version of this idea for the first rules: a commit hook that refuses a staged file with any warning in it, so that whoever touches a file cleans it. That hook is still in place for those rules, and it works. Seven rules that I can compare all went down between August and November. It also has a price. In one performance sweep, 18 of 36 files lost their edits, because a small fix in an old file had to carry a full cleanup of that file. For the nine new rules, some with thousands of old cases, the ratchet asks for less: do not make it worse.
 
@@ -155,6 +184,14 @@ A check like this has two easy ways around it.
 
 **Edit the number.** The script compares the allowed counts in the pull request with the allowed counts on the main branch, and it refuses a number that is higher. The update command can only lower an entry or remove it.
 
+The main branch here means the merge base. In CI the checkout is the merge commit of the pull request, so its first parent is the main branch: the job checks out with `fetch-depth: 2` and passes `--base HEAD^1`. On a laptop the script uses the merge base with `origin/develop`. When CI cannot find a base, the run fails, because a guard with nothing to compare is no guard.
+
+Three details keep the comparison fair:
+
+- **A rename keeps its allowance.** A moved file inherits the count of its old path one time, from the renames that `git diff -M` reports. A new file at the old path starts at zero.
+- **A new rule is seeded one time.** `--seed <rule>` records today's counts for a rule that the merge base does not list. It refuses a rule that already has a baseline.
+- **A file cannot trade a violation for a directive.** When the directive count of a file rises, its other counts stay as they were, and the update does not lower them. Otherwise an agent could silence a violation and record the "fall".
+
 **Add a disable comment.** One line such as `oxlint-disable-next-line` above the new violation silences the rule. So the script counts these comments from the source text, for each rule and each file, in every form: next line, same line, block, JSX, and whole file. A new one fails the check. The first count found 284 that name a rule and 45 broad ones that name none. It also found 57 that silenced nothing, and I deleted those.
 
 An old disable comment leaves one more gap. It covers a range of lines, and a new violation inside that range is not reported.
@@ -163,7 +200,15 @@ An old disable comment leaves one more gap. It covers a range of lines, and a ne
 
 A second mode of the script blanks each disable comment, lints again, and counts what appears. On the day of the merge that was 533 hidden violations in 163 files. They are in the same record under their own keys, with the same rule: only down.
 
-This is also why a false report must be fixed in the rule. The disable comment is closed as an exit, so the rule has to be right.
+The proof was one more `useCallback` under a comment that disables a rule for the rest of a file. The normal run did not report it. The hidden mode failed with `allowed 12, found 13`. This mode edits files while it runs, so it refuses to start when a file with a directive has uncommitted changes, and it runs in CI and not in the commit hook. In CI its median is about 20 seconds above the normal run.
+
+This is also why a false report must be fixed in the rule. The disable comment is closed as an exit, so the rule has to be right. The last review round before the merge found three ways to pass `no-swallowed-error` without reading the error: `void error`, a bare `error;` statement, and an assignment to the caught variable. The rule now reports all three.
+
+## One rule I deleted
+
+In August I had added a rule that asked for an `EFFECT:` comment on each effect, to explain why the effect had to exist. It had 185 findings when it went in. The November change deleted it, with one line of reason: "A comment must not make an effect acceptable."
+
+A rule that accepts any effect with a comment above it has one pass condition, and that condition is the comment. Any author can write it in a few seconds, and the effect stays. The ratchet counts the effects themselves, so a new effect fails unless the same file loses one. The price of an effect is now paid in code, not in prose.
 
 ## What happened after the merge
 
@@ -195,13 +240,17 @@ After the merge, 18 changes on the main branch touched the record, from five eng
 
 A count cannot go up, so "it only fell" is partly the design. What the number adds is that people removed old violations when a file was already in their hands, with no cleanup project and no ticket.
 
-The `useEffect` rule shows the same effect on one rule. In August it had an allowlist of 85 files that already had effects, and a file on that list could add one more. Now each file has its own number. On the day of the merge the record had 197 effects in 102 files. Two days later it had 196.
+The fall was also wide. The 197 came from 29 keys of the record. `no-comments` gave 64 of them, or 32%, although it holds 53.6% of the record. Type assertions and unnecessary conditions gave 17 each, swallowed errors 14, and 25 smaller keys the rest. Nobody chased one rule.
+
+On 21 November, four days after the merge, the record held 25,797. By then 35 changes from seven engineers, the CI bot, and a coding agent's bot account had touched it, and each one lowered it. `no-comments` was at 13,906 and the hidden violations at 522.
+
+The `useEffect` rule shows the same effect on one rule. In August it had an allowlist of 85 files that already had effects, and a file on that list could add one more. Now each file has its own number. On the day of the merge the record had 197 effects in 102 files. Two days later it had 196, and on 21 November 195.
 
 ## What it costs
 
 - **On my machine,** a full run takes about 6 seconds, and the commit hook is about 5 seconds slower than before.
 - **In CI,** on a standard two-core runner, the ratchet step took a median of 55 seconds and the hidden mode 75 seconds, over 40 runs on 19 November. The lint job is about two minutes longer than it was.
-- **On the day of the merge,** every open pull request is a risk. One that had passed its checks before the ratchet existed merged after it and broke the lint check on the main branch. The fix went in the same day.
+- **On the day of the merge,** every open pull request is a risk. One that had passed its checks before the ratchet existed merged after it, with 20 comments and one condition that was always true, in four files that the record allowed none or one. Every pull request that took the main branch then failed with lines like `allowed 0, found 11`. The fix removed the comments, gave one variable a longer name because a removed comment had explained it, and turned an always-true last branch into a plain `else`. The main branch was green the same day.
 
 ## Oxlint notes
 
@@ -214,10 +263,66 @@ Four behaviors of Oxlint are easy to miss when you write your own rules.
 
 One more, from a bulk fix. An automatic fix changed `mockResolvedValue(undefined)` to `mockResolvedValue()` at 21 sites. All 150 tests passed, and the type check failed, because the test runner does not check types. Run the type check after a bulk fix.
 
+## Set it up in another repository
+
+Ours has 728 lines. This version keeps the core: the counts, the three failures, an update that only lowers, and the merge-base guard. With Oxlint 1.94.0 in a scratch repository, a new violation fails, a fix asks for the update, the update lowers the entry, and a count raised by hand fails.
+
+```js
+// ratchet.mjs: node ratchet.mjs [--seed | --update] [--base origin/main]
+import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+
+const BASELINE = "lint-baseline.json";
+const args = process.argv.slice(2);
+const baseRef = args.includes("--base") ? args[args.indexOf("--base") + 1] : "origin/main";
+const sh = (cmd, ...rest) => spawnSync(cmd, rest, { encoding: "utf8" }).stdout.trim();
+
+const found = {};
+for (const { code, filename } of JSON.parse(sh("npx", "oxlint", "-f", "json", ".")).diagnostics) {
+  found[code] ??= {};
+  found[code][filename] = (found[code][filename] ?? 0) + 1;
+}
+if (args.includes("--seed") && !existsSync(BASELINE)) {
+  writeFileSync(BASELINE, JSON.stringify(found, null, 2) + "\n");
+  process.exit(0);
+}
+
+const parse = (text) => (text ? JSON.parse(text) : {});
+const allowed = parse(readFileSync(BASELINE, "utf8"));
+const mergeBase = sh("git", "merge-base", "HEAD", baseRef);
+const atBase = mergeBase ? parse(sh("git", "show", `${mergeBase}:${BASELINE}`)) : allowed;
+const get = (map, rule, file) => map[rule]?.[file] ?? 0;
+
+const errors = [];
+const next = {};
+for (const rule of new Set([...Object.keys(allowed), ...Object.keys(found)])) {
+  const files = new Set([...Object.keys(allowed[rule] ?? {}), ...Object.keys(found[rule] ?? {})]);
+  for (const file of files) {
+    const [a, f, b] = [get(allowed, rule, file), get(found, rule, file), get(atBase, rule, file)];
+    if (a > b) errors.push(`✗ ${file} ${rule}: baseline says ${a}, merge base says ${b}`);
+    if (f > a) errors.push(`✗ ${file} ${rule}: allowed ${a}, found ${f}`);
+    if (f < a) errors.push(`↓ ${file} ${rule}: allowed ${a}, found ${f}. Run with --update.`);
+    if (Math.min(a, f) > 0) (next[rule] ??= {})[file] = Math.min(a, f);
+  }
+}
+if (args.includes("--update")) writeFileSync(BASELINE, JSON.stringify(next, null, 2) + "\n");
+console.log(errors.join("\n") || "Counts held.");
+process.exit(errors.length > 0 && !args.includes("--update") ? 1 : 0);
+```
+
+The order that I would follow in another repository:
+
+1. **Seed on the main branch, in its own pull request**, so that every later pull request has a merge base with counts.
+2. **Run it in CI with a known base**: `fetch-depth: 2` and `--base HEAD^1`.
+3. **Add it to the commit hook last**, and only if a full run takes seconds.
+4. **Count disable comments before you announce it.** Otherwise the first answer to a red check is a new directive, and this short version cannot see it.
+
+The short version leaves out what our script added after real use: the rename rule, seeding of a single rule, the directive and hidden counts, the trade guard, and scoping to staged files for the hook.
+
 ## What I did not measure
 
 - **The first drafts of the agents.** I count what reaches a commit. I do not know how many times an agent wrote a violation, read the error, and fixed it.
-- **A long trend.** The fall of 197 is from 57 hours. It is a start, and it is not a rate.
+- **A long trend.** The fall of 197 is from 57 hours, and the fall of 535 from about four days. They are a start, and they are not a rate.
 - **The rule that bans comments.** `no-comments` is 14,123 of the 26,332, or 53.6%. That rule is our position. A team that keeps its comments would start with about half of this record.
 - **The open pull requests on the day of the merge.** Each one had to take the main branch and pass the ratchet. I did not count how many failed, apart from the one above.
 - **The comparison of August and November.** The November counts include test files, and I did not check for files that moved between packages.

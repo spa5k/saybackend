@@ -2,7 +2,7 @@
 title: "Self-Host TanStack Start 1.0 in Docker: Image Size, Memory and Requests per Second"
 seoTitle: "Self-Host TanStack Start 1.0 in Docker, Measured"
 description: "TanStack Start 1.0 builds to a 2.4 MB Nitro server with no node_modules. Image sizes, start time, memory, requests per second and the Docker traps, measured."
-date: "2026-12-16"
+date: "2026-12-21"
 ogImage: "/images/2027-self-host-tanstack-start-og.png"
 slug: "self-host-tanstack-start-docker"
 tags:
@@ -96,6 +96,20 @@ I measured from process spawn to the first 200 on `/` inside the container, and 
 
 Each value is the median of five runs. The naive image starts and behaves like node slim, since it runs the same `.output`. The Bun row comes from the same `docker stats` call, but it is a different runtime, not a setting of the same one.
 
+## Memory limits
+
+The low idle numbers do not mean the server fits in a tiny container under load. I ran the node slim image with a hard limit and no swap, and sent 50 connections to the SSR page for 20 seconds:
+
+| Container limit | Result | Memory at the end |
+| --- | --- | --- |
+| 96 MB | OOM-killed, exit code 137 | |
+| 128 MB | OOM-killed, exit code 137 | |
+| 192 MB | 111,000 requests, no errors | 120.1 MiB |
+| 256 MB | 109,000 requests, no errors | 104.1 MiB |
+| none | 189,000 requests, no errors | 219.6 MiB |
+
+Capping the V8 heap did not save the small containers. With `NODE_OPTIONS=--max-old-space-size=48` at 96 MB, `--max-old-space-size=64` at 128 MB, and `--max-semi-space-size=4` at 128 MB, the kernel still killed the process, so the growth under that load was outside the limits those flags set. Below 512 MB, Node.js 26 also sets its heap limit to 262 MB whatever the container limit is, so a heap leak in a small container ends the same way. The [Next.js post](/blog/self-host-nextjs-16-standalone-adapter/) has the full table. For this app, 192 MB per replica was the smallest limit that held under that load, and an OOM kill shows up only as exit code 137 and a restart count, not as a line in the application log.
+
 ## Requests per second
 
 The load method is the one from the Next.js post: autocannon 8.0.0 in a container on the same Docker network, 50 connections for 10 seconds per route, five runs.
@@ -170,6 +184,52 @@ Hashed files under `/assets/` get `cache-control: public, max-age=31536000, immu
 
 The server does not compress anything by default. The main JavaScript chunk went out as 345,825 bytes. With `compressPublicAssets: true` in the Nitro options, the build writes `.gz` and `.br` files next to each static file, and the server picked brotli (95,932 bytes) or gzip (110,739 bytes) from `Accept-Encoding`, with `Vary: Accept-Encoding`. SSR responses stay uncompressed, so a proxy in front still helps.
 
+## Behind a reverse proxy
+
+Most deployments put nginx, Caddy or a cloud load balancer in front of the server, and three things changed when I did that with nginx 1.29.
+
+The first is the host the app sees. With a bare `proxy_pass http://app:3000`, nginx sends `Host: app:3000`, and that is what `request.url` contains inside the app. The CSRF check compares `Origin` against the origin of `request.url` when there is no `Sec-Fetch-Site` header. Current browsers send `Sec-Fetch-Site: same-origin` on their own requests, and that header is checked first, so the browser path worked. A server function request with only `Origin: http://127.0.0.1:3103`, as a script or an older client sends it, got `403 Forbidden` through the proxy and 200 directly. `proxy_set_header Host $http_host` fixed it.
+
+The second is TLS. srvx builds `request.url` from the socket and the `Host` header and ignores `X-Forwarded-Proto`, so behind a proxy that terminates TLS the app sees `http://` while the browser sends `Origin: https://...`. That request got `403` as well. If your proxy terminates TLS, give the CSRF middleware the public origin:
+
+```ts
+const csrf = createCsrfMiddleware({
+  filter: (ctx) => ctx.handlerType === 'serverFn',
+  origin: 'https://shop.example',
+})
+```
+
+The helpers in `@tanstack/react-start/server` treat the forwarded headers differently from `request.url`. I sent one request directly to the container with three forwarded headers set by hand:
+
+| Helper | Result |
+| --- | --- |
+| `getRequest().url` | `http://127.0.0.1:3201/whoami` |
+| `getRequestUrl()` | `https://127.0.0.1:3201/whoami` |
+| `getRequestUrl({ xForwardedHost: true })` | `https://shop.example/whoami` |
+| `getRequestIP()` | the proxy's address |
+| `getRequestIP({ xForwardedFor: true })` | `203.0.113.9` |
+
+`getRequestUrl()` trusts `X-Forwarded-Proto` by default, and the client can send that header if it reaches the server without a proxy that overwrites it. Use the forwarded variants only when a proxy you control sets those headers, and do not publish the app port next to the proxy.
+
+The third is streaming. A loader that returns an unawaited promise, rendered with `<Await>` inside `<Suspense>`, streams the fallback first and the data later, but only for browsers. The router's stream renderer, `renderRouterToStream`, checks the `User-Agent` with `isbot` and waits for all data when it matches: with a Chrome `User-Agent` the fallback arrived after 19 ms and the page finished after 2.0 s, and with `curl/8.7.1` or `Googlebot/2.1` the whole page arrived at once after 2.0 s. So test streaming with a browser `User-Agent`, or curl will tell you it is broken when it is not. Through nginx with default settings the fallback still arrived after 20 ms. With `gzip on`, nginx held the response until the end, as it did for Next.js, and `proxy_buffering off` brought it back to 19 ms.
+
+Since srvx does not compress SSR responses, nginx gzip is worth having for HTML. The SSR page went from 2,050 bytes to 1,084. This is the location block I tested:
+
+```nginx
+location / {
+  proxy_pass http://app:3000;
+  proxy_http_version 1.1;
+  proxy_set_header Host $http_host;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_buffering off;
+  gzip on;
+  client_max_body_size 1m;
+}
+```
+
+`client_max_body_size` matters more here than for Next.js, because Start has no body limit of its own on server function requests; the [server functions post](/blog/tanstack-start-server-functions-wire/) shows a 100 MB body being decoded in full.
+
 ## Non-root, read-only and the health check
 
 The official Node.js images have a `node` user with UID 1000, and `USER node` worked with no other change. The distroless `nonroot` tag runs as UID 65532. The server writes nothing at runtime, so the recommended image below also ran with `--read-only`.
@@ -181,6 +241,28 @@ Distroless has no shell and no `curl`, so the health check uses Node.js itself, 
 srvx installs handlers for `SIGTERM` and `SIGINT`. It stops accepting connections, waits for in-flight requests, and exits with code 0. An idle server stopped in 1.1 s.
 
 I sent `SIGTERM` 1 s into a 5 s request. The request returned 200 after 5.0 s, and `docker stop` returned 4.2 s after the signal. A new connection 0.5 s after the signal got `curl: (56) Recv failure: Connection reset by peer`, so take the instance out of the load balancer before you stop it. The wait is 5 s by default and set by `SERVER_SHUTDOWN_TIMEOUT` in seconds. With `SERVER_SHUTDOWN_TIMEOUT=2`, the server logged `Graceful shutdown timed out.` and `Forcibly closing connections...`, and the client got `curl: (52) Empty reply from server`. With 30, the request completed.
+
+Because new connections are reset as soon as the signal arrives, a Kubernetes deployment needs a pause between the endpoint removal and the signal. The distroless image has no shell and no `sleep` binary, but the `sleep` action of a `preStop` hook runs in the kubelet:
+
+```yaml
+containers:
+  - name: web
+    image: start-app
+    env:
+      - name: SERVER_SHUTDOWN_TIMEOUT
+        value: "25"
+    readinessProbe:
+      httpGet: { path: /api/health, port: 3000 }
+      periodSeconds: 5
+    lifecycle:
+      preStop:
+        sleep: { seconds: 5 }
+    resources:
+      limits: { memory: 192Mi }
+terminationGracePeriodSeconds: 35
+```
+
+The grace period covers the 5 s pause and the 25 s srvx drain, with a few seconds to spare before `SIGKILL`.
 
 srvx skips its signal handlers when `CI` or `TEST` is set. With `CI=1` in the container, `docker stop -t 10` waited the full 10 s and killed the process, exit code 137. Do not pass CI variables through to the runtime container.
 
@@ -308,3 +390,7 @@ The static pages are close in content: a heading, a line of text and one image. 
 - [srvx](https://srvx.h3.dev/)
 - [Distroless Node.js images](https://github.com/GoogleContainerTools/distroless/blob/main/nodejs/README.md)
 - [Node.js releases](https://nodejs.org/en/about/previous-releases)
+- [nginx: ngx_http_proxy_module](https://nginx.org/en/docs/http/ngx_http_proxy_module.html)
+- [Kubernetes: container lifecycle hooks](https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/)
+- [createCsrfMiddleware.ts](https://github.com/TanStack/router/blob/main/packages/start-client-core/src/createCsrfMiddleware.ts)
+- [isbot](https://github.com/omrilotan/isbot)

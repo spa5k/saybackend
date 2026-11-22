@@ -2,7 +2,7 @@
 title: "UUIDv7 in Postgres: uuidv7() vs uuid_generate_v7(), Size and Index Cost"
 seoTitle: "UUIDv7 in Postgres: uuidv7() vs uuid_generate_v7()"
 description: "Which UUIDv7 function PostgreSQL has, how many bytes a UUIDv7 takes, and a 10 million row test of index size and insert cost against UUIDv4 and bigint on PostgreSQL 19."
-date: "2027-01-11"
+date: "2026-12-23"
 ogImage: "/images/2026-uuidv7-functions-og.png"
 slug: "uuidv7-postgres-uuidv7-vs-uuid-generate-v7"
 tags:
@@ -11,6 +11,7 @@ tags:
   - "database"
 ---
 
+import { BeforeAfterBars } from "@/components/paper/BeforeAfterBars";
 import { LineFigure } from "@/components/paper/LineFigure";
 import { NumberBand } from "@/components/paper/NumberBand";
 import { RankBars } from "@/components/paper/RankBars";
@@ -113,6 +114,12 @@ A backend is one server process, which in practice means one connection. Two con
 
 It also says nothing about commit order: a transaction that takes its ID first can commit last, exactly as with a sequence.
 
+I measured both cases on 19.0. One statement generated 1 million values in one backend. None was smaller than or equal to the value before it, and they spread over 515 distinct milliseconds, about 1,900 values per millisecond, all kept in order by the 12-bit fraction and the step forward. Then pgbench made 200,000 inserts from 8 connections into a table with a `bigserial` column next to the `uuidv7()` default. Ordered by the sequence, 1,286 rows, 0.64%, had a smaller UUID than the row before them. Grouped by backend, there were none.
+
+One small surprise: `min()` and `max()` have no `uuid` version on 19.0, and `SELECT max(id)` fails with `function max(uuid) does not exist`. `ORDER BY id DESC LIMIT 1` reads the same value from the index.
+
+So `ORDER BY id` on a UUIDv7 key is a good approximation of creation order and a correct order within one connection. It is not a replacement for a sequence where gaps and reordering matter, such as an outbox table that consumers read with `WHERE id > last_seen`. A row that commits late with a slightly older ID falls behind a cursor that already moved past it. That problem exists with a sequence too, and the fix is the same: read only rows older than a safety margin, or track position some other way.
+
 ## What does it cost to index, compared with UUIDv4 and bigint?
 
 A UUIDv7 key behaves like a `bigint` from a sequence in where it lands, and like a UUIDv4 in how wide it is.
@@ -168,6 +175,74 @@ A version 7 batch costs the same at 10 million rows as at the start. A version 4
 
 This is a bulk load from one connection, and the whole index still fits in the page cache of the machine. So it is the best case for version 4. The numbers for generating the IDs are in the [benchmark post](/blog/uuidv7-postgres-comparison/).
 
+## Does REINDEX fix a bloated UUIDv4 index?
+
+For a while. A rebuild packs the leaf pages to the `fillfactor`, so the version 4 index loses its extra size, but the next random inserts split those full pages again.
+
+For this and the next two sections I built a second pair of 10 million row tables in one `INSERT ... SELECT` each, with a `created_at timestamptz` column filled by `clock_timestamp()` beside the key. The version 4 primary key came out at 380 MB with leaf pages 71% full.
+
+After `REINDEX` it was 301 MB with pages 90% full, the same as the version 7 index. Then I inserted 1 million more rows into each table.
+
+<BeforeAfterBars
+  title="Primary key index after REINDEX, then after 1 million more rows"
+  unit="MB"
+  beforeLabel="after REINDEX"
+  afterLabel="after 1 million more inserts"
+  data={[
+    { label: "uuidv4()", before: 301, after: 378 },
+    { label: "uuidv7()", before: 301, after: 331 },
+  ]}
+  caption="pg_relation_size and pgstatindex. Leaf pages ended 79% full for uuidv4() and 90% full for uuidv7()."
+/>
+
+Ten percent more rows took back almost all of what the rebuild saved, because nearly every page was full and every random insert into a full page splits it. The version 7 index grew by 30 MB, which is the space the new keys need. A scheduled `REINDEX CONCURRENTLY` on a version 4 key holds its gain only until the table grows by another few percent, and it costs a full index build each time.
+
+## How many pages does it take to read recent rows?
+
+Far fewer with version 7, because the newest keys sit together. Most applications read recent rows more often than old ones: the latest orders, the active sessions, the events of the last hour. I took the 10,000 newest IDs from each table, restarted the server to empty `shared_buffers`, and looked them up by primary key with `EXPLAIN (ANALYZE, BUFFERS)`. Both plans were index-only scans with 10,000 loops.
+
+<NumberBand value="43" note="against 9,220 for uuidv4()">
+  index pages read from outside `shared_buffers` to look up the 10,000 newest `uuidv7()` keys, in 7 ms against 51 to 59 ms.
+</NumberBand>
+
+The version 7 lookups touched 43 pages that were not already in memory, because 10,000 adjacent keys fill about 40 leaf pages. The version 4 lookups read 9,220 pages, 72 MB, since each recent key sits on a different leaf. The operating system cache still held the whole index, so these were memory copies and not disk reads. With an index that does not fit in RAM, each of those 9,220 pages can be a disk read, and the same pages compete with everything else for `shared_buffers`. Insert speed is the usual argument for version 7. For a read-heavy service this working-set effect may matter more.
+
+## Can the primary key replace a created_at index?
+
+For range queries by time, yes, with care. The leading 48 bits of a version 7 value are the creation time, so all IDs created at or after a given millisecond are greater than or equal to the smallest UUID for that millisecond. PostgreSQL has no function that builds that bound, but it is one line of SQL:
+
+```sql
+CREATE FUNCTION uuidv7_floor(ts timestamptz) RETURNS uuid
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+  SELECT (lpad(to_hex(floor(extract(epoch FROM ts) * 1000)::bigint), 12, '0')
+          || '70008000000000000000')::uuid
+$$;
+
+SELECT sum(v) FROM events WHERE id >= uuidv7_floor(now() - interval '1 hour');
+```
+
+The tail sets the version to 7, the variant bits to `10` and everything else to zero, which is the smallest valid version 7 value for that millisecond. Because the function is immutable and its argument here was a constant, the planner folded it, and the plan showed a plain `Index Cond: (id >= '01a1ff4c-f20f-7000-8000-000000000000'::uuid)` on the primary key.
+
+I picked the timestamp of the 100,001st newest row and queried from there three ways:
+
+<RankBars
+  title="Sum over the newest 100,000 rows, by access path"
+  unit="ms"
+  mono
+  rows={[
+    { label: "BRIN on id", value: 10.1, mark: "lilac", sub: "48 kB index, 100,099 rows" },
+    { label: "created_at B-tree", value: 10.3, sub: "210 MB index, 100,001 rows" },
+    { label: "primary key range", value: 13.1, sub: "no extra index, 100,099 rows" },
+  ]}
+  caption="EXPLAIN ANALYZE on 19.0 with a warm cache, second run of each query."
+/>
+
+The 98 extra rows are the rest of that millisecond. The UUID carries the time at millisecond precision, so the floor includes every row from the start of the millisecond, while `created_at` has microseconds. For a dashboard or a retention job that difference does not matter. For an exact boundary it does.
+
+The BRIN row is the interesting one. A BRIN index with the default `uuid_minmax_ops` stores the smallest and largest value per range of 128 heap pages. Because the rows were inserted in key order, those ranges do not overlap, and a 48 kB index answered the range query as fast as the 210 MB B-tree. It recheck-filtered 12,157 rows from lossy pages to get there.
+
+Three things break the assumption that ID order is time order. IDs made with `uuidv7(interval '-1 hour')` or similar shifts are dated by the shift. IDs made in the application carry the application's clock. And a column migrated from `gen_random_uuid()` still holds version 4 values, which are spread over the whole key range, so a range on `id` returns an arbitrary sample of old rows. If any of these apply, keep `created_at` and its index. The BRIN index also degrades when rows are updated or inserted out of key order, because each page range then covers a wider span of values.
+
 ## Does a UUIDv7 leak the creation time?
 
 Yes. The first 48 bits are the creation time in milliseconds, and `uuid_extract_timestamp()` reads it in one call. RFC 9562 calls this "a very small attack surface" and notes that the timestamp signals the order of creation.
@@ -189,6 +264,18 @@ The column then holds both versions. The old version 4 values are spread across 
 
 On PostgreSQL 17 or older with `pg_uuidv7`, the same statement works with `uuid_generate_v7()` as the default.
 
+I made the switch on the 11 million row version 4 table from the REINDEX test. The next million inserts took 1.5 s, the same as a million inserts into the pure version 7 table, against 6.7 s for a million more version 4 values into the same index. The insert cost improves on the day of the switch, with no rewrite of old rows.
+
+The space does not improve as much. Those million keys grew the index by 54 MB, where the pure version 7 index grew by 30 MB for the same count. A version 7 value made in late 2026 starts with `01a`, so the new keys do not go to the right-hand edge of a mixed index. They go to one spot less than 1% of the way into its key range, among old version 4 keys with the same leading digits, and the splits there do not get the right-edge fill. The inserts stay local, which is what makes them fast, but each page they split ends up less full. The bloat the old values caused stays until a `REINDEX`, and after that the new values add less than random keys would.
+
+## When to use which key
+
+`bigint` from an identity column is still the smallest and fastest key when IDs are created only by the database and never leave the system, or leave it where a counter is acceptable. It is half the size in every index and foreign key, and in my runs it loaded 10 million rows in two thirds of the time.
+
+`uuidv7()` is the default I use for new tables whose IDs are exposed or generated in more than one place: public APIs, merged data from several databases, IDs that the client creates before the insert. It costs the extra 8 bytes per key and almost nothing else, and it brings the read locality from the section above.
+
+`uuidv4()` is the right choice when the ID must not reveal anything, including order and creation time: tokens, invitation codes, anything used as a secret. For those tables the insert and index costs above are the price, and on a small table nobody notices it.
+
 ## Sources
 
 - [PostgreSQL 19 documentation: UUID Functions](https://www.postgresql.org/docs/19/functions-uuid.html)
@@ -207,4 +294,8 @@ On PostgreSQL 17 or older with `pg_uuidv7`, the same statement works with `uuid_
 - [PostgreSQL source, REL_19_STABLE: pg_type.dat](https://github.com/postgres/postgres/blob/REL_19_STABLE/src/include/catalog/pg_type.dat)
 - [RFC 9562: Universally Unique IDentifiers (UUIDs)](https://www.rfc-editor.org/rfc/rfc9562.html)
 - [pg_uuidv7 README](https://github.com/fboulnois/pg_uuidv7)
+- [PostgreSQL 19 documentation: BRIN indexes](https://www.postgresql.org/docs/19/brin.html)
+- [PostgreSQL 19 documentation: REINDEX](https://www.postgresql.org/docs/19/sql-reindex.html)
+- [PostgreSQL 19 documentation: pgstattuple](https://www.postgresql.org/docs/19/pgstattuple.html)
+- [PostgreSQL 19 documentation: Using EXPLAIN](https://www.postgresql.org/docs/19/using-explain.html)
 - [kjmph: UUIDv7 function in PL/pgSQL (gist)](https://gist.github.com/kjmph/5bd772b2c2df145aa645b837da7eca74)

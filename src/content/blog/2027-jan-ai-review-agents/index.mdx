@@ -2,7 +2,7 @@
 title: "Trying PR review agents: what stuck, what didn't"
 seoTitle: "Trying AI PR Review Agents: What Stuck and What Didn't"
 description: "Eight months of AI review on our pull requests: a review on every push, a custom multi-agent reviewer, a third tool, and the small setup that remains. With the run counts for each stage."
-date: "2027-01-15"
+date: "2026-11-26"
 ogImage: "/images/pr-review-agents-og.png"
 slug: "pr-review-agents-what-stuck"
 tags:
@@ -149,6 +149,31 @@ The reviewer must earn each finding before the validator sees it. It traces the 
 
 The reviewer cannot edit, commit, push, merge, or call the GitHub API directly. Each run stores its usage metrics as an artifact.
 
+### The prompt, in four parts
+
+The prompt of the remaining reviewer has about 50 lines in four parts.
+
+1. **Read before you judge.** The repository guide, the guide of each changed directory, the skills that the diff touches and no others, the full diff, and every earlier review comment with the human replies.
+2. **The standard.** Prefer silence over a low-confidence comment. Comment on changed code only. Do not raise a point again after a human corrected it, unless the current diff gives new evidence. On a later pass, look at the new commits and do not restate what did not change.
+3. **Earn each finding.** Trace the changed behavior through its real callers. Check the signatures, defaults, and catch blocks of what it calls, because a changed comment proves nothing about a caller's contract. Check the proposed fix against one state that is valid today. Recheck the head of the pull request before posting, and stop if it moved.
+4. **One independent check.** Collect at most five candidate blockers and three material warnings. Call the validator once with the whole batch, with the base and head commits, the changed lines, a concrete failure for each candidate, and its proposed fix. Do not retry it, and do not invent a new fix after it answered.
+
+The output has a fixed shape: at most three inline comments, then one summary comment with the same headings each time (verdict, blockers, non-blocking notes, resolved earlier findings, reviewed areas) and a merge-readiness score from 1 to 5. With a fixed shape, a blocker is easy to find.
+
+The tool list does the rest. The reviewer gets read tools and a short list of read-only `git` and `gh` commands. Edits, writes, web access, checkout, commit, push, every `gh pr` command that changes state, and `gh api` are on a deny list. The validator gets only Read, Grep, and Glob, and 20 turns.
+
+### What one review costs now
+
+From 17 to 21 November the reviewer ran 71 times. 67 of those runs, on 39 pull requests, stored their usage. These are the medians of the 67, next to the first live review of the custom reviewer from September:
+
+| Measure | Current reviewer, median of 67 | Custom reviewer, first review |
+| --- | ---: | ---: |
+| Review time | 1 min 40 s | 17 min 12 s |
+| Model turns | 20 | 72 |
+| Tokens | 0.97 million | 3.67 million |
+
+That is about 10x less time, 3.6x fewer turns, and 3.8x fewer tokens for one review. The middle half of the current runs took between 60 and 140 seconds. Of all the tokens, 92% were cache reads: each turn sends the conversation so far again, and the cache makes that cheap. The comparison is a median against one sample, and the two reviewers looked at different pull requests, so it shows the size of the gap and not an exact factor.
+
 ## Review moved into the agent's own loop
 
 The larger change is where the first review happens. Since 8 October, the agent that writes a change must review it before it verifies it. It runs a code review skill on its own diff, adds a React review when React code changed, fixes the confirmed blockers, and reviews again.
@@ -157,11 +182,93 @@ The skill holds the same standard as the reviewer in CI. A finding needs a chang
 
 This review runs in the session that already has the change in context, so it starts no CI job. The reviewer in CI is now a second opinion that a person asks for.
 
+### What the skill asks for
+
+The skill has a completion bar, and the agent may not finish its review until every line of it is true: the problem and the expected result are clear, every changed file was read in the full diff, the callers and failure paths were checked, the earlier comments and human replies were read, and every finding has direct evidence and a concrete failure case.
+
+The re-review rules matter as much as the first pass, because an agent fixes its own findings and then reviews again. An earlier finding is marked fixed only when its failure path is gone. It stays open when the fix is partial, and it is dropped when the earlier evidence was wrong. A fixed, stale, or corrected comment is never repeated.
+
+The skill also says what not to report: formatting, lint, generated files, and test cleanup. Lint already rejects the mechanical cases, so the reviewer does not spend a finding on them.
+
+### Teaching the reviewer what matters
+
+The finding standard keeps noise out, but it does not tell the reviewer where the expensive mistakes are. In November I added a reference on hot paths, which the skill loads only when a change touches database queries, migrations, server procedures, regular expressions, or input validation. It lists five kinds of cost: a query for each item in a loop, a read without a limit on a table that grows, independent work done one call at a time, a network call inside a transaction, and a regex or schema built again on each call.
+
+Its first rule is the useful one. An item is a finding only when it runs for each request, poll, row, or agent turn, or when it can lock or rewrite a large table, and the finding must give the row count, call count, or input size that makes it matter. Without that rule, a reviewer flags every loop. With it, this kind of code gets a comment with a number in it:
+
+```ts
+// One query for each run. With 50 runs on the page, that is 50 round trips.
+const steps = await Promise.all(
+  runs.map((run) => db.select().from(stepTable).where(eq(stepTable.runId, run.id))),
+);
+
+// One query, grouped in memory.
+const rows = await db
+  .select()
+  .from(stepTable)
+  .where(inArray(stepTable.runId, runs.map((run) => run.id)));
+const stepsByRun = Map.groupBy(rows, (row) => row.runId);
+```
+
+The same reference holds the rules for migrations that I would otherwise repeat in review: one concurrent index build in each migration file, a lock timeout around blocking DDL, and an index on the child column of each new cascading foreign key.
+
+## Set it up in another repository
+
+The setup is two jobs in one workflow. The first consumes the request label, and the second runs the review. This is a skeleton with the shape of ours. The SHAs are placeholders, and the prompt is cut to its headings:
+
+```yaml
+name: Review on request
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  consume-label:
+    if: github.event.label.name == 'needs-review' && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # issues: write alone returns 403 for a label removal
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr edit ${{ github.event.pull_request.number }} -R ${{ github.repository }} --remove-label needs-review
+
+  review:
+    needs: consume-label
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@<sha> # v7.0.1
+        with:
+          fetch-depth: 10
+      - uses: anthropics/claude-code-action@<sha> # pin an exact v1 release
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          use_sticky_comment: "true"
+          prompt: |
+            Read before you judge. The standard. Earn each finding.
+            One independent check: call finding-validator once with the whole batch.
+            Output: at most three inline comments, one summary comment.
+          claude_args: |
+            --model <exact model id>
+            --max-turns 120
+            --agents '{"finding-validator": {"description": "Check the batch of findings", "tools": ["Read", "Grep", "Glob"], "maxTurns": 20, "prompt": "..."}}'
+            --allowedTools "Agent(finding-validator),Read,Grep,Glob,Bash(git diff:*),Bash(gh pr diff:*)"
+            --disallowedTools "Edit,Write,WebFetch,Bash(git push:*),Bash(gh api:*)"
+```
+
+Four choices in it come from the rounds above. The label is removed at the start, so a request made during a review is not lost. The model has an exact identifier, so it changes only in a pull request. The turn limit has room above the longest review that you have seen. And the validator is a separate agent with its own short tool list, so the agent that found a bug is not the one that confirms it.
+
 ## How this saves cost
 
 - **Fewer runs.** From 3.7 review runs for each pull request in August to 0.54 in the four weeks after the review became opt-in.
 - **Shorter runs.** The median run took 3 min 26 s in August and 2 min 43 s in those four weeks.
 - **Less run time in total.** The successful review runs of August add up to 78.5 hours. In the four opt-in weeks they add up to 11.5 hours, which is about 6x less for each day, with more pull requests opened.
+- **Fewer tokens for each review.** A median of 0.97 million in November, against 3.67 million for the first review of the custom reviewer.
 - **Less code.** 326 lines in two files, against 2,699 in eight.
 - **Mechanical checks in lint.** A lint rule finds the same mistake on every run. A model does not have to find it again.
 
@@ -171,5 +278,7 @@ This review runs in the session that already has the change in context, so it st
 - **Defects that the old schedule would have caught.** A review on every push looks at more commits. I did not measure what the opt-in review misses.
 - **Tokens for each review, across the tools.** I have one sample for the custom reviewer and the counts of one unfinished pilot for the third tool.
 - **The cause of the pilot timeouts.**
+- **Whether the validator rule always holds.** One validator call for each batch, and publication of confirmed findings only, are instructions in the prompt. They are not a deterministic gate on the output, and I have not audited the runs for a review that skipped the validator.
+- **Cost over a longer window.** The usage medians are from five days in November. The metrics artifacts are kept for seven days, so older runs have none.
 - **The first review in the agent's session.** It runs on the developer's machine, and I have no count of its runs or its findings.
 - **The run counts have limits.** A run is a successful run of the review workflow. The three periods have 30, 31, and 28 days, and each is compared with the pull requests opened in it.

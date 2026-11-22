@@ -2,7 +2,7 @@
 title: "Copy-on-write git worktrees: twenty worktrees for the disk of one"
 seoTitle: "git-twig: Copy-on-Write Git Worktrees on APFS, Measured"
 description: "git twig new creates a linked worktree from APFS clones of the tracked files. Measured on Vite and ripgrep: real disk for 1, 5 and 20 worktrees, creation time, and how the saving decays."
-date: "2026-12-28"
+date: "2026-12-08"
 ogImage: "/images/2027-git-twig-cow-worktrees-og.png"
 slug: "git-twig-copy-on-write-worktrees"
 tags:
@@ -11,6 +11,7 @@ tags:
   - "agents"
 ---
 
+import { BeforeAfterBars } from "@/components/paper/BeforeAfterBars";
 import { LineFigure } from "@/components/paper/LineFigure";
 import { NumberBand } from "@/components/paper/NumberBand";
 import { RankBars } from "@/components/paper/RankBars";
@@ -79,6 +80,27 @@ git-twig: native preparation: snapshot 0.514s; raw verification/repair 1.414s; t
 ```
 
 <TwigNewPipeline />
+
+## Which files get cloned
+
+Step 4 decides file by file, and the decision depends on `.gitattributes`. A clone is only correct when the working file must hold exactly the bytes of the blob, so git-twig asks `git check-attr` for every path before it clones anything ([`checkout.rs`](https://github.com/leostera/git-twig/blob/v0.5.0/crates/git-twig/src/checkout.rs)):
+
+- A file with no conversion, `eol=lf`, or `text=auto` under the default `core.autocrlf=false` is cloned and verified.
+- A file with `eol=crlf`, `ident`, `working-tree-encoding` or the old `crlf` attribute is written by `git checkout-index`, because Git changes its bytes on checkout.
+- Any `filter` attribute stops the fast path for the whole worktree. git-twig will not run an external program in its private staging and then again in the fallback.
+- A submodule, `core.symlinks=false`, replace refs or grafts also fall back to stock Git.
+
+The `filter` rule matters most, because Git LFS works through `filter=lfs`. I added one LFS line for `*.md` to a copy of ripgrep and ran `git twig new` with tracing:
+
+```text
+git-twig: stock Git: checkout attribute filter="lfs" on ".github/ISSUE_TEMPLATE/feature_request.md" requires stock Git
+```
+
+One LFS pattern anywhere in the repository turns every `git twig new` into a plain `git worktree add`. Line-ending rules cost less. With `*.rs text eol=crlf`, the same repository gave `125 verified file clones, 102 Git-written paths`: the 102 Rust files got their CRLF copies from Git, and everything else was cloned.
+
+The user's Git config counts as much as the repository. With `core.autocrlf=true`, the default choice of the Git for Windows installer, every text file needs conversion on checkout, and only files that contain a NUL byte, which Git treats as binary, can be cloned. On plain ripgrep with no `.gitattributes`, `git -c core.autocrlf=true twig new` gave `8 verified file clones, 218 Git-written paths`, so almost nothing was shared. With `core.autocrlf=input`, which converts only on commit, all 226 regular files were cloned. `git config --show-origin core.autocrlf` shows where the setting comes from.
+
+Verification is the slow part of creation. It runs `git hash-object --no-filters --stdin-paths` over the cloned files, with up to four workers in parallel, but only when there are at least 512 files and 64 MiB of data ([`objects.rs`](https://github.com/leostera/git-twig/blob/v0.5.0/crates/git-twig/src/objects.rs)). Vite's 18 MB gets one worker, which is why verification took 1.4 s of the 2.2 s in the trace above.
 
 ## The test
 
@@ -155,6 +177,24 @@ In a twig worktree the copy and the build take 0.65 s together, and Cargo compil
 
 That is one way to give every worktree a build. [Part 2](/blog/rust-build-cache-worktrees-mbx/) covers the other, one shared build cache.
 
+## With mbx
+
+The two tools split the work: git-twig shares the tracked files, and mbx shares the build output. mbx does not depend on modification times, because its keys come from file contents, and it gives every worktree its own managed `target/` made of clones from its store. I put the mdBook repository from part 2 and the mbx cache on a fresh APFS volume, built the main checkout once with `mbx build`, and then created four more worktrees on the same commit, each followed by `mbx build`:
+
+<BeforeAfterBars
+  title="New disk for four mdBook worktrees, each with a debug build from mbx"
+  unit="MB"
+  beforeLabel="git worktree add"
+  afterLabel="git twig new"
+  data={[{ label: "four worktrees", before: 23.0, after: 7.4 }]}
+  caption="mdBook v0.5.4, mbx 1.30.0, Rust 1.100.0. Volume Used Space on a dedicated APFS image, after the main checkout was built once. Per worktree: 5.7 MB and 1.8 MB."
+/>
+
+Every build restored all 8 workspace crates from the store and took 1.5 to 1.9 s. A worktree with a complete debug build of a 262-package project cost 1.8 MB. For parallel agents this is the combination to start from: the first build of a commit pays in full, and each further worktree costs a few seconds and a few megabytes.
+
+Cleanup works across the two as well. `git twig remove` deletes the worktree, and mbx collects a managed target once its checkout is gone, at its next collection run. Until then the target still counts against mbx's budget in logical bytes, though on APFS it holds almost no blocks of its own.
+
+
 ## Creation time
 
 <RankBars
@@ -205,6 +245,34 @@ A new worktree on another branch or an old commit shares only the files that mat
 
 `git twig adopt` is experimental in 0.5.0. On a plain worktree, `adopt --dry-run` reported `matched_files=2660 matched_logical_bytes=17923990 skipped_files=356 kernel_deduped_bytes=0; physical savings NOT measured`. `--prepare` wrote its 2,660 candidates as verified clones into `.git/twig-adopt-prototype-*` and left them there, without replacing a file. `--dedupe` on APFS stops with `in-place adoption is Linux-only; APFS live file replacement is intentionally unsupported`. In this release adopt does not reclaim space on macOS.
 
+## Silent fallbacks
+
+A fallback is not an error. Without `TWIG_TRACE=1`, git-twig prints nothing about it and creates a plain worktree, so the only sign is the disk. I asked for a twig worktree on a second APFS volume, with the repository on the boot volume:
+
+```text
+git-twig: stock Git: Git metadata and destination are on different filesystems
+```
+
+The worktree was registered and complete, at full size. The same thing happens with the filters above, with an option such as `--lock`, and on a filesystem without reflinks. Run one creation with tracing in each new repository or machine before you rely on the numbers in this post. For a script or an agent harness, the trace also makes a cheap check: a line that starts with `git-twig: stock Git:` means the worktree is a plain one, and the rest of the line says why.
+
+## On Linux
+
+On Linux git-twig walks the tracked files and clones each one with the `FICLONE` ioctl, because that call works on single files and not on directories ([`snapshot.rs`](https://github.com/leostera/git-twig/blob/v0.5.0/crates/git-twig/src/snapshot.rs)). XFS with reflinks and Btrfs support it; ext4 does not. I ran the ripgrep test in a privileged `rust:1.100.0-trixie` container (Git 2.47.3), on two 3 GB loop devices, one formatted `mkfs.xfs -m reflink=1` and one `mkfs.ext4`, and read `df` before and after 20 worktrees:
+
+<RankBars
+  title="Disk used by 20 ripgrep worktrees on Linux"
+  unit="MB"
+  rows={[
+    { label: "ext4: git worktree add", value: 83.7 },
+    { label: "ext4: git twig new", value: 83.7, mark: "rose", note: "fell back" },
+    { label: "XFS: git worktree add", value: 81.9 },
+    { label: "XFS: git twig new", value: 4.4, mark: "lilac", note: "19× less" },
+  ]}
+  caption="git-twig 0.5.0 built from the v0.5.0 tag, Linux 7.0 in Docker Desktop. Change in used space reported by df, MB is 10^6 bytes."
+/>
+
+On XFS a twig worktree cost 0.22 MB against 4.09 MB for `git worktree add`, the same order as on APFS (0.15 against 4.06). The trace reported `Linux reflink CoW: verified tracked files`. On ext4 the clone failed with `Operation not supported (os error 95)`, git-twig fell back, and the 20 worktrees used as much as 20 plain ones. ext4 is still the default filesystem of many distributions, so check with `df -T` before you count on the saving.
+
 ## The alternatives I tested
 
 - `git clone --shared`, `--local` and `--reference` share objects, not the working tree. Each Vite clone used 30.6 MB, the same as `git worktree add`.
@@ -217,6 +285,9 @@ A new worktree on another branch or an old commit shares only the files that mat
 - Creation is 2.1 to 4.7 times slower for the files alone.
 - It needs APFS, Btrfs or XFS with reflinks, with the repository, its `.git` and the new worktree on one filesystem. On ext4 or NTFS you get plain `git worktree add`.
 - Only `-b` and `--detach` take the fast path. An app that calls `git worktree add` itself gets no saving; `git twig skill` prints instructions that tell an agent to call `git twig new`.
+- A `filter` attribute anywhere, such as Git LFS, disables it for the whole repository.
+- `core.autocrlf=true` in the user's config, or `eol=crlf` in `.gitattributes`, makes Git write the affected files instead of cloning them.
+- A fallback prints nothing unless `TWIG_TRACE=1` is set, so a misconfigured machine looks like it works and uses full disk.
 - Only tracked, committed files are shared. Dependencies and build output need their own plan.
 - Clones diverge as files are written, and the sharing does not come back.
 - `du` reports the full size of every clone. Measure on a separate volume.
@@ -228,6 +299,10 @@ A new worktree on another branch or an old commit shares only the files that mat
 - [git-twig website](https://twig.leostera.dev/)
 - [git-twig on crates.io](https://crates.io/crates/git-twig)
 - [clonefile(2) man page, Apple xnu source](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/man/man2/clonefile.2)
+- git-twig source at v0.5.0: [checkout.rs](https://github.com/leostera/git-twig/blob/v0.5.0/crates/git-twig/src/checkout.rs), [objects.rs](https://github.com/leostera/git-twig/blob/v0.5.0/crates/git-twig/src/objects.rs), [snapshot.rs](https://github.com/leostera/git-twig/blob/v0.5.0/crates/git-twig/src/snapshot.rs)
+- [ioctl_ficlone(2)](https://man7.org/linux/man-pages/man2/ioctl_ficlone.2.html)
+- [gitattributes documentation](https://git-scm.com/docs/gitattributes)
+- [Git LFS: how the filter works](https://github.com/git-lfs/git-lfs/blob/main/docs/spec.md)
 - [git-worktree documentation](https://git-scm.com/docs/git-worktree)
 - [git-clone documentation: --shared, --local, --reference](https://git-scm.com/docs/git-clone)
 - [git-sparse-checkout documentation](https://git-scm.com/docs/git-sparse-checkout)
