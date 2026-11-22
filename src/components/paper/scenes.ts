@@ -8,7 +8,15 @@ import type { MarkName } from './Figure'
  * Each call must return the same number of shapes in the same order.
  */
 export type ShapeKind =
-  'line' | 'far' | 'bold' | 'dash' | 'mark' | 'bar' | 'dot' | 'node' | 'run'
+  | 'line'
+  | 'far'
+  | 'bold'
+  | 'dash'
+  | 'mark'
+  | 'bar'
+  | 'dot'
+  | 'node'
+  | 'run'
 
 export type Shape = { d: string; k: ShapeKind; c?: MarkName }
 export type Scene = (time: number, pointer: number | null) => Array<Shape>

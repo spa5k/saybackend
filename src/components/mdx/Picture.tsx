@@ -1,7 +1,9 @@
 import type { ComponentType, ImgHTMLAttributes, SVGProps } from 'react'
 
 type AssetSource =
-  string | { src?: string } | ComponentType<SVGProps<SVGSVGElement>>
+  | string
+  | { src?: string }
+  | ComponentType<SVGProps<SVGSVGElement>>
 
 type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
   src: AssetSource

@@ -21,7 +21,6 @@ export default [
       'src/components/react/**',
       'src/components/ui/**',
       'eslint.config.js',
-      'prettier.config.js',
     ],
   },
 ]
