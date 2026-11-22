@@ -37,7 +37,7 @@
     "clsx": "^2.1.1",
     "github-slugger": "^2.0.0",
     "katex": "^0.19.1",
-    "lucide-react": "^1.73.0",
+    "lucide-react": "^1.77.0",
     "minisearch": "^7.2.0",
     "outrank-next-js-blog": "^0.1.2",
     "react": "^19.3.1",
@@ -50,12 +50,12 @@
     "remark-math": "^6.0.0",
     "remark-mdx-frontmatter": "^6.0.0",
     "shiki": "^4.6.0",
-    "tailwind-merge": "^3.7.0",
+    "tailwind-merge": "^3.7.1",
     "tailwindcss": "^4.3.5",
     "vite-plugin-svgr": "^5.2.0"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.69.1",
+    "@cloudflare/vite-plugin": "^1.70.1",
     "@shikijs/rehype": "^4.6.0",
     "@tanstack/devtools-vite": "latest",
     "@tanstack/eslint-config": "latest",
@@ -68,7 +68,7 @@
     "oxfmt": "0.79.0",
     "typescript": "^6.0.3",
     "vite": "^8.3.8",
-    "wrangler": "^4.162.0",
+    "wrangler": "^4.166.0",
     "yaml": "^2.9.1"
   },
   "pnpm": {
@@ -79,6 +79,6 @@
   },
   "overrides": {
     "katex": "$katex",
-    "minimatch": "^11.0.8"
+    "minimatch": "^11.0.9"
   }
 }
