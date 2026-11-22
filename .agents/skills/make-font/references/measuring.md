@@ -10,25 +10,25 @@ All lengths come from straight cuts through the outline (or the pixels): a line 
 between entering and leaving is the measure. Runs use nonzero winding, so overlapping contours in a variable
 font instance read as one shape.
 
-| Number | Where |
-|-|-|
-| x-height | top of x |
-| cap height | top of H |
-| ascender | mean top of b d h k l |
-| descender | mean bottom of p q |
-| curved overshoot | top of o minus x-height, top of O minus cap height |
-| n stem | first run across n at half the x-height |
-| n counter | white between the two runs of n at the same height |
-| H stem | first run across H at 30 % of the cap height |
-| H bar | vertical run at the middle of H, between its stems |
-| o side, o thin | run across o at mid height, and the thinnest vertical run at its centre |
-| contrast | o thin over o side |
-| serif reach | how far the foot of H, 1 % above the baseline, reaches past the stem, mean of both sides |
-| serif tip | vertical thickness of the foot 30 % of the way in from its tip |
-| class widths | mean advance of each class in `fontlib.CLASSES` |
-| sidebearings | mean side of each class in `fontlib.SIDE_CLASSES` (straight and curved, lowercase and caps) |
-| rhythm | twice the straight side over the n counter. It carries spacing from a screenshot to a font |
-| paragraph | the fixed paragraph in `fontlib.PARA`, shaped by HarfBuzz with kerning and ligatures |
+| Number           | Where                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------- |
+| x-height         | top of x                                                                                    |
+| cap height       | top of H                                                                                    |
+| ascender         | mean top of b d h k l                                                                       |
+| descender        | mean bottom of p q                                                                          |
+| curved overshoot | top of o minus x-height, top of O minus cap height                                          |
+| n stem           | first run across n at half the x-height                                                     |
+| n counter        | white between the two runs of n at the same height                                          |
+| H stem           | first run across H at 30 % of the cap height                                                |
+| H bar            | vertical run at the middle of H, between its stems                                          |
+| o side, o thin   | run across o at mid height, and the thinnest vertical run at its centre                     |
+| contrast         | o thin over o side                                                                          |
+| serif reach      | how far the foot of H, 1 % above the baseline, reaches past the stem, mean of both sides    |
+| serif tip        | vertical thickness of the foot 30 % of the way in from its tip                              |
+| class widths     | mean advance of each class in `fontlib.CLASSES`                                             |
+| sidebearings     | mean side of each class in `fontlib.SIDE_CLASSES` (straight and curved, lowercase and caps) |
+| rhythm           | twice the straight side over the n counter. It carries spacing from a screenshot to a font  |
+| paragraph        | the fixed paragraph in `fontlib.PARA`, shaped by HarfBuzz with kerning and ligatures        |
 
 A serif counts as present when its reach is more than 12 % of the stem. Below that the font is treated as sans
 and both serif numbers are 0.

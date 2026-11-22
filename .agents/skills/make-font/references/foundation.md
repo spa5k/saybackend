@@ -28,15 +28,15 @@ in its subsets, a main script that is one of them, an upright style, and no math
 
 Distance is the root of the weighted sum of squared, scaled gaps (`fontlib.DISTANCE`):
 
-| Number | One unit of distance | Weight |
-|-|-|-|
-| x-height to cap | 0.015 | 3 |
-| contrast | 0.06 | 2 |
-| serif reach | 12 | 1.5 |
-| ascender, descender | 15 | 1 |
-| bar to stem, rhythm | 0.08 | 1 |
-| serif tip | 10 | 1 |
-| each class width | 2.5 % | 0.5, or 0.125 with a width axis |
+| Number              | One unit of distance | Weight                          |
+| ------------------- | -------------------- | ------------------------------- |
+| x-height to cap     | 0.015                | 3                               |
+| contrast            | 0.06                 | 2                               |
+| serif reach         | 12                   | 1.5                             |
+| ascender, descender | 15                   | 1                               |
+| bar to stem, rhythm | 0.08                 | 1                               |
+| serif tip           | 10                   | 1                               |
+| each class width    | 2.5 %                | 0.5, or 0.125 with a width axis |
 
 A serif against a sans adds 50: never fit one into the other. The score adds a penalty for axes the fit needs:
 0 with width and weight, 0.5 to 0.75 with weight alone, 1.5 for a static font.

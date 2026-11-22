@@ -6,16 +6,31 @@ names shapes on a grid, OFL glyphs, and traces made by `trace_ref.py`. The full 
 ## A direction
 
 ```json
-{"name": "Fieldnote", "title": "Survey ring", "idea": "A level's sighting ring, one quarter left open.",
- "grid": 48,
- "mark": [
-  {"shape": "ring", "cx": 24, "cy": 24, "r": 20, "width": 7},
-  {"op": "cut", "shape": "rect", "x": 24, "y": 0, "w": 24, "h": 24},
-  {"shape": "rect", "x": 27, "y": 4, "w": 17, "h": 17, "r": 2}
- ],
- "wordmark": {"text": "FIELDNOTE", "font": "Space Grotesk", "weight": 500, "tracking": 60},
- "lockup": {"mark_scale": 1.9, "gap": 0.8},
- "palette": {"ink": "#0f3d2e", "paper": "#f2f3ee", "accent": "#c4ea3f", "neutral": "#8fa39a", "tint": "#dfe7e1"}}
+{
+  "name": "Fieldnote",
+  "title": "Survey ring",
+  "idea": "A level's sighting ring, one quarter left open.",
+  "grid": 48,
+  "mark": [
+    { "shape": "ring", "cx": 24, "cy": 24, "r": 20, "width": 7 },
+    { "op": "cut", "shape": "rect", "x": 24, "y": 0, "w": 24, "h": 24 },
+    { "shape": "rect", "x": 27, "y": 4, "w": 17, "h": 17, "r": 2 }
+  ],
+  "wordmark": {
+    "text": "FIELDNOTE",
+    "font": "Space Grotesk",
+    "weight": 500,
+    "tracking": 60
+  },
+  "lockup": { "mark_scale": 1.9, "gap": 0.8 },
+  "palette": {
+    "ink": "#0f3d2e",
+    "paper": "#f2f3ee",
+    "accent": "#c4ea3f",
+    "neutral": "#8fa39a",
+    "tint": "#dfe7e1"
+  }
+}
 ```
 
 - **Shapes**: `rect` (with `r` for rounded corners), `circle`, `ring`, `arc` (a band from `start` to `end` degrees),
@@ -93,13 +108,13 @@ Pull the first letter out as the mark with a `glyph` shape and set the name in t
 
 `check_logo.py` renders each mark with resvg and fails a direction on any of:
 
-| Check | Pass |
-|-|-|
-| Stroke at 16 px | 1.5 px or more (median stroke at 512, scaled) |
-| Counters at 16 px | every hole at 512 px still open |
-| Ink on paper | 4.5:1 or more |
-| Accent against paper or ink | 3:1 or more |
-| Nearest reference | under the calibrated limit |
+| Check                       | Pass                                          |
+| --------------------------- | --------------------------------------------- |
+| Stroke at 16 px             | 1.5 px or more (median stroke at 512, scaled) |
+| Counters at 16 px           | every hole at 512 px still open               |
+| Ink on paper                | 4.5:1 or more                                 |
+| Accent against paper or ink | 3:1 or more                                   |
+| Nearest reference           | under the calibrated limit                    |
 
 On the test brief (three directions for a site-inspection app), all three passed: strokes 2.7 to 4.4 px at 16 px,
 nearest reference 0.15, 0.36 and 0.73 against a limit of 0.81.

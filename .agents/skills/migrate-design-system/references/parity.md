@@ -6,7 +6,7 @@ Dozens of behaviour regressions in one migration passed typecheck, lint, unit te
 
 ## The classes
 
-**Numbers and amounts.** Type and paste these 19 into each control: `2.5`, `-3`, `1e3`, `12.50`, `0.123456789`, `1,234.56`, `  42 `, empty, `abc`, `12abc`, `007`, `-0`, a 20-digit number, `1.2.3`, `.5`, `5.`, `+3`, a Unicode minus, `1 000`. Compare what the box shows, what the control commits, and whether submit is enabled.
+**Numbers and amounts.** Type and paste these 19 into each control: `2.5`, `-3`, `1e3`, `12.50`, `0.123456789`, `1,234.56`, ` 42`, empty, `abc`, `12abc`, `007`, `-0`, a 20-digit number, `1.2.3`, `.5`, `5.`, `+3`, a Unicode minus, `1 000`. Compare what the box shows, what the control commits, and whether submit is enabled.
 Wrong: an integer field commits 25 for `2.5`, 3 for `-3`, 13 for `1e3`, and sends `12.50` as `12.5`. Wrong: a box holding `abc` submits the last good value. Right: the same answers as before, a rejected row a person approved, and submit refused while the text does not parse.
 
 **Dates.** Run every date surface under `TZ=America/Los_Angeles` and `TZ=Asia/Tokyo` at least, and compare the payload, not the label. If legacy already answers differently per zone, report it and fix it only as an `intended change` row.

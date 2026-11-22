@@ -59,13 +59,13 @@ exclusive. SCRIPT.md and timing.ts change together.
 
 Shape that works for 20 to 24 s at 120 BPM (30 frames a beat):
 
-| Part | Share | Does |
-|-|-|-|
-| Hook | 30 to 35% | the situation and the problem, told slowly |
-| Turn | 5% | the beat drops; the product acts |
-| Proof | 35 to 40% | the signature move and one or two scenes that show it is real |
-| Payoff | 10 to 15% | the result in use |
-| End | 10% | the name, the command, the domain |
+| Part   | Share     | Does                                                          |
+| ------ | --------- | ------------------------------------------------------------- |
+| Hook   | 30 to 35% | the situation and the problem, told slowly                    |
+| Turn   | 5%        | the beat drops; the product acts                              |
+| Proof  | 35 to 40% | the signature move and one or two scenes that show it is real |
+| Payoff | 10 to 15% | the result in use                                             |
+| End    | 10%       | the name, the command, the domain                             |
 
 ## Captions
 
@@ -78,10 +78,10 @@ Shape that works for 20 to 24 s at 120 BPM (30 frames a beat):
 
 ## Formats
 
-| Where | Size | Notes |
-|-|-|-|
-| X, default | 1350x1080 (5:4), rendered at 2700x2160 | biggest a feed will show on desktop and phone |
-| X, wide | 1920x1080 | for a product UI that is wide |
-| Stories, Reels, TikTok | 1080x1920 | captions higher: the bottom 20% is covered by the app |
+| Where                  | Size                                   | Notes                                                 |
+| ---------------------- | -------------------------------------- | ----------------------------------------------------- |
+| X, default             | 1350x1080 (5:4), rendered at 2700x2160 | biggest a feed will show on desktop and phone         |
+| X, wide                | 1920x1080                              | for a product UI that is wide                         |
+| Stories, Reels, TikTok | 1080x1920                              | captions higher: the bottom 20% is covered by the app |
 
 60 fps for anything with UI in it; at 24 it reads as choppy.

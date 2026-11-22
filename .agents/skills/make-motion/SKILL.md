@@ -11,12 +11,12 @@ The person brings an idea: a product, a feature, a launch. This skill turns it i
 graphics video, for X by default, that a stranger understands with the sound off, and that looks made by hand. It runs the whole loop by itself unless
 the person asks to approve each stage (`step`).
 
-| You say | It does |
-|-|-|
-| `/make-motion <idea>` | the whole loop, one shot |
-| `/make-motion step <idea>` | stops for a yes after the script, the stills and the review cut |
-| `/make-motion roast <idea>` | step 2 only: the roasted pitch and three hooks |
-| `/make-motion theme <source>` | step 3 only: resolves and checks a theme |
+| You say                       | It does                                                         |
+| ----------------------------- | --------------------------------------------------------------- |
+| `/make-motion <idea>`         | the whole loop, one shot                                        |
+| `/make-motion step <idea>`    | stops for a yes after the script, the stills and the review cut |
+| `/make-motion roast <idea>`   | step 2 only: the roasted pitch and three hooks                  |
+| `/make-motion theme <source>` | step 3 only: resolves and checks a theme                        |
 
 ## Before anything
 

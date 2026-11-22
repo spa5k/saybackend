@@ -25,11 +25,11 @@ The entry, then Sources, Conflicts, Guessed at, and Gates (a question with its d
 
 ## Stops
 
-| Missing after searching | Why it stops |
-|---|---|
-| The code | Nothing else sources the variants, props or behaviour |
-| The variant list (props type or stories) | A guessed list documents a different component |
-| Any use, real or planned | Invented uses read like real ones and readers copy them first |
+| Missing after searching                  | Why it stops                                                  |
+| ---------------------------------------- | ------------------------------------------------------------- |
+| The code                                 | Nothing else sources the variants, props or behaviour         |
+| The variant list (props type or stories) | A guessed list documents a different component                |
+| Any use, real or planned                 | Invented uses read like real ones and readers copy them first |
 
 A props type with no variant prop is an empty list. Variants reads "None" and the run goes on. One real use, planned uses and a deprecated predecessor are marked as such, not stopped on. A stopped run returns the stop, the facts sourced so far by section, and the smallest reply that unblocks it ("one screen name, what put the component there, and which variant showed").
 

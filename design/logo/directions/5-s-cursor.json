@@ -1,41 +1,41 @@
 {
- "name": "SayBackend",
- "title": "S and cursor",
- "idea": "A heavy serif S with a block cursor: writing that is still in progress.",
- "grid": 48,
- "mark": [
-  {
-   "shape": "glyph",
-   "text": "S",
-   "font": "Fraunces",
-   "weight": 900,
-   "x": 3,
-   "y": 42,
-   "cap": 36
+  "name": "SayBackend",
+  "title": "S and cursor",
+  "idea": "A heavy serif S with a block cursor: writing that is still in progress.",
+  "grid": 48,
+  "mark": [
+    {
+      "shape": "glyph",
+      "text": "S",
+      "font": "Fraunces",
+      "weight": 900,
+      "x": 3,
+      "y": 42,
+      "cap": 36
+    },
+    {
+      "shape": "rect",
+      "x": 32,
+      "y": 34,
+      "w": 13,
+      "h": 8
+    }
+  ],
+  "wordmark": {
+    "text": "SayBackend",
+    "font": "Fraunces",
+    "weight": 700,
+    "tracking": -10
   },
-  {
-   "shape": "rect",
-   "x": 32,
-   "y": 34,
-   "w": 13,
-   "h": 8
+  "lockup": {
+    "mark_scale": 1.8,
+    "gap": 0.8
+  },
+  "palette": {
+    "ink": "#141413",
+    "paper": "#faf9f5",
+    "accent": "#abd3a6",
+    "neutral": "#73726c",
+    "tint": "#e3e0d3"
   }
- ],
- "wordmark": {
-  "text": "SayBackend",
-  "font": "Fraunces",
-  "weight": 700,
-  "tracking": -10
- },
- "lockup": {
-  "mark_scale": 1.8,
-  "gap": 0.8
- },
- "palette": {
-  "ink": "#141413",
-  "paper": "#faf9f5",
-  "accent": "#abd3a6",
-  "neutral": "#73726c",
-  "tint": "#e3e0d3"
- }
 }

@@ -18,6 +18,7 @@ is always V, so the card lands as a cadence, V to I. The top line is written per
 whichever chord the drop puts under it, it never rubs.
 
 `punchy`, swung half-time hip-hop, 120 BPM by default:
+
 - A chord every 4 beats: in minor i9, iv9, VImaj9, V7b9 (Dm9 Gm9 Bbmaj9 A7b9); in major Imaj9, vi9, IVmaj9, V13
   (Dmaj9 Bm9 Gmaj9 A13).
 - The story bars (the hook) are keys, vinyl crackle and soft hats only. The beat drops on the story's turn.
@@ -30,6 +31,7 @@ whichever chord the drop puts under it, it never rubs.
   land on the card.
 
 `calm`, lo-fi at 80 BPM (45 frames a beat at 60 fps):
+
 - A straight 4/4 bar of 16 sixteenths, odd ones a fifteenth of a beat late (50 ms at 80 BPM), and a chord a bar: in
   minor i9, iv9, VII13, IIImaj9, with V7(b9 b13) forced before the card (Dm9 Gm9 C13 Fmaj9, A7); in major Imaj9, vi9,
   ii9, IVmaj9, with V13 (Dmaj9 Bm9 Em9 Gmaj9, A13).
@@ -62,16 +64,16 @@ whooshes. A whoosh under a whip at about -7 dB is the one exception, and only in
 `npm run audio:check src/<name>` runs the checks marked below and exits 1 on a failure. Each one was a real bug in a
 shipped track. Energy bands are absolute dBFS on the preview mix.
 
-| Check | Pass | How |
-|-|-|-|
-| Loudness | -14.0 LUFS ± 0.5 | audio:check, and again with `--mp4` on the master |
-| True peak | at or under -2.8 dBTP in every file | audio:check |
-| Limiter gain reduction | under 4 dB | audio:check |
-| Kick onsets | within 4 ms of the grid, measured on the kick stem | audio:check |
-| No kick before the drop | the kick stem silent before `drop` | audio:check |
-| Sub under 30 Hz | under -40 dBFS (an FM sideband at 0 Hz showed up here) | audio:check |
-| Highs over 5 kHz | above -45 dBFS, or the beat vanishes on a phone speaker | audio:check |
-| Effects | every pitch in the track's scale (natural minor or major) | audio:check |
-| Chords | no semitone or minor 9th between the bell or tine and any chord tone sounding with it; no two chord tones under 200 Hz closer than a whole tone | audio:check, statically from the synth's own note list (`notes()`) |
-| Bass and kick | the bass at least 6 dB lower in the 30 ms after each kick than 120 ms later, or a held bass cancels the kick | audio:check, measured on the bass stem |
-| Review cuts | silent, and the hand-off says so | by hand |
+| Check                   | Pass                                                                                                                                            | How                                                                |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Loudness                | -14.0 LUFS ± 0.5                                                                                                                                | audio:check, and again with `--mp4` on the master                  |
+| True peak               | at or under -2.8 dBTP in every file                                                                                                             | audio:check                                                        |
+| Limiter gain reduction  | under 4 dB                                                                                                                                      | audio:check                                                        |
+| Kick onsets             | within 4 ms of the grid, measured on the kick stem                                                                                              | audio:check                                                        |
+| No kick before the drop | the kick stem silent before `drop`                                                                                                              | audio:check                                                        |
+| Sub under 30 Hz         | under -40 dBFS (an FM sideband at 0 Hz showed up here)                                                                                          | audio:check                                                        |
+| Highs over 5 kHz        | above -45 dBFS, or the beat vanishes on a phone speaker                                                                                         | audio:check                                                        |
+| Effects                 | every pitch in the track's scale (natural minor or major)                                                                                       | audio:check                                                        |
+| Chords                  | no semitone or minor 9th between the bell or tine and any chord tone sounding with it; no two chord tones under 200 Hz closer than a whole tone | audio:check, statically from the synth's own note list (`notes()`) |
+| Bass and kick           | the bass at least 6 dB lower in the 30 ms after each kick than 120 ms later, or a held bass cancels the kick                                    | audio:check, measured on the bass stem                             |
+| Review cuts             | silent, and the hand-off says so                                                                                                                | by hand                                                            |

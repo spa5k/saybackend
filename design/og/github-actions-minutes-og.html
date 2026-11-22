@@ -1,35 +1,201 @@
 <!doctype html>
-<meta charset="utf-8">
+<meta charset="utf-8" />
 <title>github-actions-minutes-og</title>
-<link rel="stylesheet" href="card.css">
-<svg width="0" height="0" style="position:absolute"><defs>
-<filter id="marker" x="-6%" y="-6%" width="112%" height="112%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="3" result="g"/><feColorMatrix in="g" type="luminanceToAlpha" result="a"/><feComposite in="SourceGraphic" in2="a" operator="arithmetic" k1="0" k2="1" k3="-.15" k4="0" result="i"/><feTurbulence type="fractalNoise" baseFrequency=".1" numOctaves="2" seed="8" result="w"/><feDisplacementMap in="i" in2="w" scale="2.8" xChannelSelector="R" yChannelSelector="G"/></filter>
-<pattern id="plus" width="44" height="44" patternUnits="userSpaceOnUse"><path d="M22 18v8M18 22h8" stroke="#141413" stroke-opacity=".13" fill="none"/></pattern>
-<pattern id="plus2" width="26" height="26" patternUnits="userSpaceOnUse"><path d="M13 9v8M9 13h8" stroke="#141413" stroke-opacity=".22" fill="none"/></pattern>
-<marker id="pa" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1L9 5L1 9" fill="none" stroke="#141413" stroke-width="1.6" stroke-linecap="round"/></marker>
-</defs></svg>
-<svg class="paper" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="url(#plus)"/></svg>
-<div class="brand"><svg viewBox="2 2 44 44"><path fill="#141413" d="M6 6 43 3 42.78 11.66 18.24 13.38 18.66 19.36 42.62 17.69 42 42 5 45 5.22 36.34 29.76 34.62 29.34 28.64 5.38 30.31Z"/></svg>SayBackend</div>
-<h1><span><b><svg viewBox="0 0 24 24" style="width:.82em;height:.82em;vertical-align:-.06em;margin-right:.22em"><path fill="#141413" d="M10.984 13.836a.5.5 0 0 1-.353-.146l-.745-.743a.5.5 0 1 1 .706-.708l.392.391 1.181-1.18a.5.5 0 0 1 .708.707l-1.535 1.533a.504.504 0 0 1-.354.146zm9.353-.147l1.534-1.532a.5.5 0 0 0-.707-.707l-1.181 1.18-.392-.391a.5.5 0 1 0-.706.708l.746.743a.497.497 0 0 0 .706-.001zM4.527 7.452l2.557-1.585A1 1 0 0 0 7.09 4.17L4.533 2.56A1 1 0 0 0 3 3.406v3.196a1.001 1.001 0 0 0 1.527.85zm2.03-2.436L4 6.602V3.406l2.557 1.61zM24 12.5c0 1.93-1.57 3.5-3.5 3.5a3.503 3.503 0 0 1-3.46-3h-2.08a3.503 3.503 0 0 1-3.46 3 3.502 3.502 0 0 1-3.46-3h-.558c-.972 0-1.85-.399-2.482-1.042V17c0 1.654 1.346 3 3 3h.04c.244-1.693 1.7-3 3.46-3 1.93 0 3.5 1.57 3.5 3.5S13.43 24 11.5 24a3.502 3.502 0 0 1-3.46-3H8c-2.206 0-4-1.794-4-4V9.899A5.008 5.008 0 0 1 0 5c0-2.757 2.243-5 5-5s5 2.243 5 5a5.005 5.005 0 0 1-4.952 4.998A2.482 2.482 0 0 0 7.482 12h.558c.244-1.693 1.7-3 3.46-3a3.502 3.502 0 0 1 3.46 3h2.08a3.503 3.503 0 0 1 3.46-3c1.93 0 3.5 1.57 3.5 3.5zm-15 8c0 1.378 1.122 2.5 2.5 2.5s2.5-1.122 2.5-2.5-1.122-2.5-2.5-2.5S9 19.122 9 20.5zM5 9c2.206 0 4-1.794 4-4S7.206 1 5 1 1 2.794 1 5s1.794 4 4 4zm9 3.5c0-1.378-1.122-2.5-2.5-2.5S9 11.122 9 12.5s1.122 2.5 2.5 2.5 2.5-1.122 2.5-2.5zm9 0c0-1.378-1.122-2.5-2.5-2.5S18 11.122 18 12.5s1.122 2.5 2.5 2.5 2.5-1.122 2.5-2.5zm-13 8a.5.5 0 1 0 1 0 .5.5 0 0 0-1 0zm2 0a.5.5 0 1 0 1 0 .5.5 0 0 0-1 0zm12 0c0 1.93-1.57 3.5-3.5 3.5a3.503 3.503 0 0 1-3.46-3.002c-.007.001-.013.005-.021.005l-.506.017h-.017a.5.5 0 0 1-.016-.999l.506-.017c.018-.002.035.006.052.007A3.503 3.503 0 0 1 20.5 17c1.93 0 3.5 1.57 3.5 3.5zm-1 0c0-1.378-1.122-2.5-2.5-2.5S18 19.122 18 20.5s1.122 2.5 2.5 2.5 2.5-1.122 2.5-2.5z"/></svg>GitHub Actions:</b>test runs on a pull request, <span class="circled">2x<svg viewBox="0 0 200 100" preserveAspectRatio="none"><path d="M12 56C6 26 44 7 104 8C162 9 196 26 193 54C190 82 148 95 94 93C42 91 9 78 9 50C9 32 24 17 52 11"/></svg></span> faster twice</span></h1>
-<svg class="art" viewBox="0 0 480 400">
-<rect x="20" y="72" width="96" height="228" fill="none" stroke="#73726c" stroke-width="1.6" stroke-dasharray="5 5"/>
-<text x="68" y="324" font-size="16" text-anchor="middle">9 min 29 s</text>
-<text x="68" y="346" font-size="14" class="dim" text-anchor="middle">8–12 Jun</text>
-<rect class="m" x="126" y="197" width="96" height="103" fill="#c8c4b2"/>
-<rect x="126" y="197" width="96" height="103" fill="none" stroke="#141413" stroke-width="2"/>
-<text x="174" y="324" font-size="16" text-anchor="middle">4 min 18 s</text>
-<text x="174" y="346" font-size="14" class="dim" text-anchor="middle">6–10 Jul</text>
-<rect x="250" y="117" width="96" height="183" fill="none" stroke="#73726c" stroke-width="1.6" stroke-dasharray="5 5"/>
-<text x="298" y="324" font-size="16" text-anchor="middle">7 min 38 s</text>
-<text x="298" y="346" font-size="14" class="dim" text-anchor="middle">5–9 Oct</text>
-<rect class="m" x="356" y="212" width="96" height="88" fill="#c8c4b2"/>
-<rect x="356" y="212" width="96" height="88" fill="none" stroke="#141413" stroke-width="2"/>
-<text x="404" y="324" font-size="16" text-anchor="middle">3 min 40 s</text>
-<text x="404" y="346" font-size="14" class="dim" text-anchor="middle">19–23 Oct</text>
-<text x="174" y="186" class="dim" text-anchor="middle">2.2x</text>
-<text x="326" y="90" class="hand" transform="rotate(-4 326 90)">2.1x, again</text>
-<path class="pen" d="M420 102C432 140 424 170 410 192" marker-end="url(#pa)"/>
-<text x="14" y="384" font-size="19">median test run on a pull request</text>
+<link rel="stylesheet" href="card.css" />
+<svg width="0" height="0" style="position: absolute">
+  <defs>
+    <filter
+      id="marker"
+      x="-6%"
+      y="-6%"
+      width="112%"
+      height="112%"
+      color-interpolation-filters="sRGB"
+    >
+      <feTurbulence
+        type="fractalNoise"
+        baseFrequency=".8"
+        numOctaves="2"
+        seed="3"
+        result="g"
+      />
+      <feColorMatrix in="g" type="luminanceToAlpha" result="a" />
+      <feComposite
+        in="SourceGraphic"
+        in2="a"
+        operator="arithmetic"
+        k1="0"
+        k2="1"
+        k3="-.15"
+        k4="0"
+        result="i"
+      />
+      <feTurbulence
+        type="fractalNoise"
+        baseFrequency=".1"
+        numOctaves="2"
+        seed="8"
+        result="w"
+      />
+      <feDisplacementMap
+        in="i"
+        in2="w"
+        scale="2.8"
+        xChannelSelector="R"
+        yChannelSelector="G"
+      />
+    </filter>
+    <pattern id="plus" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path
+        d="M22 18v8M18 22h8"
+        stroke="#141413"
+        stroke-opacity=".13"
+        fill="none"
+      />
+    </pattern>
+    <pattern id="plus2" width="26" height="26" patternUnits="userSpaceOnUse">
+      <path
+        d="M13 9v8M9 13h8"
+        stroke="#141413"
+        stroke-opacity=".22"
+        fill="none"
+      />
+    </pattern>
+    <marker
+      id="pa"
+      viewBox="0 0 10 10"
+      refX="8"
+      refY="5"
+      markerWidth="7"
+      markerHeight="7"
+      orient="auto"
+    >
+      <path
+        d="M1 1L9 5L1 9"
+        fill="none"
+        stroke="#141413"
+        stroke-width="1.6"
+        stroke-linecap="round"
+      />
+    </marker>
+  </defs>
 </svg>
-<div class="topic"><svg viewBox="0 0 20 20"><rect x="2" y="2" width="16" height="16" fill="#c8c4b2" filter="url(#marker)"/></svg>Other</div>
+<svg class="paper" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="url(#plus)" />
+</svg>
+<div class="brand">
+  <svg viewBox="2 2 44 44">
+    <path
+      fill="#141413"
+      d="M6 6 43 3 42.78 11.66 18.24 13.38 18.66 19.36 42.62 17.69 42 42 5 45 5.22 36.34 29.76 34.62 29.34 28.64 5.38 30.31Z"
+    /></svg
+  >SayBackend
+</div>
+<h1>
+  <span
+    ><b
+      ><svg
+        viewBox="0 0 24 24"
+        style="
+          width: 0.82em;
+          height: 0.82em;
+          vertical-align: -0.06em;
+          margin-right: 0.22em;
+        "
+      >
+        <path
+          fill="#141413"
+          d="M10.984 13.836a.5.5 0 0 1-.353-.146l-.745-.743a.5.5 0 1 1 .706-.708l.392.391 1.181-1.18a.5.5 0 0 1 .708.707l-1.535 1.533a.504.504 0 0 1-.354.146zm9.353-.147l1.534-1.532a.5.5 0 0 0-.707-.707l-1.181 1.18-.392-.391a.5.5 0 1 0-.706.708l.746.743a.497.497 0 0 0 .706-.001zM4.527 7.452l2.557-1.585A1 1 0 0 0 7.09 4.17L4.533 2.56A1 1 0 0 0 3 3.406v3.196a1.001 1.001 0 0 0 1.527.85zm2.03-2.436L4 6.602V3.406l2.557 1.61zM24 12.5c0 1.93-1.57 3.5-3.5 3.5a3.503 3.503 0 0 1-3.46-3h-2.08a3.503 3.503 0 0 1-3.46 3 3.502 3.502 0 0 1-3.46-3h-.558c-.972 0-1.85-.399-2.482-1.042V17c0 1.654 1.346 3 3 3h.04c.244-1.693 1.7-3 3.46-3 1.93 0 3.5 1.57 3.5 3.5S13.43 24 11.5 24a3.502 3.502 0 0 1-3.46-3H8c-2.206 0-4-1.794-4-4V9.899A5.008 5.008 0 0 1 0 5c0-2.757 2.243-5 5-5s5 2.243 5 5a5.005 5.005 0 0 1-4.952 4.998A2.482 2.482 0 0 0 7.482 12h.558c.244-1.693 1.7-3 3.46-3a3.502 3.502 0 0 1 3.46 3h2.08a3.503 3.503 0 0 1 3.46-3c1.93 0 3.5 1.57 3.5 3.5zm-15 8c0 1.378 1.122 2.5 2.5 2.5s2.5-1.122 2.5-2.5-1.122-2.5-2.5-2.5S9 19.122 9 20.5zM5 9c2.206 0 4-1.794 4-4S7.206 1 5 1 1 2.794 1 5s1.794 4 4 4zm9 3.5c0-1.378-1.122-2.5-2.5-2.5S9 11.122 9 12.5s1.122 2.5 2.5 2.5 2.5-1.122 2.5-2.5zm9 0c0-1.378-1.122-2.5-2.5-2.5S18 11.122 18 12.5s1.122 2.5 2.5 2.5 2.5-1.122 2.5-2.5zm-13 8a.5.5 0 1 0 1 0 .5.5 0 0 0-1 0zm2 0a.5.5 0 1 0 1 0 .5.5 0 0 0-1 0zm12 0c0 1.93-1.57 3.5-3.5 3.5a3.503 3.503 0 0 1-3.46-3.002c-.007.001-.013.005-.021.005l-.506.017h-.017a.5.5 0 0 1-.016-.999l.506-.017c.018-.002.035.006.052.007A3.503 3.503 0 0 1 20.5 17c1.93 0 3.5 1.57 3.5 3.5zm-1 0c0-1.378-1.122-2.5-2.5-2.5S18 19.122 18 20.5s1.122 2.5 2.5 2.5 2.5-1.122 2.5-2.5z"
+        /></svg
+      >GitHub Actions:</b
+    >test runs on a pull request,
+    <span class="circled"
+      >2x<svg viewBox="0 0 200 100" preserveAspectRatio="none">
+        <path
+          d="M12 56C6 26 44 7 104 8C162 9 196 26 193 54C190 82 148 95 94 93C42 91 9 78 9 50C9 32 24 17 52 11"
+        /></svg
+    ></span>
+    faster twice</span
+  >
+</h1>
+<svg class="art" viewBox="0 0 480 400">
+  <rect
+    x="20"
+    y="72"
+    width="96"
+    height="228"
+    fill="none"
+    stroke="#73726c"
+    stroke-width="1.6"
+    stroke-dasharray="5 5"
+  />
+  <text x="68" y="324" font-size="16" text-anchor="middle">9 min 29 s</text>
+  <text x="68" y="346" font-size="14" class="dim" text-anchor="middle">
+    8–12 Jun
+  </text>
+  <rect class="m" x="126" y="197" width="96" height="103" fill="#c8c4b2" />
+  <rect
+    x="126"
+    y="197"
+    width="96"
+    height="103"
+    fill="none"
+    stroke="#141413"
+    stroke-width="2"
+  />
+  <text x="174" y="324" font-size="16" text-anchor="middle">4 min 18 s</text>
+  <text x="174" y="346" font-size="14" class="dim" text-anchor="middle">
+    6–10 Jul
+  </text>
+  <rect
+    x="250"
+    y="117"
+    width="96"
+    height="183"
+    fill="none"
+    stroke="#73726c"
+    stroke-width="1.6"
+    stroke-dasharray="5 5"
+  />
+  <text x="298" y="324" font-size="16" text-anchor="middle">7 min 38 s</text>
+  <text x="298" y="346" font-size="14" class="dim" text-anchor="middle">
+    5–9 Oct
+  </text>
+  <rect class="m" x="356" y="212" width="96" height="88" fill="#c8c4b2" />
+  <rect
+    x="356"
+    y="212"
+    width="96"
+    height="88"
+    fill="none"
+    stroke="#141413"
+    stroke-width="2"
+  />
+  <text x="404" y="324" font-size="16" text-anchor="middle">3 min 40 s</text>
+  <text x="404" y="346" font-size="14" class="dim" text-anchor="middle">
+    19–23 Oct
+  </text>
+  <text x="174" y="186" class="dim" text-anchor="middle">2.2x</text>
+  <text x="326" y="90" class="hand" transform="rotate(-4 326 90)">
+    2.1x, again
+  </text>
+  <path
+    class="pen"
+    d="M420 102C432 140 424 170 410 192"
+    marker-end="url(#pa)"
+  />
+  <text x="14" y="384" font-size="19">median test run on a pull request</text>
+</svg>
+<div class="topic">
+  <svg viewBox="0 0 20 20">
+    <rect
+      x="2"
+      y="2"
+      width="16"
+      height="16"
+      fill="#c8c4b2"
+      filter="url(#marker)"
+    /></svg
+  >Other
+</div>
 <div class="sign">— Kamran</div>

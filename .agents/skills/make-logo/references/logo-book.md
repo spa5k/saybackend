@@ -10,16 +10,16 @@ its tile.
 
 ## Pages
 
-| Page | What |
-|-|-|
-| Cover | the product's name and "Logo directions" on ink, beside a photo (or the first mark on its colour field) |
-| Directions | three marks to a page, each with its title and idea |
-| For each direction: in use | the lockup reversed on ink; a browser tab with the mark as its icon; a poster: a photo with the tagline and lockup over a dark foot (or the colour field) |
-| For each direction: construction | the lockup on paper; the mark on its grid with dashed guides run edge to edge; a phone with the app icon and the `--note` notification |
-| For each direction: colour | the five palette colours with their hex values |
-| For each direction: sizes | the mark at 16, 24, 32 and 64 px with its stroke at 16 px; reversed; on colour; the stacked lockup |
-| Side by side | three marks to a page, each large and at 16 px, with every check and its number |
-| Photos | each photo's title, creator, licence and source, when the book has photos |
+| Page                             | What                                                                                                                                                      |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cover                            | the product's name and "Logo directions" on ink, beside a photo (or the first mark on its colour field)                                                   |
+| Directions                       | three marks to a page, each with its title and idea                                                                                                       |
+| For each direction: in use       | the lockup reversed on ink; a browser tab with the mark as its icon; a poster: a photo with the tagline and lockup over a dark foot (or the colour field) |
+| For each direction: construction | the lockup on paper; the mark on its grid with dashed guides run edge to edge; a phone with the app icon and the `--note` notification                    |
+| For each direction: colour       | the five palette colours with their hex values                                                                                                            |
+| For each direction: sizes        | the mark at 16, 24, 32 and 64 px with its stroke at 16 px; reversed; on colour; the stacked lockup                                                        |
+| Side by side                     | three marks to a page, each large and at 16 px, with every check and its number                                                                           |
+| Photos                           | each photo's title, creator, licence and source, when the book has photos                                                                                 |
 
 No page carries a numbered label or a dot separator, and the cover carries no line about how the marks were made.
 

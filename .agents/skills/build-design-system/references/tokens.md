@@ -4,11 +4,11 @@ The defaults fit a hand-rolled app. When the repo already has a token source oth
 
 ## Layers
 
-| Layer | Holds | Read by |
-|---|---|---|
-| Primitive | Raw values with palette names: `gray.900`, `space.4` | Semantic tokens only |
-| Semantic | Roles: `color.text.subtle`, `color.surface.raised`, `space.inset.md` | Components and product code |
-| Component | A value one component themes apart from its role | That component only |
+| Layer     | Holds                                                                | Read by                     |
+| --------- | -------------------------------------------------------------------- | --------------------------- |
+| Primitive | Raw values with palette names: `gray.900`, `space.4`                 | Semantic tokens only        |
+| Semantic  | Roles: `color.text.subtle`, `color.surface.raised`, `space.inset.md` | Components and product code |
+| Component | A value one component themes apart from its role                     | That component only         |
 
 - Product code reads semantic tokens. A semantic token is an alias to a primitive, never a raw value.
 - Start with zero component tokens. Delete one that only aliases a semantic token.
@@ -31,15 +31,15 @@ The defaults fit a hand-rolled app. When the repo already has a token source oth
 
 Tolerance applies only after purpose fits. These are defaults, so `token-mapping` and the merge decisions agree.
 
-| Category | Limit |
-|---|---|
-| Colour | delta E OK 2 (under 0.5 is exact) |
-| Spacing, size, radius | 2 px |
-| Font size | 1 px |
-| Line height | 0.05 as a ratio |
-| Border width, weight, family, easing | none, each value is a choice |
-| Opacity | 0.02 |
-| Duration | 30 ms |
+| Category                             | Limit                             |
+| ------------------------------------ | --------------------------------- |
+| Colour                               | delta E OK 2 (under 0.5 is exact) |
+| Spacing, size, radius                | 2 px                              |
+| Font size                            | 1 px                              |
+| Line height                          | 0.05 as a ratio                   |
+| Border width, weight, family, easing | none, each value is a choice      |
+| Opacity                              | 0.02                              |
+| Duration                             | 30 ms                             |
 
 A merge inside tolerance is a decision. A merge past it is a gate whose default is the merge, naming the largest shift and the surfaces it touches.
 

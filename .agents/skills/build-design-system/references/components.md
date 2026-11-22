@@ -27,13 +27,13 @@ List every primitive the app renders, not only controls. Count call sites for te
 
 For each interactive primitive write a table of what fires when, and make each row a test.
 
-| Event | What happens | Test |
-|---|---|---|
-| Enter or Space right after a picker opens | Nothing is written. Selection needs an arrow key or a pointer | open, press, assert 0 writes |
-| Escape in a dialog | Closes the top layer, focus returns to the opener | assert `document.activeElement` |
-| Confirm success, confirm failure, opener removed | Focus lands on the opener, on the opener, on the next row or the list | assert each |
-| Typed text the sanitizer would change | The keystroke is ignored, not committed as something else | type `2.5`, assert the box and the value |
-| Text the control cannot parse | Submit is refused and the field shows why. The last good value is never sent | type `abc`, submit, assert 0 requests |
+| Event                                            | What happens                                                                 | Test                                     |
+| ------------------------------------------------ | ---------------------------------------------------------------------------- | ---------------------------------------- |
+| Enter or Space right after a picker opens        | Nothing is written. Selection needs an arrow key or a pointer                | open, press, assert 0 writes             |
+| Escape in a dialog                               | Closes the top layer, focus returns to the opener                            | assert `document.activeElement`          |
+| Confirm success, confirm failure, opener removed | Focus lands on the opener, on the opener, on the next row or the list        | assert each                              |
+| Typed text the sanitizer would change            | The keystroke is ignored, not committed as something else                    | type `2.5`, assert the box and the value |
+| Text the control cannot parse                    | Submit is refused and the field shows why. The last good value is never sent | type `abc`, submit, assert 0 requests    |
 
 Every overlay and form primitive's PR carries its focus-return matrix.
 

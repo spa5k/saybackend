@@ -11,15 +11,15 @@ A router. Read the app, match one playbook, copy its steps into `.design-system/
 
 ## Triggers
 
-| The ask or the state | Playbook |
-|---|---|
-| A named screen or flow, "check before I ship" | `playbooks/review.md` |
-| One component | `playbooks/component.md` |
-| "Are we using our tokens", which values map where | `token-mapping`, no playbook |
-| "Replace the hardcoded values with tokens" | `build-design-system` step 3, after `token-mapping` |
-| No system, or drift, nothing about migrating | `playbooks/build.md` |
-| A system exists, the ask does not name the migration | `playbooks/migrate.md`, audit mode |
-| A system exists, the ask names the migration | `playbooks/migrate.md`, full mode |
+| The ask or the state                                 | Playbook                                            |
+| ---------------------------------------------------- | --------------------------------------------------- |
+| A named screen or flow, "check before I ship"        | `playbooks/review.md`                               |
+| One component                                        | `playbooks/component.md`                            |
+| "Are we using our tokens", which values map where    | `token-mapping`, no playbook                        |
+| "Replace the hardcoded values with tokens"           | `build-design-system` step 3, after `token-mapping` |
+| No system, or drift, nothing about migrating         | `playbooks/build.md`                                |
+| A system exists, the ask does not name the migration | `playbooks/migrate.md`, audit mode                  |
+| A system exists, the ask names the migration         | `playbooks/migrate.md`, full mode                   |
 
 An installed system is the source of truth, so no playbook seeds or builds over it. The state wins when it disagrees with the ask, and the report says so. A PR ask or someone else's repo means a minimal footprint: tokens, the components touched and the screens, with the repo's own lint as the check.
 
@@ -40,13 +40,13 @@ Add `.design-system/` to `.git/info/exclude`. A writing playbook uses the branch
 
 ## Siblings
 
-| Skill | Owns |
-|---|---|
-| `build-design-system` | tokens, components, checks, readiness |
+| Skill                   | Owns                                                               |
+| ----------------------- | ------------------------------------------------------------------ |
+| `build-design-system`   | tokens, components, checks, readiness                              |
 | `migrate-design-system` | moving the app, its incident lessons, the correction pass at close |
-| `token-mapping` | raw values to tokens, read-only |
-| `component-docs` | one component's entry |
-| `ui-review` | rendered critique, ranked |
+| `token-mapping`         | raw values to tokens, read-only                                    |
+| `component-docs`        | one component's entry                                              |
+| `ui-review`             | rendered critique, ranked                                          |
 
 Cite `migrate-design-system`'s lessons by number in every brief that touches the surfaces they cover.
 

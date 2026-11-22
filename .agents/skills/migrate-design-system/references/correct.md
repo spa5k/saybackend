@@ -19,16 +19,16 @@ Each ban ships with its check in the same change. The check is proven to fail on
 
 Keep it in the system's agent instructions.
 
-| Rule | Enforced by | Proven against |
-|---|---|---|
-| Exact edits, no `sed -i` | hook, `land.mjs` named paths | a run where most agents used it after a prose ban |
-| No curly quotes in payload strings | element exemption, byte compare with base | a copied prompt with a curly apostrophe |
-| Table controls reachable inside the scroller | verifier measurement at four widths | no row control in view while a window-based script passed |
-| Named page widths (wide, hub) equal legacy at 1280 | width table plus a measured content box | a visible shift from two different wide tokens |
-| Upload `accept` matches MIME as well as extension | `parity.mjs` class, a lint on `accept=` | a file refused for having no extension |
-| Request bodies equal before and after, or an announced change | `land.mjs --bodies-check` with intended change rows | a pair joined from two runs that passed and was reverted |
-| A shared file changes only its own rows | `land.mjs --also` | a ratchet recomputed over a folder that carried other workers' files |
-| No live run before every write is seen blocked | `capture.mjs --writes`, `capture-guard.mjs prove` | an abort filter on the wrong URL shape that created real records |
+| Rule                                                          | Enforced by                                         | Proven against                                                       |
+| ------------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------- |
+| Exact edits, no `sed -i`                                      | hook, `land.mjs` named paths                        | a run where most agents used it after a prose ban                    |
+| No curly quotes in payload strings                            | element exemption, byte compare with base           | a copied prompt with a curly apostrophe                              |
+| Table controls reachable inside the scroller                  | verifier measurement at four widths                 | no row control in view while a window-based script passed            |
+| Named page widths (wide, hub) equal legacy at 1280            | width table plus a measured content box             | a visible shift from two different wide tokens                       |
+| Upload `accept` matches MIME as well as extension             | `parity.mjs` class, a lint on `accept=`             | a file refused for having no extension                               |
+| Request bodies equal before and after, or an announced change | `land.mjs --bodies-check` with intended change rows | a pair joined from two runs that passed and was reverted             |
+| A shared file changes only its own rows                       | `land.mjs --also`                                   | a ratchet recomputed over a folder that carried other workers' files |
+| No live run before every write is seen blocked                | `capture.mjs --writes`, `capture-guard.mjs prove`   | an abort filter on the wrong URL shape that created real records     |
 
 When a rule is already in the table and nothing enforces it, that is a repeat. Fix it at a higher level in the same change. Drop a rule once its mistake cannot happen.
 

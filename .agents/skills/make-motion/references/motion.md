@@ -44,13 +44,13 @@ These read as generated. The look review checks for every one:
 
 ## Curves
 
-| Name | Bezier | For |
-|-|-|-|
-| settle | 0.16, 1, 0.3, 1 | arrivals: fast start, long soft landing |
-| glide | 0.83, 0, 0.17, 1 | a move from one rest to another (a pointer, a drag) |
-| exit | 0.6, 0, 1, 0.6 | leaving: slow start, full speed at the end |
-| resolve | 0.25, 0.6, 0.15, 1 | a value settling (a number, a width) |
-| press | 0.2, 0.8, 0.2, 1 | a button going down to 97% and back |
+| Name    | Bezier             | For                                                 |
+| ------- | ------------------ | --------------------------------------------------- |
+| settle  | 0.16, 1, 0.3, 1    | arrivals: fast start, long soft landing             |
+| glide   | 0.83, 0, 0.17, 1   | a move from one rest to another (a pointer, a drag) |
+| exit    | 0.6, 0, 1, 0.6     | leaving: slow start, full speed at the end          |
+| resolve | 0.25, 0.6, 0.15, 1 | a value settling (a number, a width)                |
+| press   | 0.2, 0.8, 0.2, 1   | a button going down to 97% and back                 |
 
 No overshooting curves for sizes or layout. A spring is fine for one thing's position (a crop lifting off a page),
 never for a scale. Opacity fades run linear: on an ease, a fading element sits near full and vanishes in one frame.

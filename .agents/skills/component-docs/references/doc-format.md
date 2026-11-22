@@ -29,11 +29,12 @@ Every entry uses these nine H2s. Usage holds six fixed H3s, Examples holds `### 
 **Props.** From code only: name, type, default, when to change it. `NOT SUPPLIED` when no props type was read.
 
 **Usage.** Rules a designer or agent follows before reaching for the component.
-- *When to use, when not to use.* Two to four lines each. A situation the designer is in, never a property of the component. Each "when not" names the other component and says "instead".
-- *Rules.* States over time, input methods, focus, feedback, composition, placement, density.
-- *Content.* Rules per copy slot: casing, template, length, forbidden words.
-- *Anti-slop.* What an agent writes by default that this app does not. Find it by giving one fresh agent a task with the component and comparing its code with the call sites. `Not applicable: <reason>` when nothing differs.
-- *Limits.* A number set below a measured break, or `NEEDS REVIEW (not measured)` and what to measure.
+
+- _When to use, when not to use._ Two to four lines each. A situation the designer is in, never a property of the component. Each "when not" names the other component and says "instead".
+- _Rules._ States over time, input methods, focus, feedback, composition, placement, density.
+- _Content._ Rules per copy slot: casing, template, length, forbidden words.
+- _Anti-slop._ What an agent writes by default that this app does not. Find it by giving one fresh agent a task with the component and comparing its code with the call sites. `Not applicable: <reason>` when nothing differs.
+- _Limits._ A number set below a measured break, or `NEEDS REVIEW (not measured)` and what to measure.
 
 **Accessibility.** The native element or primitive it rests on, the role, which keys operate it, where focus goes after, the accessible name in every variant. Say which facts came from code and which from a rendered story.
 
@@ -55,8 +56,9 @@ Test each rule before it ships. Write a violating snippet and confirm the check 
 
 A Toast from a fictional task tracker, cut to the parts that teach most.
 
-````markdown
+```markdown
 ## Description
+
 Toast confirms the result of something the user just did, without moving them off the screen.
 
 `import { Toast } from "@/components/toast"`, client only, `src/components/toast/Toast.tsx`, status NOT SUPPLIED (no registry in this repo).
@@ -64,11 +66,13 @@ Toast confirms the result of something the user just did, without moving them of
 ## Variants
 
 ### tone
+
 - Success: an action finished and can often be undone
 - Error: an action failed and may be retried
 - Warning: NEEDS REVIEW. In the stories, missing from the `tone` type. See Conflicts
 
 ## States
+
 - Visible: the timer runs, the action and close button can be activated
 - Paused: focus or pointer is inside, the timer stops
 - Leaving: input is ignored. Leaving wins over Paused. Error toasts have no timer
@@ -76,10 +80,12 @@ Toast confirms the result of something the user just did, without moving them of
 ## Usage
 
 ### Rules
+
 - `rule/toast-error-persists`: When `tone` is `"error"`, keep the toast until it is closed or its action runs, because its Retry is the only path back to the failed request. Evidence: single use `RemoveMember.tsx:41`. Check: review.
   - Don't: `<Toast tone="error" duration={6000} message="Could not remove Dana" />`
   - Do: `<Toast tone="error" message="Could not remove Dana" action={{ label: "Retry", onAction: retry }} />`
 
 ### Anti-slop
+
 Not applicable: a fresh agent given "confirm that a card moved" wrote the same call as the Board screen.
-````
+```

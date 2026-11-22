@@ -33,15 +33,23 @@ check).
 `src/<name>/audio/cues.mjs`:
 
 ```js
-import {FPS, FRAMES, DROP, END} from '../timing.ts';
+import { FPS, FRAMES, DROP, END } from '../timing.ts'
 
-export const MUSIC = {fps: FPS, bpm: 120, frames: FRAMES, drop: DROP, end: END, key: 'D minor', preset: 'punchy'};
+export const MUSIC = {
+  fps: FPS,
+  bpm: 120,
+  frames: FRAMES,
+  drop: DROP,
+  end: END,
+  key: 'D minor',
+  preset: 'punchy',
+}
 
 export const SFX = [
-  {name: 'press', at: [206, 1116], level: -36},
-  {name: 'tag', sound: 'stamp', at: [112, 962], level: -37},  // a second stamp needs its own file name
-  {name: 'thump', at: [END], level: -31},
-];
+  { name: 'press', at: [206, 1116], level: -36 },
+  { name: 'tag', sound: 'stamp', at: [112, 962], level: -37 }, // a second stamp needs its own file name
+  { name: 'thump', at: [END], level: -31 },
+]
 
 // Optional. Without it the kicks follow the pattern below, from the drop to the gate.
 // export const KICKS = [240, 348, 390, ...];
@@ -71,34 +79,34 @@ tine every other bar and on the V bar; the default kicks are steps 0, 7, 10 and 
 
 Lengths are at 60 fps and scale with the frame rate. Every pitch comes from the key.
 
-| sound | frames | for |
-|-|-|-|
-| `letter` | 3 | letters or items dropping in quick runs |
-| `tick` | 6 | a guide, a cursor step, a counter |
-| `press` | 5 | a button press, a drag starting |
-| `flip` | 5 | a word or card flipping |
-| `land` | 14 | something heavy landing, a shutter |
-| `stamp` | 10 | a stamp or tag dropping |
-| `ping` | 10 | a measurement or a row landing |
-| `step` | 14 | a pass or a step starting |
-| `chime` | 20 | the turn: a reveal, a flip into the product |
-| `thump` | 24 | the end card's kick, on the tonic |
+| sound    | frames | for                                         |
+| -------- | ------ | ------------------------------------------- |
+| `letter` | 3      | letters or items dropping in quick runs     |
+| `tick`   | 6      | a guide, a cursor step, a counter           |
+| `press`  | 5      | a button press, a drag starting             |
+| `flip`   | 5      | a word or card flipping                     |
+| `land`   | 14     | something heavy landing, a shutter          |
+| `stamp`  | 10     | a stamp or tag dropping                     |
+| `ping`   | 10     | a measurement or a row landing              |
+| `step`   | 14     | a pass or a step starting                   |
+| `chime`  | 20     | the turn: a reveal, a flip into the product |
+| `thump`  | 24     | the end card's kick, on the tonic           |
 
 ## The checks
 
-| Check | Pass |
-|-|-|
-| Loudness of the preview mix | -14.0 LUFS ± 0.5 |
-| True peak of every file | at most -2.8 dBTP (the MP4's AAC overshoots by up to 1.3 dB) |
-| Limiter gain reduction, from master.json | under 4 dB |
-| Kick onsets on the kick stem | within 4 ms of the grid |
-| Kick stem | silent before the drop; every felt bar after it within 6 dB of the others |
-| Energy under 30 Hz | under -40 dBFS |
-| Energy over 5 kHz | over -45 dBFS, or the beat vanishes on a phone speaker |
-| Effect pitches | every sound in the palette in the key's natural minor or major |
-| Tune vs chord, from `notes()` | no bell, echo or tine note a semitone or a minor 9th from a chord tone sounding with it |
-| Chord tones under 200 Hz, from `notes()` | no two sounding together closer than a whole tone |
-| Bass at each kick, on the bass stem | the 30 ms from the kick at least 6 dB under the 30 ms from 120 ms later |
-| With `--mp4` | the muxed audio at -14.0 LUFS ± 0.5 and at most -1 dBTP, by ffmpeg's ebur128 |
+| Check                                    | Pass                                                                                    |
+| ---------------------------------------- | --------------------------------------------------------------------------------------- |
+| Loudness of the preview mix              | -14.0 LUFS ± 0.5                                                                        |
+| True peak of every file                  | at most -2.8 dBTP (the MP4's AAC overshoots by up to 1.3 dB)                            |
+| Limiter gain reduction, from master.json | under 4 dB                                                                              |
+| Kick onsets on the kick stem             | within 4 ms of the grid                                                                 |
+| Kick stem                                | silent before the drop; every felt bar after it within 6 dB of the others               |
+| Energy under 30 Hz                       | under -40 dBFS                                                                          |
+| Energy over 5 kHz                        | over -45 dBFS, or the beat vanishes on a phone speaker                                  |
+| Effect pitches                           | every sound in the palette in the key's natural minor or major                          |
+| Tune vs chord, from `notes()`            | no bell, echo or tine note a semitone or a minor 9th from a chord tone sounding with it |
+| Chord tones under 200 Hz, from `notes()` | no two sounding together closer than a whole tone                                       |
+| Bass at each kick, on the bass stem      | the 30 ms from the kick at least 6 dB under the 30 ms from 120 ms later                 |
+| With `--mp4`                             | the muxed audio at -14.0 LUFS ± 0.5 and at most -1 dBTP, by ffmpeg's ebur128            |
 
 `--mp4` uses Remotion's bundled ffmpeg from `node_modules/@remotion/compositor-*`, or `ffmpeg` on the PATH.

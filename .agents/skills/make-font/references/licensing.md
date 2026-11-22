@@ -29,19 +29,19 @@ conditions this skill keeps.
 
 ## Name table, as written
 
-| ID | Value |
-|-|-|
-| 0 | base copyright line, then `Copyright <year> <holder> (modifications)` |
-| 1, 2 | family and style (non-RIBBI styles: `Family Medium`, `Regular`) |
-| 3 | `<version>;<vendor>;<PostScript name>` |
-| 4 | `Family Style` |
-| 5 | `Version x.xxx` |
-| 6 | PostScript name, letters and digits only |
-| 8 | holder |
-| 9 | base designers (original design); modifier (modifications) |
-| 11 | `--url`, if given |
-| 13, 14 | OFL notice and URL |
-| 16, 17 | typographic family and style |
+| ID     | Value                                                                 |
+| ------ | --------------------------------------------------------------------- |
+| 0      | base copyright line, then `Copyright <year> <holder> (modifications)` |
+| 1, 2   | family and style (non-RIBBI styles: `Family Medium`, `Regular`)       |
+| 3      | `<version>;<vendor>;<PostScript name>`                                |
+| 4      | `Family Style`                                                        |
+| 5      | `Version x.xxx`                                                       |
+| 6      | PostScript name, letters and digits only                              |
+| 8      | holder                                                                |
+| 9      | base designers (original design); modifier (modifications)            |
+| 11     | `--url`, if given                                                     |
+| 13, 14 | OFL notice and URL                                                    |
+| 16, 17 | typographic family and style                                          |
 
 Stylistic-set names (IDs referenced from GSUB) are kept.
 

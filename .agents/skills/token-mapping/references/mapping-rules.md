@@ -30,16 +30,16 @@ A row whose job cannot be read is ambiguous when the jobs it might do give two o
 
 Applied only after purpose fits, and never turn a wrong-purpose token into a match. A difference equal to the limit is inside it.
 
-| Category | Limit |
-|---|---|
-| Colour | delta E OK 2 |
-| Spacing, size, radius | 2 px |
-| Font size | 1 px |
-| Line height | 0.05 as a ratio |
-| Letter spacing | 0.01 em |
-| Opacity | 0.02 |
-| Duration | 30 ms |
-| Border width, weight, family, easing | none |
+| Category                             | Limit           |
+| ------------------------------------ | --------------- |
+| Colour                               | delta E OK 2    |
+| Spacing, size, radius                | 2 px            |
+| Font size                            | 1 px            |
+| Line height                          | 0.05 as a ratio |
+| Letter spacing                       | 0.01 em         |
+| Opacity                              | 0.02            |
+| Duration                             | 30 ms           |
+| Border width, weight, family, easing | none            |
 
 ## Consistency by role
 

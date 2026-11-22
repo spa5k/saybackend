@@ -31,19 +31,19 @@ then replacing every scene. Remotion's docs are at remotion.dev/docs.
 
 Pass flags to a script after `--`, as npm needs.
 
-| Command | Does |
-|-|-|
-| `npm run studio` | Remotion Studio, to scrub the timeline |
-| `npm run theme -- <url> --out src/<name>/theme.json` | a draft theme read from a site (theme.md) |
-| `npm run stills <name>` | every frame in STILLS at scale 1, to `out/<name>/stills/` |
-| `npm run review <name>` | the silent review cut at scale 1 and a contact sheet of every 10th frame |
-| `npm run jumps <name>` | the jump check on the review cut, with `CUTS` from timing.ts as planned cuts |
-| `npm run energy <name>` | the energy check on the review cut, per scene |
-| `npm run audio src/<name>` | music and effects, mastered, into `public/<name>/` |
-| `npm run audio:check -- src/<name> --mp4 out/<name>/master.mp4` | the audio checks; leave out `--mp4` before the master |
-| `npm run master <name>` | scale 2, CRF 10, BT.709, with the soundtrack, and the thumbnail |
-| `npm run x <name>` | the 1350x1080 cut for X, from the master |
-| `npm run typecheck` | TypeScript over `src/` |
+| Command                                                         | Does                                                                         |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `npm run studio`                                                | Remotion Studio, to scrub the timeline                                       |
+| `npm run theme -- <url> --out src/<name>/theme.json`            | a draft theme read from a site (theme.md)                                    |
+| `npm run stills <name>`                                         | every frame in STILLS at scale 1, to `out/<name>/stills/`                    |
+| `npm run review <name>`                                         | the silent review cut at scale 1 and a contact sheet of every 10th frame     |
+| `npm run jumps <name>`                                          | the jump check on the review cut, with `CUTS` from timing.ts as planned cuts |
+| `npm run energy <name>`                                         | the energy check on the review cut, per scene                                |
+| `npm run audio src/<name>`                                      | music and effects, mastered, into `public/<name>/`                           |
+| `npm run audio:check -- src/<name> --mp4 out/<name>/master.mp4` | the audio checks; leave out `--mp4` before the master                        |
+| `npm run master <name>`                                         | scale 2, CRF 10, BT.709, with the soundtrack, and the thumbnail              |
+| `npm run x <name>`                                              | the 1350x1080 cut for X, from the master                                     |
+| `npm run typecheck`                                             | TypeScript over `src/`                                                       |
 
 `jumps` and `energy` take `-- --file <video>` to check another file, such as the master.
 

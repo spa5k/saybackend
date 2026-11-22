@@ -31,16 +31,16 @@ On 98 Are.na references (2026-11-15). The held-out column fits the model on half
 (limit 0.64 there); the second column fits and tests on all 98 (limit 0.81, the shipped default), so it flatters a
 little:
 
-| Edit | Held-out half | All 98 |
-|-|-|-|
-| turned 4° | 100% | 97% |
-| thicker | 98% | 92% |
-| thinner | 94% | 92% |
-| stretched 10% | 98% | 97% |
-| mirrored | 100% | 98% |
-| part cut away | 100% | 94% |
-| part added | 100% | 97% |
-| three at once | 94% | 81% |
+| Edit          | Held-out half | All 98 |
+| ------------- | ------------- | ------ |
+| turned 4°     | 100%          | 97%    |
+| thicker       | 98%           | 92%    |
+| thinner       | 94%           | 92%    |
+| stretched 10% | 98%           | 97%    |
+| mirrored      | 100%          | 98%    |
+| part cut away | 100%          | 94%    |
+| part added    | 100%          | 97%    |
+| three at once | 94%           | 81%    |
 
 The limit grows with the number of references, because more of them means a closer nearest one; the catch rate falls
 with it. With the person's own 30 or more, recalibrate on them.

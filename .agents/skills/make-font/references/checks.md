@@ -2,15 +2,15 @@
 
 `check_font.py` gates each style and exits 1 on any failure. Its tolerances come from `targets.json`, set by use:
 
-| Gate | text | display | ui |
-|-|-|-|-|
-| n stem, units | 3 | 3 | 2 |
-| class mean width | 1.5 % | 1.0 % | 1.5 % |
-| shaped paragraph | 1.5 % | 1.0 % | 1.5 % |
-| contrast | 0.05 | 0.04 | 0.05 |
-| x-height, units | 6 | 4 | 5 |
-| side means, units | 4 | 3 | 4 |
-| smallest ink gap in a kerned pair | 6 | 4 | 8 |
+| Gate                              | text  | display | ui    |
+| --------------------------------- | ----- | ------- | ----- |
+| n stem, units                     | 3     | 3       | 2     |
+| class mean width                  | 1.5 % | 1.0 %   | 1.5 % |
+| shaped paragraph                  | 1.5 % | 1.0 %   | 1.5 % |
+| contrast                          | 0.05  | 0.04    | 0.05  |
+| x-height, units                   | 6     | 4       | 5     |
+| side means, units                 | 4     | 3       | 4     |
+| smallest ink gap in a kerned pair | 6     | 4       | 8     |
 
 Units are cap-normalised (cap 700). The width gates are the fit's own objective, so they pass nearly by
 construction. The paragraph gate is the independent one: it has spaces, punctuation, figures and kerning, which
@@ -49,6 +49,7 @@ Look at every render yourself. A gate passes on numbers. A letter that reads wro
 ## Kill criteria
 
 Stop and go back a step when:
+
 - a class needs more than 10 % stretch: the base is wrong (step 4);
 - the guard opens more than 150 pairs: the spacing is too tight (step 6);
 - a curve kinks in the x and y mix: take both from one location (step 5);
