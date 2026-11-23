@@ -1,11 +1,11 @@
 ---
 title: "I moved our coding rules from a skill file into lint. Now each count can only go down."
 seoTitle: "From Agent Skill to Lint Rule: Rules That Coding Agents Cannot Skip"
-description: "An instruction in a skill file is a suggestion. A lint rule is a check. How I turned our agent instructions into lint rules, and how a ratchet stops 26,332 old violations from growing."
+description: "An instruction in a skill file is a suggestion. A lint rule is a check. How I turned our agent instructions into lint rules, and how a baseline stops 26,332 old violations from growing."
 date: "2026-11-24"
 draft: true
-ogImage: "/images/lint-ratchet-og.png"
-slug: "lint-ratchet-ai-written-code"
+ogImage: "/images/lint-baseline-og.png"
+slug: "lint-baseline-ai-written-code"
 tags:
   - "ai-coding"
   - "linting"
@@ -16,20 +16,20 @@ tags:
 faqs:
   - question: "What is the difference between a skill and a lint rule?"
     answer: "A skill is text that a coding agent reads before it works. The agent can follow it or not. A lint rule is a program that reads the code after it is written and fails the build when the code breaks the rule. The result does not depend on what the agent read."
-  - question: "What is a lint ratchet?"
+  - question: "What is a lint baseline?"
     answer: "A file that records how many times each file breaks each rule today, plus a check that fails when a number goes up. A number can go down, and the file must then follow it down. It cannot go up."
   - question: "Can a pull request raise its own allowed count?"
     answer: "Not in this design. The check compares the allowed counts in the pull request with the allowed counts on the main branch, and it refuses a number that is higher. The update command only lowers or removes entries."
-  - question: "Does a ratchet reduce the number of violations?"
-    answer: "It stops the growth first. In our repository the count grew by 181 in the 28 hours before the ratchet merged. In the 57 hours after the merge it fell by 197, from 26,332 to 26,135, with no cleanup project."
+  - question: "Does a baseline reduce the number of violations?"
+    answer: "It stops the growth first. In our repository the count grew by 181 in the 28 hours before the baseline merged. In the 57 hours after the merge it fell by 197, from 26,332 to 26,135, with no cleanup project."
 ---
 
 import { NumberBand } from "@/components/paper/NumberBand";
 import { RankBars } from "@/components/paper/RankBars";
 import {
   HiddenViolation,
-  RatchetOutcomes,
-  RatchetSteps,
+  BaselineOutcomes,
+  BaselineSteps,
   TotalChange,
 } from "@/components/react/blog/workposts/WorkFigures";
 
@@ -38,12 +38,12 @@ Coding agents write most of the code in our monorepo at work. We gave them our r
 So between May and November 2026 I moved every rule that a program can check out of the text and into the linter. It took three steps, and this post explains each one in plain terms.
 
 1. **Turn the instruction into a lint rule.** We now have 24 rules of our own, next to 18 from a public ruleset. The React guidance for agents went from 536 lines of text to 54.
-2. **Record the old violations, and let no count go up.** The code already broke these rules 26,332 times. A ratchet lets those stay and fails the build for one more.
+2. **Record the old violations, and let no count go up.** The code already broke these rules 26,332 times. A baseline lets those stay and fails the build for one more.
 3. **Close the ways around it.** A pull request cannot raise its own allowed count, and a new "disable this rule" comment fails the build.
 
-The number that I watch is the total. In the 28 hours before the ratchet merged, it grew by 181. In the 57 hours after, it fell by 197. Four days after the merge, on 21 November, it stood at 25,797: 535 fewer, or 2.0%, with no cleanup project.
+The number that I watch is the total. In the 28 hours before the baseline merged, it grew by 181. In the 57 hours after, it fell by 197. Four days after the merge, on 21 November, it stood at 25,797: 535 fewer, or 2.0%, with no cleanup project.
 
-<RatchetSteps />
+<BaselineSteps />
 
 The August step has [its own post](/blog/lint-ai-generated-code/) with the rules in detail. The public ruleset is [`dmmulroy/anti-slop`](https://github.com/dmmulroy/anti-slop). The rules without a prefix in this post are first-party rules that we wrote for our repository.
 
@@ -137,10 +137,10 @@ Three things that I learned from writing 24 of these:
 
 ## Step 2: old code already breaks the rules
 
-A new rule in an old code base has a problem on its first day. On the day of the merge, our code broke the ratchet rules 26,332 times. One rule alone, which bans comments, had 14,123 of them.
+A new rule in an old code base has a problem on its first day. On the day of the merge, our code broke the rules in the baseline 26,332 times. One rule alone, which bans comments, had 14,123 of them.
 
 <NumberBand value="26,332">
-  violations of the ratchet rules in our code on the day of the merge.
+  violations of the rules in the baseline, in our code on the day of the merge.
 </NumberBand>
 
 The two usual answers both fail.
@@ -148,7 +148,7 @@ The two usual answers both fail.
 - **Make the rule an error.** The build is red until someone fixes thousands of old lines, so the rule never merges.
 - **Make the rule a warning.** The build is green and the count grows. In the last 28 hours before the merge, the nine newest rules had no gate yet, and they grew by 190 on the main branch.
 
-A ratchet is the third answer. The name comes from the tool that turns in one direction only. I record how many times each file breaks each rule today, in one JSON file. This fragment shows the shape, with a made-up path:
+A baseline is the third answer. I record how many times each file breaks each rule today, in one JSON file, and no count in it can go up. This fragment shows the shape, with a made-up path:
 
 ```json
 {
@@ -160,7 +160,7 @@ A ratchet is the third answer. The name comes from the tool that turns in one di
 
 One script lints the repository and compares the result with that file.
 
-<RatchetOutcomes />
+<BaselineOutcomes />
 
 The fourth result keeps the gain. When a count falls and the record still allows the old value, the next person can add a violation back with no failure. So the record must follow each count down.
 
@@ -175,9 +175,9 @@ The output is written for a person and an agent alike. A rise names the file, th
 ↓ src/features/reports/export.ts  no-type-assertion  allowed 4, found 3. Lock in the cleanup: run `just lint-ratchet --update` and commit the baseline.
 ```
 
-Before the merge I put the new files of two other open pull requests on the branch. The ratchet failed with 26 new violations in 9 files, and passed again without them.
+Before the merge I put the new files of two other open pull requests on the branch. The baseline check failed with 26 new violations in 9 files, and passed again without them.
 
-In August I had used a harder version of this idea for the first rules: a commit hook that refuses a staged file with any warning in it, so that whoever touches a file cleans it. That hook is still in place for those rules, and it works. Seven rules that I can compare all went down between August and November. It also has a price. In one performance sweep, 18 of 36 files lost their edits, because a small fix in an old file had to carry a full cleanup of that file. For the nine new rules, some with thousands of old cases, the ratchet asks for less: do not make it worse.
+In August I had used a harder version of this idea for the first rules: a commit hook that refuses a staged file with any warning in it, so that whoever touches a file cleans it. That hook is still in place for those rules, and it works. Seven rules that I can compare all went down between August and November. It also has a price. In one performance sweep, 18 of 36 files lost their edits, because a small fix in an old file had to carry a full cleanup of that file. For the nine new rules, some with thousands of old cases, the baseline asks for less: do not make it worse.
 
 ## Step 3: close the ways around it
 
@@ -209,7 +209,7 @@ This is also why a false report must be fixed in the rule. The disable comment i
 
 In August I had added a rule that asked for an `EFFECT:` comment on each effect, to explain why the effect had to exist. It had 185 findings when it went in. The November change deleted it, with one line of reason: "A comment must not make an effect acceptable."
 
-A rule that accepts any effect with a comment above it has one pass condition, and that condition is the comment. Any author can write it in a few seconds, and the effect stays. The ratchet counts the effects themselves, so a new effect fails unless the same file loses one. The price of an effect is now paid in code, not in prose.
+A rule that accepts any effect with a comment above it has one pass condition, and that condition is the comment. Any author can write it in a few seconds, and the effect stays. The baseline counts the effects themselves, so a new effect fails unless the same file loses one. The price of an effect is now paid in code, not in prose.
 
 ## What happened after the merge
 
@@ -250,8 +250,8 @@ The `useEffect` rule shows the same effect on one rule. In August it had an allo
 ## What it costs
 
 - **On my machine,** a full run takes about 6 seconds, and the commit hook is about 5 seconds slower than before.
-- **In CI,** on a standard two-core runner, the ratchet step took a median of 55 seconds and the hidden mode 75 seconds, over 40 runs on 19 November. The lint job is about two minutes longer than it was.
-- **On the day of the merge,** every open pull request is a risk. One that had passed its checks before the ratchet existed merged after it, with 20 comments and one condition that was always true, in four files that the record allowed none or one. Every pull request that took the main branch then failed with lines like `allowed 0, found 11`. The fix removed the comments, gave one variable a longer name because a removed comment had explained it, and turned an always-true last branch into a plain `else`. The main branch was green the same day.
+- **In CI,** on a standard two-core runner, the baseline step took a median of 55 seconds and the hidden mode 75 seconds, over 40 runs on 19 November. The lint job is about two minutes longer than it was.
+- **On the day of the merge,** every open pull request is a risk. One that had passed its checks before the baseline existed merged after it, with 20 comments and one condition that was always true, in four files that the record allowed none or one. Every pull request that took the main branch then failed with lines like `allowed 0, found 11`. The fix removed the comments, gave one variable a longer name because a removed comment had explained it, and turned an always-true last branch into a plain `else`. The main branch was green the same day.
 
 ## Oxlint notes
 
@@ -269,7 +269,7 @@ One more, from a bulk fix. An automatic fix changed `mockResolvedValue(undefined
 Ours has 728 lines. This version keeps the core: the counts, the three failures, an update that only lowers, and the merge-base guard. With Oxlint 1.94.0 in a scratch repository, a new violation fails, a fix asks for the update, the update lowers the entry, and a count raised by hand fails.
 
 ```js
-// ratchet.mjs: node ratchet.mjs [--seed | --update] [--base origin/main]
+// baseline.mjs: node baseline.mjs [--seed | --update] [--base origin/main]
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
@@ -325,11 +325,11 @@ The short version leaves out what our script added after real use: the rename ru
 - **The first drafts of the agents.** I count what reaches a commit. I do not know how many times an agent wrote a violation, read the error, and fixed it.
 - **A long trend.** The fall of 197 is from 57 hours, and the fall of 535 from about four days. They are a start, and they are not a rate.
 - **The rule that bans comments.** `no-comments` is 14,123 of the 26,332, or 53.6%. That rule is our position. A team that keeps its comments would start with about half of this record.
-- **The open pull requests on the day of the merge.** Each one had to take the main branch and pass the ratchet. I did not count how many failed, apart from the one above.
+- **The open pull requests on the day of the merge.** Each one had to take the main branch and pass the baseline check. I did not count how many failed, apart from the one above.
 - **The comparison of August and November.** The November counts include test files, and I did not check for files that moved between packages.
 
 Two items are open. One rule reports correct code: `typescript/prefer-nullish-coalescing` flags `a?.trim() || b`, where an empty string must fall through. And a rule that becomes wider cannot raise its own counts, so a better rule needs a process that does not exist yet.
 
 ---
 
-I set up lint rules and ratchets like this for other teams. To discuss your repository, [email me](mailto:hello@kamran.sh?subject=Lint%20ratchet).
+I set up lint rules and baselines like this for other teams. To discuss your repository, [email me](mailto:hello@kamran.sh?subject=Lint%20baseline).

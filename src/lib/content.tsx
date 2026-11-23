@@ -82,9 +82,9 @@ const projectModules = import.meta.glob<ContentModule>(
 )
 
 const readingTimes: Record<string, number> = {
-  '07-uuidv7-postgres': 17,
-  '10-recreating-planetscale-pg-strict-in-rust': 13,
-  '2023-dec-zustand-url-state-sharing': 2,
+  '2025-jun-uuidv7-postgres': 17,
+  '2026-jan-recreating-planetscale-pg-strict-in-rust': 13,
+  '2026-jan-zustand-url-state-sharing': 2,
   '2024-aug-nextjs-electron-server-components': 7,
   '2024-jun-golang-dockerfile-optimized': 6,
   '2024-jun-saybackend-changelog': 1,
@@ -96,7 +96,7 @@ const readingTimes: Record<string, number> = {
   '2026-aug-happycontext-performance': 11,
   '2026-oct-faster-github-actions': 6,
   '2026-aug-lint-ai-generated-code': 20,
-  '2026-aug-prompt-caching-agent-harnesses': 17,
+  '2026-oct-prompt-caching-agent-harnesses': 17,
   '2026-jan-saybackend-changelog': 1,
   '2026-jun-conductor-claude-code-cliproxyapi': 6,
   '2026-may-cliproxyapi-factory-byok': 5,
@@ -113,7 +113,7 @@ const readingTimes: Record<string, number> = {
   '2026-dec-code-mode-compared': 8,
   '2026-dec-vllm-fallback-detokenizer': 11,
   '2026-dec-nvidia-dynamo-code-audit': 14,
-  '2026-nov-lint-ratchet': 10,
+  '2026-nov-lint-baseline': 10,
   '2026-nov-agents-prove-changes': 10,
   '2026-nov-ai-review-agents': 9,
   '2026-dec-github-actions-minutes': 9,

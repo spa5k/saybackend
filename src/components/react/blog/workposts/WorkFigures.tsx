@@ -690,14 +690,14 @@ export function BackMergeFlow() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Lint ratchet                                                        */
+/* Lint baseline                                                       */
 /* ------------------------------------------------------------------ */
 
-export function RatchetSteps() {
+export function BaselineSteps() {
   return (
     <Dated
       title="Three steps in six months"
-      alt="A timeline with three entries. May 2026: the repository moved from ESLint to Oxlint. August 2026: the first rules of our own, 61 rules as errors and 64 as warnings. November 2026: nine more rules and a ratchet that records 26,332 violations."
+      alt="A timeline with three entries. May 2026: the repository moved from ESLint to Oxlint. August 2026: the first rules of our own, 61 rules as errors and 64 as warnings. November 2026: nine more rules and a baseline that records 26,332 violations."
       entries={[
         {
           when: 'May 2026',
@@ -711,7 +711,7 @@ export function RatchetSteps() {
         },
         {
           when: '17 November 2026',
-          title: 'The ratchet',
+          title: 'The baseline',
           text: 'Nine more rules. A recorded count for each rule in each file, and CI fails when a count goes up.',
         },
       ]}
@@ -719,7 +719,7 @@ export function RatchetSteps() {
   )
 }
 
-const RATCHET_INPUTS: Array<{ label: string; text: string; mark: MarkName }> =
+const BASELINE_INPUTS: Array<{ label: string; text: string; mark: MarkName }> =
   [
     {
       label: 'Allowed counts on the main branch',
@@ -739,7 +739,7 @@ const RATCHET_INPUTS: Array<{ label: string; text: string; mark: MarkName }> =
   ]
 
 /** Bar heights for main, pull request and now, in units of 6 px. */
-const RATCHET_RESULTS: Array<{
+const BASELINE_RESULTS: Array<{
   bars: [number, number, number]
   when: string
   verdict: string
@@ -776,13 +776,13 @@ const RATCHET_RESULTS: Array<{
   },
 ]
 
-export function RatchetOutcomes() {
+export function BaselineOutcomes() {
   const top = 136
   const row = 58
-  const height = top + RATCHET_RESULTS.length * row
+  const height = top + BASELINE_RESULTS.length * row
   return (
     <Figure
-      title="What the ratchet decides"
+      title="What the baseline check decides"
       caption="The bar heights are a sketch of each case."
     >
       <svg
@@ -793,7 +793,7 @@ export function RatchetOutcomes() {
         <text className="fig-strong" x="8" y="16" style={{ fontSize: 13 }}>
           Three inputs
         </text>
-        {RATCHET_INPUTS.map((input, index) => {
+        {BASELINE_INPUTS.map((input, index) => {
           const x = 8 + index * 212
           return (
             <g key={input.label}>
@@ -815,7 +815,7 @@ export function RatchetOutcomes() {
         <text className="fig-strong" x="8" y={top - 10} style={{ fontSize: 13 }}>
           Five results
         </text>
-        {RATCHET_RESULTS.map((result, index) => {
+        {BASELINE_RESULTS.map((result, index) => {
           const y = top + index * row
           const base = y + 44
           return (
@@ -830,7 +830,7 @@ export function RatchetOutcomes() {
                     y={base - units * 6}
                     w={14}
                     h={units * 6}
-                    mark={RATCHET_INPUTS[bar].mark}
+                    mark={BASELINE_INPUTS[bar].mark}
                   />
                 ) : null,
               )}

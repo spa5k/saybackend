@@ -4,9 +4,9 @@ import type { MotifSpec } from '@/components/paper/Motifs'
 
 /** The drawing at the top of each post, by post directory name. */
 const heroes: Partial<Record<string, MotifSpec>> = {
-  '07-uuidv7-postgres': { name: 'bits' },
-  '10-recreating-planetscale-pg-strict-in-rust': { name: 'pipeline' },
-  '2023-dec-zustand-url-state-sharing': {
+  '2025-jun-uuidv7-postgres': { name: 'bits' },
+  '2026-jan-recreating-planetscale-pg-strict-in-rust': { name: 'pipeline' },
+  '2026-jan-zustand-url-state-sharing': {
     name: 'bands',
     labels: ['app.dev/?sort=new&tag=go&page=2'],
   },
@@ -17,7 +17,7 @@ const heroes: Partial<Record<string, MotifSpec>> = {
   '2025-jan-kafka-docker-kraft-mode': { name: 'quorum' },
   '2026-aug-happycontext-performance': { name: 'bars' },
   '2026-aug-lint-ai-generated-code': { name: 'ranks' },
-  '2026-aug-prompt-caching-agent-harnesses': { name: 'blocks' },
+  '2026-oct-prompt-caching-agent-harnesses': { name: 'blocks' },
   '2026-feb-happycontext-wide-logging': { name: 'lanes' },
   '2026-feb-happymode-macos-appearance-scheduler': { name: 'day' },
   '2026-jun-conductor-claude-code-cliproxyapi': { name: 'merge' },
@@ -35,7 +35,7 @@ const heroes: Partial<Record<string, MotifSpec>> = {
   '2026-dec-code-mode-compared': { name: 'sandbox', accent: 4 },
   '2026-dec-vllm-fallback-detokenizer': { name: 'window' },
   '2026-dec-nvidia-dynamo-code-audit': { name: 'order' },
-  '2026-nov-lint-ratchet': { name: 'ratchet' },
+  '2026-nov-lint-baseline': { name: 'ratchet' },
   '2026-nov-agents-prove-changes': { name: 'tiers' },
   '2026-nov-ai-review-agents': { name: 'kept' },
   '2026-dec-github-actions-minutes': { name: 'minutes' },
