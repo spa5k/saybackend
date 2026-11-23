@@ -1,0 +1,79 @@
+@import '../widget.css';
+
+/* Shared motion for the work posts: step pills, live edges, rings. */
+.wp-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+.wp-controls::before {
+  content: none;
+}
+
+@media (pointer: coarse) {
+  .wp-controls button {
+    min-height: 40px;
+  }
+}
+
+.wp-fig rect,
+.wp-fig text,
+.wp-fig circle,
+.wp-fig path,
+.wp-fig g {
+  transition:
+    fill 300ms ease,
+    opacity 300ms ease,
+    transform 500ms ease;
+}
+
+/* A path that carries something now. */
+.wp-edge {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1.4;
+  transition: stroke 200ms ease;
+}
+
+.wp-edge.is-live {
+  stroke: var(--ink);
+  stroke-dasharray: 6 5;
+  animation: wp-dash 600ms linear infinite;
+}
+
+/* A ring round the part that acts now. */
+.wp-ring {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.6;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.wp-ring.is-on {
+  opacity: 1;
+}
+
+@keyframes wp-dash {
+  to {
+    stroke-dashoffset: -11;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wp-edge.is-live {
+    animation: none;
+  }
+
+  .wp-fig rect,
+  .wp-fig text,
+  .wp-fig circle,
+  .wp-fig path,
+  .wp-fig g {
+    transition: none;
+  }
+}
