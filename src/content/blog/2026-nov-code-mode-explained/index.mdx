@@ -2,7 +2,7 @@
 title: "Code Mode, Explained: Why Agents Write Code Instead of Calling Tools"
 seoTitle: "Code Mode Explained: Why AI Agents Write Code Instead of Tool Calls"
 description: "What code mode changes in an agent's tool loop, how Cloudflare and Anthropic built it, what the sandbox must block, and token counts measured on the GitHub MCP server's 46 tools."
-date: "2026-11-23"
+date: "2026-11-25"
 draft: true
 ogImage: "/images/2026-code-mode-explained-og.png"
 slug: "code-mode-explained"
@@ -21,27 +21,46 @@ import {
   SandboxBoundary,
 } from "@/components/react/blog/codemode/CodeModeFigures";
 
-An agent with tools runs a loop. The model picks a tool, the harness runs it, the result goes back into the context, and the model picks the next tool. Code mode replaces most of that loop with one step: the model writes a program against a typed API, a sandbox runs it, and only the program's return value goes back to the model.
+Agents and the models, are very good in writing mode, even better than us lots of times, but the process of tool call is still sequential looping (there are things like parallel tool call), but it's same thing, the agent needs to call each tool as many times as needed, and each sending their output.
 
-This post explains the mechanism and the two designs it came from. It also covers what the sandbox has to block and where code mode is the worse choice. I measured the costs on a real tool list and ran the real Cloudflare executor locally.
+In this post, we will try to explain Code Mode, how it works, and how it replaces most of the above loop with one single step, the model writes a simple program against a API, it runs in a sandbox, and only the required and needed return values goes back to the model. We will try to explain where is the sandbox run, where codemode is useful, where it's not, and the costs.
 
-## What the tool-call loop costs
 
-The classic loop has three costs.
+{/* An agent with tools runs a loop. The model picks a tool, the harness runs it, the result goes back into the context, and the model picks the next tool. Code mode replaces most of that loop with one step: the model writes a program against a typed API, a sandbox runs it, and only the program's return value goes back to the model.
 
-- **Definitions.** Every tool's name, description and JSON Schema is in the context on every turn, used or not.
+ This post explains the mechanism and the two designs it came from. It also covers what the sandbox has to block and where code mode is the worse choice. I measured the costs on a real tool list and ran the real Cloudflare executor locally. */} 
+
+## What is the tool-call loop and what it costs
+
+The classic tool loop has three parts:
+
+{/* - **Definitions.** Every tool's name, description and JSON Schema is in the context on every turn, used or not.
 - **Results.** Every tool result passes through the model, even when the model only needs one field of it.
-- **Round trips.** Each call is one model turn. Ten dependent calls are ten turns, and each turn reads the whole context again.
+- **Round trips.** Each call is one model turn. Ten dependent calls are ten turns, and each turn reads the whole context again. */}
 
-For a realistic fixture I took the tool list of GitHub's official MCP server, v2.2.0, by calling `tools/list` on its Docker image. The default toolsets have 46 tools. All token counts in this post use the o200k_base tokenizer; Claude's tokenizer gives different absolute counts, so read the ratios.
+- **Definitions** - The tool's JSON schema, name, description, is in context in every turn (wait a min, its not always the case depending on your harness, there are things like deferred tool loading btw)
+- **Results** - Every tool call sends back a result, even if its a failure, back to the model, even when model might just be needing a single field.
+- **Round Trips** - If one call is dependent on the mother, it amounts to 10 separate calls.
+
+To prepare a realistic dataset, I took the tool list from Github's official MCP server, v2.2.0, by calling the `tools/list`. The default toolset has total of 46 tools, and we will be using o200k_base tokenizer for the counting of tokens.
+
+Serializing the tool definitions with name, description, and input schema for these 46 is around 11k tokens. average of 242 tokens per tool, `issue_write`, the one with highest token is 803 tokens.
+And for the data, I decided to run it on recent issues of the [cloudflare/agents](repo link) from the public REST API. Each issue came to between 384 and 2,572 tokens, 889 on average.
+
+{/* For a realistic fixture I took the tool list of GitHub's official MCP server, v2.2.0, by calling `tools/list` on its Docker image. The default toolsets have 46 tools. All token counts in this post use the o200k_base tokenizer; Claude's tokenizer gives different absolute counts, so read the ratios.
 
 Serialized as JSON with name, description and input schema, the 46 definitions are 11,132 tokens, 242 per tool. The largest, `issue_write`, is 803 tokens.
 
-For results, I fetched the 20 most recent issues of `cloudflare/agents` from the public REST API. I shaped each one the way the server's `issue_read` tool does, with a port of its `convertToMinimalIssue` function. Each issue came to between 384 and 2,572 tokens, 889 on average.
+For results, I fetched the 20 most recent issues of `cloudflare/agents` from the public REST API. I shaped each one the way the server's `issue_read` tool does, with a port of its `convertToMinimalIssue` function. Each issue came to between 384 and 2,572 tokens, 889 on average. */}
 
-## What code mode changes
+## What will codemode change?
 
-The model gets one tool, `code`, whose description contains the tools as a TypeScript API. Here is `issue_read` as `@cloudflare/codemode` 0.5.6 renders it, shortened:
+> We will using cloudflare/codemode as reference for this blog, in future posts, we will explore more ways of codemode.
+
+Now, the model will only get one tool, which is `code`, the description contains the tools as a TypeScript API. Here, we are calling `issue_read` through codemode.
+
+
+{/* The model gets one tool, `code`, whose description contains the tools as a TypeScript API. Here is `issue_read` as `@cloudflare/codemode` 0.5.6 renders it, shortened: */}
 
 ```ts
 type IssueReadInput = {
@@ -60,7 +79,9 @@ declare const codemode: {
 }
 ```
 
-The model answers with JavaScript, not with a tool call. This is the program for "list the open issues with no assignee among these 20":
+{/* The model answers with JavaScript, not with a tool call. This is the program for "list the open issues with no assignee among these 20":
+ */}
+Because, now the model only has one tool, `code`, it answers with JavaScript, not with a tool call. Below is the program to "list the open issues with no assignee among these 20":
 
 ```js
 async () => {
@@ -79,21 +100,26 @@ async () => {
 }
 ```
 
+Just from the code above, you can see how big of a saving of tokens it will be for the model while making sure required data still reaches the model.
+
+
 <CodeModeLoop />
 
-I ran this program through the real `DynamicWorkerExecutor`, under `wrangler dev` 4.166.0, with `issue_read` answering from the 20 real issues. The sandbox made 20 host calls in 6 ms and returned two issues.
+I ran this program through the real `DynamicWorkerExecutor`, with `issue_read` answering from the 20 real issues. The sandbox made 20 host calls in 6 ms and returned two issues.
 
 <NumberBand value="90" note="of 17,783">
   tokens came back to the model from the program. The 20 tool results it read were 17,783 tokens, and none of them entered the context.
 </NumberBand>
 
-## Where the name comes from
+## Where does the name comes from
 
-Cloudflare named it. Kenton Varda and Sunil Pai published "Code Mode: the better way to use MCP" on September 26, 2025. Their argument: "LLMs have seen a lot of code. They have not seen a lot of 'tool calls'."
+Cloudflare named it as such. Kenton Varda(add links to their blogs/portfolio) and Sunil Pai published "Code Mode: the better way to use MCP"(add link for this blog) on September 26, 2025 (Already more than a year old, which is like a decade older in this AI era). Their argument: "LLMs have seen a lot of code. They have not seen a lot of 'tool calls'." (Which was true that time, but not today imo)
 
-The first design is client-side. The agent connects to an MCP server, converts its tool schemas into a TypeScript API with doc comments, and gives the model one tool that runs code. The code runs in a new V8 isolate from the Worker Loader API. MCP servers reach the isolate as bindings, so the isolate needs no network, and the host adds credentials, so the generated code never sees a key.
+In the first design, it was quite client side, the agent harness when it connects to an MCP server, it analyzes it and converts its tool schemas into a TypeScript API with comments, and gives the model only one tool to run the code. The code runs on new V8 Isolate, in the cloudflare's worker API.
 
-The full API sits in the context, and the TypeScript rendering is larger than the JSON it came from.
+{/* The first design is client-side. The agent connects to an MCP server, converts its tool schemas into a TypeScript API with doc comments, and gives the model one tool that runs code. The code runs in a new V8 isolate from the Worker Loader API. MCP servers reach the isolate as bindings, so the isolate needs no network, and the host adds credentials, so the generated code never sees a key. */}
+
+{/* The full API sits in the context, and the TypeScript rendering is larger than the JSON it came from. */}
 
 <RankBars
   title="Tool definitions for the GitHub MCP server's 46 default tools"
