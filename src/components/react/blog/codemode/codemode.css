@@ -1,0 +1,86 @@
+@import '../widget.css';
+
+/* Controls under the animated Code Mode figures: small pills. */
+.cm-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 4px 0 8px;
+  padding: 0;
+}
+
+.cm-controls::before {
+  content: none;
+}
+
+@media (pointer: coarse) {
+  .cm-controls button {
+    min-height: 40px;
+  }
+}
+
+.cm-fig rect,
+.cm-fig text,
+.cm-fig path,
+.cm-fig g {
+  transition: opacity 250ms ease;
+}
+
+/* One call and its result, once it has happened. */
+.cm-trip {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.4;
+}
+
+/* A path that carries the call now. */
+.cm-live {
+  stroke-dasharray: 6 5;
+  animation: cm-dash 600ms linear infinite;
+}
+
+/* A ring round the part that runs now. */
+.cm-ring {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.6;
+}
+
+@keyframes cm-dash {
+  to {
+    stroke-dashoffset: -11;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cm-live {
+    animation: none;
+  }
+
+  .cm-fig rect,
+  .cm-fig text,
+  .cm-fig path,
+  .cm-fig g {
+    transition: none;
+  }
+}
+
+/* Syntax colours for code drawn in a figure: GitHub light and dark, as in the code blocks. */
+.cm-k { fill: #cf222e; }
+.cm-s { fill: #0a3069; }
+.cm-n,
+.cm-t { fill: #0550ae; }
+.cm-f { fill: #8250df; }
+.cm-c { fill: #6e7781; font-weight: 400; }
+
+html.dark .cm-k { fill: #ff7b72; }
+html.dark .cm-s { fill: #a5d6ff; }
+html.dark .cm-n,
+html.dark .cm-t { fill: #79c0ff; }
+html.dark .cm-f { fill: #d2a8ff; }
+html.dark .cm-c { fill: #8b949e; }
+
+/* A comment on the highlighted line needs more contrast against the marker. */
+.fig-strong .cm-c { fill: #57606a; }
+html.dark .fig-strong .cm-c { fill: #d0d7de; }
