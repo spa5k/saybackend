@@ -21,9 +21,11 @@ import {
   SandboxBoundary,
 } from "@/components/react/blog/codemode/CodeModeFigures";
 
-Agents and the models, are very good in writing mode, even better than us lots of times, but the process of tool call is still sequential looping (there are things like parallel tool call), but it's same thing, the agent needs to call each tool as many times as needed, and each sending their output.
+Agents and the models, are very good in writing code, even better than us lots of times, but the process of tool call is still sequential looping (there are things like parallel tool call), but it's same thing, the agent needs to call each tool as many times as needed, and each sending their output.
 
-In this post, we will try to explain Code Mode, how it works, and how it replaces most of the above loop with one single step, the model writes a simple program against a API, it runs in a sandbox, and only the required and needed return values goes back to the model. We will try to explain where is the sandbox run, where codemode is useful, where it's not, and the costs.
+In this post, we will try to explain Code Mode, how it works, and how it replaces most of the above loop with one single step, the model writes a simple program against an API, it runs in a sandbox, and only the required and needed return values goes back to the model. We will try to explain where is the sandbox run, where codemode is useful, where it's not, and the costs.
+
+This post is focused on Cloudflare's initial exploration of Code Mode, their [first post](https://blog.cloudflare.com/code-mode/) and the [`@cloudflare/codemode`](https://github.com/cloudflare/agents/tree/main/packages/codemode) package, so most of the examples and numbers here come from it. Anthropic's version gets a short section, and the other harnesses get their own posts later in this series.
 
 
 {/* An agent with tools runs a loop. The model picks a tool, the harness runs it, the result goes back into the context, and the model picks the next tool. Code mode replaces most of that loop with one step: the model writes a program against a typed API, a sandbox runs it, and only the program's return value goes back to the model.
@@ -38,14 +40,14 @@ The classic tool loop has three parts:
 - **Results.** Every tool result passes through the model, even when the model only needs one field of it.
 - **Round trips.** Each call is one model turn. Ten dependent calls are ten turns, and each turn reads the whole context again. */}
 
-- **Definitions** - The tool's JSON schema, name, description, is in context in every turn (wait a min, its not always the case depending on your harness, there are things like deferred tool loading btw)
-- **Results** - Every tool call sends back a result, even if its a failure, back to the model, even when model might just be needing a single field.
-- **Round Trips** - If one call is dependent on the mother, it amounts to 10 separate calls.
+- **Definitions** - The tool's JSON schema, name, description, is in context in every turn (it's not always the case depending on your harness, there are things like [deferred tool loading](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool) btw)
+- **Results** - Every tool call sends back a result, even if it's a failure, back to the model, even when model might just be needing a single field.
+- **Round Trips** - If one call is dependent on the other, it amounts to 10 separate calls.
 
-To prepare a realistic dataset, I took the tool list from Github's official MCP server, v2.2.0, by calling the `tools/list`. The default toolset has total of 46 tools, and we will be using o200k_base tokenizer for the counting of tokens.
+To prepare a realistic dataset, I took the tool list from [GitHub's official MCP server](https://github.com/github/github-mcp-server), [v2.2.0](https://github.com/github/github-mcp-server/releases/tag/v2.2.0), by calling the `tools/list`. The default toolset has total of 46 tools, and we will be using [o200k_base](https://github.com/openai/tiktoken) tokenizer for the counting of tokens.
 
 Serializing the tool definitions with name, description, and input schema for these 46 is around 11k tokens. average of 242 tokens per tool, `issue_write`, the one with highest token is 803 tokens.
-And for the data, I decided to run it on recent issues of the [cloudflare/agents](repo link) from the public REST API. Each issue came to between 384 and 2,572 tokens, 889 on average.
+And for the data, I decided to run it on recent issues of the [cloudflare/agents](https://github.com/cloudflare/agents/issues) from the public REST API. Each issue came to between 384 and 2,572 tokens, 889 on average.
 
 {/* For a realistic fixture I took the tool list of GitHub's official MCP server, v2.2.0, by calling `tools/list` on its Docker image. The default toolsets have 46 tools. All token counts in this post use the o200k_base tokenizer; Claude's tokenizer gives different absolute counts, so read the ratios.
 
@@ -55,9 +57,9 @@ For results, I fetched the 20 most recent issues of `cloudflare/agents` from the
 
 ## What will codemode change?
 
-> We will using cloudflare/codemode as reference for this blog, in future posts, we will explore more ways of codemode.
+> We will be using [cloudflare/codemode](https://github.com/cloudflare/agents/tree/main/packages/codemode) as reference for this blog, in future posts, we will explore more ways of codemode.
 
-Now, the model will only get one tool, which is `code`, the description contains the tools as a TypeScript API. Here, we are calling `issue_read` through codemode.
+Now, the model will only get one tool, which is `code`, the description contains the tools as a TypeScript API. Here is how codemode renders `issue_read`.
 
 
 {/* The model gets one tool, `code`, whose description contains the tools as a TypeScript API. Here is `issue_read` as `@cloudflare/codemode` 0.5.6 renders it, shortened: */}
@@ -111,17 +113,17 @@ I ran this program through the real `DynamicWorkerExecutor`, with `issue_read` a
   tokens came back to the model from the program. The 20 tool results it read were 17,783 tokens, and none of them entered the context.
 </NumberBand>
 
-## Where does the name comes from
+## Where does the name come from
 
-Cloudflare named it as such. Kenton Varda(add links to their blogs/portfolio) and Sunil Pai published "Code Mode: the better way to use MCP"(add link for this blog) on September 26, 2025 (Already more than a year old, which is like a decade older in this AI era). Their argument: "LLMs have seen a lot of code. They have not seen a lot of 'tool calls'." (Which was true that time, but not today imo)
+Cloudflare named it as such. [Kenton Varda](https://github.com/kentonv) and [Sunil Pai](https://sunilpai.dev) published ["Code Mode: the better way to use MCP"](https://blog.cloudflare.com/code-mode/) on September 26, 2025 (Already more than a year old, which is like a decade older in this AI era). Their argument: “LLMs have seen a lot of code. They have not seen a lot of "tool calls".” (Which was true that time, but not today imo)
 
-In the first design, it was pretty much all client side, the agent harness when it connects to an MCP server, it analyzes it and converts its tool schemas into a TypeScript API with comments, and gives the model only one tool to run the code. The code then runs on the new V8 Isolate(add link for it), in the cloudflare's worker API.
+In the first design, it was pretty much all client side, the agent harness when it connects to an MCP server, it analyzes it and converts its tool schemas into a TypeScript API with comments, and gives the model only one tool to run the code. The code then runs on the new [V8 Isolate](https://developers.cloudflare.com/workers/reference/how-workers-works/), in Cloudflare's [Worker Loader API](https://developers.cloudflare.com/dynamic-workers/).
 
 {/* The first design is client-side. The agent connects to an MCP server, converts its tool schemas into a TypeScript API with doc comments, and gives the model one tool that runs code. The code runs in a new V8 isolate from the Worker Loader API. MCP servers reach the isolate as bindings, so the isolate needs no network, and the host adds credentials, so the generated code never sees a key. */}
 
 
 {/* The full API sits in the context, and the TypeScript rendering is larger than the JSON it came from. */}
-And as you can expect, the full API sits in the context, and the typescript result context is larger than the JSON it came from.
+And as you can expect, the full API sits in the context, and the TypeScript result context is larger than the JSON it came from.
 
 <RankBars
   title="Tool definitions for the GitHub MCP server's 46 default tools"
@@ -141,7 +143,7 @@ And as you can expect, the full API sits in the context, and the typescript resu
 {/* Let's follow one run from start to end. `createCodeTool` gives you a normal AI SDK tool, and its only input is `{ code: string }`. */}
 Now, let's try to follow one run from start to end using the `createCodeTool`, it gives you a normal AI SDK tool, and the only input is `{ code: string}`.
 
-When the model calls this tool, the code does not run instantly, it first goes through the normalizer first (`normalizeCode`), it mainly helps to make sure the code is consistent, since models love to wrap code in markdown fence, and that is stripped. It accepts pretty much any thing, an arrow function, export default, a named function, etc. Statements are wrapped in an async arrow function, and if the last one is an expression, it becomes the value to be returned. So even the `codemode.get_me({}) alone works.
+When the model calls this tool, the code does not run instantly, it first goes through the normalizer first (`normalizeCode`), it mainly helps to make sure the code is consistent, since models love to wrap code in markdown fence, and that is stripped. It accepts pretty much anything, an arrow function, export default, a named function, etc. Statements are wrapped in an async arrow function, and if the last one is an expression, it becomes the value to be returned. So even `codemode.get_me({})` alone works.
 {/* When the model calls it, the code does not run right away, it goes through `normalizeCode` first. Models love to wrap code in a Markdown fence, so that gets stripped, and then it accepts pretty much any shape: an arrow function, `export default`, a single named function, or just a list of statements. Loose statements get wrapped in an async arrow function, and if the last one is an expression, it becomes the return value. So even `codemode.get_me({})` alone works, and a model that ignores the "write an async arrow function" instruction still gets its program run. */}
 
 {/* Then the executor builds a fresh module for this one run, and inside it: */}
@@ -154,9 +156,9 @@ Then it builds a fresh module for this one run, and it handles these cases as we
 - The whole program is raced against a timeout.
 
 {/* A failed run does not lose its logs, which is nice. The model gets `Code execution failed: <message>`, with the console lines below it under "Console output:". So if the program logs each step, the model still sees the partial results. Keep this in mind, it matters for the debugging case further down. */}
-A failed run keeps it logs, which is quite nice, the model gets `Code execution failed: <MESSAGE>`, with the console lines below it as `Console Output:`, so if the model logs at each step, it can still the partial results, which is useful for debugging case.
+A failed run keeps its logs, which is quite nice, the model gets `Code execution failed: <message>`, with the console lines below it as `Console output:`, so if the program logs at each step, it can still see the partial results, which is useful for debugging case.
 {/* The sandbox itself is just an interface, and the package ships two of them: */}
-The Sandbox is jsut an interface, and it by default, ships two of them.
+The Sandbox is just an interface, and it by default, ships two of them.
 
 | Executor | Runs in | Isolation | Default timeout |
 | --- | --- | --- | --- |
@@ -165,18 +167,18 @@ The Sandbox is jsut an interface, and it by default, ships two of them.
 
 Anything that implements `execute(code, providers)` can take their place, so you can bring your own sandbox as well.
 
-{/* Then there's the second design, where the work moves to the server. On February 20, 2026, Matt Carey described Cloudflare's(add link) MCP server for its own API. That API has over 2,500 endpoints, and the server covers all of them with just two tools: */}
-Then there's the second design, since its obvious there's a problem of having all in context, so we add a new tool to search the tools beforehand, Matt Carey described Cloudflare's(add link) MCP server for its own API in this format.
+{/* Then there's the second design, where the work moves to the server. On February 20, 2026, [Matt Carey described](https://blog.cloudflare.com/code-mode-mcp/) Cloudflare's(add link) MCP server for its own API. That API has over 2,500 endpoints, and the server covers all of them with just two tools: */}
+Then there's the second design, since its obvious there's a problem of having all in context, so we add a new tool to search the API spec beforehand, [Matt Carey described](https://blog.cloudflare.com/code-mode-mcp/) [Cloudflare's](https://github.com/cloudflare/mcp) MCP server for its own API in this format.
 
 - **`search()`** - runs model-written JavaScript against the OpenAPI spec, so the model filters the spec instead of reading the whole thing.
 - **`execute()`** - runs model-written JavaScript that calls the API through `cloudflare.request()`.
 
 ## Anthropic's version
-Anthropic wrote about a similar idea a few weeks later as well (Add link to it). On Nov4,2025, Adam Jones and Conor Kelly published the "code execution with MCP". In Anthropic's case, each MCP tool beocmes its own TypeScript file, like `./servers/google-drive/getDocument.ts`. The agent can then normally grep the directory and read whats needed, so context is not filled.
+Anthropic wrote about a similar idea a few weeks later as well. On Nov 4, 2025, Adam Jones and Conor Kelly published the ["code execution with MCP"](https://www.anthropic.com/engineering/code-execution-with-mcp). In Anthropic's case, each MCP tool becomes its own TypeScript file, like `./servers/google-drive/getDocument.ts`. The agent can then normally list the directory and read what's needed, so context is not filled.
 
-{/* Anthropic wrote about the same idea a few weeks later(add link to it). On November 4, 2025, Adam Jones and Conor Kelly published "code execution with MCP". Here, each MCP tool becomes its own TypeScript file, like `./servers/google-drive/getDocument.ts`. The agent lists the directory and reads only the files it needs, so the definitions load on demand instead of all of them sitting in the context. */}
+{/* Anthropic wrote about the same idea a few weeks later(add link to it). On November 4, 2025, Adam Jones and Conor Kelly published ["Code execution with MCP"](https://www.anthropic.com/engineering/code-execution-with-mcp). Here, each MCP tool becomes its own TypeScript file, like `./servers/google-drive/getDocument.ts`. The agent lists the directory and reads only the files it needs, so the definitions load on demand instead of all of them sitting in the context. */}
 
-The Claude API also has a managed version of this, called programmatic tool calling. It's built on the code execution tool (version `code_execution_20260120` or later), and the language here is Python, not JavaScript. A tool opts in with `allowed_callers`:
+The Claude API also has a managed version of this, called [programmatic tool calling](https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling). It's built on the code execution tool (version `code_execution_20260120` or later), and the language here is Python, not JavaScript. A tool opts in with `allowed_callers`:
 
 ```json
 {
@@ -209,10 +211,10 @@ Anthropic's own numbers show where the feature helps and where it doesn't. On a 
 ## The arithmetic for N calls
 
 {/* Now let's do the math. These numbers are arithmetic on the sizes I measured above, not real model runs. */}
-Now lets do some math and assumptions.
+Now let's do some math and assumptions.
 
 {/* The task reads N issues. In the direct loop, that's one issue per turn, and each turn reads the definitions, the prompt, and every earlier call and result again. Code mode takes two turns, one to write the program and one to read its return value. Search and execute adds one more turn, to read the `issue_read` schema. */}
-The imaginary task here reads N issues. In a loop, that's one isse each turn, and each turn reads the defintions, the prompt, and every earlier call and its result again (while its a prefill phase, and is faster and cheaper but it's there). In Codemode, it takes two turns, one turn to write the program, and one to read the result. Search and execute can add one more turn to read the schema, but due to deferred tool calling, agents do that even in non codemode way as well.
+The imaginary task here reads N issues. In a loop, that's one issue each turn, and each turn reads the definitions, the prompt, and every earlier call and its result again (while its a prefill phase, and is faster and cheaper but it's there). In Codemode, it takes two turns, one turn to write the program, and one to read the result. Search and execute can add one more turn to read the schema, but due to deferred tool loading, agents do that even in non codemode way as well.
 
 <LineFigure
   title="Input tokens the model reads for N issue_read calls (thousands)"
@@ -246,10 +248,10 @@ The imaginary task here reads N issues. In a loop, that's one isse each turn, an
 />
 
 {/* The direct loop grows with the square of N, because every turn reads all the earlier results again. Code mode stays flat, because the results never come back to the model. But look at the start of the chart, with the full API in the description, code mode is actually more expensive than direct calls for one or two calls. */}
-The loop grows exponentially, because every turn reads all the earlier results again. In codemode, it says flat, as the results never even reached the model.
+The loop grows with the square of N, because every turn reads all the earlier results again. In codemode, it stays flat, as the results never even reached the model.
 
 {/* Then there's prompt caching, which changes the picture quite a bit. Every re-read prefix becomes a cache read, and on the Claude API that costs a tenth of the base input price, or less. So I priced the same runs again, with one cache write per token at 1.25x, and each re-read at 0.1x. */}
-You will naturally think about prompt caching now, which changes the picture quite a bit. Every re read becomes prefix caching (add link to my cache blog), and it costs 1/10th of the base input Price, and I did the math again.
+You will naturally think about prompt caching now, which changes the picture quite a bit. Every re-read becomes prefix caching ([more on that here](/blog/prompt-caching-agent-harnesses/)), and it costs 1/10th of the base input price on the Claude API, and I did the math again.
 
 <BeforeAfterBars
   title="Input cost of the 20-call task, in base-price tokens"
@@ -264,9 +266,9 @@ You will naturally think about prompt caching now, which changes the picture qui
 />
 
 {/* At 20 calls, the gap between direct calls and code mode drops from 11.2x to 3.0x with caching. Code mode becomes the cheaper option at 3 calls without the cache, and at 5 calls with it. What caching can't change is the round trips, it's still 21 model turns against 2. I've written more about the cache in [prompt caching in coding agents](/blog/prompt-caching-agent-harnesses/). */}
-The benefit of codemode is not visble when the tool calls are less, but when its more calls or cheaper context, codemode is the winner.
+The benefit of codemode is not visible when the tool calls are less, but when it's more calls or cheaper context, codemode is the winner.
 
-## How are permissoins handled
+## How are permissions handled
 
 The sandbox has a simple job. It gives the program its tool functions, a way to return a value, and a time limit. Everything else, it denies: the network, the filesystem, the environment and the host process. The tools are the only door out, and the credentials stay on the host side of that door, so the generated code never sees a key.
 
