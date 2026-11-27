@@ -1,7 +1,10 @@
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { Figure, HandNote, LINES, MARKS } from '@/components/paper/Figure'
 import type { MarkName } from '@/components/paper/Figure'
+
+import './codemode.css'
 
 /*
  * One vocabulary for the five code mode posts:
@@ -289,30 +292,6 @@ function Loops(props: LoopsProps) {
   )
 }
 
-/** Post 1: 20 tool calls as 21 model turns, and as one program. */
-export function CodeModeLoop() {
-  return (
-    <Loops
-      title="Twenty issue_read calls, two ways"
-      caption="One thin line is one call and its result. The step chart is the context that the model reads again on each turn."
-      aria="Two lanes for the same task of 20 issue_read calls. With tool calls, the model and the tools exchange 20 round trips, each result is about 889 tokens, and the context grows to 29,557 tokens at the last turn: 21 model turns. With code mode, the model sends one program of 189 tokens into a sandbox, the sandbox makes the 20 calls to the host, and 90 tokens return to the model: 2 model turns."
-      n={20}
-      leftTitle="Tool calls"
-      rightTitle="Code mode"
-      toolLabel="tools"
-      tripLabel="20 results, ~889 tokens each"
-      contextLabel="context: 29,557 tokens at the last turn"
-      leftTotal="21 model turns"
-      wallLabel="sandbox, issue_read × 20"
-      programLabel="program"
-      sendLabel="189 tokens"
-      returnLabel="90 tokens"
-      rightTotal="2 model turns"
-      note="results stay in here"
-    />
-  )
-}
-
 /** Post 3: the chain of 10 orders with Code Mode off and on. */
 export function ClaudeCodeMode() {
   return (
@@ -337,9 +316,449 @@ export function ClaudeCodeMode() {
   )
 }
 
+/* ------------------------------------------------------------------ */
+/* Animation helpers for post 1                                        */
+/* ------------------------------------------------------------------ */
+
+const MONO = { fontSize: 11, fontFamily: 'var(--font-mono)' }
+
+function reducedMotion() {
+  return (
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
+}
+
+/** Steps that play once when the figure scrolls into view. */
+function useSteps(count: number, ms: number) {
+  const ref = useRef<SVGSVGElement>(null)
+  // The server renders the last step, so a reader without JavaScript sees the result.
+  const [step, setStep] = useState(count - 1)
+  const [playing, setPlaying] = useState(false)
+
+  useEffect(() => {
+    const element = ref.current
+    if (!element || reducedMotion()) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return
+        observer.disconnect()
+        setStep(0)
+        setPlaying(true)
+      },
+      { threshold: 0.5 },
+    )
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!playing) return
+    const timer = window.setTimeout(() => {
+      if (step >= count - 1) setPlaying(false)
+      else setStep(step + 1)
+    }, ms)
+    return () => window.clearTimeout(timer)
+  }, [playing, step, count, ms])
+
+  return {
+    ref,
+    step,
+    go: (next: number) => {
+      setPlaying(false)
+      setStep(Math.max(0, Math.min(count - 1, next)))
+    },
+    replay: () => {
+      setStep(0)
+      setPlaying(!reducedMotion())
+    },
+  }
+}
+
+function Controls({ children }: { children: ReactNode }) {
+  return <span className="paper-widget cm-controls">{children}</span>
+}
+
+/** The one sentence in a figure that says what happens now. */
+function Status({ y, children }: { y: number; children: ReactNode }) {
+  return (
+    <text
+      className="fig-strong"
+      x="320"
+      y={y}
+      textAnchor="middle"
+      style={{ fontSize: 13 }}
+    >
+      {children}
+    </text>
+  )
+}
+
+type CodeLine = {
+  text: string
+  /** A comment that shows only when the line is active. */
+  note?: string
+}
+
+const LINE_HEIGHT = 21
+const CODE = { fontSize: 11.5, fontFamily: 'var(--font-mono)' }
+
+/** One token class for each kind of word, in the colours of the site's code blocks. */
+const TOKEN =
+  /(\/\/.*$|\/\*.*?\*\/|#.*$)|("[^"]*")|\b(async|await|const|for|of|in|if|return|type|declare|new|function|import|from|null)\b|\b(\d+)\b|\b(string|number|unknown|Promise)\b|([A-Za-z_$][\w$]*)(?=\()/g
+
+const TOKEN_CLASS = ['cm-c', 'cm-s', 'cm-k', 'cm-n', 'cm-t', 'cm-f']
+
+function highlight(text: string): Array<ReactNode> {
+  const parts: Array<ReactNode> = []
+  let last = 0
+  for (const match of text.matchAll(TOKEN)) {
+    const index = match.index ?? 0
+    if (index > last) parts.push(text.slice(last, index))
+    const kind = match.slice(1).findIndex((group) => group !== undefined)
+    parts.push(
+      <tspan key={index} className={TOKEN_CLASS[kind]}>
+        {match[0]}
+      </tspan>,
+    )
+    last = index + match[0].length
+  }
+  if (last < text.length) parts.push(text.slice(last))
+  return parts
+}
+
+/** Source code drawn in the figure. Active lines get a marker under them. */
+function CodePanel({
+  x,
+  y,
+  w,
+  lines,
+  active,
+  mark = 'amber',
+  comment = '//',
+}: {
+  x: number
+  y: number
+  w: number
+  lines: Array<CodeLine>
+  active: Array<number>
+  mark?: MarkName
+  comment?: string
+}) {
+  const h = lines.length * LINE_HEIGHT + 16
+  return (
+    <g>
+      <rect
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        rx="8"
+        style={{ fill: 'var(--wash)' }}
+      />
+      {lines.map((line, index) => {
+        const top = y + 8 + index * LINE_HEIGHT
+        const on = active.includes(index)
+        return (
+          <g key={`${index}-${line.text}`}>
+            <rect
+              x={x + 10}
+              y={top}
+              width={w - 20}
+              height={LINE_HEIGHT - 2}
+              filter="url(#pp-marker)"
+              style={{ fill: MARKS[mark] }}
+              opacity={on ? 0.9 : 0}
+            />
+            <text
+              className={on ? 'fig-strong' : undefined}
+              x={x + 18}
+              y={top + 14}
+              style={CODE}
+              xmlSpace="preserve"
+            >
+              {highlight(line.text)}
+              {on && line.note ? (
+                <tspan className="cm-c">{`  ${comment} ${line.note}`}</tspan>
+              ) : null}
+            </text>
+          </g>
+        )
+      })}
+    </g>
+  )
+}
+
+const API_LINES: Array<CodeLine> = [
+  { text: 'type IssueReadInput = {' },
+  { text: '  issue_number: number; // the number of the issue' },
+  { text: '  owner: string;' },
+  { text: '  repo: string;' },
+  { text: '};' },
+  { text: '' },
+  { text: 'declare const codemode: {' },
+  {
+    text: '  issue_read(input: IssueReadInput): Promise<unknown>;',
+    note: 'no output schema',
+  },
+  { text: '  // ... 45 more tools' },
+  { text: '};' },
+]
+
+const API_STEPS = [
+  {
+    label: 'input type',
+    active: [0, 1, 2, 3, 4],
+    status: 'Each JSON schema becomes a TypeScript type, with comments.',
+  },
+  {
+    label: 'output',
+    active: [7],
+    status: 'The server declares no output schemas, so every result is unknown.',
+  },
+  {
+    label: '45 more',
+    active: [8],
+    status: 'All 46 tools sit in one description: 18,362 tokens.',
+  },
+]
+
+/** Post 1: the code tool's description, the way @cloudflare/codemode renders issue_read, simplified. */
+export function CodeModeApi() {
+  const { ref, step, go, replay } = useSteps(API_STEPS.length, 2200)
+  const current = API_STEPS[step]
+  return (
+    <Figure
+      title="What the model sees: one tool, and a TypeScript API in its description"
+      legend={[{ label: 'the part described now', mark: 'amber' }]}
+      caption={
+        <Controls>
+          {API_STEPS.map((item, index) => (
+            <button
+              key={item.label}
+              type="button"
+              className={index === step ? 'is-active' : undefined}
+              aria-pressed={index === step}
+              onClick={() => go(index)}
+            >
+              {index + 1}. {item.label}
+            </button>
+          ))}
+          <button type="button" onClick={replay}>
+            Replay
+          </button>
+        </Controls>
+      }
+    >
+      <svg
+        ref={ref}
+        className="cm-fig"
+        viewBox="0 0 640 272"
+        role="img"
+        aria-label="The issue_read tool as @cloudflare/codemode 0.5.6 renders it, shortened. The input type IssueReadInput has issue_number with its doc comment, method, owner and repo. The codemode object declares issue_read as a function that takes IssueReadInput and returns Promise of unknown, because the server declares no output schema. 45 more tools follow. The 46 tools come to 18,362 tokens."
+      >
+        <CodePanel
+          x={10}
+          y={6}
+          w={620}
+          lines={API_LINES}
+          active={current.active}
+        />
+        <Status y={260}>{current.status}</Status>
+      </svg>
+    </Figure>
+  )
+}
+
+const LOOP_LINES: Array<CodeLine> = [
+  { text: 'async () => {' },
+  { text: '  const unassigned = [];' },
+  { text: '  for (const n of issueNumbers) {' },
+  { text: '    const issue = await codemode.issue_read({ issue_number: n });' },
+  { text: '    if (issue.state === "open" && !issue.assignees.length)' },
+  { text: '      unassigned.push(issue.title);' },
+  { text: '  }' },
+  { text: '  return unassigned;', note: '90 tokens to the model' },
+  { text: '}' },
+]
+
+const LOOP_TOP = LOOP_LINES.length * LINE_HEIGHT + 16 + 22
+
+/** Post 1: 20 tool calls as 21 model turns, and as one program, played call by call. */
+export function CodeModeLoop() {
+  const calls = 20
+  const { ref, step, replay } = useSteps(calls + 1, 220)
+  const finished = step === calls
+  const stepWidth = 300 / calls
+  const tripY = (index: number) => 42 + (index * 118) / (calls - 1)
+  return (
+    <Figure
+            title="Twenty issue_read calls, two ways"
+      legend={[
+        { label: 'model', mark: 'sand' },
+        { label: 'program', mark: 'lilac' },
+        { label: 'tools', mark: 'blue' },
+      ]}
+      caption={
+        <>
+          <Controls>
+            <button type="button" onClick={replay}>
+              Replay
+            </button>
+          </Controls>
+          One thin line is one call and its result. The step chart is the
+          context that the model reads again on each turn.
+        </>
+      }
+    >
+      <svg
+        ref={ref}
+        className="cm-fig"
+        viewBox={`0 0 640 ${262 + LOOP_TOP}`}
+        role="img"
+        aria-label="The program loops over 20 issue numbers, calls codemode.issue_read for each, keeps the open issues with no assignee, and returns them. Two lanes for the same task of 20 issue_read calls. With tool calls, the model and the tools exchange 20 round trips, each result is about 889 tokens, and the context grows to 29,557 tokens at the last turn: 21 model turns. With code mode, the model sends one program of 189 tokens into a sandbox, the sandbox makes the 20 calls to the host, and 90 tokens return to the model: 2 model turns."
+      >
+        <CodePanel
+          x={10}
+          y={6}
+          w={620}
+          lines={LOOP_LINES.map((line, index) =>
+            index === 3 && step > 0 && step < calls
+              ? { ...line, note: `call ${step} of ${calls}` }
+              : index === 1 && step === 0
+                ? { ...line, note: 'the model writes this once' }
+                : line,
+          )}
+          active={step === 0 ? [1] : finished ? [7] : [3, 4, 5]}
+        />
+        <g transform={`translate(0 ${LOOP_TOP})`}>
+        <text className="fig-strong" x="10" y="20">
+          Tool calls
+        </text>
+        <Box x={10} y={36} w={80} h={130} mark="sand">
+          model
+        </Box>
+        <Box x={220} y={36} w={90} h={130} mark="blue">
+          tools
+        </Box>
+        <Trips n={calls} x1={94} x2={216} y={42} h={118} />
+        {Array.from({ length: calls }, (_, index) => (
+          <path
+            key={index}
+            className="cm-trip"
+            opacity={index < step ? 1 : 0}
+            d={`M94 ${tripY(index)}H216`}
+          />
+        ))}
+        <text x="155" y="180" textAnchor="middle" style={SMALL}>
+          20 results, ~889 tokens each
+        </text>
+        {Array.from({ length: calls }, (_, index) => {
+          const height = 5 + (index * 19) / (calls - 1)
+          return (
+            <rect
+              key={index}
+              x={10 + index * stepWidth}
+              y={206 - height}
+              width={stepWidth - 2}
+              height={height}
+              filter="url(#pp-marker)"
+              style={{ fill: MARKS.sand }}
+              opacity={index < step ? 1 : 0.15}
+            />
+          )
+        })}
+        <text x="10" y="224" style={SMALL}>
+          context: 29,557 tokens at the last turn
+        </text>
+        <text className="fig-strong" x="10" y="250">
+          {step + 1} model {step === 0 ? 'turn' : 'turns'}
+        </text>
+
+        <path className="fig-axis" strokeDasharray="2 6" d="M325 10V254" />
+
+        <text className="fig-strong" x="340" y="20">
+          Code mode
+        </text>
+        <Box x={340} y={36} w={62} h={130} mark="sand">
+          model
+        </Box>
+        <Wall x={470} y={36} w={100} h={130} />
+        <Box x={478} y={81} w={84} h={40} mark="lilac">
+          program
+        </Box>
+        <Box x={590} y={36} w={40} h={130} mark="blue" />
+        <Trips n={calls} x1={572} x2={588} y={42} h={118} />
+        {Array.from({ length: calls }, (_, index) => (
+          <path
+            key={index}
+            className="cm-trip"
+            opacity={index < step ? 1 : 0}
+            d={`M572 ${tripY(index)}H588`}
+          />
+        ))}
+        <Arrow d="M406 76H464" />
+        <text x="435" y="66" textAnchor="middle" style={SMALL}>
+          189 tokens
+        </text>
+        <g opacity={finished ? 1 : 0.15}>
+          <Arrow d="M466 130H408" />
+          <text
+            className="fig-strong"
+            x="435"
+            y="150"
+            textAnchor="middle"
+            style={SMALL}
+          >
+            90 tokens
+          </text>
+        </g>
+        <text x="630" y="184" textAnchor="end" style={SMALL}>
+          sandbox, issue_read × {step}
+        </text>
+        <text className="fig-strong" x="340" y="250">
+          {finished ? 2 : 1} model {finished ? 'turns' : 'turn'}
+        </text>
+        <HandNote x={352} y={214} text="results stay in here" rotate={-3} />
+        </g>
+      </svg>
+    </Figure>
+  )
+}
+
+const PTC_STATUS = [
+  'The code runs in the container.',
+  'It awaits a tool. The API sends tool_use to your app.',
+  'Your app sends tool_result back. The code continues.',
+  'The next call pauses the code again.',
+  'tool_result goes back. The code continues.',
+  'One more call, one more pause.',
+  'The last part of the code runs.',
+  'Only the final output goes to Claude’s context.',
+]
+
+const PTC_LINES: Array<CodeLine> = [
+  { text: 'issues = []' },
+  { text: 'for n in [2924, 2920, 2917]:' },
+  { text: '    issue = await issue_read(issue_number=n)' },
+  { text: '    issues.append(issue)' },
+  { text: 'print(len(issues))', note: 'only this reaches Claude' },
+]
+
+const PTC_ACTIVE = [[0, 1], [2], [3], [2], [3], [2], [3, 4], [4]]
+const PTC_TOP = PTC_LINES.length * LINE_HEIGHT + 16 + 22
+
 /** Post 1: programmatic tool calling pauses the code at each tool call. */
 export function PtcPause() {
   const gaps = [190, 300, 410]
+  const segments = [
+    { x: 100, w: 70 },
+    { x: 210, w: 70 },
+    { x: 320, w: 70 },
+    { x: 430, w: 60 },
+  ]
+  const { ref, step, go, replay } = useSteps(PTC_STATUS.length, 1300)
+  const last = PTC_STATUS.length - 1
   return (
     <Figure
       title="Programmatic tool calling: the code stops at each call"
@@ -349,6 +768,25 @@ export function PtcPause() {
       ]}
       caption={
         <>
+          <Controls>
+            <button
+              type="button"
+              disabled={step === 0}
+              onClick={() => go(step - 1)}
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              disabled={step === last}
+              onClick={() => go(step + 1)}
+            >
+              Next
+            </button>
+            <button type="button" onClick={replay}>
+              Replay
+            </button>
+          </Controls>
           Each <code>tool_use</code> block names its caller,{' '}
           <code>code_execution_20260120</code>. The container runs Python 3.11
           and has no internet.
@@ -356,10 +794,25 @@ export function PtcPause() {
       }
     >
       <svg
-        viewBox="0 0 640 226"
+        ref={ref}
+        className="cm-fig"
+        viewBox={`0 0 640 ${252 + PTC_TOP}`}
         role="img"
-        aria-label="A timeline in three rows. In the Anthropic container, the code runs and stops at each await of a tool. At each stop the API sends a tool_use block down to your application, your application checks the call, runs the tool and sends a tool_result back, and the code continues. This happens three times. At the end only the final output goes to Claude's context."
+        aria-label="Python code loops over three issue numbers and awaits issue_read for each, then prints a count. A timeline in three rows. In the Anthropic container, the code runs and stops at each await of a tool. At each stop the API sends a tool_use block down to your application, your application checks the call, runs the tool and sends a tool_result back, and the code continues. This happens three times. At the end only the final output goes to Claude's context."
       >
+        <CodePanel
+          x={10}
+          y={6}
+          w={620}
+          comment="#"
+          lines={PTC_LINES.map((line, index) =>
+            index === 2 && step % 2 === 1 && step < 6
+              ? { ...line, note: `paused: tool_use ${(step + 1) / 2} of 3` }
+              : line,
+          )}
+          active={PTC_ACTIVE[step]}
+        />
+        <g transform={`translate(0 ${PTC_TOP})`}>
         <text className="fig-strong" x="10" y="50">
           container
         </text>
@@ -369,32 +822,74 @@ export function PtcPause() {
         <text className="fig-strong" x="10" y="172">
           your app
         </text>
-        <Box x={100} y={32} w={70} h={28} mark="lilac" />
-        <Box x={210} y={32} w={70} h={28} mark="lilac" />
-        <Box x={320} y={32} w={70} h={28} mark="lilac" />
-        <Box x={430} y={32} w={60} h={28} mark="lilac" />
-        {gaps.map((cx) => (
-          <g key={cx}>
-            <Arrow d={`M${cx - 8} 64V146`} />
-            <Arrow d={`M${cx + 8} 148V66`} />
-            <Box x={cx - 46} y={152} w={92} h={32} mark="blue">
-              check, run tool
-            </Box>
+        {segments.map((segment, index) => (
+          <g key={segment.x} opacity={step >= index * 2 ? 1 : 0.25}>
+            <Box x={segment.x} y={32} w={segment.w} h={28} mark="lilac" />
+            <rect
+              className="cm-ring"
+              x={segment.x - 4}
+              y={28}
+              width={segment.w + 8}
+              height={36}
+              rx="6"
+              opacity={step === index * 2 && step !== last ? 1 : 0}
+            />
           </g>
         ))}
-        <text x="176" y="108" textAnchor="end" style={SMALL}>
-          tool_use
-        </text>
-        <text x="204" y="124" style={SMALL}>
-          tool_result
-        </text>
-        <Arrow d="M494 46H516" />
-        <Box x={520} y={32} w={110} h={28} mark="sand">
-          Claude&apos;s context
-        </Box>
-        <text x="575" y="78" textAnchor="middle" style={SMALL}>
-          final output only
-        </text>
+        {gaps.map((cx, index) => {
+          const down = index * 2 + 1
+          return (
+            <g key={cx}>
+              <g opacity={step >= down ? 1 : 0}>
+                <path
+                  className={`ink-stroke${step === down ? ' cm-live' : ''}`}
+                  markerEnd="url(#pp-ink-arrow)"
+                  d={`M${cx - 8} 64V146`}
+                />
+              </g>
+              <g opacity={step >= down + 1 ? 1 : 0}>
+                <path
+                  className={`ink-stroke${step === down + 1 ? ' cm-live' : ''}`}
+                  markerEnd="url(#pp-ink-arrow)"
+                  d={`M${cx + 8} 148V66`}
+                />
+              </g>
+              <g opacity={step >= down ? 1 : 0.25}>
+                <Box x={cx - 46} y={152} w={92} h={32} mark="blue">
+                  check, run tool
+                </Box>
+                <rect
+                  className="cm-ring"
+                  x={cx - 50}
+                  y={148}
+                  width={100}
+                  height={40}
+                  rx="6"
+                  opacity={step === down ? 1 : 0}
+                />
+              </g>
+            </g>
+          )
+        })}
+        <g opacity={step >= 1 ? 1 : 0}>
+          <text x="176" y="108" textAnchor="end" style={SMALL}>
+            tool_use
+          </text>
+        </g>
+        <g opacity={step >= 2 ? 1 : 0}>
+          <text x="204" y="124" style={SMALL}>
+            tool_result
+          </text>
+        </g>
+        <g opacity={step === last ? 1 : 0.25}>
+          <Arrow d="M494 46H516" />
+          <Box x={520} y={32} w={110} h={28} mark="sand">
+            Claude&apos;s context
+          </Box>
+          <text x="575" y="78" textAnchor="middle" style={SMALL}>
+            final output only
+          </text>
+        </g>
         <HandNote
           x={300}
           y={214}
@@ -406,18 +901,80 @@ export function PtcPause() {
           markerEnd="url(#pp-ink-arrow)"
           d="M292 208C262 208 236 202 222 190"
         />
+        <Status y={244}>{PTC_STATUS[step]}</Status>
+        </g>
       </svg>
     </Figure>
   )
 }
 
-/** Post 1: what crosses the wall of a Dynamic Worker isolate. */
+type Probe = {
+  id: string
+  label: string
+  code: string
+  /** The row that this probe uses; absent for the one way out and the loop. */
+  row?: number
+  result: string
+  status: string
+}
+
+const PROBES: Array<Probe> = [
+  {
+    id: 'tool',
+    label: 'tool call',
+    code: 'await codemode.issue_read(…)',
+    result: 'the issue, as JSON',
+    status: 'The proxy sends the call over Workers RPC to the host.',
+  },
+  {
+    id: 'fetch',
+    label: 'fetch()',
+    code: 'await fetch(url)',
+    row: 0,
+    result: 'not permitted',
+    status: 'This worker is not permitted to access the internet.',
+  },
+  {
+    id: 'connect',
+    label: 'connect()',
+    code: 'connect("example.com:80")',
+    row: 1,
+    result: 'not permitted',
+    status: 'cloudflare:sockets gets the same error as fetch().',
+  },
+  {
+    id: 'fs',
+    label: 'import("node:fs")',
+    code: 'await import("node:fs")',
+    row: 2,
+    result: 'No such module',
+    status: 'No such module "node:fs".',
+  },
+  {
+    id: 'env',
+    label: 'process.env',
+    code: 'Object.keys(process.env)',
+    row: 3,
+    result: '[]',
+    status: 'The environment is empty: [].',
+  },
+  {
+    id: 'loop',
+    label: 'while (true)',
+    code: 'while (true) {}',
+    result: '',
+    status: 'A 3-second timeout, and no response after 120 seconds.',
+  },
+]
+
+const BLOCKED_ROWS = ['fetch()', 'connect()', "import('node:fs')", 'process.env']
+
+/** Post 1: what crosses the wall of a Dynamic Worker isolate. The reader picks a probe. */
 export function SandboxBoundary() {
-  const blocked = [
-    { y: 124, call: 'fetch()', error: 'not permitted' },
-    { y: 146, call: "import('node:fs')", error: 'No such module' },
-    { y: 168, call: 'process.env', error: '[]' },
-  ]
+  const [picked, setPicked] = useState('tool')
+  const probe = PROBES.find((item) => item.id === picked) ?? PROBES[0]
+  const throughProxy = probe.id === 'tool'
+  const loop = probe.id === 'loop'
   return (
     <Figure
       title="One exit from the isolate"
@@ -426,64 +983,115 @@ export function SandboxBoundary() {
         { label: 'the one way out', mark: 'blue' },
         { label: 'stopped at the wall', mark: 'rose' },
       ]}
-      caption="The host keeps the MCP client and the credentials. The program only gets a proxy that sends each call over Workers RPC."
+      caption={
+        <>
+          <Controls>
+            {PROBES.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={item.id === picked ? 'is-active' : undefined}
+                aria-pressed={item.id === picked}
+                onClick={() => setPicked(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </Controls>
+          The host keeps the MCP client and the credentials. The program only
+          gets a proxy that sends each call over Workers RPC.
+        </>
+      }
     >
       <svg
-        viewBox="0 0 640 226"
+        className="cm-fig"
+        viewBox="0 0 640 250"
         role="img"
-        aria-label="A Dynamic Worker isolate holds the program and a codemode Proxy. One arrow leaves the isolate through the proxy, over Workers RPC, to the ToolDispatcher on the host, which holds the MCP client and the credentials. Three other calls stop at the wall: fetch is not permitted, import of node:fs gives No such module, and process.env is an empty array. The timeout is a setTimeout race, so a while true loop never yields to it."
+        aria-label="A Dynamic Worker isolate holds the program and a codemode Proxy. One arrow leaves the isolate through the proxy, over Workers RPC, to the ToolDispatcher on the host, which holds the MCP client and the credentials. Four other calls stop at the wall: fetch and connect are not permitted, import of node:fs gives No such module, and process.env is an empty array. The timeout is a setTimeout race, so a while true loop never yields to it."
       >
-        <Wall x={10} y={30} w={330} h={154} />
+        <Wall x={10} y={30} w={330} h={164} />
         <text className="fig-strong" x="22" y="50">
           Dynamic Worker isolate
         </text>
-        <Box x={22} y={62} w={130} h={36} mark="lilac">
-          {'async () => { … }'}
-        </Box>
-        <Box x={206} y={62} w={122} h={36} mark="blue">
-          codemode Proxy
-        </Box>
-        <Arrow d="M156 80H200" />
-        <Arrow d="M332 80H414" />
-        <text x="377" y="70" textAnchor="middle" style={SMALL}>
-          Workers RPC
+        <Box x={22} y={62} w={186} h={36} mark="lilac" />
+        <text x="115" y="84" textAnchor="middle" style={MONO}>
+          {probe.code}
         </text>
-        <Box x={420} y={40} w={210} h={70} mark="sand" />
-        <text className="fig-strong" x="432" y="62">
-          ToolDispatcher
-        </text>
-        <text x="432" y="82" style={SMALL}>
-          MCP client
-        </text>
-        <text x="432" y="98" style={SMALL}>
-          credentials
-        </text>
-        {blocked.map((row) => (
-          <g key={row.call}>
-            <text x="22" y={row.y + 4} style={SMALL}>
-              {row.call}
-            </text>
-            <Arrow d={`M130 ${row.y}H332`} />
-            <Stop x={340} y={row.y} />
-            <text x="354" y={row.y + 4} style={SMALL}>
-              {row.error}
-            </text>
-          </g>
-        ))}
-        <text x="10" y="210" style={SMALL}>
-          timeout: a setTimeout race
-        </text>
-        <HandNote
-          x={236}
-          y={212}
-          text="while (true) never yields"
-          rotate={-2}
-        />
+        {loop ? (
+          <rect
+            className="cm-ring cm-live"
+            x={18}
+            y={58}
+            width={194}
+            height={44}
+            rx="6"
+          />
+        ) : null}
+        <g opacity={throughProxy ? 1 : 0.35}>
+          <Box x={228} y={62} w={100} h={36} mark="blue">
+            codemode Proxy
+          </Box>
+          <path
+            className={`ink-stroke${throughProxy ? ' cm-live' : ''}`}
+            markerEnd="url(#pp-ink-arrow)"
+            d="M210 80H224"
+          />
+          <path
+            className={`ink-stroke${throughProxy ? ' cm-live' : ''}`}
+            markerEnd="url(#pp-ink-arrow)"
+            d="M332 80H414"
+          />
+          <text x="377" y="70" textAnchor="middle" style={SMALL}>
+            Workers RPC
+          </text>
+          <Box x={420} y={40} w={210} h={70} mark="sand" />
+          <text className="fig-strong" x="432" y="62">
+            ToolDispatcher
+          </text>
+          <text x="432" y="82" style={SMALL}>
+            MCP client
+          </text>
+          <text x="432" y="98" style={SMALL}>
+            credentials
+          </text>
+        </g>
+        {BLOCKED_ROWS.map((call, index) => {
+          const y = 120 + index * 20
+          const on = probe.row === index
+          return (
+            <g key={call} opacity={on ? 1 : 0.35}>
+              <text x="22" y={y + 4} style={SMALL}>
+                {call}
+              </text>
+              <path
+                className={`ink-stroke${on ? ' cm-live' : ''}`}
+                markerEnd="url(#pp-ink-arrow)"
+                d={`M130 ${y}H332`}
+              />
+              <Stop x={340} y={y} />
+              <text
+                className={on ? 'fig-strong' : undefined}
+                x="354"
+                y={y + 4}
+                style={SMALL}
+              >
+                {on ? probe.result : PROBES.find((item) => item.row === index)?.result}
+              </text>
+            </g>
+          )
+        })}
+        <g opacity={loop ? 1 : 0.35}>
+          <text x="10" y="216" style={SMALL}>
+            timeout: a setTimeout race
+          </text>
+        </g>
+        <HandNote x={236} y={218} text="while (true) never yields" rotate={-2} />
         <path
           className="ink-stroke"
           markerEnd="url(#pp-ink-arrow)"
-          d="M230 206C212 200 190 200 172 204"
+          d="M230 212C212 206 190 206 172 210"
         />
+        <Status y={244}>{probe.status}</Status>
       </svg>
     </Figure>
   )
@@ -1214,6 +1822,484 @@ export function CodeModeChecks() {
         <text x="440" y="256" style={SMALL}>
           your own check, each call
         </text>
+      </svg>
+    </Figure>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Post 1: normalizeCode, a failed run, search and execute            */
+/* ------------------------------------------------------------------ */
+
+type Shape = {
+  label: string
+  sends: Array<string>
+  /** Lines of `sends` that normalizeCode strips. */
+  stripped: Array<number>
+  runs: Array<string>
+  /** Lines of `runs` that normalizeCode adds. */
+  added: Array<number>
+  status: string
+}
+
+const FENCE = '`'.repeat(3)
+
+const SHAPES: Array<Shape> = [
+  {
+    label: 'one expression',
+    sends: ['codemode.get_me({})'],
+    stripped: [],
+    runs: ['async () => {', 'return (codemode.get_me({}))', '}'],
+    added: [0, 1, 2],
+    status: 'A lone expression is wrapped, and its value is returned.',
+  },
+  {
+    label: 'statements',
+    sends: ['const me = await codemode.get_me({});', 'me.login'],
+    stripped: [],
+    runs: [
+      'async () => {',
+      'const me = await codemode.get_me({});',
+      'return (me.login)',
+      '}',
+    ],
+    added: [0, 2, 3],
+    status: 'Statements are wrapped. The last expression becomes the return.',
+  },
+  {
+    label: 'named function',
+    sends: ['async function main() {', '  return codemode.get_me({});', '}'],
+    stripped: [],
+    runs: [
+      'async () => {',
+      'async function main() {',
+      '  return codemode.get_me({});',
+      '}',
+      'return main();',
+      '}',
+    ],
+    added: [0, 4, 5],
+    status: 'A single named function is wrapped and called.',
+  },
+  {
+    label: 'Markdown fence',
+    sends: [`${FENCE}js`, 'async () => codemode.get_me({})', FENCE],
+    stripped: [0, 2],
+    runs: ['async () => codemode.get_me({})'],
+    added: [],
+    status: 'The fence is stripped. An arrow function runs as it is.',
+  },
+]
+
+/** Post 1: what normalizeCode does to each shape of code. The reader picks a shape. */
+export function NormalizeShapes() {
+  const [picked, setPicked] = useState(0)
+  const shape = SHAPES[picked]
+  const toLines = (texts: Array<string>) => texts.map((text) => ({ text }))
+  return (
+    <Figure
+      title="normalizeCode: what the model sends, and what runs"
+      legend={[
+        { label: 'stripped', mark: 'rose' },
+        { label: 'added', mark: 'amber' },
+      ]}
+      caption={
+        <Controls>
+          {SHAPES.map((item, index) => (
+            <button
+              key={item.label}
+              type="button"
+              className={index === picked ? 'is-active' : undefined}
+              aria-pressed={index === picked}
+              onClick={() => setPicked(index)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </Controls>
+      }
+    >
+      <svg
+        className="cm-fig"
+        viewBox="0 0 640 214"
+        role="img"
+        aria-label="Four shapes of code and what normalizeCode runs. One expression, codemode.get_me, is wrapped in an async arrow function that returns it. Statements are wrapped and the last expression is returned. A single named function is wrapped and called. A Markdown fence is stripped, and an arrow function runs as it is."
+      >
+        <text className="fig-strong" x="10" y="16">
+          the model sends
+        </text>
+        <text className="fig-strong" x="330" y="16">
+          normalizeCode runs
+        </text>
+        <CodePanel
+          x={10}
+          y={26}
+          w={300}
+          lines={toLines(shape.sends)}
+          active={shape.stripped}
+          mark="rose"
+        />
+        <Arrow d="M314 60H326" />
+        <CodePanel
+          x={330}
+          y={26}
+          w={300}
+          lines={toLines(shape.runs)}
+          active={shape.added}
+        />
+        <Status y={204}>{shape.status}</Status>
+      </svg>
+    </Figure>
+  )
+}
+
+const FAIL_LINES: Array<CodeLine> = [
+  { text: 'async () => {' },
+  { text: '  const bugs = [];' },
+  { text: '  for (const n of issueNumbers) {' },
+  { text: '    const issue = await codemode.issue_read({ issue_number: n });' },
+  { text: '    if (issue.labels.includes("bug")) bugs.push(n);' },
+  { text: '    console.log("read", n);' },
+  { text: '  }' },
+  { text: '  return bugs;' },
+  { text: '}' },
+]
+
+const FAIL_OUTPUT = [
+  'Code execution failed: Cannot read properties of undefined (reading \'includes\')',
+  '',
+  'Console output:',
+  'read 2924',
+  'read 2920',
+  'read 2917',
+]
+
+const FAIL_STATUS = [
+  'The first issue is read. Its log line is kept.',
+  'The second issue is read. Its log line is kept.',
+  'The third issue is read. Its log line is kept.',
+  'The fourth issue has no labels, so the program throws.',
+  'The model gets the error, and every log line before it.',
+]
+
+/** Post 1: a failed run loses its return value, but keeps its logs. */
+export function FailedRun() {
+  const { ref, step, go, replay } = useSteps(FAIL_STATUS.length, 1500)
+  const crashed = step >= 3
+  const issue = ['2924', '2920', '2917', '2916'][Math.min(step, 3)]
+  return (
+    <Figure
+      title="A failed run: the return value is lost, the logs are not"
+      legend={[
+        { label: 'runs now', mark: 'amber' },
+        { label: 'throws', mark: 'rose' },
+      ]}
+      caption={
+        <Controls>
+          {['2924', '2920', '2917', 'throw', 'the model reads'].map(
+            (label, index) => (
+              <button
+                key={label}
+                type="button"
+                className={index === step ? 'is-active' : undefined}
+                aria-pressed={index === step}
+                onClick={() => go(index)}
+              >
+                {index + 1}. {label}
+              </button>
+            ),
+          )}
+          <button type="button" onClick={replay}>
+            Replay
+          </button>
+        </Controls>
+      }
+    >
+      <svg
+        ref={ref}
+        className="cm-fig"
+        viewBox="0 0 640 428"
+        role="img"
+        aria-label="A program reads issues in a loop, checks issue.labels.includes bug, and logs each issue it read. Issues 2924, 2920 and 2917 are read and logged. The fourth issue has no labels, so the program throws. The model gets Code execution failed with the error, then Console output with the three log lines. The return value is lost."
+      >
+        <CodePanel
+          x={10}
+          y={6}
+          w={620}
+          lines={FAIL_LINES.map((line, index) =>
+            index === 3 && step < 4
+              ? { ...line, note: `issue ${issue}` }
+              : index === 4 && step === 3
+                ? { ...line, note: 'labels is undefined' }
+                : line,
+          )}
+          active={step === 3 ? [4] : step === 4 ? [] : [3, 4, 5]}
+          mark={step === 3 ? 'rose' : 'amber'}
+        />
+        <text className="fig-strong" x="10" y="236">
+          what the model gets
+        </text>
+        <rect
+          x={10}
+          y={246}
+          width={620}
+          height={FAIL_OUTPUT.length * LINE_HEIGHT + 16}
+          rx="8"
+          style={{ fill: 'var(--wash)' }}
+        />
+        {FAIL_OUTPUT.map((text, index) => {
+          const shown =
+            index === 0 || index === 2 ? crashed : index >= 3 && step >= index - 3
+          return (
+            <text
+              key={`${index}-${text}`}
+              className={index === 0 ? 'fig-strong' : undefined}
+              x="28"
+              y={246 + 8 + index * LINE_HEIGHT + 14}
+              style={CODE}
+              opacity={shown ? 1 : 0}
+            >
+              {text}
+            </text>
+          )
+        })}
+        <Status y={418}>{FAIL_STATUS[step]}</Status>
+      </svg>
+    </Figure>
+  )
+}
+
+const SEARCH_LINES: Array<CodeLine> = [
+  { text: 'async () => {' },
+  { text: '  const spec = await codemode.spec();' },
+  { text: '  return Object.keys(spec.paths)' },
+  { text: '    .filter((path) => path.includes("/workers"));' },
+  { text: '}' },
+]
+
+const EXECUTE_LINES: Array<CodeLine> = [
+  { text: 'async () => {' },
+  { text: '  return await codemode.request({' },
+  { text: '    method: "GET",' },
+  { text: '    path: "/accounts/{id}/workers/scripts",' },
+  { text: '  });' },
+]
+
+/** Post 1: search filters the spec inside the sandbox; execute calls the API through the host. */
+export function SearchExecute() {
+  const [mode, setMode] = useState<'search' | 'execute'>('search')
+  const search = mode === 'search'
+  const top = 5 * LINE_HEIGHT + 16 + 26
+  return (
+    <Figure
+      title="Two tools for a whole API: search, then execute"
+      legend={[
+        { label: 'model', mark: 'sand' },
+        { label: 'program', mark: 'lilac' },
+        { label: 'data', mark: 'blue' },
+      ]}
+      caption={
+        <Controls>
+          {(['search', 'execute'] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              className={item === mode ? 'is-active' : undefined}
+              aria-pressed={item === mode}
+              onClick={() => setMode(item)}
+            >
+              {item}()
+            </button>
+          ))}
+        </Controls>
+      }
+    >
+      <svg
+        className="cm-fig"
+        viewBox={`0 0 640 ${top + 150}`}
+        role="img"
+        aria-label="With search, the model's program reads the OpenAPI spec, which is inside the sandbox, and returns only the matching paths. With execute, the program calls codemode.request, the host adds the credentials and calls the API, and the response goes back to the program."
+      >
+        <CodePanel
+          x={10}
+          y={6}
+          w={620}
+          lines={search ? SEARCH_LINES : EXECUTE_LINES}
+          active={search ? [1, 2, 3] : [1, 2, 3, 4]}
+        />
+        <g transform={`translate(0 ${top})`}>
+          <Box x={10} y={30} w={80} h={56} mark="sand">
+            model
+          </Box>
+          <Arrow d="M94 48H136" />
+          <Arrow d="M136 70H94" />
+          <text x="115" y="96" textAnchor="middle" style={SMALL}>
+            {search ? 'paths' : 'result'}
+          </text>
+          <Wall x={140} y={10} w={250} h={96} />
+          <text x="140" y="2" style={SMALL}>
+            Dynamic Worker, no network
+          </text>
+          <Box x={152} y={36} w={100} h={44} mark="lilac">
+            program
+          </Box>
+          <g opacity={search ? 1 : 0.3}>
+            <Box x={276} y={36} w={102} h={44} mark="blue">
+              OpenAPI spec
+            </Box>
+            <path
+              className={`ink-stroke${search ? ' cm-live' : ''}`}
+              markerEnd="url(#pp-ink-arrow)"
+              d="M254 58H272"
+            />
+          </g>
+          <g opacity={search ? 0.3 : 1}>
+            <path
+              className={`ink-stroke${search ? '' : ' cm-live'}`}
+              markerEnd="url(#pp-ink-arrow)"
+              d="M202 84C202 120 300 132 420 96"
+            />
+            <Box x={424} y={30} w={96} h={56} mark="sand" />
+            <text className="fig-strong" x="472" y="54" textAnchor="middle" style={SMALL}>
+              host
+            </text>
+            <text x="472" y="72" textAnchor="middle" style={SMALL}>
+              credentials
+            </text>
+            <path
+              className={`ink-stroke${search ? '' : ' cm-live'}`}
+              markerEnd="url(#pp-ink-arrow)"
+              d="M524 58H540"
+            />
+            <Box x={544} y={30} w={86} h={56} mark="blue">
+              API
+            </Box>
+          </g>
+          <Status y={146}>
+            {search
+              ? 'The spec is inside the sandbox. Only the matching paths go back.'
+              : 'request() goes to the host, which adds the key and calls the API.'}
+          </Status>
+        </g>
+      </svg>
+    </Figure>
+  )
+}
+
+const EXECUTORS = {
+  worker: {
+    label: 'DynamicWorkerExecutor',
+    lines: [
+      { text: 'import { DynamicWorkerExecutor } from "@cloudflare/codemode";' },
+      { text: '' },
+      { text: 'new DynamicWorkerExecutor({' },
+      { text: '  loader: env.LOADER,' },
+      { text: '  timeout: 60_000, // the default' },
+      { text: '  globalOutbound: null, // the default: no network' },
+      { text: '});' },
+    ],
+    wall: 'a new Worker, from the Worker Loader',
+    host: 'your Worker',
+    channel: 'Workers RPC',
+    blocked: 'not permitted',
+    status: 'The code runs in a new Worker. Tool calls go over Workers RPC.',
+  },
+  browser: {
+    label: 'IframeSandboxExecutor',
+    lines: [
+      { text: 'import { IframeSandboxExecutor } from "@cloudflare/codemode/browser";' },
+      { text: '' },
+      { text: 'new IframeSandboxExecutor({' },
+      { text: '  timeout: 30_000, // the default' },
+      { text: '});' },
+      { text: '// CSP: "default-src \'none\'; script-src \'unsafe-inline\' \'unsafe-eval\';"' },
+      { text: '' },
+    ],
+    wall: 'a hidden iframe, sandbox="allow-scripts"',
+    host: 'your page',
+    channel: 'postMessage',
+    blocked: "CSP: default-src 'none'",
+    status: 'The code runs in a hidden iframe. Tool calls go over postMessage.',
+  },
+} as const
+
+/** Post 1: the two executors that ship with the package. The reader picks one. */
+export function Executors() {
+  const [mode, setMode] = useState<keyof typeof EXECUTORS>('worker')
+  const executor = EXECUTORS[mode]
+  const top = 7 * LINE_HEIGHT + 16 + 26
+  return (
+    <Figure
+      title="The two executors that ship with @cloudflare/codemode"
+      legend={[
+        { label: 'host', mark: 'sand' },
+        { label: 'program', mark: 'lilac' },
+        { label: 'stopped', mark: 'rose' },
+      ]}
+      caption={
+        <Controls>
+          {(Object.keys(EXECUTORS) as Array<keyof typeof EXECUTORS>).map(
+            (item) => (
+              <button
+                key={item}
+                type="button"
+                className={item === mode ? 'is-active' : undefined}
+                aria-pressed={item === mode}
+                onClick={() => setMode(item)}
+              >
+                {EXECUTORS[item].label}
+              </button>
+            ),
+          )}
+        </Controls>
+      }
+    >
+      <svg
+        className="cm-fig"
+        viewBox={`0 0 640 ${top + 150}`}
+        role="img"
+        aria-label="DynamicWorkerExecutor runs the code in a new Worker from the Worker Loader, with a 60 second default timeout and globalOutbound null, so fetch is not permitted; tool calls go to your Worker over Workers RPC. IframeSandboxExecutor runs the code in a hidden iframe with sandbox allow-scripts and a Content Security Policy of default-src none, with a 30 second default timeout; tool calls go to your page over postMessage."
+      >
+        <CodePanel
+          x={10}
+          y={6}
+          w={620}
+          lines={[...executor.lines]}
+          active={[]}
+        />
+        <g transform={`translate(0 ${top})`}>
+          <Wall x={10} y={10} w={300} h={100} />
+          <text x="20" y="128" style={SMALL}>
+            {executor.wall}
+          </text>
+          <Box x={26} y={28} w={120} h={40} mark="lilac">
+            program
+          </Box>
+          <text x="26" y="94" style={SMALL}>
+            fetch()
+          </text>
+          <Arrow d="M72 90H292" />
+          <Stop x={300} y={90} />
+          <text x="314" y="94" style={SMALL}>
+            {executor.blocked}
+          </text>
+          <path
+            className="ink-stroke cm-live"
+            markerEnd="url(#pp-ink-arrow)"
+            d="M150 48H420"
+          />
+          <text x="372" y="38" textAnchor="middle" style={SMALL}>
+            {executor.channel}
+          </text>
+          <Box x={424} y={18} w={206} h={60} mark="sand" />
+          <text className="fig-strong" x="527" y="44" textAnchor="middle" style={SMALL}>
+            {executor.host}
+          </text>
+          <text x="527" y="62" textAnchor="middle" style={SMALL}>
+            runs the tools
+          </text>
+          <Status y={146}>{executor.status}</Status>
+        </g>
       </svg>
     </Figure>
   )

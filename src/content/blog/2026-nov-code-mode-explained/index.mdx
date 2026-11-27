@@ -3,7 +3,7 @@ title: "Code Mode, Explained: Why Agents Write Code Instead of Calling Tools"
 seoTitle: "Code Mode Explained: Why AI Agents Write Code Instead of Tool Calls"
 description: "What code mode changes in an agent's tool loop, how Cloudflare and Anthropic built it, what the sandbox must block, and token counts measured on the GitHub MCP server's 46 tools."
 date: "2026-11-28"
-draft: true
+draft: false
 ogImage: "/images/2026-code-mode-explained-og.png"
 slug: "code-mode-explained"
 tags:
@@ -16,9 +16,14 @@ import { LineFigure } from "@/components/paper/LineFigure";
 import { NumberBand } from "@/components/paper/NumberBand";
 import { RankBars } from "@/components/paper/RankBars";
 import {
+  CodeModeApi,
   CodeModeLoop,
+  Executors,
+  FailedRun,
+  NormalizeShapes,
   PtcPause,
   SandboxBoundary,
+  SearchExecute,
 } from "@/components/react/blog/codemode/CodeModeFigures";
 
 Agents and the models, are very good in writing code, even better than us lots of times, but the process of tool call is still sequential looping (there are things like parallel tool call), but it's same thing, the agent needs to call each tool as many times as needed, and each sending their output.
@@ -64,48 +69,17 @@ Now, the model will only get one tool, which is `code`, the description contains
 
 {/* The model gets one tool, `code`, whose description contains the tools as a TypeScript API. Here is `issue_read` as `@cloudflare/codemode` 0.5.6 renders it, shortened: */}
 
-```ts
-type IssueReadInput = {
-    /** The number of the issue */
-    issue_number: number;
-    /** The read operation to perform on a single issue. ... */
-    method: "get" | "get_comments" | "get_sub_issues" | "get_parent" | "get_labels";
-    owner: string;
-    repo: string;
-}
-type IssueReadOutput = unknown
-
-declare const codemode: {
-	issue_read: (input: IssueReadInput) => Promise<IssueReadOutput>;
-	// ... 45 more
-}
-```
+<CodeModeApi />
 
 {/* The model answers with JavaScript, not with a tool call. This is the program for "list the open issues with no assignee among these 20":
  */}
 Because, now the model only has one tool, `code`, it answers with JavaScript, not with a tool call. Below is the program to "list the open issues with no assignee among these 20":
 
-```js
-async () => {
-  const numbers = [2924, 2920, 2917, 2916, 2915, 2911, 2910, 2909, 2906, 2905,
-                   2904, 2902, 2901, 2900, 2897, 2893, 2892, 2891, 2888, 2883];
-  const unassigned = [];
-  for (const issue_number of numbers) {
-    const issue = await codemode.issue_read({
-      method: "get", owner: "cloudflare", repo: "agents", issue_number
-    });
-    if (issue.state === "open" && issue.assignees.length === 0) {
-      unassigned.push({ number: issue.number, title: issue.title, comments: issue.comments ?? 0 });
-    }
-  }
-  return unassigned;
-}
-```
+<CodeModeLoop />
 
 Just from the code above, you can see how big of a saving of tokens it will be for the model while making sure required data still reaches the model.
 
 
-<CodeModeLoop />
 
 I ran this program through the real `DynamicWorkerExecutor`, with `issue_read` answering from the 20 real issues. The sandbox made 20 host calls in 6 ms and returned two issues.
 
@@ -143,7 +117,18 @@ And as you can expect, the full API sits in the context, and the TypeScript resu
 {/* Let's follow one run from start to end. `createCodeTool` gives you a normal AI SDK tool, and its only input is `{ code: string }`. */}
 Now, let's try to follow one run from start to end using the `createCodeTool`, it gives you a normal AI SDK tool, and the only input is `{ code: string}`.
 
+```ts
+const executor = new DynamicWorkerExecutor({ loader: env.LOADER });
+const codemode = createCodeTool({ tools, executor }); // one tool for all your tools
+
+streamText({ model, messages, tools: { codemode } });
+```
+
+
 When the model calls this tool, the code does not run instantly, it first goes through the normalizer first (`normalizeCode`), it mainly helps to make sure the code is consistent, since models love to wrap code in markdown fence, and that is stripped. It accepts pretty much anything, an arrow function, export default, a named function, etc. Statements are wrapped in an async arrow function, and if the last one is an expression, it becomes the value to be returned. So even `codemode.get_me({})` alone works.
+
+<NormalizeShapes />
+
 {/* When the model calls it, the code does not run right away, it goes through `normalizeCode` first. Models love to wrap code in a Markdown fence, so that gets stripped, and then it accepts pretty much any shape: an arrow function, `export default`, a single named function, or just a list of statements. Loose statements get wrapped in an async arrow function, and if the last one is an expression, it becomes the return value. So even `codemode.get_me({})` alone works, and a model that ignores the "write an async arrow function" instruction still gets its program run. */}
 
 {/* Then the executor builds a fresh module for this one run, and inside it: */}
@@ -157,13 +142,13 @@ Then it builds a fresh module for this one run, and it handles these cases as we
 
 {/* A failed run does not lose its logs, which is nice. The model gets `Code execution failed: <message>`, with the console lines below it under "Console output:". So if the program logs each step, the model still sees the partial results. Keep this in mind, it matters for the debugging case further down. */}
 A failed run keeps its logs, which is quite nice, the model gets `Code execution failed: <message>`, with the console lines below it as `Console output:`, so if the program logs at each step, it can still see the partial results, which is useful for debugging case.
+
+<FailedRun />
+
 {/* The sandbox itself is just an interface, and the package ships two of them: */}
 The Sandbox is just an interface, and it by default, ships two of them.
 
-| Executor | Runs in | Isolation | Default timeout |
-| --- | --- | --- | --- |
-| `DynamicWorkerExecutor` | a Worker, through the Worker Loader | no network (`globalOutbound: null`) | 60 s |
-| `IframeSandboxExecutor` | the browser, in a hidden iframe | `sandbox="allow-scripts"` and a strict Content Security Policy, tool calls over `postMessage` | 30 s |
+<Executors />
 
 Anything that implements `execute(code, providers)` can take their place, so you can bring your own sandbox as well.
 
@@ -172,6 +157,11 @@ Then there's the second design, since its obvious there's a problem of having al
 
 - **`search()`** - runs model-written JavaScript against the OpenAPI spec, so the model filters the spec instead of reading the whole thing.
 - **`execute()`** - runs model-written JavaScript that calls the API through `cloudflare.request()`.
+
+<SearchExecute />
+
+The figure uses `openApiMcpServer` from the SDK, where the client is `codemode`. On Cloudflare's own server, it is `cloudflare.request()`.
+
 
 ## Anthropic's version
 Anthropic wrote about a similar idea a few weeks later as well. On Nov 4, 2025, Adam Jones and Conor Kelly published the ["code execution with MCP"](https://www.anthropic.com/engineering/code-execution-with-mcp). In Anthropic's case, each MCP tool becomes its own TypeScript file, like `./servers/google-drive/getDocument.ts`. The agent can then normally list the directory and read what's needed, so context is not filled.
@@ -182,19 +172,9 @@ The Claude API also has a managed version of this, called [programmatic tool cal
 
 ```json
 {
-  "tools": [
-    { "type": "code_execution_20260521", "name": "code_execution" },
-    {
-      "name": "issue_read",
-      "description": "Get information about a specific issue in a GitHub repository.",
-      "input_schema": {
-        "type": "object",
-        "properties": { "issue_number": { "type": "number" } },
-        "required": ["issue_number"]
-      },
-      "allowed_callers": ["code_execution_20260521"]
-    }
-  ]
+  "name": "issue_read",
+  "input_schema": { "type": "object", "properties": { "issue_number": { "type": "number" } } },
+  "allowed_callers": ["code_execution_20260521"]
 }
 ```
 
